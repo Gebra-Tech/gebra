@@ -1,0 +1,44 @@
+{
+ "edge_count": 6,
+ "edges": [
+  {
+   "conditional": false,
+   "from": "__start__",
+   "to": "draft_step"
+  },
+  {
+   "conditional": false,
+   "from": "draft_step",
+   "to": "review"
+  },
+  {
+   "conditional": false,
+   "from": "finalize/polish",
+   "to": "finalize/publish"
+  },
+  {
+   "conditional": false,
+   "from": "finalize/publish",
+   "to": "__end__"
+  },
+  {
+   "conditional": true,
+   "from": "review",
+   "to": "draft_step"
+  },
+  {
+   "conditional": true,
+   "from": "review",
+   "to": "finalize/polish"
+  }
+ ],
+ "node_count": 6,
+ "nodes": [
+  "__end__",
+  "__start__",
+  "draft_step",
+  "finalize/polish",
+  "finalize/publish",
+  "review"
+ ]
+}

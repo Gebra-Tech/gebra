@@ -153,3 +153,18 @@ A few things about these pins are deliberate and easy to undo by accident:
 
 `tests/test_compat_matrix.py` holds the workflow and the extras to each other —
 the cell count, the pin values, and which gates each cell runs.
+
+### Drift suite
+
+`tests/version_drift/` is the substrate drift-detection suite: each test builds a
+minimal live workflow, drives it through `gebra.extract()`, and holds the core IR
+byte-identical (and its `graph_version` string-equal) to a committed golden under
+`tests/version_drift/golden/`, beside direct shape assertions on the substrate
+surfaces extraction reads. It runs wherever `pytest` runs, so every matrix cell
+above exercises it against its own pinned substrate. A *hard* mismatch fails the
+cell; a *soft* divergence — a substrate surface gaining or losing a member against
+the recorded per-line inventory in `tests/version_drift/inventory.py` — keeps the
+cell green and is emitted as a warning annotation at the end of the run. Goldens
+and recorded inventories change only with a stated justification (see
+`tests/version_drift/golden/README.md`); regenerate goldens with
+`python tools/drift_goldens.py --write`.

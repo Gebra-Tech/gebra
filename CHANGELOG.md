@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The version-drift suite, tests 1–6** (card GOV-05; VERSION-COMPAT §3). A new
+  `tests/version_drift/` package runs the first six drift-detection conformance tests on
+  every compatibility-matrix cell (it rides `pytest`, so all 13 cells exercise it against
+  their own pinned substrates). Each test carries the §3 row's three parts: hard
+  surface-shape preconditions asserted directly on the substrate (`StateNodeSpec` field
+  floor, `BranchSpec` path/ends shape, `edges`/`waiting_edges` join classification, the
+  `get_graph(xray=True)` drawing, `Send.node`/`.arg`, the six `RetryPolicy` fields), a hard
+  golden compare of the extracted core IR (canonical bytes byte-identical + `graph_version`
+  string-equal against `tests/version_drift/golden/`, taken at the locked substrate and
+  required to hold byte-identically on every frozen cell — verified locally on all three
+  substrate cells across four CPython versions), and a paired soft exact-set assertion
+  against per-release-line surface inventories (`tests/version_drift/inventory.py`) — a
+  soft-only divergence keeps the cell green and is emitted as a CI `::warning` annotation
+  plus a stable machine-readable `DRIFT-SOFT-DIVERGENCE` line at the end of the run, never
+  only a log entry. Test 4 additionally pins the drawable graph (node/edge counts +
+  per-edge conditional flags, ledger-§5 path-id keyed) and holds it equal to the
+  builder-derived IR modulo the per-level `__start__`/`__end__` pseudo-nodes and the xray
+  subgraph expansion. Goldens follow the WA-05 lifecycle (`golden/README.md`); regenerate
+  with the new `tools/drift_goldens.py --check|--write`, which double-takes every case and
+  refuses to pin an unstable extraction. No drift fixture carries a chat model, a `bind()`
+  wrapper, or a langgraph-1.2-only builder API — the composition rule that lets one byte
+  golden hold across the whole matrix.
+
 - **The `gebra` command line, with its first verb: `gebra verify`** (card CLI-04; CLI-SPEC
   §4.1). The package now declares one console script — `gebra = "gebra.cli:main"`, on `typer`
   per brief D-12, with `python -m gebra.cli` naming the same function — carrying the

@@ -1,0 +1,1 @@
+{"edges":[],"entry":["check_price","check_stock"],"finish":["check_price","check_stock"],"ir_version":"1.0","nodes":[{"annotations":{"pure":true},"id":"check_price"},{"annotations":{"pure":true},"id":"check_stock"}],"state":{"order":{"optional":true,"type":"str"},"quote":{"optional":true,"type":"str"}}}

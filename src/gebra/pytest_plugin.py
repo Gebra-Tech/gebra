@@ -2020,6 +2020,11 @@ def check_freshness(target: object, *, store: Path, sidecar: str | None = None) 
         ValueError: if the check could not be made over an IR that was — a document repeating a
             node id (IR-SPEC §2.1, DEC-22), or a store whose index or current snapshot is not
             readable (:class:`~gebra.store.store.StoreError`).
+        gebra.ir.DynamicEdgeUnsupportedError: if the target's IR, or the store's current
+            snapshot, carries a ``dynamic`` edge — the ir 1.1 decline
+            :func:`gebra.audit.freshness` makes (DEC-28). On the marker surface it is rendered
+            as "the freshness check could not be made", beside the two above; the item is
+            neither fresh nor stale, because no comparison was made.
     """
     from gebra.audit import freshness
     from gebra.store import SnapshotStore
@@ -2097,6 +2102,13 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
         freshness_marker = pyfuncitem.get_closest_marker(FRESHNESS_MARKER)
         if freshness_marker is None:
             return None
+        # Imported here rather than at module scope for this module's own reason: the closure
+        # of a `pytest11` entry point is `pytest` and the standard library (see the module
+        # docstring). This branch already imports `gebra.audit` and `gebra.store` by way of
+        # `check_freshness`, and both import `gebra.ir`, so naming the exception here costs
+        # nothing — while at module scope it would cost every session that marks nothing at all.
+        from gebra.ir import DynamicEdgeUnsupportedError
+
         try:
             return _run_freshness(pyfuncitem, freshness_marker)
         except GebraTargetError as error:
@@ -2107,10 +2119,14 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
                 pytrace=False,
             )
         # `StoreError` and the diff engine's duplicate-node-id refusal are both `ValueError`s,
-        # and both mean the same thing on this item: the check could not be made. Reporting
-        # either as "stale" would ask a reader to re-snapshot their way out of a damaged store
-        # or an unstorable document, and neither is a freshness answer.
-        except ValueError as error:
+        # the ir 1.1 decline is a `NotImplementedError` subclass, and all three mean the same
+        # thing on this item: the check could not be made. Reporting any of them as "stale"
+        # would ask a reader to re-snapshot their way out of a damaged store, an unstorable
+        # document, or a construct this build has no semantics for yet — and none of the
+        # three is a freshness answer. The 1.1 decline is caught by name because it is *not* a
+        # `ValueError`: without this clause it escapes as the one thing this gate must never
+        # print, a raw traceback through the plugin's own frames.
+        except (DynamicEdgeUnsupportedError, ValueError) as error:
             pytest.fail(
                 f"gebra · snapshot freshness\n  the freshness check could not be made: {error}",
                 pytrace=False,

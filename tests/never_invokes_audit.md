@@ -194,6 +194,36 @@ leg — so the ledger is the same list object throughout and an escape would be 
 marker adds no extraction path: it calls `resolve_ir`, which is the plugin's own existing
 branch, and the comparison after it is a digest against a stored digest.
 
+`tests/test_dynamic_document_seam.py` (card SD-12, the ir-1.1 decline across the snapshot,
+freshness and `gebra_freshness` surfaces) carries the in-process ledger assertion over
+`tests/sample_workflows/sentinel_routing.py`'s `TRIPPED` — the ledger for the guarded builder
+whose bare-`Send` router is what makes a document ir 1.1 in the first place — in the
+**cleared-on-entry** form `tests/extraction/test_contracts.py` uses, and that is the one form
+true of *this* ledger: `sentinel_routing.TRIPPED` is session-global and is deliberately filled by
+`tests/extraction/test_routing.py`'s arming test, which fires every one of those callables to
+prove the guard is live. Asserting it empty on entry would have been a claim about collection
+order rather than about this file (and was: it failed this card's first full-suite run).
+
+What that ledger covers is stated in the fixture rather than assumed, because the two halves
+differ here: `route_send_list` records before raising, so an invocation of the *router* — the
+declaration this whole card is about — is visible even if an `except Exception` on the extraction
+path swallowed it; the two *node* bodies come from `sentinel_graph.raiser`, which raises a
+`RuntimeError` subclass **without** recording, so an invocation of those is caught by the
+exception propagating rather than by the list. The guarded child that holds that half for this
+exact builder is `tests/extraction/test_routing.py`'s fresh-interpreter run over
+`ROUTING_BUILDERS` (`dynamic_send_hinted` is a pinned member of that table), and the one that
+holds the `snapshot()` → `extract()` → store *path* is `tests/snapshot/test_travel_booking.py`,
+above. Exactly one test in the file reaches a live object
+(`test_snapshot_declines_a_live_map_reduce_workflow`, which states the decline at the entry point
+a user meets it on); every other target is a hand-built `WorkflowIR`, including the one the
+generated inner test file returns, which takes `resolve_ir`'s fixture-only branch. Its `pytester`
+session is in-process — the file has no `runpytest_subprocess` leg — so the ledger is the same
+list object throughout. A guarded subprocess is **not** claimed here and is not owed: the card
+adds no extraction path (it calls `gebra.snapshot.snapshot()` and nothing else), and the refusals
+it adds reach no live object and trigger no extraction of their own — on the `snapshot()` path
+extraction runs *first* and the decline is what stops the document being stored, never what stops
+it being read.
+
 `tests/plugin/test_gating.py` (card TE-07, the three gate flags) carries the **same** ledger
 assertion on entry to and exit from every test in it, on the same in-process terms — and with
 the same carve-out, stated rather than left to be assumed. Two of its targets are

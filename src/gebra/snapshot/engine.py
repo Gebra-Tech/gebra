@@ -57,6 +57,34 @@ and its digest is authored-order-dependent (PD-032's finding, ratified as DEC-22
 exactly what a store must not hold under a content-addressed label. The check stays until IR-07
 puts it on the model, where it belongs.
 
+**A second class is refused for the same reason: an ir 1.1 document.** A ``dynamic`` edge
+(ratified — DEC-28, 2026-08-09) declares a router whose target set is not statically known, and
+every consumer written against the 1.0 vocabulary *declines* such a document rather than
+dropping the edge — PD-044 D11's ruled posture, already the shared validator graph model's and
+the topology-diff graph's. This recorder is one of those consumers, by way of the label: a
+snapshot's V.S.F.E label is **derived by diffing** it against the store's current one, so a
+document the diff engine refuses is one the store can never extend or compare. It is therefore
+refused **at the mouth**, before anything is written, rather than at the first re-snapshot.
+Storing it and refusing every later call would leave a store that nothing can move forward —
+fail-closed, but a worse answer than declining the write that creates the condition — and the
+first snapshot of an empty store is exactly where the ``dynamic`` edge slips past, since there
+is no earlier version to diff against. :func:`gebra.audit.freshness` declines on the same terms
+in the same place, so the two surfaces answer one question one way.
+
+**A store that already holds a 1.1 snapshot errors with guidance; nothing is migrated.** The
+refusal above closes the route *this* engine owns, which is the one a user takes; a store can
+still reach that state through a pre-fix build, a hand-written file, or a direct
+:meth:`~gebra.store.store.SnapshotStore.write`, since the store has no edge-kind opinion of its
+own — it stores documents, it does not diff them. Whichever way it got there, it is reported
+rather than repaired. There is nothing to migrate *to*: rewriting the document without its
+``dynamic`` edge would
+delete a declared router from hash scope — the silent drop DEC-28 clause 1 forbids in terms —
+and would move a digest under a label that already names other content, which PD-012 makes a
+file name. The snapshot's bytes are left exactly as they are and stay readable through
+:meth:`~gebra.store.store.SnapshotStore.read`; what the store cannot do until the 1.1 semantics
+land is extend or compare against it. When they land (DEC-28's paired validator regression
+card), both refusals here are re-visited in the same card that lifts the validator gate.
+
 **WA-07.** This is the first module outside :mod:`gebra.extraction` that hands a *live* object
 to the extractor, so it inherits the never-invokes obligation rather than the weaker
 "no user object is in reach" posture of :mod:`gebra.store`, :mod:`gebra.versioning`,
@@ -71,11 +99,12 @@ begins.
 from __future__ import annotations
 
 import datetime as _datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from gebra.diff.topology import resolve_subject
 from gebra.diff.workflow import WorkflowDiff, workflow_diff
 from gebra.extraction import extract
+from gebra.ir import refuse_dynamic_edges
 from gebra.snapshot.models import (
     SnapshotAction,
     SnapshotError,
@@ -93,6 +122,13 @@ if TYPE_CHECKING:
     from gebra.verify.run import RunReport
 
 __all__ = ["record", "snapshot"]
+
+#: How the recorder names itself when it declines an ir 1.1 document (see the module
+#: docstring). Two spellings rather than one, because the two refusals have different remedies:
+#: the caller can change the definition they are recording, and cannot change what the store
+#: already holds.
+_RECORDER: Final = "the snapshot recorder"
+_RECORDER_ON_STORE: Final = "the snapshot recorder, reading the store's current snapshot"
 
 
 def snapshot(
@@ -140,6 +176,9 @@ def snapshot(
         SnapshotError: as for :func:`record`.
         StoreError: as for :func:`record`.
         ValueError: as for :func:`record`.
+        DynamicEdgeUnsupportedError: as for :func:`record` — ``gebra.extract()`` emits a
+            ``dynamic`` edge for a router whose target set is not statically known (ir 1.1,
+            DEC-28), so this is the entry point a map-reduce workflow meets the decline on.
     """
     return record(
         extract(workflow, sidecar=sidecar),
@@ -209,12 +248,21 @@ def record(
             one.
         VersionFormatError: with reason ``TOO_LONG`` if the bumped label could no longer be a
             snapshot's file name.
+        DynamicEdgeUnsupportedError: if ``envelope``'s document carries a ``dynamic`` edge (ir
+            1.1 — DEC-28), or if the snapshot the store currently points at does. Declined
+            before anything is written, on both sides, and nothing is migrated — see the module
+            docstring for why the recorder is one of the 1.0-vocabulary consumers PD-044 D11
+            rules must decline, and :func:`gebra.audit.freshness` for the same decline on the
+            check that reads the same two documents.
     """
     ir, anchor = resolve_subject(envelope.ir)
+    refuse_dynamic_edges(ir.edges, consumer=_RECORDER)
     digest = anchor.graph_version
     _refuse_ineligible(eligibility, digest)
 
     current = store.current()
+    if current is not None:
+        refuse_dynamic_edges(current.ir.edges, consumer=_RECORDER_ON_STORE)
 
     if current is not None and current.graph_version == digest:
         return SnapshotOutcome(

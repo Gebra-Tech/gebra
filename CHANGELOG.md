@@ -2323,6 +2323,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   frozen, byte-copy vendored surface (WA-04/WA-11).
 ### Fixed
 
+- **The snapshot store no longer accepts a workflow it can never diff — the ir 1.1 decline is
+  now made at the mouth, on every surface, and documented** (card SD-12, a regression card
+  against SD-03/SD-07; the posture is PD-044 D11's — consumers with no 1.1 semantics decline,
+  they do not default — over the edge kind DEC-28 ratified). A `dynamic`
+  edge is what `gebra.extract()` emits for a router whose target set is not statically known —
+  a bare-`Send` map-reduce, or a hintless router — and the validator graph model and the
+  topology diff have declined such a document from the start. Three surfaces built on top of
+  the diff had not, and the seam showed on all four of the ways it could:
+  - **`gebra.snapshot.snapshot()` / `record()` stored one into an *empty* store.** The label a
+    snapshot gets is derived by diffing it against the store's current one, so the first
+    snapshot — the only one with nothing to diff against — was the one place the decline was
+    never reached. Every later *changed* re-snapshot of that store then failed, in words about
+    a topology graph the caller never asked for, leaving a store nothing could move forward.
+    Both entry points now raise `DynamicEdgeUnsupportedError` **before anything is written**,
+    and say so in their `Raises`.
+  - **`gebra.audit.freshness()` did the same on a stale pair**, and now declines in all three
+    of its states rather than only where a diff happens to run — reporting `unsnapshotted` for
+    such a document would have sent a reader to a `snapshot()` call that refuses it.
+  - **The `@pytest.mark.gebra_freshness` gate printed a raw traceback**, because the hook
+    caught `GebraTargetError` and `ValueError` and the decline is a `NotImplementedError`
+    subclass. The item now fails with the designed `pytrace=False` message — "the freshness
+    check could not be made" — beside the damaged-store and unextractable-target refusals it
+    belongs with, and it is reported as neither fresh nor stale, because no comparison was made.
+  - **A store that already holds a 1.1 snapshot errors with guidance; nothing is migrated.** The
+    refusal closes the route the snapshot engine owns; a store can still be in that state from a
+    pre-fix build, a hand-written file, or a direct `SnapshotStore.write`, which has no edge-kind
+    opinion of its own. Its bytes are left exactly as they are and stay readable through
+    `SnapshotStore.read`: rewriting the document without its `dynamic` edge would delete a
+    declared router from `graph_version` hash scope — the silent drop DEC-28's amendments forbid
+    — and move a digest under a V.S.F.E label that already names other content.
+  - **No ir 1.0 behaviour changed**; the guard tests the edge kind and nothing else. When the
+    1.1 validator semantics land, these refusals are re-visited in the same card that lifts the
+    validator gate.
+
 - **Version-portable test suite: cells 1 and 2 of the tested matrix are green on all four
   Pythons** (card EX-17; PD-038 Findings 2–3). The GOV-04 13-cell matrix reported 36 red
   extraction tests on the two frozen

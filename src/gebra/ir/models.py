@@ -384,9 +384,12 @@ StaticEdge: TypeAlias = NormalEdge | ConditionalEdge | SendEdge
 def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[StaticEdge, ...]:
     """Decline a ``dynamic``-bearing edge set on behalf of a consumer with no 1.1 semantics.
 
-    One decline, one wording, two call sites (the shared validator graph model and the
-    topology-diff graph), because the reason is the same in both and a reader who meets it in
-    one place should recognize it in the other.
+    One decline, one wording, every consumer that needs it — the shared validator graph model,
+    the topology-diff graph, and (SD-12) the snapshot recorder and the freshness check, each of
+    which declines on both the document handed in and the one the store already holds. The
+    reason is the same in all of them, so a reader who meets it in one place recognizes it in
+    the next; the call sites are deliberately not counted here, because the count is the part
+    that goes stale.
 
     **Why a decline rather than a default.** A ``dynamic`` edge contributes no member to the
     graph $G$ (PROPERTY-CATALOG-SPEC §0.3, ratified — DEC-28), and *silently* dropping it is

@@ -1,0 +1,101 @@
+# Fixture: retry-coherence / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: retry-coherence
+polarity: negative
+description: >
+  A declared idempotency key that is not among the node's declared reads:
+  send_itinerary_email is @gebra.idempotent(key="message_id"), and
+  message_id is a real state key written upstream by
+  compose_itinerary_email — but the sender's declared input is only
+  [email_body, traveler_email], so the key binds to nothing the node
+  reads and the runtime could never supply it on re-entry. P-07's first
+  condition is nominally met (the re-enterable node IS declared
+  idempotent); it is the key-binding condition — D-012's
+  "@IDEMPOTENT(key:) must name an @INPUT field", inherited from D-010 —
+  that fails. The retry cycle is witnessed (send_attempts < 3) so P-02
+  holds, and the effect is network-only so P-06 stays quiet: only P-07
+  fails.
+
+ir:
+  ir_version: "1.0"
+  entry: compose_itinerary_email
+  finish: record_delivery
+  state:
+    final_itinerary:
+      type: str
+      optional: true       # graph input; treated as written at START
+    traveler_email:
+      type: str
+      optional: true       # graph input; treated as written at START
+    message_id: str
+    email_body: str
+    send_status: str
+    send_attempts:
+      type: int
+      reducer: "operator.add"
+    delivery_log: str
+  nodes:
+    - id: compose_itinerary_email
+      annotations:
+        pure: true
+        input: [final_itinerary, traveler_email]
+        output: [email_body, message_id]
+    - id: send_itinerary_email
+      annotations:
+        effect: [network]
+        idempotent: { key: message_id }     # key NOT among declared reads below
+        input: [email_body, traveler_email]
+        output: [send_status, send_attempts]
+    - id: check_delivery
+      annotations:
+        pure: true
+        input: [send_status, send_attempts]
+        output: []
+    - id: record_delivery
+      annotations:
+        input: [send_status, message_id]
+        output: [delivery_log]
+  edges:
+    - from: compose_itinerary_email
+      to: send_itinerary_email
+    - from: send_itinerary_email
+      to: check_delivery
+    - from: check_delivery
+      kind: conditional
+      condition: "'retry' if send_status == 'deferred' and send_attempts < 3 else 'done'"
+      path_map:
+        retry: send_itinerary_email
+        done: record_delivery
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("network")
+  @gebra.idempotent(key="message_id")  # BUG: message_id is not a declared read
+  def send_itinerary_email(state: TravelState) -> dict:
+      # state["message_id"] is never accessed here — the dedup token the
+      # annotation promises cannot reach the mail provider on a retry.
+      status = mailer.send(to=state["traveler_email"], body=state["email_body"])
+      return {"send_status": status, "send_attempts": 1}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "idempotency-key-not-in-declared-reads"
+    location:
+      node: send_itinerary_email
+      key: message_id
+      declared_reads: [email_body, traveler_email]
+
+notes: >
+  The fix is one line: add message_id to send_itinerary_email's declared
+  input — it is already written upstream by compose_itinerary_email, so
+  dataflow-completeness would still hold after the fix. Isolation check:
+  message_id is a valid state key, so signature-soundness (P-03) is not
+  tripped by the key itself; the cycle is witnessed (P-02); network is
+  neither irreversible nor billable (P-06); check_delivery is pure. Only
+  the P-07 key-binding condition fails — deliberately distinct from
+  negative-01, which fails the neither-pure-nor-idempotent condition.
+  Counterpart: positive-02-keyed-idempotent-hold-in-retry-loop.yaml.

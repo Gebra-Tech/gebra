@@ -1,0 +1,98 @@
+# Fixture: retry-coherence / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: retry-coherence
+polarity: negative
+description: >
+  An effectful, non-idempotent node re-entered by a witnessed cycle:
+  query_fare_quote hits a live partner fare API (@gebra.effect("network"))
+  and is neither @gebra.pure nor @gebra.idempotent, yet check_quote routes
+  back to it on timeout. Each re-entry re-issues the API call — burning
+  rate-limit budget and potentially returning a different quote — with no
+  declared retry-safety contract. P-07 flags the re-enterable node at
+  design time. The effect is deliberately network-only so effect-safety
+  (P-06, which governs irreversible/billable) stays quiet, and the cycle
+  carries a bounded-counter witness so termination-witness (P-02) holds:
+  only P-07 fails.
+
+ir:
+  ir_version: "1.0"
+  entry: build_fare_request
+  finish: present_quote
+  state:
+    route:
+      type: str
+      optional: true       # graph input; treated as written at START
+    fare_request: str
+    quote: str
+    quote_status: str
+    poll_count:
+      type: int
+      reducer: "operator.add"
+    presentation: str
+  nodes:
+    - id: build_fare_request
+      annotations:
+        pure: true
+        input: [route]
+        output: [fare_request]
+    - id: query_fare_quote
+      annotations:
+        effect: [network]
+        input: [fare_request]
+        output: [quote, quote_status, poll_count]
+    - id: check_quote
+      annotations:
+        pure: true
+        input: [quote_status, poll_count]
+        output: []
+    - id: present_quote
+      annotations:
+        input: [quote]
+        output: [presentation]
+  edges:
+    - from: build_fare_request
+      to: query_fare_quote
+    - from: query_fare_quote
+      to: check_quote
+    - from: check_quote
+      kind: conditional
+      condition: "'retry' if quote_status == 'timeout' and poll_count < 4 else 'done'"
+      path_map:
+        retry: query_fare_quote
+        done: present_quote
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("network")   # no @gebra.pure, no @gebra.idempotent
+  def query_fare_quote(state: TravelState) -> dict:
+      quote, status = fares.live_quote(state["fare_request"])  # metered partner API
+      return {"quote": quote, "quote_status": status, "poll_count": 1}
+
+  builder.add_conditional_edges(
+      "check_quote", route_quote,
+      {"retry": "query_fare_quote", "done": "present_quote"},  # re-enters the node
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "reentrant-node-neither-pure-nor-idempotent"
+    location:
+      node: query_fare_quote
+      cycle: [query_fare_quote, check_quote]
+      effect: [network]
+
+notes: >
+  The fix is @gebra.idempotent(key="fare_request") — the provider dedups
+  identical quote requests within a session — or restructuring so the
+  cycle re-enters a pure wrapper instead. Isolation check: P-02 holds
+  (poll_count < 4 witness), P-06 holds (network is neither irreversible
+  nor billable, so no unprotected-effect-in-retry-region), check_quote is
+  pure so it carries no P-07 violation of its own, and all reads are
+  written upstream or optional at START (P-04). Had the effect been
+  billable, this would be the known D-011/D-012 P-06/P-07 co-failure —
+  that interaction case belongs to mixed/. Counterpart:
+  positive-01-pure-ranker-in-refinement-loop.yaml.

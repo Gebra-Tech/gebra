@@ -1,0 +1,132 @@
+# Fixture: termination-witness / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# witness form (b), justified recursion_limit.
+
+property: termination-witness
+polarity: positive
+description: >
+  An itinerary-refinement conversation loop (propose -> collect feedback ->
+  propose) whose single cycle is witnessed by a declared, justified
+  recursion_limit — witness form (b) of P-02. The graph-level limit
+  surfaces in the IR as the managed remaining_steps key in the state
+  schema plus a conditional exit edge whose declared guard bounds it
+  (remaining_steps > 2). P-02 proves witness PRESENCE only; semantic
+  termination is not claimed.
+
+ir:
+  ir_version: "1.0"
+  entry: gather_preferences
+  finish: finalize_itinerary
+  runtime:
+    recursion_limit:
+      value: 25
+      justification: >-
+        One refinement turn = 2 supersteps (propose + collect); concierge
+        UX caps at 12 turns, so limit 25.
+  state:
+    preferences: str
+    itinerary: str
+    feedback:
+      type: str
+      optional: true       # defaults to empty; treated as written at START
+    final_itinerary: str
+    remaining_steps:
+      type: int
+      optional: true       # managed value; seeded by the runtime from the
+                           # declared recursion_limit and decremented per
+                           # superstep (written at START for dataflow)
+  nodes:
+    - id: gather_preferences
+      annotations:
+        pure: true
+        input: []
+        output: [preferences]
+    - id: propose_itinerary
+      annotations:
+        idempotent: { key: preferences }
+        input: [preferences, feedback]
+        output: [itinerary]
+    - id: collect_feedback
+      annotations:
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [feedback]
+    - id: finalize_itinerary
+      annotations:
+        pure: true
+        input: [itinerary, feedback]
+        output: [final_itinerary]
+  edges:
+    - from: gather_preferences
+      to: propose_itinerary
+    - from: propose_itinerary
+      to: collect_feedback
+    - from: collect_feedback
+      kind: conditional
+      condition: "'refine' if feedback requests changes and remaining_steps > 2 else 'wrap_up'"
+      path_map:
+        refine: propose_itinerary
+        wrap_up: finalize_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.graph import StateGraph, START, END
+  from langgraph.managed import RemainingSteps  # surfaces as Sigma key
+
+  builder = StateGraph(RefinementState)  # includes remaining_steps: RemainingSteps
+  builder.add_edge(START, "gather_preferences")
+  builder.add_edge("gather_preferences", "propose_itinerary")
+  builder.add_edge("propose_itinerary", "collect_feedback")
+  builder.add_conditional_edges(
+      "collect_feedback", should_refine,
+      {"refine": "propose_itinerary", "wrap_up": "finalize_itinerary"},
+  )
+  builder.add_edge("finalize_itinerary", END)
+  graph = builder.compile()
+  # Justified recursion_limit: one refinement turn = 2 supersteps
+  # (propose + collect); concierge UX caps at 12 turns => limit 25.
+  app = graph.with_config({"recursion_limit": 25})
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: a
+        element: { kind: edge, source: collect_feedback, target: propose_itinerary, label: refine }
+        source:
+          guard_edge: { source: collect_feedback, label: refine }
+          counter_key: remaining_steps
+          bound: 2
+        discharges: all-simple-cycles-through-element
+      - form: b
+        source:
+          recursion_limit:
+            value: 25
+            justification: >-
+              One refinement turn = 2 supersteps (propose + collect);
+              concierge UX caps at 12 turns, so limit 25.
+        discharges: blanket
+    certificate: [START, gather_preferences, propose_itinerary, collect_feedback, finalize_itinerary, END]
+    cycles:
+      exhaustive: true
+      cycles:
+        - [collect_feedback, propose_itinerary]
+
+notes: >
+  Witness form (b) of P-02: a declared recursion_limit with justification.
+  At ir_version 1.0 the declared limit is carried first-class on
+  runtime.recursion_limit {value, justification} (ledger section 1;
+  0.1->1.0 migration per DEC-09). The managed remaining_steps key plus
+  the bounded exit guard (remaining_steps > 2, the decrementing dual of
+  the bounded-counter form, TERMINATION-WITNESS-SPEC section 3 R2) also
+  qualifies as a form-(a) element witness, so the inventory lists both
+  elements and the SCC is not (b)-only covered — no
+  scc-covered-only-by-recursion-limit note is owed. Witness/failure shape
+  conforms to PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18,
+  DEC-11). Corpus discipline: only
+  P-02 is exercised and it passes — loop nodes are keyed-idempotent on
+  declared inputs (retry-coherence), carry no effect tags (effect-safety),
+  and all reads are written upstream or optional (dataflow-completeness).
+  Counterparts: positive-01 (counter form), positive-03 (variant form).

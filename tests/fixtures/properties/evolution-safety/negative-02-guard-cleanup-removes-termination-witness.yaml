@@ -1,0 +1,151 @@
+# Fixture: evolution-safety / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+# Flagship P-12 case: witness removed by evolution (see fixtures/properties/README
+# P-02 flagship edge-case list).
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: negative
+description: >
+  v1.1 -> v1.2 of the travel-booking availability loop: a "simplification"
+  cleanup deletes the retry counter (retry_count removed from state, from
+  check_availability's writes, and from the exit guard), leaving the
+  retry cycle [check_availability, evaluate_availability] in place but
+  stripping its bounded-counter termination witness. The graph still
+  "works" on happy paths, yet the diff destroys the P-02 witness of a
+  cycle that persists across both snapshots — the catalog's second
+  canonical breaking case (Verification-Properties P-12). P-12 classifies
+  the diff as breaking.
+
+ir_before:
+  ir_version: "1.0"
+  entry: build_query
+  finish: compile_offer
+  state:
+    request:
+      type: str
+      optional: true
+    query: str
+    availability: str
+    offer: str
+    retry_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: build_query
+      annotations:
+        pure: true
+        input: [request]
+        output: [query]
+    - id: check_availability
+      annotations:
+        idempotent: { key: query }
+        input: [query]
+        output: [availability, retry_count]
+    - id: evaluate_availability
+      annotations:
+        pure: true
+        input: [availability, retry_count]
+        output: []
+    - id: compile_offer
+      annotations:
+        pure: true
+        input: [availability]
+        output: [offer]
+  edges:
+    - from: build_query
+      to: check_availability
+    - from: check_availability
+      to: evaluate_availability
+    - from: evaluate_availability
+      kind: conditional
+      condition: "'retry' if availability == 'unknown' and retry_count < 3 else 'done'"
+      path_map:
+        retry: check_availability
+        done: compile_offer
+
+ir_after:
+  ir_version: "1.0"
+  entry: build_query
+  finish: compile_offer
+  state:
+    request:
+      type: str
+      optional: true
+    query: str
+    availability: str
+    offer: str
+  nodes:
+    - id: build_query
+      annotations:
+        pure: true
+        input: [request]
+        output: [query]
+    - id: check_availability
+      annotations:
+        idempotent: { key: query }
+        input: [query]
+        output: [availability]
+    - id: evaluate_availability
+      annotations:
+        pure: true
+        input: [availability]
+        output: []
+    - id: compile_offer
+      annotations:
+        pure: true
+        input: [availability]
+        output: [offer]
+  edges:
+    - from: build_query
+      to: check_availability
+    - from: check_availability
+      to: evaluate_availability
+    - from: evaluate_availability
+      kind: conditional
+      condition: "'retry' if availability == 'unknown' else 'done'"
+      path_map:
+        retry: check_availability
+        done: compile_offer
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  # v1.2 "cleanup" diff that looks harmless in review:
+  #
+  # -    if state["availability"] == "unknown" and state["retry_count"] < 3:
+  # +    if state["availability"] == "unknown":
+  #          return "retry"
+  #      return "done"
+  #
+  # class AvailabilityState(TypedDict):
+  # -    retry_count: Annotated[int, operator.add]   # deleted as "unused"
+
+expected:
+  result: fail
+  failure:
+    property_condition: "termination-witness-removed"
+    classification: breaking
+    location:
+      cycle: [check_availability, evaluate_availability]
+      edge: { from: evaluate_availability }
+      counter_key: retry_count
+    witness_before:
+      witness_type: exit_condition
+      counter_key: retry_count
+      value: 3
+      declared_at: annotation
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). BY-DESIGN P-02
+  COUPLING: the cycle persists across both snapshots and ir_after fails
+  P-02 (cycle-without-termination-witness) by construction — that induced
+  violation is exactly what P-12 detects in the diff, so the co-failure is
+  the point of the fixture, not a corpus-discipline leak. ir_before
+  satisfies P-01..P-09 in full; ir_after satisfies everything except the
+  induced P-02 breakage (check_availability carries no effect tags and is
+  keyed-idempotent on a declared input, so P-06/P-07 hold even inside the
+  unwitnessed loop). Honest-claims note: ir_before demonstrates witness
+  PRESENCE only, never semantic termination. Structural cousin:
+  termination-witness/positive-01-counter-guarded-retry-loop.yaml.

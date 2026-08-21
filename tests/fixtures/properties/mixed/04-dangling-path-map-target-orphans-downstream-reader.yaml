@@ -1,0 +1,150 @@
+# Fixture: mixed / 04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-01 + P-04 interaction.
+
+property: [graph-well-formed, dataflow-completeness]
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  A support-ticket router whose triage path_map routes the 'legal' label to
+  legal_hold_review — a node that exists nowhere in the graph (renamed
+  during a refactor, path_map never updated). The single dangling target
+  cascades: compliance_log, wired only downstream of the missing node,
+  becomes unreachable from START, and its declared read of legal_hold_ref
+  — a key only the missing node would have written — is orphaned. One typo,
+  two P-01 findings: a dangling reference and an unreachable node; the
+  orphaned read is subsumed by the P-01 unreachable-node finding rather
+  than filed as an independent P-04 finding (DEC-05).
+
+ir:
+  ir_version: "1.0"
+  entry: intake
+  finish: close_ticket
+  state:
+    ticket:
+      type: str
+      optional: true       # graph input; treated as written at START
+    category: str
+    legal_hold_ref: str    # would be written by the missing node only
+    resolution: str
+    closure_note: str
+  nodes:
+    - id: intake
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [category]
+    - id: triage
+      annotations:
+        pure: true
+        input: [category]
+        output: []
+    - id: billing_handler
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [resolution]
+    - id: tech_handler
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [resolution]
+    - id: compliance_log
+      annotations:
+        input: [ticket, legal_hold_ref]
+        output: [resolution]
+    - id: close_ticket
+      annotations:
+        pure: true
+        input: [resolution]
+        output: [closure_note]
+  edges:
+    - from: intake
+      to: triage
+    - from: triage
+      kind: conditional
+      condition: "'billing' | 'technical' | 'legal' from category"
+      path_map:
+        billing: billing_handler
+        technical: tech_handler
+        legal: legal_hold_review     # dangling: no such node
+    - from: legal_hold_review        # dangling: no such node
+      to: compliance_log
+    - from: billing_handler
+      to: close_ticket
+    - from: tech_handler
+      to: close_ticket
+    - from: compliance_log
+      to: close_ticket
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_conditional_edges(
+      "triage", route_category,
+      {"billing": "billing_handler", "technical": "tech_handler",
+       "legal": "legal_hold_review"},   # node was renamed away; map not updated
+  )
+  builder.add_edge("legal_hold_review", "compliance_log")
+
+expected:
+  result: fail
+  failure:
+    property_condition: "path-map-target-undefined"
+    location:
+      kind: edge
+      source: triage
+      label: legal
+      undefined_target: legal_hold_review
+    severity: fatal
+    claim_class: defensible
+    co_failures:
+      - property: graph-well-formed
+        property_condition: "node-unreachable-from-start"
+        location:
+          kind: node
+          node: compliance_log
+        severity: fatal
+        claim_class: defensible
+      - property: dataflow-completeness
+        property_condition: "read-key-never-written-on-path"
+        location:
+          kind: state-key
+          key: legal_hold_ref
+          node: compliance_log
+        severity: fatal
+        claim_class: defensible-a
+        subsumed_by: P-01
+        note: >
+          Not an independent finding (R-05 lead review 2026-07-17, DEC-05):
+          P-04 quantifies over START-paths only, so the unreachable reader
+          generates no P-04 obligation; the orphaned read is owned entirely
+          by the P-01 node-unreachable-from-start finding above.
+      - property: graph-well-formed
+        property_condition: "edge-target-undefined"
+        location:
+          kind: edge
+          source: legal_hold_review
+          undefined_target: legal_hold_review
+        severity: fatal
+        claim_class: defensible
+
+notes: >
+  Co-failing properties: P-01 graph-well-formed (primary, twice — dangling
+  path_map target and the resulting unreachable node); the P-04 member
+  stays in the property list for the cross-property interaction, but its
+  co_failure entry is recorded as subsumed_by: P-01, not as an independent
+  finding. The R-05 lead review (2026-07-17, DEC-05) settled the P-04
+  semantics: quantification is over START-paths only, so an unreachable
+  reader generates no P-04 obligation — P-01 owns unreachable code
+  entirely (one root cause, one report), and the D-09 report must not
+  double-blame the user. Restoring the one missing node (writer of
+  legal_hold_ref, wired between the 'legal' label and compliance_log)
+  clears all findings at once. axiom_basis covers the P-04 member
+  only; P-01 is pure graph theory per the schema guidance. The
+  billing/technical paths are fully healthy, so the fixture also checks
+  that validators localise the damage to the legal branch. The
+  IR also contains a dangling edge SOURCE (legal_hold_review →
+  compliance_log with nonexistent from-node) — an anomaly class outside
+  P-01's formal statement (iv); the validator should fold unknown-source
+  edges into the dangling-reference condition or the P-01 spec should
+  enumerate it.

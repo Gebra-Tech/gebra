@@ -1,0 +1,104 @@
+# Fixture: mixed / 01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-06 + P-07 interaction.
+
+property: [effect-safety, retry-coherence]
+polarity: negative
+description: >
+  A paid-SMS dispatch loop whose single cycle carries a complete
+  termination witness (bounded counter attempts, exit guard attempts < 3),
+  yet the looping node send_sms is tagged @gebra.effect("billable",
+  "network") with no idempotency declaration of any kind. The witness
+  legalises the cycle for P-02 but does nothing to protect the effect:
+  every retry re-charges the gateway. P-06 and P-07 co-fail on the same
+  node — a witnessed cycle is not the same as a safe one.
+
+ir:
+  ir_version: "1.0"
+  entry: compose_message
+  finish: log_receipt
+  state:
+    message: str
+    delivery_status: str
+    receipt_id: str
+    dispatch_log: str
+    attempts:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: compose_message
+      annotations:
+        pure: true
+        input: []
+        output: [message]
+    - id: send_sms
+      annotations:
+        effect: [billable, network]
+        input: [message]
+        output: [delivery_status, receipt_id, attempts]
+    - id: verify_delivery
+      annotations:
+        pure: true
+        input: [delivery_status, attempts]
+        output: []
+    - id: log_receipt
+      annotations:
+        pure: true
+        input: [receipt_id]
+        output: [dispatch_log]
+  edges:
+    - from: compose_message
+      to: send_sms
+    - from: send_sms
+      to: verify_delivery
+    - from: verify_delivery
+      kind: conditional
+      condition: "'retry' if delivery_status == 'failed' and attempts < 3 else 'done'"
+      path_map:
+        retry: send_sms
+        done: log_receipt
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("billable", "network")   # paid gateway call, no idempotency
+  def send_sms(state: DispatchState) -> dict:
+      status, receipt = gateway.send(state["message"])  # charges per call
+      return {"delivery_status": status, "receipt_id": receipt, "attempts": 1}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-retry-region"
+    location:
+      kind: node
+      node: send_sms
+      cycle: [send_sms, verify_delivery]
+      effect: [billable, network]
+    severity: error
+    claim_class: defensible-a
+    co_failures:
+      - property: retry-coherence
+        property_condition: "reentrant-node-neither-pure-nor-idempotent"
+        location:
+          kind: node
+          node: send_sms
+          cycle: [send_sms, verify_delivery]
+        severity: error
+        claim_class: defensible-a
+
+notes: >
+  Interaction point: P-02 termination-witness PASSES here — the guard
+  attempts < 3 with the bounded counter in the state schema is a complete
+  witness — yet the same cycle still fails P-06 (billable effect
+  re-enterable without protection) and P-07 (a re-enterable node that is
+  neither pure nor idempotent), on the same node send_sms. This is the
+  interaction the effect-safety seed deferred to mixed/ (see
+  effect-safety/negative-01-billable-in-unguarded-retry.yaml, whose notes
+  record the D-011/D-012 coupling). Convention for mixed fixtures: the
+  primary verdict is failure.property_condition; further verdicts are
+  listed under failure.co_failures. The fix is
+  @gebra.idempotent(key="message"); the keyed-but-wrong variant is
+  mixed/06, and the healthy counterpart (keyed billable node in a
+  witnessed cycle) is mixed/10.

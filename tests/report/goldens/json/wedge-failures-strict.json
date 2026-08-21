@@ -1,0 +1,362 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+    "extractor_version": "<gebra-version>"
+  },
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "pass",
+      "witness": {
+        "kind": "well-formedness",
+        "reachable_from_start": [
+          "book_flight",
+          "check_availability",
+          "send_confirmation"
+        ],
+        "terminal_nodes": [
+          "send_confirmation"
+        ],
+        "orphan_nodes": [],
+        "unresolved_targets": []
+      }
+    },
+    {
+      "property": "termination-witness",
+      "result": "fail",
+      "failure": {
+        "property_condition": "cycle-without-termination-witness",
+        "location": {
+          "kind": "scc",
+          "nodes": [
+            "book_flight",
+            "confirm",
+            "retry_booking"
+          ],
+          "representative_cycle": [
+            "book_flight",
+            "retry_booking",
+            "confirm"
+          ],
+          "exhaustive": false
+        },
+        "severity": "fatal",
+        "claim_class": "defensible",
+        "remediation": "Declare a bounded counter guard with an exit edge, or annotate a variant.",
+        "co_failures": [
+          {
+            "property": "termination-witness",
+            "property_condition": "counter-guard-without-exit-edge",
+            "location": {
+              "kind": "cycle",
+              "nodes": [
+                "book_flight",
+                "retry_booking"
+              ],
+              "counter_key": "attempts",
+              "guard_edge": {
+                "source": "route",
+                "labels": [
+                  "again",
+                  "stop"
+                ]
+              }
+            },
+            "severity": "fatal",
+            "claim_class": "defensible",
+            "notes": [
+              {
+                "kind": "counter-key-not-qualified",
+                "guard_edge": {
+                  "source": "route",
+                  "label": "again"
+                },
+                "identifier": "attempts"
+              }
+            ]
+          }
+        ],
+        "notes": [
+          {
+            "kind": "scc-covered-only-by-recursion-limit",
+            "severity": "warning",
+            "locations": [
+              {
+                "kind": "scc",
+                "nodes": [
+                  "draft",
+                  "review"
+                ],
+                "representative_cycle": [
+                  "draft",
+                  "review"
+                ],
+                "exhaustive": false,
+                "blanket_only": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "fail",
+      "failure": {
+        "property_condition": "read-key-never-written-on-path",
+        "location": {
+          "kind": "state-key",
+          "key": "booking_id",
+          "node": "send_confirmation",
+          "path": [
+            "START",
+            "check_availability",
+            "send_confirmation"
+          ]
+        },
+        "severity": "fatal",
+        "claim_class": "defensible-a",
+        "writers_on_other_paths": [
+          "book_flight"
+        ],
+        "downstream_writers": [
+          "archive"
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "fail",
+      "failure": {
+        "property_condition": "irreversible-with-keyless-idempotent",
+        "location": {
+          "kind": "node",
+          "node": "charge_card",
+          "effect": [
+            "billable",
+            "irreversible"
+          ],
+          "idempotent": "keyless",
+          "fanout": "send",
+          "dangling_compensation_hook": "refund"
+        },
+        "severity": "fatal",
+        "claim_class": "defensible-a",
+        "co_failures": [
+          {
+            "property": "effect-safety",
+            "property_condition": "unprotected-effect-in-cycle",
+            "location": {
+              "kind": "cycle",
+              "nodes": [
+                "book_flight",
+                "retry_booking"
+              ]
+            },
+            "severity": "error",
+            "claim_class": "defensible-a"
+          },
+          {
+            "property": "effect-safety",
+            "property_condition": "unprotected-effect-in-retry-region",
+            "location": {
+              "kind": "node",
+              "node": "book_flight",
+              "effect": [
+                "billable"
+              ],
+              "cycle": [
+                "book_flight",
+                "retry_booking"
+              ]
+            },
+            "severity": "error",
+            "claim_class": "defensible-a"
+          }
+        ],
+        "advisories": [
+          {
+            "property": "determinism-replay",
+            "property_condition": "deterministic-llm-temperature-unpinned",
+            "severity": "warning",
+            "claim_class": "heuristic",
+            "location": {
+              "kind": "node",
+              "node": "extract_fields"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "fail",
+      "failure": {
+        "property_condition": "deterministic-llm-seed-unpinned",
+        "location": {
+          "kind": "node",
+          "node": "draft_itinerary",
+          "annotation": "deterministic",
+          "form": "bare-boolean",
+          "effects": [
+            "network",
+            "external"
+          ]
+        },
+        "severity": "warning",
+        "claim_class": "heuristic",
+        "co_failures": [
+          {
+            "property": "determinism-replay",
+            "property_condition": "deterministic-llm-temperature-unpinned",
+            "location": {
+              "kind": "node",
+              "node": "extract_fields",
+              "annotation": "deterministic",
+              "seed": 7,
+              "temperature": 0.7
+            },
+            "severity": "warning",
+            "claim_class": "heuristic"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 1,
+    "outcome": "fail",
+    "counts": {
+      "fatal": 4,
+      "error": 2,
+      "warning": 3
+    },
+    "strict": {
+      "mode": "all",
+      "properties": []
+    },
+    "promotions": [
+      {
+        "property": "termination-witness",
+        "origin": "witness-note",
+        "property_condition": "cycle-without-termination-witness",
+        "note_kind": "scc-covered-only-by-recursion-limit",
+        "location": {
+          "kind": "scc",
+          "nodes": [
+            "draft",
+            "review"
+          ],
+          "representative_cycle": [
+            "draft",
+            "review"
+          ],
+          "exhaustive": false,
+          "blanket_only": true
+        }
+      },
+      {
+        "property": "determinism-replay",
+        "origin": "advisory",
+        "property_condition": "deterministic-llm-temperature-unpinned",
+        "location": {
+          "kind": "node",
+          "node": "extract_fields"
+        }
+      },
+      {
+        "property": "determinism-replay",
+        "origin": "failure",
+        "property_condition": "deterministic-llm-seed-unpinned",
+        "location": {
+          "kind": "node",
+          "node": "draft_itinerary",
+          "annotation": "deterministic",
+          "form": "bare-boolean",
+          "effects": [
+            "network",
+            "external"
+          ]
+        }
+      },
+      {
+        "property": "determinism-replay",
+        "origin": "co-failure",
+        "property_condition": "deterministic-llm-temperature-unpinned",
+        "location": {
+          "kind": "node",
+          "node": "extract_fields",
+          "annotation": "deterministic",
+          "seed": 7,
+          "temperature": 0.7
+        }
+      }
+    ],
+    "snapshot_eligible": false
+  }
+}

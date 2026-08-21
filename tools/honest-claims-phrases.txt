@@ -1,0 +1,18 @@
+# Honest-claims banned phrases (WA-06) — the list tools/honest_claims_lint.py enforces.
+#
+# One phrase per line, matched case-insensitively as a substring anywhere in a scanned
+# file's text. Blank lines and lines starting with `#` are ignored.
+#
+# gebra statically analyzes serialized IR; it never executes workflows and proves nothing
+# about runtime behavior. These phrases overstate that boundary — witness *presence* is
+# provable, semantic termination never is. Extend this list when review catches a new
+# overclaiming phrasing; never remove an entry to make a violation pass.
+proves termination
+verified agent behavior
+formally verified
+guarantees termination
+guarantees
+guaranteed to halt
+cannot fail
+proven correct
+verified behavior

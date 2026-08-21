@@ -1,0 +1,511 @@
+# Gebra property-fixture schema (v2)
+# Successor to fixtures/axioms/schema.yaml (gebra-axiom-fixture-v1, frozen by
+# R-01 per DEC-03-fixture-format.md). Owned by R-05; format decision recorded
+# as a DEC-03 addendum. Validated by the corpus lint; consumed by the
+# D-10 golden pytest harness and exercised by the D-09 property validators.
+#
+# This file documents the schema; it is a JSON-Schema-style spec, not an
+# enforceable schema in itself. Use yamllint for syntactic validation;
+# the corpus lint enforces structural rules.
+#
+# Why fixtures carry serialized Gebra IR, not live LangGraph Python:
+#   1. Stability — IR-serialized fixtures survive LangChain/LangGraph API
+#      churn; a builder-API rename never invalidates the corpus.
+#   2. Hermeticity — D-09 validators are tested against these fixtures
+#      without importing langgraph or executing any Python.
+#   3. Lintability — fixtures are pure data; the corpus lint can check
+#      them without an interpreter in the loop.
+#   Extractor correctness (LangGraph source -> IR, `gebra.extract()`) is
+#   tested separately against pinned langgraph/langchain-core versions in
+#   the package repo (D-08), never through this corpus. The optional
+#   `source_snippet` below is illustration only and is never executed.
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "gebra-property-fixture-v2"
+title: "Gebra Property Fixture (v2)"
+description: |
+  Each property fixture is a (Gebra IR, expected verdict, witness/failure)
+  triple. Fixtures live under fixtures/properties/<property>/<polarity>-<NN>-<slug>.yaml
+  for single-property fixtures, or fixtures/properties/mixed/<NN>-<slug>.yaml
+  for cross-property mixed fixtures. Key changes from v1: `axiom` becomes
+  `property` (the P-01..P-13 slugs of Verification-Properties.md); the
+  optional `axiom_basis` key preserves the mathematical spine per fixture;
+  `schema_snippet` (Gebra DSL) becomes the required `ir` (serialized Gebra
+  Workflow IR); `failure.axiom_condition` becomes `failure.property_condition`.
+
+type: object
+required: [property, polarity, description, expected]
+additionalProperties: false
+
+# Exactly one IR shape per fixture:
+#   - `ir`                     — the single-snapshot form; the only form for
+#                                 non-evolution fixtures.
+#   - `ir_before` + `ir_after` — the snapshot-pair form; permitted only when
+#                                 `property` includes evolution-safety (P-12
+#                                 classifies the diff between two snapshots).
+#                                 Enforced by the corpus lint.
+oneOf:
+  - required: [ir]
+    not:
+      anyOf:
+        - required: [ir_before]
+        - required: [ir_after]
+  - required: [ir_before, ir_after]
+    not:
+      required: [ir]
+
+properties:
+  property:
+    description: |
+      Either a single property slug, or a list of >= 2 slugs for
+      cross-property mixed fixtures. Slugs are the P-01..P-13 catalog of
+      03-Research/Verification-Properties.md (the authoritative catalog).
+    oneOf:
+      - type: string
+        enum: &property-slugs
+          - graph-well-formed
+          - termination-witness
+          - signature-soundness
+          - dataflow-completeness
+          - guard-exhaustiveness
+          - effect-safety
+          - retry-coherence
+          - determinism-replay
+          - parallel-safety
+          - subgraph-consistency
+          - join-key-soundness
+          - evolution-safety
+          - interrupt-gate-coverage
+      - type: array
+        items:
+          type: string
+          enum: *property-slugs
+        minItems: 2
+
+  axiom_basis:
+    description: |
+      Optional. The Skavantzos & Link (2023) axioms (PVLDB 16(11):3031-3043)
+      the exercised property derives from, preserving the mathematical spine
+      per fixture — e.g. [transitivity] for dataflow-completeness,
+      [extension, augmentation] for evolution-safety, [pullback] for
+      join-key-soundness. Omit for properties derived from design decisions
+      or pure graph theory rather than the axiom system (e.g.
+      termination-witness/D-016, effect-safety/D-011+D-012,
+      graph-well-formed). Per D-019, axiom statements are cited from the
+      paper directly, never from vault notes.
+    type: array
+    minItems: 1
+    items:
+      type: string
+      enum: [reflexivity, extension, transitivity, augmentation, weakening, pullback]
+
+  polarity:
+    description: |
+      Whether the fixture demonstrates the property holds (positive) or
+      that it is violated (negative).
+    type: string
+    enum: [positive, negative]
+
+  description:
+    description: |
+      Human-readable description, one paragraph. What is this fixture testing?
+    type: string
+    minLength: 20
+
+  ir:
+    description: |
+      The serialized Gebra Workflow IR the validator is run against —
+      IR = (G, Sigma, C): topology G (`entry`/`finish` plus `nodes`/`edges`),
+      state schema Sigma (`state`), node contracts C (`annotations`).
+      Authoritative IR definition: R-06 IR-SPEC /
+      03-Research/LangChain-LangGraph-Integration.md.
+    $ref: "#/$defs/gebra-ir"
+
+  ir_before:
+    description: |
+      Evolution-safety only: the earlier IR snapshot of the pair.
+    $ref: "#/$defs/gebra-ir"
+
+  ir_after:
+    description: |
+      Evolution-safety only: the later IR snapshot; P-12 classifies the
+      ir_before -> ir_after diff as safe or breaking (powers `gebra diff`
+      and the V.S.F.E bump: S=topology, F=node/contract, E=state schema).
+    $ref: "#/$defs/gebra-ir"
+
+  source_snippet:
+    description: |
+      Optional. Illustrative LangGraph Python showing how the IR could
+      arise from real builder code. NEVER executed — documentation for
+      human readers only; validators and the D-10 harness must ignore it.
+    type: string
+
+  expected:
+    description: |
+      The expected validator outcome. result is mandatory; witness is
+      required when result == pass; failure is required when result == fail.
+    type: object
+    required: [result]
+    additionalProperties: false
+    properties:
+      result:
+        type: string
+        enum: [pass, fail]
+      witness:
+        # v2.2 addendum (2026-07-18, DEC-09/DEC-11): ir 1.0 slots + shape pins —
+        # wedge-five witness shapes (P-01, P-02, P-04, P-06, P-08) PINNED at
+        # walkthrough #2; example below conformed to T-W-SPEC §6 naming.
+        description: |
+          Structured witness (when result == pass). Per-property shape;
+          refer to R-05 PROPERTY-CATALOG-SPEC section <property>.3 (I/O
+          contract) for the witness type. Wedge-five shapes are PINNED
+          (walkthrough #2, 2026-07-18, DEC-11); the 8 non-wedge shapes
+          remain provisional until their catalog sections are drafted.
+          Example, termination-witness (pinned; T-W-SPEC §6):
+            kind: termination
+            inventory:                  # §6.2 — one entry per S-element
+              - element: { guard: 0, label: retry }  # expanded-edge id (guard ordinal, label) or node id
+                form: a                 # a = counter guard | b = recursion_limit | c = variant
+                source: { guard: 0, counter_key: retry_count }
+                discharges: all-simple-cycles-through-element   # "blanket" for form (b)
+            certificate: [plan, act, publish]  # topological order of G \ S — the acyclicity certificate
+            cycles:                     # §6.3 optional capped census — full list only when
+              exhaustive: true          # the simple-cycle count <= B (B = 16, spec default)
+              cycles:
+                - [act, reflect]
+        type: object
+        additionalProperties: true
+      failure:
+        description: |
+          Structured failure (when result == fail). Includes which property
+          condition was violated and a structured location reference.
+        type: object
+        required: [property_condition]
+        additionalProperties: true
+        properties:
+          property_condition:
+            type: string
+            description: |
+              Identifier for the violated condition (e.g.,
+              "cycle-without-termination-witness" for termination-witness,
+              "unprotected-effect-in-retry-region" for effect-safety,
+              "read-key-removed" for evolution-safety).
+          location:
+            description: |
+              Structured location reference: node id, edge (from/to), cycle
+              node list, state key, or path.
+            type: object
+
+  notes:
+    description: |
+      Optional. Author's intent, related fixtures, known property couplings
+      (e.g. effect-safety/retry-coherence co-failures), future work.
+    type: string
+
+$defs:
+  gebra-ir:
+    description: |
+      Serialized Gebra Workflow IR. START and END are implicit sentinels:
+      `entry` names the node(s) wired from START; `finish` names the node(s)
+      wired to END. `path_map` values may additionally use the literal "END".
+    type: object
+    required: [ir_version, entry, finish, nodes, edges]
+    additionalProperties: false
+    properties:
+      ir_version:
+        # v2.2 addendum (2026-07-18, DEC-09/DEC-11): ir 1.0 slots + shape pins
+        description: |
+          IR format version emitted by gebra.extract(), e.g. "1.0" — frozen
+          per DEC-09 (2026-07-18); the fixture corpus is migrated 0.1 -> 1.0.
+        type: string
+      # Representation-normalization (IR-SPEC §6.3; v2.2 addendum, DEC-09/DEC-10):
+      # the canonical surface form serializes `entry`/`finish` as a scalar node
+      # id iff the wired set is a singleton (list otherwise), and a `state`
+      # value as the bare type-name string iff it carries no `reducer` and no
+      # `optional` flag (object form otherwise). gebra.extract() emits the
+      # collapsed forms; fixtures use them.
+      entry:
+        description: Node id (or ids) wired from the START sentinel.
+        oneOf:
+          - type: string
+          - type: array
+            items: { type: string }
+      finish:
+        description: Node id (or ids) wired to the END sentinel.
+        oneOf:
+          - type: string
+          - type: array
+            items: { type: string }
+      state:
+        description: |
+          The state schema Sigma: mapping of state key -> type. Value is
+          either a bare type-name string (shorthand) or an object with
+          type / reducer / optional. Reducers are declared here, which is
+          what parallel-safety's reducer check reads.
+        type: object
+        additionalProperties:
+          oneOf:
+            - type: string          # shorthand, e.g. "str", "int", "list"
+            - type: object
+              additionalProperties: false
+              required: [type]
+              properties:
+                type: { type: string }
+                reducer: { type: string }   # e.g. "operator.add"
+                optional:
+                  description: |
+                    Key is a graph input or carries a default; treated as
+                    written at START for dataflow-completeness purposes.
+                  type: boolean
+      nodes:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required: [id]
+          additionalProperties: false
+          properties:
+            id:
+              type: string
+            annotations:
+              description: |
+                The node contract C(n), as attached via @gebra.contract(...)
+                or the shorthands @gebra.pure, @gebra.effect(...),
+                @gebra.idempotent(key=...), @gebra.deterministic(seed=...).
+                `input`/`output` are the declared reads/writes (must be
+                subsets of keys(state) for signature-soundness). `source`/
+                `map` are the local-data-binding annotations retained under
+                the agent-data-isolation hypothesis (D-017).
+              type: object
+              additionalProperties: false
+              properties:
+                pure:
+                  type: boolean
+                effect:
+                  description: Effect tags, e.g. [irreversible, billable].
+                  type: array
+                  items: { type: string }
+                idempotent:
+                  description: |
+                    true = keyless idempotency claim (rejected by
+                    effect-safety when combined with irreversible, per
+                    D-012); object form pins the key, which must appear in
+                    `input` (retry-coherence).
+                  oneOf:
+                    - type: boolean
+                    - type: object
+                      additionalProperties: false
+                      required: [key]
+                      properties:
+                        key: { type: string }
+                deterministic:
+                  # v2.1 addendum (2026-07-17, R-05 lead review — DEC-05): temperature slot added so P-08 pinning is IR-decidable
+                  oneOf:
+                    - type: boolean
+                    - type: object
+                      additionalProperties: false
+                      required: [seed]
+                      properties:
+                        seed: { type: integer }
+                        temperature: { type: number }
+                input:
+                  description: Declared reads (state keys).
+                  type: array
+                  items: { type: string }
+                output:
+                  description: Declared writes (state keys).
+                  type: array
+                  items: { type: string }
+                source:
+                  description: "@SOURCE local-data binding (D-017)."
+                  type: string
+                map:
+                  description: "@MAP local-data mapping (D-017)."
+                  type: string
+                # v2.2 addendum (2026-07-18, DEC-09/DEC-11): ir 1.0 slots + shape pins —
+                # the six new-in-1.0 OPTIONAL annotation slots (IR-SPEC §3), so future
+                # fixtures validate under additionalProperties: false.
+                args_schema:
+                  description: |
+                    v2.2 (DEC-09): tool-facing JSON Schema object for the node's
+                    args (P-03 type-consistency arm; DEC-05 D6).
+                  type: object
+                retry_policy:
+                  description: |
+                    v2.2 (DEC-09): minimal projection of a LangGraph retry
+                    policy (P-07 retry_policy leg). v2.3 addendum (2026-08-20,
+                    DEC-30): required list added — IR-SPEC §2.5 requiredness.
+                  type: object
+                  additionalProperties: false
+                  required: [max_attempts, retry_on]
+                  properties:
+                    max_attempts: { type: integer }
+                    retry_on:
+                      type: array
+                      items: { type: string }
+                variant:
+                  description: |
+                    v2.2 (DEC-09): form-(c) termination witness — annotated
+                    loop variant (P-02); key must name a state key. v2.3
+                    addendum (2026-08-20, DEC-30): required list added.
+                  type: object
+                  additionalProperties: false
+                  required: [key, measure]
+                  properties:
+                    key: { type: string }
+                    measure: { type: string }
+                compensation:
+                  description: |
+                    v2.2 (DEC-09): compensation hook slot — slot now, semantics
+                    deferred; compensation-as-protection per DEC-05 D7. v2.3
+                    addendum (2026-08-20, DEC-30): required list added.
+                  type: object
+                  additionalProperties: false
+                  required: [hook]
+                  properties:
+                    hook: { type: string }
+                prompt_digest:
+                  description: "v2.2 (DEC-09): opaque-body prompt digest (D-025 closure)."
+                  type: string
+                config_digest:
+                  description: "v2.2 (DEC-09): opaque-body config digest (D-025 closure)."
+                  type: string
+      edges:
+        type: array
+        items:
+          type: object
+          required: [from]
+          additionalProperties: false
+          properties:
+            from:
+              type: string
+            to:
+              description: |
+                Target node id. Required for kind normal | send; omitted
+                for kind conditional (routes via path_map) and kind dynamic.
+                The "END" literal is blessed for path_map values only
+                (DEC-27; PD-007 Q2/DEC-12 — a to of "END" is an ordinary
+                node-id lookup, never the sentinel).
+              type: string
+            kind:
+              type: string
+              enum: [normal, conditional, send, dynamic]   # dynamic: ir_version >= 1.1 (DEC-28) — no to, no path_map; targets Runtime-only
+              default: normal
+            condition:
+              description: |
+                Declared guard/router expression (string), taken from gebra
+                annotations/config — declared IR content, not extracted
+                opaque Python. The termination validator recognizes
+                bounded-counter guards (e.g. "retry_count < 3") per the
+                R-05 TERMINATION-WITNESS-SPEC grammar; anything else is
+                treated as opaque.
+              type: string
+            path_map:
+              description: |
+                Conditional edges only: mapping of router label -> target
+                node id (or "END"). Read by guard-exhaustiveness and
+                graph-well-formed.
+              type: object
+              additionalProperties: { type: string }
+          allOf:
+            - if:
+                properties:
+                  kind: { const: conditional }
+                required: [kind]
+              then:
+                required: [path_map]
+              else:
+                required: [to]
+      # v2.2 addendum (2026-07-18, DEC-09/DEC-11): ir 1.0 slots + shape pins —
+      # the top-level `runtime` block (IR-SPEC §3), OPTIONAL, extracted at
+      # compiled level (never annotated).
+      runtime:
+        description: |
+          v2.2 (DEC-09): graph-level runtime block. recursion_limit is the
+          form-(b) blanket termination witness — witness-contributing iff
+          justification is non-empty; a blanket recursion_limit ALONE passes
+          P-02 with a WARNING-grade note, strict-mode promotable (walkthrough
+          #2, 2026-07-18). interrupts and checkpointer are the P-13 carriers;
+          checkpointer.present is explicit (never inferred from absence).
+        type: object
+        additionalProperties: false
+        properties:
+          recursion_limit:
+            type: object
+            additionalProperties: false
+            required: [value]
+            properties:
+              value: { type: integer }
+              justification: { type: string }
+          interrupts:
+            type: object
+            additionalProperties: false
+            properties:
+              before:
+                type: array
+                items: { type: string }
+              after:
+                type: array
+                items: { type: string }
+          checkpointer:
+            type: object
+            additionalProperties: false
+            required: [present]
+            properties:
+              present: { type: boolean }
+
+# Full example fixture (not part of the schema; documentation).
+# A dataflow-completeness negative showing `axiom_basis` and `source_snippet`:
+#
+#   property: dataflow-completeness
+#   axiom_basis: [transitivity]
+#   polarity: negative
+#   description: >
+#     An "express" branch routes availability_check straight to
+#     send_confirmation, skipping both booking nodes; send_confirmation
+#     reads booking_id, which no node on the express path writes.
+#   ir:
+#     ir_version: "1.0"
+#     entry: availability_check
+#     finish: send_confirmation
+#     state:
+#       request: str
+#       booking_id: str
+#       confirmation: str
+#     nodes:
+#       - id: availability_check
+#         annotations: { pure: true, input: [], output: [request] }
+#       - id: book_flight
+#         annotations:
+#           effect: [irreversible, billable]
+#           idempotent: { key: request }
+#           input: [request]
+#           output: [booking_id]
+#       - id: send_confirmation
+#         annotations: { input: [booking_id], output: [confirmation] }
+#     edges:
+#       - from: availability_check
+#         kind: conditional
+#         condition: "'express' if request is pre-booked else 'standard'"
+#         path_map:
+#           standard: book_flight
+#           express: send_confirmation
+#       - from: book_flight
+#         to: send_confirmation
+#   source_snippet: |
+#     # Illustrative only — never executed.
+#     builder.add_conditional_edges(
+#         "availability_check", route_request,
+#         {"standard": "book_flight", "express": "send_confirmation"},
+#     )
+#   expected:
+#     result: fail
+#     failure:
+#       property_condition: "read-key-never-written-on-path"
+#       location:
+#         node: send_confirmation
+#         key: booking_id
+#         path: [START, availability_check, send_confirmation]
+#   notes: >
+#     The transitive write-before-read closure (Axiom T, Skavantzos & Link
+#     2023) is violated on exactly one of the two paths.

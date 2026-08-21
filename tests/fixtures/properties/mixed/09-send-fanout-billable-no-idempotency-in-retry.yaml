@@ -1,0 +1,131 @@
+# Fixture: mixed / 09
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — P-06 + P-07 failures with a P-09 advisory.
+
+property: [effect-safety, retry-coherence, parallel-safety]
+polarity: negative
+description: >
+  A multi-city booking agent: dispatch_bookings issues a Send fan-out that
+  instantiates book_segment once per itinerary segment; book_segment is
+  tagged @gebra.effect("billable", "network") with no idempotency, and the
+  whole fan-out sits inside a witnessed retry cycle (check_bookings routes
+  back to dispatch_bookings while retry_count < 2). Send multiplies the
+  unprotected effect by the number of segments on every retry round. P-06
+  and P-07 fail hard; P-09 raises an advisory, not a failure — the shared
+  booking_refs key does carry an operator.add reducer, which legalises the
+  concurrent writes but happily accumulates duplicate refs each re-dispatch.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_itinerary
+  finish: send_summary
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    segments: list
+    booking_refs:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    summary: str
+    retry_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: plan_itinerary
+      annotations:
+        pure: true
+        input: [trip_request]
+        output: [segments]
+    - id: dispatch_bookings
+      annotations:
+        pure: true
+        input: [segments]
+        output: [retry_count]
+    - id: book_segment
+      annotations:
+        effect: [billable, network]
+        input: [segments]
+        output: [booking_refs]
+    - id: check_bookings
+      annotations:
+        pure: true
+        input: [booking_refs, retry_count]
+        output: []
+    - id: send_summary
+      annotations:
+        pure: true
+        input: [booking_refs]
+        output: [summary]
+  edges:
+    - from: plan_itinerary
+      to: dispatch_bookings
+    - from: dispatch_bookings
+      to: book_segment
+      kind: send                   # one instance per segment payload
+    - from: book_segment
+      to: check_bookings
+    - from: check_bookings
+      kind: conditional
+      condition: "'retry' if any segment unconfirmed and retry_count < 2 else 'done'"
+      path_map:
+        retry: dispatch_bookings
+        done: send_summary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.types import Send
+
+  def dispatch_bookings(state: TripState):
+      return [Send("book_segment", {"segment": s}) for s in state["segments"]]
+
+  @gebra.effect("billable", "network")   # charged once PER SEND INSTANCE,
+  def book_segment(payload) -> dict:     # re-charged on every retry round
+      ref = airline.book(payload["segment"])
+      return {"booking_refs": [ref]}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-retry-region"
+    location:
+      kind: node
+      node: book_segment
+      cycle: [book_segment, check_bookings, dispatch_bookings]
+      effect: [billable, network]
+      fanout: send
+    severity: error
+    claim_class: defensible-a
+    co_failures:
+      - property: retry-coherence
+        property_condition: "reentrant-node-neither-pure-nor-idempotent"
+        location:
+          kind: node
+          node: book_segment
+          cycle: [book_segment, check_bookings, dispatch_bookings]
+        severity: error
+        claim_class: defensible-a
+    advisories:
+      - property: parallel-safety
+        property_condition: "fanout-retry-duplicate-accumulation"
+        location:
+          key: booking_refs
+          writer: book_segment
+          reducer: "operator.add"
+
+notes: >
+  Co-failing properties: P-06 effect-safety (primary — the Send fan-out
+  multiplies the unprotected billable effect: N segments x retry rounds
+  distinct charges) and P-07 retry-coherence (co_failures — book_segment
+  is re-enterable via the retry cycle and is neither pure nor idempotent).
+  P-09 parallel-safety is deliberately an ADVISORY, recorded under
+  failure.advisories rather than co_failures: the operator.add reducer
+  makes the concurrent instance writes well-defined, so the hard check
+  passes, but reducer-append plus re-dispatch means duplicate booking_refs
+  accumulate across retry rounds — a severity distinction the D-09 report
+  format needs to carry. The cycle is witnessed (retry_count < 2), so
+  P-02 passes: as in mixed/01, the witness bounds the loop without
+  protecting what loops inside it. The fix is per-instance idempotency
+  keyed on the Send payload (e.g. @gebra.idempotent on the segment field),
+  which clears P-06, P-07, and the advisory together.

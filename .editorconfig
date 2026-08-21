@@ -1,0 +1,43 @@
+# EditorConfig — https://editorconfig.org
+# Repository conventions required by SOW §5; the Python section mirrors the ruff
+# configuration in `pyproject.toml` (line length 100, 4-space indent) so an editor
+# and `ruff format` never disagree.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+[*.{yaml,yml,json,toml,md}]
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab
+
+# ── Vendored, byte-copy surfaces: editors must not touch them (WA-04, WA-11) ──
+# Fixture revisions route through R-05 sign-off and are re-vendored, never
+# reformatted in place; whitespace normalization would be exactly such an edit.
+[tests/fixtures/properties/**]
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_size = unset
+end_of_line = unset
+
+# ── Golden vectors are byte-exact by contract (WA-05; IR-SPEC §1.2) ──
+# vector-001.canonical.json is exactly 537 bytes with no trailing newline; an
+# editor appending one would be a golden-file change without justification.
+[tests/ir/golden/**]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

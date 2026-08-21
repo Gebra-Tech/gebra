@@ -1,0 +1,94 @@
+# Fixture: effect-safety / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: effect-safety
+polarity: positive
+description: >
+  The sanctioned form of the booking-retry classic: book_hotel is
+  @gebra.effect("billable") and sits inside a witnessed retry cycle
+  (verify_hold routes back on failure, bounded by retry_count < 3), but it
+  declares @gebra.idempotent(key="hotel_offer_id") with the key among its
+  declared reads. P-06 passes because the billable effect inside the cycle
+  region is protected by a concrete keyed idempotency declaration — the
+  structural condition of the P-06 formal statement. The pass claims
+  declaration PRESENCE only; Gebra does not verify the provider's actual
+  dedup behaviour at design time.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_stay
+  finish: send_confirmation
+  state:
+    hotel_offer_id: str
+    hold_ref: str
+    hold_status: str
+    confirmation: str
+    retry_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: plan_stay
+      annotations:
+        pure: true
+        input: []
+        output: [hotel_offer_id]
+    - id: book_hotel
+      annotations:
+        effect: [billable]
+        idempotent: { key: hotel_offer_id }
+        input: [hotel_offer_id]
+        output: [hold_ref, hold_status, retry_count]
+    - id: verify_hold
+      annotations:
+        pure: true
+        input: [hold_status, retry_count]
+        output: []
+    - id: send_confirmation
+      annotations:
+        input: [hold_ref]
+        output: [confirmation]
+  edges:
+    - from: plan_stay
+      to: book_hotel
+    - from: book_hotel
+      to: verify_hold
+    - from: verify_hold
+      kind: conditional
+      condition: "'retry' if hold_status == 'failed' and retry_count < 3 else 'ok'"
+      path_map:
+        retry: book_hotel
+        ok: send_confirmation
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("billable")
+  @gebra.idempotent(key="hotel_offer_id")  # retry safety pinned to a declared read
+  def book_hotel(state: TravelState) -> dict:
+      ref, status = hotels.hold(state["hotel_offer_id"])
+      return {"hold_ref": ref, "hold_status": status, "retry_count": 1}
+
+expected:
+  result: pass
+  witness:
+    kind: effect-safety
+    cycles:
+      - [book_hotel, verify_hold]
+    effects:
+      - node: book_hotel
+        effect: [billable]
+        region: retry
+        cycle: [book_hotel, verify_hold]
+        protection: idempotency_key
+        key: hotel_offer_id
+
+notes: >
+  Direct positive counterpart of negative-01-billable-in-unguarded-retry:
+  same topology, protection added. Corpus discipline: every other catalog
+  property holds — the cycle carries a bounded-counter witness (P-02),
+  book_hotel is keyed-idempotent on a declared input and verify_hold is
+  pure (P-07), the path_map covers both router labels (P-05), and all
+  reads are written upstream (P-04). Witness shape follows the ratified
+  P-06 I/O contract (PROPERTY-CATALOG-SPEC §6.3; walkthrough #2,
+  2026-07-18).

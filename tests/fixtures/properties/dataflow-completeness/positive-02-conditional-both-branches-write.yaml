@@ -1,0 +1,102 @@
+# Fixture: dataflow-completeness / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: positive
+description: >
+  A conditional-branch topology whose fan-in read is covered on every
+  path: check_availability routes to reserve_flight (standard) or
+  reserve_package (package), and BOTH alternative branches write
+  reservation_id before converging on send_summary, which reads it. The
+  structural condition satisfying P-04 is that each of the two
+  START-to-send_summary paths contains a reservation_id writer, so the
+  per-path write-before-read closure is complete despite no single node
+  dominating the read.
+
+ir:
+  ir_version: "1.0"
+  entry: check_availability
+  finish: send_summary
+  state:
+    request:
+      type: str
+      optional: true
+    availability: str
+    reservation_id: str
+    summary: str
+  nodes:
+    - id: check_availability
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request]
+        output: [availability]
+    - id: reserve_flight
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request, availability]
+        output: [reservation_id]
+    - id: reserve_package
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request, availability]
+        output: [reservation_id]
+    - id: send_summary
+      annotations:
+        effect: [network]
+        idempotent: { key: reservation_id }
+        input: [reservation_id]
+        output: [summary]
+  edges:
+    - from: check_availability
+      kind: conditional
+      condition: "'package' if availability is bundle-eligible else 'standard'"
+      path_map:
+        standard: reserve_flight
+        package: reserve_package
+    - from: reserve_flight
+      to: send_summary
+    - from: reserve_package
+      to: send_summary
+
+expected:
+  result: pass
+  witness:
+    kind: dataflow
+    coverage:
+      - node: check_availability
+        key: request
+        satisfied_by: [START]
+      - node: reserve_flight
+        key: request
+        satisfied_by: [START]
+      - node: reserve_flight
+        key: availability
+        satisfied_by: [check_availability]
+      - node: reserve_package
+        key: request
+        satisfied_by: [START]
+      - node: reserve_package
+        key: availability
+        satisfied_by: [check_availability]
+      - node: send_summary
+        key: reservation_id
+        satisfied_by: [reserve_flight, reserve_package]
+
+notes: >
+  Witness shape follows the ratified P-04 I/O contract
+  (PROPERTY-CATALOG-SPEC §4.3; walkthrough #2, 2026-07-18); satisfied_by
+  for send_summary/reservation_id is the two-writer set that jointly covers
+  both alternative paths — exactly one writer executes per run, which is
+  sufficient under the per-path quantification. Corpus discipline: only
+  P-04 is exercised — the branches are alternatives, not concurrent, so no
+  reducer is needed (P-09 vacuous); the path_map covers both labels the
+  declared condition can produce (P-05 holds); reservation nodes are
+  refundable holds tagged [network] only, deliberately avoiding
+  irreversible/billable so P-06/P-13 stay vacuous. Counterparts:
+  negative-01-express-path-skips-writer.yaml (one branch skips the writer
+  entirely) and negative-03-fan-in-missing-branch-writer.yaml (only one
+  branch writes the merged read).

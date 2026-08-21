@@ -1,0 +1,94 @@
+# Fixture: parallel-safety / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: parallel-safety
+axiom_basis: [augmentation]
+polarity: negative
+description: >
+  The canonical P-09(i) failure from Verification-Properties: plan_trip
+  fans out to check_weather and check_calendar in the same superstep, and
+  both branches write the shared notes key — but Sigma declares notes as a
+  bare list with NO reducer (the Annotated[list, operator.add] is
+  missing). At runtime LangGraph raises InvalidUpdateError only when both
+  branches actually fire in the same superstep; P-09 rejects the schema at
+  design time instead.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_trip
+  finish: compose_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    trip_context: str
+    notes: list
+    itinerary: str
+  nodes:
+    - id: plan_trip
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_context]
+    - id: check_weather
+      annotations:
+        pure: true
+        input: [trip_context]
+        output: [notes]
+    - id: check_calendar
+      annotations:
+        pure: true
+        input: [trip_context]
+        output: [notes]
+    - id: compose_itinerary
+      annotations:
+        pure: true
+        input: [trip_context, notes]
+        output: [itinerary]
+  edges:
+    - from: plan_trip
+      to: check_weather
+    - from: plan_trip
+      to: check_calendar
+    - from: check_weather
+      to: compose_itinerary
+    - from: check_calendar
+      to: compose_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from typing import TypedDict
+
+  class TravelState(TypedDict):
+      request: str
+      trip_context: str
+      notes: list        # no reducer — Annotated[list, operator.add] is missing
+      itinerary: str
+
+  builder.add_edge("plan_trip", "check_weather")
+  builder.add_edge("plan_trip", "check_calendar")   # both branches return {"notes": [...]}
+  # langgraph.errors.InvalidUpdateError fires only when both branches land
+  # in the same superstep; P-09 catches the missing reducer at design time.
+
+expected:
+  result: fail
+  failure:
+    property_condition: "concurrent-writers-without-reducer"
+    location:
+      key: notes
+      writers: [check_weather, check_calendar]
+      fan_out_from: plan_trip
+      join_at: compose_itinerary
+    runtime_analogue: "langgraph.errors.InvalidUpdateError"
+
+notes: >
+  Minimal pair with positive-01-reducer-guarded-parallel-enrichment.yaml —
+  identical topology and contracts; the only difference is the missing
+  reducer on notes. The fix is exactly the positive fixture's declaration:
+  notes: {type: list, reducer: operator.add}. Corpus discipline: only P-09
+  fails — the graph is acyclic (P-02 vacuous), all declared reads/writes
+  are subsets of keys(state) (P-03), every read is written upstream in
+  every execution (P-04), there are no conditional edges (P-05), and all
+  concurrent nodes are pure, so no P-06/P-07 coupling and the P-09(ii)
+  effect-commutativity advisory is vacuous — the fixture isolates the
+  reducer half.

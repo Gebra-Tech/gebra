@@ -1,0 +1,89 @@
+# Fixture: dataflow-completeness / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  The classic express-path-skips-writer violation: check_availability
+  routes standard requests through book_flight (the sole writer of
+  booking_id) but routes pre-held "express" requests straight to
+  send_confirmation, which reads booking_id. On the express path
+  START -> check_availability -> send_confirmation no node writes
+  booking_id, so the per-path write-before-read closure (Axiom T) is
+  violated on exactly one of the two paths while the standard path
+  remains complete.
+
+ir:
+  ir_version: "1.0"
+  entry: check_availability
+  finish: send_confirmation
+  state:
+    request:
+      type: str
+      optional: true
+    availability: str
+    booking_id: str
+    confirmation: str
+  nodes:
+    - id: check_availability
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request]
+        output: [availability]
+    - id: book_flight
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request, availability]
+        output: [booking_id]
+    - id: send_confirmation
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request, booking_id]
+        output: [confirmation]
+  edges:
+    - from: check_availability
+      kind: conditional
+      condition: "'express' if availability shows a pre-held booking else 'standard'"
+      path_map:
+        standard: book_flight
+        express: send_confirmation
+    - from: book_flight
+      to: send_confirmation
+
+source_snippet: |
+  # Illustrative only — never executed.
+  builder.add_conditional_edges(
+      "check_availability", route_booking,
+      {"standard": "book_flight", "express": "send_confirmation"},
+  )
+  builder.add_edge("book_flight", "send_confirmation")
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: send_confirmation
+      key: booking_id
+      path: [START, check_availability, send_confirmation]
+    severity: fatal
+    claim_class: defensible-a
+    writers_on_other_paths: [book_flight]
+
+notes: >
+  Corpus counterpart of the schema.yaml trailing documentation example and
+  of the P-04 failure example in Verification-Properties.md — the canonical
+  P-04 negative, kept as an in-corpus fixture so the D-10 golden suite
+  actually exercises it. Corpus discipline: only P-04 fails — booking is
+  tagged [network] (not irreversible/billable) so P-06/P-13 stay vacuous
+  and no co-failure arises; path_map covers both declared labels (P-05
+  holds); all reads/writes are Sigma keys (P-03 holds); the graph is
+  acyclic (P-02 vacuous). The extra failure field writers_on_other_paths
+  is an optional diagnostic on the P04Failure subtype, ratified kept at
+  walkthrough #2 (2026-07-18; PROPERTY-CATALOG-SPEC §4.3). Counterpart
+  positive: positive-02-conditional-both-branches-write.yaml.

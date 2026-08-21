@@ -1,0 +1,106 @@
+# Fixture: termination-witness / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# counter guard present, but no exit edge wired through it.
+
+property: termination-witness
+polarity: negative
+description: >
+  A fare-refresh loop where all the INGREDIENTS of witness form (a) exist
+  but the wiring does not: refresh_count is declared in the state schema,
+  incremented by fetch_rates, and bounded by the declared guard
+  refresh_count < 4 on throttle_check — yet BOTH branches of that guard
+  route back into the cycle ('immediate' and 'delayed' both target
+  fetch_rates; 'delayed' was meant to abort the search). The cycle's only
+  real exit is the LLM-influenced 'lock' decision, which is not a
+  witness. P-02 fails: a bounded-counter guard is a witness only when it
+  is wired to an edge that leaves the cycle.
+
+ir:
+  ir_version: "1.0"
+  entry: fetch_rates
+  finish: lock_rate
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    fare_quotes: list
+    refresh_count:
+      type: int
+      reducer: "operator.add"
+    locked_fare: str
+  nodes:
+    - id: fetch_rates
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [fare_quotes, refresh_count]   # increments the counter
+    - id: evaluate_rates
+      annotations:
+        pure: true
+        input: [fare_quotes]
+        output: []
+    - id: throttle_check
+      annotations:
+        pure: true
+        input: [refresh_count]
+        output: []
+    - id: lock_rate
+      annotations:
+        idempotent: { key: fare_quotes }
+        input: [fare_quotes]
+        output: [locked_fare]
+  edges:
+    - from: fetch_rates
+      to: evaluate_rates
+    - from: evaluate_rates
+      kind: conditional
+      condition: "'lock' if a quote satisfies the traveler's fare constraints else 'refresh' (LLM-influenced selection; no declared bound)"
+      path_map:
+        lock: lock_rate
+        refresh: throttle_check
+    - from: throttle_check
+      kind: conditional
+      condition: "'immediate' if refresh_count < 4 else 'delayed'"
+      path_map:
+        immediate: fetch_rates
+        delayed: fetch_rates    # miswired: 'delayed' was meant to leave the loop
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  # The copy-paste bug: both labels re-enter the loop.
+  builder.add_conditional_edges(
+      "throttle_check", check_refresh_budget,
+      {"immediate": "fetch_rates", "delayed": "fetch_rates"},
+      # intended: {"immediate": "fetch_rates", "delayed": END}
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "counter-guard-without-exit-edge"
+    location:
+      kind: cycle
+      nodes: [evaluate_rates, throttle_check, fetch_rates]
+      counter_key: refresh_count
+      guard_edge:
+        source: throttle_check
+        labels: [immediate, delayed]
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Nearest-miss negative for the D-09 validator: a naive check that only
+  looks for "bounded counter in Sigma + a guard matching the
+  bounded-counter grammar" would wrongly pass this fixture. Witness form
+  (a) additionally requires the guarded conditional edge to EXIT the
+  cycle; here both path_map targets re-enter it, so the guard merely
+  selects retry cadence. The opaque 'lock' branch keeps graph-well-formed
+  satisfied (lock_rate and the finish are reachable) but is not a
+  witness. property_condition is deliberately distinct from
+  cycle-without-termination-witness to make the diagnostic actionable
+  (DEC-05 D4; both IDs RATIFIED in the section-0.4 registry).
+  Witness/failure shape conforms to PROPERTY-CATALOG-SPEC (wedge five
+  pinned 2026-07-18, DEC-11). Corpus discipline: only P-02 fails — keyed
+  idempotency on declared inputs, no effect tags, all reads written
+  upstream or optional, all path_map labels wired.

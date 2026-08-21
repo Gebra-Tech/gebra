@@ -1,0 +1,88 @@
+# Fixture: determinism-replay / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): the expected failure below is an
+# advisory diagnostic (severity: warning), not a blocking verdict.
+
+property: determinism-replay
+polarity: negative
+description: >
+  An LLM-backed intent classifier (classify_intent, effects
+  [network, external]) declares the bare @gebra.deterministic claim with NO
+  seed pinned. P-08's coherence condition for LLM-backed nodes requires the
+  object form deterministic:{seed} plus pinned temperature; the bare
+  boolean on a node that calls a remote provider is an unpinned determinism
+  claim. As a HEURISTIC/WARNING property, P-08 records the incoherence and
+  warns — it never blocks, and divergence at replay must be logged, not
+  silently accepted.
+
+ir:
+  ir_version: "1.0"
+  entry: receive_message
+  finish: compose_response
+  state:
+    message: str
+    intent: str
+    response: str
+  nodes:
+    - id: receive_message
+      annotations:
+        pure: true
+        input: []
+        output: [message]
+    - id: classify_intent
+      annotations:
+        deterministic: true
+        effect: [network, external]
+        input: [message]
+        output: [intent]
+    - id: compose_response
+      annotations:
+        input: [intent]
+        output: [response]
+  edges:
+    - from: receive_message
+      to: classify_intent
+    - from: classify_intent
+      to: compose_response
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  llm = init_chat_model("openai:gpt-4.1-mini")  # neither seed nor temperature set
+
+  @gebra.deterministic          # bare claim — no seed anywhere
+  @gebra.contract(reads={"message"}, writes={"intent"},
+                  effects={"network", "external"})
+  def classify_intent(state: TravelState) -> dict:
+      return {"intent": llm.invoke(INTENT_PROMPT.format(text=state["message"])).content}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "deterministic-llm-seed-unpinned"
+    severity: warning
+    claim_class: heuristic
+    location:
+      kind: node
+      node: classify_intent
+      annotation: deterministic
+      form: bare-boolean
+      effects: [network, external]
+    remediation: >-
+      The claim is recorded. Pin the configuration —
+      @gebra.deterministic(seed=N) with temperature=0 — or drop the claim;
+      replay divergence must be logged either way.
+
+notes: >
+  Failure shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + Appendix B; walkthrough #2, 2026-07-18).
+  The IR-decidable evidence is the annotation FORM: bare boolean
+  (no seed) co-declared with network/external effects. `result: fail` here
+  means "the P-08 checker fires a diagnostic"; the severity/claim_class
+  fields record that the diagnostic is a WARNING from a HEURISTIC property
+  (tutorial §7: 'the framework does not silently pretend LLMs are
+  deterministic'), promotable to failure only under --gebra-strict. Corpus
+  isolation: acyclic (P-02 vacuous), reads written upstream (P-04), keys
+  declared (P-03), no idempotency claims or protected effects needed
+  (P-06/P-07 hold — network/external outside any retry region), no fan-out
+  (P-09). Counterpart: positive-01-pinned-seed-zero-temp-classifier.yaml
+  (same shape of node, fully pinned).

@@ -1,0 +1,112 @@
+# Fixture: mixed / 03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-09 + P-08 interaction.
+
+property: [parallel-safety, determinism-replay]
+polarity: negative
+description: >
+  A two-branch analyst fan-out (market_analysis and risk_analysis run in
+  parallel from intake) where both branches write the same state key
+  `analysis`, which declares no reducer — and both writers are LLM nodes
+  annotated @gebra.deterministic with NO pinned seed. P-09 flags the
+  reducer-less concurrent write; P-08 flags the unpinned determinism
+  claims. The failures compound: even if a reducer were added, replay of
+  the merged key would still diverge while the writers' outputs are
+  unpinned, and even with pinned seeds the reducer-less merge stays
+  order-nondeterministic.
+
+ir:
+  ir_version: "1.0"
+  entry: intake
+  finish: merge_report
+  state:
+    brief: str
+    analysis: str          # shared write target; no reducer declared
+    report: str
+  nodes:
+    - id: intake
+      annotations:
+        pure: true
+        input: []
+        output: [brief]
+    - id: market_analysis
+      annotations:
+        deterministic: true      # unpinned claim on an LLM call
+        effect: [network, external]
+        input: [brief]
+        output: [analysis]
+    - id: risk_analysis
+      annotations:
+        deterministic: true      # unpinned claim on an LLM call
+        effect: [network, external]
+        input: [brief]
+        output: [analysis]
+    - id: merge_report
+      annotations:
+        pure: true
+        input: [analysis]
+        output: [report]
+  edges:
+    - from: intake
+      to: market_analysis
+    - from: intake
+      to: risk_analysis
+    - from: market_analysis
+      to: merge_report
+    - from: risk_analysis
+      to: merge_report
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.deterministic          # claims replay-stable output, pins no seed
+  def market_analysis(state: AnalystState) -> dict:
+      return {"analysis": llm.invoke(market_prompt(state["brief"])).content}
+
+  builder.add_edge("intake", "market_analysis")   # parallel super-step:
+  builder.add_edge("intake", "risk_analysis")     # both write `analysis`
+
+expected:
+  result: fail
+  failure:
+    property_condition: "concurrent-writers-without-reducer"
+    location:
+      key: analysis
+      writers: [market_analysis, risk_analysis]
+      branch_point: intake
+    severity: error
+    claim_class: defensible
+    advisories:
+      - property: determinism-replay
+        property_condition: "deterministic-llm-seed-unpinned"
+        severity: warning
+        claim_class: heuristic
+        location:
+          kind: node
+          node: market_analysis
+      - property: determinism-replay
+        property_condition: "deterministic-llm-seed-unpinned"
+        severity: warning
+        claim_class: heuristic
+        location:
+          kind: node
+          node: risk_analysis
+
+notes: >
+  Co-failing properties: P-09 parallel-safety (primary) and P-08
+  determinism-replay (advisories, once per unpinned writer). The
+  interaction is the point: the two defects are independently fixable but
+  only jointly sufficient — a reducer on `analysis` cures the P-09 clash
+  yet replay still diverges because the merged inputs are unpinned LLM
+  outputs, while pinning seeds cures P-08 yet the last-writer-wins merge
+  order remains nondeterministic across super-step scheduling. Only
+  reducer + pinned seeds together restore replay stability; the healthy
+  counterpart (reducer-merged parallel writes feeding a seed-pinned
+  composer) is mixed/10. A bare @gebra.deterministic is legal per D-013
+  where the wrapped computation is genuinely seedless; on an LLM call it
+  is an unverifiable claim, which is what P-08 rejects. P-04 holds
+  (`analysis` is written on every path into merge_report); P-03 holds (all
+  keys declared). Writer nodes carry effect: [network, external] as the
+  IR-level evidence of external LLM calls, per the P-08 evidence rule
+  (see determinism-replay/positive-02 notes).

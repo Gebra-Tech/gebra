@@ -1,0 +1,100 @@
+# Fixture: mixed / 02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-02 + P-04 interaction.
+
+property: [termination-witness, dataflow-completeness]
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  A gather -> summarize -> check research loop with two independent defects
+  in the same loop body: the cycle has no termination witness of any kind
+  (the only exit is an opaque reviewer judgement), and summarize reads
+  style_guide, a state key that is declared in the schema but written by no
+  node and not marked optional. Both defects surface on the very first
+  design-time pass — the loop may never stop, and even its first iteration
+  reads a key that was never produced.
+
+ir:
+  ir_version: "1.0"
+  entry: gather
+  finish: publish
+  state:
+    topic:
+      type: str
+      optional: true       # graph input; treated as written at START
+    notes:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    style_guide: str       # declared but never written by any node
+    summary: str
+    report: str
+  nodes:
+    - id: gather
+      annotations:
+        idempotent: { key: topic }
+        input: [topic]
+        output: [notes]
+    - id: summarize
+      annotations:
+        idempotent: { key: notes }
+        input: [notes, style_guide]
+        output: [summary]
+    - id: check
+      annotations:
+        pure: true
+        input: [notes, summary]
+        output: []
+    - id: publish
+      annotations:
+        pure: true
+        input: [summary]
+        output: [report]
+  edges:
+    - from: gather
+      to: summarize
+    - from: summarize
+      to: check
+    - from: check
+      kind: conditional
+      condition: "reviewer judges 'more' or 'done' from coverage (LLM-influenced; no declared bound)"
+      path_map:
+        more: gather
+        done: publish
+
+expected:
+  result: fail
+  failure:
+    property_condition: "cycle-without-termination-witness"
+    location:
+      kind: scc
+      nodes: [check, gather, summarize]
+      representative_cycle: [check, gather, summarize]
+      exhaustive: false
+    severity: fatal
+    claim_class: defensible
+    co_failures:
+      - property: dataflow-completeness
+        property_condition: "read-key-never-written-on-path"
+        location:
+          kind: state-key
+          key: style_guide
+          node: summarize
+          path: [START, gather, summarize]
+        severity: fatal
+        claim_class: defensible-a
+
+notes: >
+  Co-failing properties: P-02 termination-witness (primary) and P-04
+  dataflow-completeness (co_failures). The interaction is the point: both
+  defects live inside the same loop body, so a reviewer who fixes only the
+  witness (adding a rounds < N counter) still ships a loop whose body reads
+  an unproduced key on every iteration — and vice versa. The two validators
+  must each report independently rather than masking one another.
+  axiom_basis covers the P-04 member only (write-before-read transitive
+  closure, Skavantzos & Link 2023); P-02 derives from D-016, not the axiom
+  system. Note style_guide IS in keys(state), so P-03 signature-soundness
+  passes — this fixture separates "undeclared key" (P-03) from "declared
+  but unwritten key" (P-04). Loop nodes are keyed-idempotent or pure, so
+  P-06/P-07 hold. Single-property counterparts:
+  termination-witness/negative-01-unwitnessed-reflection-loop.yaml.

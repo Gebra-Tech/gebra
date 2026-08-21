@@ -1,0 +1,97 @@
+gebra <gebra-version> — travel_booking:build_graph (extracted)
+  identity                ir_version 1.0 | graph_version sha256:490e53db21df7302... | extractor 
+<gebra-version> | strict off
+
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets
+    reachable from START    3 nodes: book_flight, check_availability, send_confirmation
+    terminal nodes          send_confirmation
+    orphan check            evaluated — no node stands outside every edge
+    reference check         evaluated — every edge and path_map target resolves
+
+P-02 termination-witness — not checked  [not-yet-implemented]
+  status                  no verdict was reached — this is not a pass; no validator is registered in
+this build
+    detail                  P-02 termination-witness is one of the Phase-0 wedge five, but no 
+validator is registered for it in this build. Its contract is PROPERTY-CATALOG-SPEC §2; 
+TERMINATION-WITNESS-SPEC. No verdict was reached — this is not a pass.
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — pass  [DEFENSIBLE-A]
+  witness                 1 (reader, key) obligation covered
+    coverage                1 (reader, key) obligation covered
+    covered                 send_confirmation reads booking_id <- covered by book_flight
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-06 effect-safety — pass  [DEFENSIBLE-A]
+  witness                 0 cycles | 0 effect-tagged nodes recorded
+    cycle inventory         0 cycles
+    effect                  no node declares a trigger effect tag
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — pass  [HEURISTIC]
+  witness                 0 declared determinism claims
+    claim class             heuristic (carried in-band)
+    claims                  no node declared determinism, so nothing was checked — this is not a 
+statement that every node is deterministic
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and 
+has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+summary
+  findings                0 fatal | 0 error | 0 warning
+  notes                   0 carried (0 warning-grade)
+  properties              4 reported | 9 produced no verdict
+  strict                  off
+  exit                    0 — no warning-grade finding or note was carried

@@ -1,0 +1,89 @@
+# Fixture: parallel-safety / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: parallel-safety
+axiom_basis: [augmentation]
+polarity: negative
+description: >
+  A Send fan-out template whose target writes a reducer-less shared key:
+  plan_destinations issues a send edge to research_destination — one
+  concurrent instance per candidate destination — and every instance
+  writes findings, which Sigma declares as a bare list with no reducer.
+  The send template statically implies N concurrent writers of the same
+  key (the target node is concurrent with its own siblings), so any
+  fan-out over two or more destinations hits LangGraph's
+  InvalidUpdateError at runtime; P-09(i) rejects the template at design
+  time.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_destinations
+  finish: compile_report
+  state:
+    request:
+      type: str
+      optional: true
+    destinations: list
+    findings: list
+    report: str
+  nodes:
+    - id: plan_destinations
+      annotations:
+        pure: true
+        input: [request]
+        output: [destinations]
+    - id: research_destination
+      annotations:
+        pure: true
+        input: [destinations]
+        output: [findings]
+    - id: compile_report
+      annotations:
+        pure: true
+        input: [findings]
+        output: [report]
+  edges:
+    - from: plan_destinations
+      to: research_destination
+      kind: send
+    - from: research_destination
+      to: compile_report
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.types import Send
+
+  def fan_out(state):
+      return [Send("research_destination", {"destination": d})
+              for d in state["destinations"]]   # N parallel instances
+
+  # Every instance returns {"findings": [...]}; findings carries no reducer,
+  # so any fan-out over >= 2 destinations raises InvalidUpdateError when
+  # the instances land in the same superstep.
+
+expected:
+  result: fail
+  failure:
+    property_condition: "send-fanout-writer-without-reducer"
+    location:
+      key: findings
+      writer: research_destination
+      send_edge:
+        from: plan_destinations
+        to: research_destination
+    runtime_analogue: "langgraph.errors.InvalidUpdateError"
+
+notes: >
+  The send kind makes the target node concurrent with its own sibling
+  instances, so a single template edge suffices for a same-key collision —
+  no second writer node is needed. Honest claim about the static
+  approximation: a zero- or one-element destinations list would not
+  collide at runtime; P-09 flags the template because the instance count
+  is unbounded at design time. The fix is findings: {type: list, reducer:
+  operator.add}. Corpus discipline: only P-09 fails — the graph is acyclic
+  (P-02 vacuous), reads/writes are subsets of keys(state) (P-03),
+  compile_report's read of findings is written upstream by every execution
+  of the fan-out (P-04), there are no conditional edges (P-05), and
+  research_destination is modeled as pure enrichment over already-loaded
+  context (effect tags deliberately omitted) so P-06/P-07 stay quiescent
+  and the P-09(ii) commutativity advisory is vacuous.

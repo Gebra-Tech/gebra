@@ -1,0 +1,28 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "properties": [],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 2,
+    "outcome": "tool-error",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": false
+  },
+  "error": {
+    "stage": "dispatch",
+    "detail": "the run could not be assembled: no validator is registered for graph-well-formed. A run that checked the rest would be a weakened gate wearing a pass (§1.4 rule 2), so no verdict is reported."
+  }
+}

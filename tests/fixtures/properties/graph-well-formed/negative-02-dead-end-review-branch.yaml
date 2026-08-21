@@ -1,0 +1,82 @@
+# Fixture: graph-well-formed / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: graph-well-formed
+polarity: negative
+description: >
+  A document pipeline whose corrupt-document branch dead-ends: extract_text
+  routes 'corrupt' documents to flag_for_review, but flag_for_review has
+  no outgoing edge and is not in finish — execution reaching it can never
+  reach END. The node is reachable (condition i holds) and participates in
+  an edge (condition iii holds); the fixture isolates condition (ii), the
+  no-dead-ends requirement that every sink node be wired to END.
+
+ir:
+  ir_version: "1.0"
+  entry: extract_text
+  finish: archive_summary
+  state:
+    raw_document:
+      type: str
+      optional: true       # graph input; treated as written at START
+    text: str
+    quality: str
+    summary: str
+    archive_id: str
+    review_flag: bool
+  nodes:
+    - id: extract_text
+      annotations:
+        pure: true
+        input: [raw_document]
+        output: [text, quality]
+    - id: summarize_text
+      annotations:
+        idempotent: { key: text }
+        input: [text]
+        output: [summary]
+    - id: archive_summary
+      annotations:
+        effect: [write]
+        idempotent: { key: summary }
+        input: [summary]
+        output: [archive_id]
+    - id: flag_for_review
+      annotations:
+        effect: [write]
+        idempotent: { key: raw_document }
+        input: [raw_document, quality]
+        output: [review_flag]
+  edges:
+    - from: extract_text
+      kind: conditional
+      condition: "'clean' if quality == 'ok' else 'corrupt'"
+      path_map:
+        clean: summarize_text
+        corrupt: flag_for_review
+    - from: summarize_text
+      to: archive_summary
+    # BUG: no edge from flag_for_review, and flag_for_review is not in
+    # finish — the corrupt branch strands execution short of END.
+
+expected:
+  result: fail
+  failure:
+    property_condition: "dead-end-node-not-wired-to-end"
+    location:
+      kind: node
+      node: flag_for_review
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Corpus discipline: only P-01 fails. Both path_map targets exist
+  (condition iv holds) and the declared guard codomain is exactly the two
+  labels (P-05). flag_for_review's reads (raw_document, quality) are
+  written at START and by extract_text respectively, so P-04 holds on the
+  corrupt path up to the dead end. Effects are keyed-idempotent on
+  declared inputs (P-06/P-07); the graph is acyclic (P-02 vacuous). The
+  repair is either builder.add_edge("flag_for_review", END) or adding the
+  node to finish; the fixture deliberately does neither. Counterpart
+  positive: positive-01-linear-document-pipeline (same domain, every sink
+  wired to END).

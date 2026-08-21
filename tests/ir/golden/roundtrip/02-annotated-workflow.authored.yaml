@@ -1,0 +1,102 @@
+# Round-trip golden 02 — a realistic annotated workflow.
+#
+# Carries every one of the nine new-in-1.0 slots (PD-003 Appendix A: the six annotation
+# slots `args_schema`, `retry_policy`, `variant`, `compensation`, `prompt_digest`,
+# `config_digest`, and the three `runtime` sub-slots `recursion_limit`, `interrupts`,
+# `checkpointer`), all three edge kinds, both `state` surface forms, and both object forms
+# of `idempotent` / `deterministic`.
+ir_version: "1.0"
+entry: plan
+finish: report
+state:
+  task: str
+  budget: int
+  results:
+    type: list
+    reducer: operator.add
+  draft:
+    type: str
+    optional: true
+nodes:
+  - id: plan
+    annotations:
+      pure: true
+      input: [task]
+      output: [draft]
+      prompt_digest: "sha256:5ab1eaf8b1c1a1f7a52f4d5a09bd6b6f7a29d2d15c1c47c4a3fce4d3f6a1b2c3"
+      config_digest: "sha256:9f2c1de4b0d2a3c4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7f80192a3b4c5"
+  - id: search
+    annotations:
+      effect: [network]
+      input: [draft, budget]
+      output: [results]
+      deterministic: false
+      idempotent:
+        key: draft
+      retry_policy:
+        max_attempts: 3
+        retry_on: [TimeoutError, ConnectionError]
+      args_schema:
+        type: object
+        properties:
+          query:
+            type: string
+          limit:
+            type: integer
+            default: null
+        required: [query]
+        prefixItems:
+          - { type: string }
+          - { type: integer }
+  - id: book
+    annotations:
+      effect: [payment, network]
+      input: [results, budget]
+      output: [draft]
+      idempotent:
+        key: results
+      compensation:
+        hook: refund
+      deterministic:
+        seed: 7
+        temperature: 0.0
+  - id: refund
+    annotations:
+      effect: [payment]
+      input: [draft]
+      output: [draft]
+  - id: report
+    annotations:
+      input: [results, draft]
+      output: [draft]
+      source: report_tool
+      map: results
+      variant:
+        key: budget
+        measure: decreases
+edges:
+  - from: plan
+    to: search
+  - from: search
+    kind: conditional
+    condition: enough(results)
+    path_map:
+      more: search
+      enough: book
+      abort: report
+  - from: book
+    kind: send
+    to: report
+  - from: refund
+    to: report
+  - from: report
+    to: "END"
+runtime:
+  recursion_limit:
+    value: 25
+    justification: the search loop is bounded by the declared review budget
+  interrupts:
+    before: [book]
+    after: [refund]
+  checkpointer:
+    present: true

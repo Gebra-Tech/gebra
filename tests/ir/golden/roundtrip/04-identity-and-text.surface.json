@@ -1,0 +1,92 @@
+{
+  "ir_version": "1.0",
+  "entry": "parent/child",
+  "finish": "café/résumé",
+  "state": {
+    "état": "str",
+    "a b": "int"
+  },
+  "nodes": [
+    {
+      "id": "parent/child",
+      "annotations": {
+        "input": [
+          "état"
+        ],
+        "output": [
+          "a b"
+        ],
+        "source": "yes"
+      }
+    },
+    {
+      "id": "chain/%seq[0]",
+      "annotations": {
+        "idempotent": {
+          "key": "a b"
+        },
+        "map": "null"
+      }
+    },
+    {
+      "id": "chain/%map[docs%2Fraw]",
+      "annotations": {
+        "source": "1.0"
+      }
+    },
+    {
+      "id": "100%25/branch%2Fname",
+      "annotations": {
+        "variant": {
+          "key": "état",
+          "measure": "- not a sequence item"
+        }
+      }
+    },
+    {
+      "id": "café/résumé",
+      "annotations": {
+        "source": "key: value",
+        "map": "*alias &anchor #hash"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "kind": "normal",
+      "from": "parent/child",
+      "to": "chain/%seq[0]"
+    },
+    {
+      "kind": "conditional",
+      "from": "chain/%seq[0]",
+      "condition": "a multi-line condition,\ndeclared IR content that is never evaluated\n",
+      "path_map": {
+        "yes": "chain/%map[docs%2Fraw]",
+        "": "100%25/branch%2Fname",
+        "  padded  ": "café/résumé"
+      }
+    },
+    {
+      "kind": "normal",
+      "from": "chain/%map[docs%2Fraw]",
+      "to": "END"
+    },
+    {
+      "kind": "normal",
+      "from": "100%25/branch%2Fname",
+      "to": "END"
+    },
+    {
+      "kind": "normal",
+      "from": "café/résumé",
+      "to": "END"
+    }
+  ],
+  "runtime": {
+    "recursion_limit": {
+      "value": 12,
+      "justification": "  leading and trailing spaces, and a  double  space  "
+    }
+  }
+}

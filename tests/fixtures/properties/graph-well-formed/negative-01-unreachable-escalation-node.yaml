@@ -1,0 +1,101 @@
+# Fixture: graph-well-formed / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: graph-well-formed
+polarity: negative
+description: >
+  A support-triage agent whose escalation handler is stranded: the team
+  added escalate_to_human and wired its OUTGOING edge to send_reply, but
+  the classifier's path_map only routes 'billing' and 'technical' — no
+  edge ever leads INTO escalate_to_human, so it is unreachable from START.
+  Because the node does participate in an edge, this is NOT an orphan:
+  the fixture isolates condition (i) reachability from condition (iii)
+  orphan-hood. LangGraph compiles this graph without complaint; the dead
+  handler is silently never executed.
+
+ir:
+  ir_version: "1.0"
+  entry: classify_ticket
+  finish: send_reply
+  state:
+    ticket:
+      type: str
+      optional: true       # graph input; treated as written at START
+    category: str
+    draft_reply: str
+    reply_id: str
+  nodes:
+    - id: classify_ticket
+      annotations:
+        effect: [network]
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [category]
+    - id: handle_billing
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket, category]
+        output: [draft_reply]
+    - id: handle_technical
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket, category]
+        output: [draft_reply]
+    - id: escalate_to_human
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [draft_reply]
+    - id: send_reply
+      annotations:
+        effect: [external]
+        idempotent: { key: draft_reply }
+        input: [draft_reply]
+        output: [reply_id]
+  edges:
+    - from: classify_ticket
+      kind: conditional
+      condition: "'billing' if category == 'billing' else 'technical'"
+      path_map:
+        billing: handle_billing
+        technical: handle_technical
+    - from: handle_billing
+      to: send_reply
+    - from: handle_technical
+      to: send_reply
+    - from: escalate_to_human
+      to: send_reply
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_node("escalate_to_human", escalate_node)
+  builder.add_conditional_edges(
+      "classify_ticket", route_ticket,
+      {"billing": "handle_billing", "technical": "handle_technical"},
+      # BUG: the "escalate" label was never added to the path_map,
+      # so nothing ever routes to escalate_to_human.
+  )
+  builder.add_edge("escalate_to_human", "send_reply")
+
+expected:
+  result: fail
+  failure:
+    property_condition: "node-unreachable-from-start"
+    location:
+      kind: node
+      node: escalate_to_human
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Corpus discipline: only P-01 fails. The declared guard codomain is
+  exactly {'billing', 'technical'}, both covered by the path_map, so P-05
+  guard-exhaustiveness holds — the defect is a missing router label as a
+  reachability failure, not an uncovered label. All reads on live paths
+  are written upstream or at START (P-04); the stranded node's own read is
+  a graph input, and dataflow quantifies over START-paths, none of which
+  visit it (confirmed by R-05 lead review 2026-07-17, DEC-05: P-04
+  quantifies over START-paths; P-01 owns unreachable code). Effects are
+  keyed-idempotent on declared inputs (P-06/P-07);
+  the graph is acyclic (P-02 vacuous). Counterpart positive:
+  positive-02-support-triage-branching (same domain, complete path_map).

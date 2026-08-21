@@ -1,0 +1,129 @@
+# Fixture: evolution-safety / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: positive
+description: >
+  v1.1 -> v1.2 of the travel-booking workflow: an optional loyalty_tier
+  state key is added (the canonical safe example from Verification-
+  Properties P-12), and send_confirmation's contract is additively widened
+  to read it for message personalization. Because loyalty_tier is declared
+  optional (graph input / carries a default, so treated as written at
+  START), the widened read is always satisfied and no prior contract is
+  invalidated — the Axiom E case in its purest form. Topology is
+  untouched; P-12 classifies the diff as safe with an E (state schema) and
+  F (node contract) bump.
+
+ir_before:
+  ir_version: "1.0"
+  entry: classify_request
+  finish: send_confirmation
+  state:
+    request: str
+    flight_option: str
+    booking_ref: str
+    confirmation: str
+  nodes:
+    - id: classify_request
+      annotations:
+        pure: true
+        input: []
+        output: [request]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [request]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option]
+        output: [booking_ref]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: classify_request
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+
+ir_after:
+  ir_version: "1.0"
+  entry: classify_request
+  finish: send_confirmation
+  state:
+    request: str
+    flight_option: str
+    booking_ref: str
+    loyalty_tier:
+      type: str
+      optional: true
+    confirmation: str
+  nodes:
+    - id: classify_request
+      annotations:
+        pure: true
+        input: []
+        output: [request]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [request]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option]
+        output: [booking_ref]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref, loyalty_tier]
+        output: [confirmation]
+  edges:
+    - from: classify_request
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  class TravelState(TypedDict):
+      request: str
+      flight_option: str
+      booking_ref: str
+      loyalty_tier: NotRequired[str]   # v1.2: new optional key
+      confirmation: str
+
+expected:
+  result: pass
+  witness:
+    kind: evolution
+    classification: safe
+    bump: [E, F]
+    changes:
+      - change: state-key-added
+        key: loyalty_tier
+        optional: true
+      - change: contract-input-widened
+        node: send_confirmation
+        key: loyalty_tier
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). The key-only
+  variant (add loyalty_tier with no reader) would be the catalog's exact
+  "E-bump only" wording; this fixture adds the additive reader to exercise
+  the F segment as well. Corpus discipline: both snapshots individually
+  satisfy P-01..P-09 — the widened read is START-satisfied via
+  optional: true, so dataflow-completeness and signature-soundness hold in
+  ir_after.

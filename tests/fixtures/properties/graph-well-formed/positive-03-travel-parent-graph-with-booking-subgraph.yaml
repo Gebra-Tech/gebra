@@ -1,0 +1,95 @@
+# Fixture: graph-well-formed / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: graph-well-formed
+polarity: positive
+description: >
+  A travel-booking parent graph containing a compiled booking subgraph
+  mounted as a single opaque node (book_travel_subgraph), plus an optional
+  bypass branch that skips booking entirely. P-01 checks the PARENT
+  topology only, treating the subgraph node like any other vertex: it is
+  reachable from START via the 'book' label, it has an outgoing edge to
+  compose_itinerary, and both path_map targets resolve. The single sink
+  (compose_itinerary) is wired to END on both the booking and the bypass
+  path.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_trip
+  finish: compose_itinerary
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    trip_plan: str
+    needs_booking: bool
+    booking_ref:
+      type: str
+      optional: true       # defaults to None; only the booking branch writes it
+    itinerary: str
+  nodes:
+    - id: plan_trip
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [trip_plan, needs_booking]
+    - id: book_travel_subgraph
+      annotations:
+        effect: [external]
+        idempotent: { key: trip_plan }
+        input: [trip_plan]
+        output: [booking_ref]
+    - id: compose_itinerary
+      annotations:
+        pure: true
+        input: [trip_plan, booking_ref]
+        output: [itinerary]
+  edges:
+    - from: plan_trip
+      kind: conditional
+      condition: "'book' if needs_booking else 'skip'"
+      path_map:
+        book: book_travel_subgraph
+        skip: compose_itinerary
+    - from: book_travel_subgraph
+      to: compose_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.graph import StateGraph, START, END
+
+  booking_builder = StateGraph(BookingState)   # interior omitted here
+  booking_graph = booking_builder.compile()
+
+  builder = StateGraph(TripState)
+  builder.add_node("plan_trip", plan_trip_node)
+  builder.add_node("book_travel_subgraph", booking_graph)  # compiled subgraph as a node
+  builder.add_node("compose_itinerary", compose_itinerary_node)
+  builder.add_edge(START, "plan_trip")
+  builder.add_conditional_edges(
+      "plan_trip", route_booking,
+      {"book": "book_travel_subgraph", "skip": "compose_itinerary"},
+  )
+  builder.add_edge("book_travel_subgraph", "compose_itinerary")
+  builder.add_edge("compose_itinerary", END)
+
+expected:
+  result: pass
+  witness:
+    kind: well-formedness
+    reachable_from_start: [book_travel_subgraph, compose_itinerary, plan_trip]
+    terminal_nodes: [compose_itinerary]
+    orphan_nodes: []
+    unresolved_targets: []
+
+notes: >
+  Witness/failure shape conforms to PROPERTY-CATALOG-SPEC (wedge five
+  pinned 2026-07-18, DEC-11). The gebra-ir schema
+  currently represents a compiled subgraph as an opaque node; interior
+  well-formedness of the mounted subgraph is P-10 subgraph-consistency
+  territory and is deliberately NOT exercised here. Corpus discipline: all
+  other catalog properties hold — booking_ref is optional (default None) so
+  compose_itinerary's read is satisfied on the 'skip' path too (P-04); the
+  guard codomain is exactly the two path_map labels (P-05); the subgraph
+  node's external effect is keyed-idempotent on a declared input
+  (P-06/P-07); the graph is acyclic (P-02 vacuous).

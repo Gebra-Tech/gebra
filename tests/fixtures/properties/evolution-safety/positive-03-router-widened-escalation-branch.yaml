@@ -1,0 +1,138 @@
+# Fixture: evolution-safety / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: positive
+description: >
+  v1.1 -> v1.2 of a booking-support triage workflow: the existing triage
+  router is widened additively with a third label ('escalate') routing to
+  a new escalate_to_human node. All prior labels and their targets are
+  preserved, the updated path_map fully covers the widened label set, and
+  the new branch has complete dataflow (escalate_to_human reads ticket,
+  a START-provided optional key, and writes resolution exactly like its
+  sibling branches, so compose_reply's read stays satisfied on every
+  path). Widening consistency per Axiom A: adding a guarded alternative
+  never invalidates the existing branches. P-12 classifies the diff as
+  safe (S bump).
+
+ir_before:
+  ir_version: "1.0"
+  entry: triage_ticket
+  finish: compose_reply
+  state:
+    ticket:
+      type: str
+      optional: true
+    category: str
+    resolution: str
+    reply: str
+  nodes:
+    - id: triage_ticket
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [category]
+    - id: handle_billing
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [resolution]
+    - id: handle_itinerary
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [resolution]
+    - id: compose_reply
+      annotations:
+        input: [resolution]
+        output: [reply]
+  edges:
+    - from: triage_ticket
+      kind: conditional
+      condition: "'billing' if category == 'billing' else 'itinerary'"
+      path_map:
+        billing: handle_billing
+        itinerary: handle_itinerary
+    - from: handle_billing
+      to: compose_reply
+    - from: handle_itinerary
+      to: compose_reply
+
+ir_after:
+  ir_version: "1.0"
+  entry: triage_ticket
+  finish: compose_reply
+  state:
+    ticket:
+      type: str
+      optional: true
+    category: str
+    resolution: str
+    reply: str
+  nodes:
+    - id: triage_ticket
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [category]
+    - id: handle_billing
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [resolution]
+    - id: handle_itinerary
+      annotations:
+        pure: true
+        input: [ticket]
+        output: [resolution]
+    - id: escalate_to_human
+      annotations:
+        input: [ticket]
+        output: [resolution]
+    - id: compose_reply
+      annotations:
+        input: [resolution]
+        output: [reply]
+  edges:
+    - from: triage_ticket
+      kind: conditional
+      condition: "'escalate' if category == 'complaint' else ('billing' if category == 'billing' else 'itinerary')"
+      path_map:
+        billing: handle_billing
+        itinerary: handle_itinerary
+        escalate: escalate_to_human
+    - from: handle_billing
+      to: compose_reply
+    - from: handle_itinerary
+      to: compose_reply
+    - from: escalate_to_human
+      to: compose_reply
+
+expected:
+  result: pass
+  witness:
+    kind: evolution
+    classification: safe
+    bump: [S]
+    changes:
+      - change: router-label-added
+        edge: { from: triage_ticket }
+        new_label: escalate
+        preserved_labels: [billing, itinerary]
+      - change: node-added
+        node: escalate_to_human
+      - change: edge-added
+        edge: { from: escalate_to_human, to: compose_reply }
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). Distinct from
+  positive-01: there a normal edge becomes a new router (successor
+  preserved as a label); here an EXISTING router's path_map is extended —
+  the two additive-widening diff shapes P-12 must both classify safe.
+  Corpus discipline: both snapshots individually satisfy P-01..P-09 —
+  handle_billing / handle_itinerary / escalate_to_human write resolution
+  on mutually exclusive branches (no parallel fan-out, so no reducer
+  needed and parallel-safety is untouched).

@@ -1,0 +1,11 @@
+{
+  "ir_version": "1.0",
+  "entry": "only",
+  "finish": "only",
+  "nodes": [
+    {
+      "id": "only"
+    }
+  ],
+  "edges": []
+}

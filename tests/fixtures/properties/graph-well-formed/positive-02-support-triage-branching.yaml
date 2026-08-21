@@ -1,0 +1,88 @@
+# Fixture: graph-well-formed / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: graph-well-formed
+polarity: positive
+description: >
+  A customer-support triage agent with a three-way conditional fan-out and
+  a fan-in: classify_ticket routes via path_map to one of three handlers
+  (billing, technical, general), and all three converge on send_reply.
+  Every path_map value names an existing node — the branched counterpart
+  of positive-01, exercising condition (iv) over conditional edges — every
+  node is reachable from START through the router, and the single sink
+  (send_reply) is wired to END.
+
+ir:
+  ir_version: "1.0"
+  entry: classify_ticket
+  finish: send_reply
+  state:
+    ticket:
+      type: str
+      optional: true       # graph input; treated as written at START
+    category: str
+    draft_reply: str
+    reply_id: str
+  nodes:
+    - id: classify_ticket
+      annotations:
+        effect: [network]
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [category]
+    - id: handle_billing
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket, category]
+        output: [draft_reply]
+    - id: handle_technical
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket, category]
+        output: [draft_reply]
+    - id: handle_general
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket, category]
+        output: [draft_reply]
+    - id: send_reply
+      annotations:
+        effect: [external]
+        idempotent: { key: draft_reply }
+        input: [draft_reply]
+        output: [reply_id]
+  edges:
+    - from: classify_ticket
+      kind: conditional
+      condition: "'billing' if category == 'billing' else ('technical' if category == 'technical' else 'general')"
+      path_map:
+        billing: handle_billing
+        technical: handle_technical
+        general: handle_general
+    - from: handle_billing
+      to: send_reply
+    - from: handle_technical
+      to: send_reply
+    - from: handle_general
+      to: send_reply
+
+expected:
+  result: pass
+  witness:
+    kind: well-formedness
+    reachable_from_start: [classify_ticket, handle_billing, handle_general, handle_technical, send_reply]
+    terminal_nodes: [send_reply]
+    orphan_nodes: []
+    unresolved_targets: []
+
+notes: >
+  Witness/failure shape conforms to PROPERTY-CATALOG-SPEC (wedge five
+  pinned 2026-07-18, DEC-11). Corpus discipline: all
+  other catalog properties hold — the router's declared guard codomain is
+  exactly the three path_map labels (P-05); the three handlers write
+  draft_reply on mutually exclusive conditional branches, never in
+  parallel, so no reducer is required (P-09); the graph is acyclic (P-02
+  vacuous); all reads are written upstream or at START (P-04); the only
+  effectful nodes are keyed-idempotent on declared inputs (P-06/P-07).
+  Counterpart negative: negative-01-unreachable-escalation-node (the same
+  triage domain with a stranded handler).

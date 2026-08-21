@@ -1,0 +1,95 @@
+# Fixture: effect-safety / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Seed fixture — proof-of-format for the v2 corpus.
+
+property: effect-safety
+polarity: negative
+description: >
+  The travel-booking classic: book_flight is tagged
+  @gebra.effect("irreversible", "billable") and sits inside a retry cycle
+  (check_booking routes back to it on failure) with no idempotency key and
+  no compensation hook. The cycle itself carries a termination witness
+  (retry_count < 2), so termination-witness passes and the fixture
+  isolates the unprotected effect: each re-entry risks double-booking and
+  double-charging. P-06 rejects it at design time.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_trip
+  finish: send_confirmation
+  state:
+    flight_id: str
+    booking_ref: str
+    booking_status: str
+    confirmation: str
+    retry_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: plan_trip
+      annotations:
+        pure: true
+        input: []
+        output: [flight_id]
+    - id: book_flight
+      annotations:
+        effect: [irreversible, billable]
+        input: [flight_id]
+        output: [booking_ref, booking_status, retry_count]
+    - id: check_booking
+      annotations:
+        pure: true
+        input: [booking_status, retry_count]
+        output: []
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: plan_trip
+      to: book_flight
+    - from: book_flight
+      to: check_booking
+    - from: check_booking
+      kind: conditional
+      condition: "'retry' if booking_status == 'failed' and retry_count < 2 else 'ok'"
+      path_map:
+        retry: book_flight
+        ok: send_confirmation
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("irreversible", "billable")
+  def book_flight(state: TravelState) -> dict:
+      ref, status = payments.charge_and_book(state["flight_id"])  # real money moves here
+      return {"booking_ref": ref, "booking_status": status, "retry_count": 1}
+
+  builder.add_conditional_edges(
+      "check_booking", route_booking,
+      {"retry": "book_flight", "ok": "send_confirmation"},  # re-enters the billable node
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-retry-region"
+    location:
+      kind: node
+      node: book_flight
+      cycle: [book_flight, check_booking]
+      effect: [irreversible, billable]
+    severity: error
+    claim_class: defensible-a
+
+notes: >
+  The fix is @gebra.idempotent(key="flight_id") — pinning retry safety to
+  a concrete input field — or a declared compensation hook; keyless
+  @gebra.idempotent would be rejected outright as the D-012 forbidden
+  combination (a separate negative fixture). Known coupling: D-011/D-012
+  tie effect-safety and retry-coherence together by design, so a
+  re-enterable node that is neither pure nor idempotent co-fails P-07;
+  this fixture's expected block records the P-06 verdict, and the
+  interaction case belongs to mixed/. See Verification-Properties P-06 and
+  the tutorial's booking-retry walkthrough.

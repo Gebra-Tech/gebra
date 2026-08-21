@@ -1,0 +1,86 @@
+# Fixture: termination-witness / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Seed fixture — proof-of-format for the v2 corpus.
+
+property: termination-witness
+polarity: positive
+description: >
+  A transient-failure retry loop whose single cycle carries a complete
+  termination witness: a bounded counter key (retry_count) declared in the
+  state schema, incremented by the looping node, and a conditional exit
+  edge whose declared guard bounds the counter (retry_count < 3). P-02
+  proves witness PRESENCE only; semantic termination is not claimed.
+
+ir:
+  ir_version: "1.0"
+  entry: submit_request
+  finish: compile_result
+  state:
+    request: str
+    response: str
+    result: str
+    retry_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: submit_request
+      annotations:
+        pure: true
+        input: []
+        output: [request]
+    - id: call_service
+      annotations:
+        idempotent: { key: request }
+        input: [request]
+        output: [response, retry_count]
+    - id: check_response
+      annotations:
+        pure: true
+        input: [response, retry_count]
+        output: []
+    - id: compile_result
+      annotations:
+        pure: true
+        input: [response]
+        output: [result]
+  edges:
+    - from: submit_request
+      to: call_service
+    - from: call_service
+      to: check_response
+    - from: check_response
+      kind: conditional
+      condition: "'retry' if response is transient-failure and retry_count < 3 else 'done'"
+      path_map:
+        retry: call_service
+        done: compile_result
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: a
+        element: { kind: edge, source: check_response, target: call_service, label: retry }
+        source:
+          guard_edge: { source: check_response, label: retry }
+          counter_key: retry_count
+          bound: 3
+        discharges: all-simple-cycles-through-element
+    certificate: [START, submit_request, call_service, check_response, compile_result, END]
+    cycles:
+      exhaustive: true
+      cycles:
+        - [call_service, check_response]
+
+notes: >
+  Witness form (a) of P-02: bounded counter in the state schema plus a
+  conditional exit edge whose declared guard matches the bounded-counter
+  grammar of the R-05 TERMINATION-WITNESS-SPEC. Witness/failure shape
+  conforms to PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18,
+  DEC-11): inventory + acyclicity certificate, with the full cycle census
+  retained under the B=16 cap. Corpus discipline: every
+  other catalog property holds — call_service is keyed-idempotent on a
+  declared input (retry-coherence), carries no effect tags (effect-safety),
+  and all reads are written upstream (dataflow-completeness). Counterpart:
+  negative-01-unwitnessed-reflection-loop.yaml.

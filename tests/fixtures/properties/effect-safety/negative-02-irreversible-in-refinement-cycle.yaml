@@ -1,0 +1,91 @@
+# Fixture: effect-safety / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: effect-safety
+polarity: negative
+description: >
+  A flight-change negotiation loop — a refinement cycle, not a failure
+  retry: propose_change drafts a change, submit_change_request files it
+  with the airline (@gebra.effect("irreversible") — a filed change order
+  cannot be unfiled), assess_response routes back for revision while the
+  airline rejects and attempt < 3. The cycle carries a bounded-counter
+  termination witness, so P-02 passes and the fixture isolates the
+  unprotected irreversible effect: submit_change_request declares no
+  idempotency at all and no compensation hook, so each revision lap files
+  a duplicate change order. Distinct mode from negative-01: an
+  irreversible-only effect inside a generic witnessed cycle rather than a
+  billable effect in an explicit retry region.
+
+ir:
+  ir_version: "1.0"
+  entry: propose_change
+  finish: notify_traveler
+  state:
+    change_request:
+      type: str
+      optional: true
+    change_status:
+      type: str
+      optional: true
+    proposal: str
+    change_ticket: str
+    notice: str
+    attempt:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: propose_change
+      annotations:
+        pure: true
+        input: [change_request, change_status]
+        output: [proposal]
+    - id: submit_change_request
+      annotations:
+        effect: [irreversible]
+        input: [proposal]
+        output: [change_ticket, change_status, attempt]
+    - id: assess_response
+      annotations:
+        pure: true
+        input: [change_status, attempt]
+        output: []
+    - id: notify_traveler
+      annotations:
+        input: [change_ticket]
+        output: [notice]
+  edges:
+    - from: propose_change
+      to: submit_change_request
+    - from: submit_change_request
+      to: assess_response
+    - from: assess_response
+      kind: conditional
+      condition: "'revise' if change_status == 'rejected' and attempt < 3 else 'done'"
+      path_map:
+        revise: propose_change
+        done: notify_traveler
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-cycle"
+    location:
+      kind: node
+      node: submit_change_request
+      cycle: [assess_response, propose_change, submit_change_request]
+      effect: [irreversible]
+    severity: error
+    claim_class: defensible-a
+
+notes: >
+  Complements negative-01 (billable, retry region, condition
+  "unprotected-effect-in-retry-region") by exercising the plain-cycle
+  arm of P-06 with an irreversible-only effect and ZERO idempotency
+  declaration. The fix is @gebra.idempotent(key="proposal") or a declared
+  compensation hook (withdraw_change_request). Known coupling: D-011/D-012
+  tie P-06 and P-07 together by design — submit_change_request is
+  re-enterable and neither pure nor idempotent, so retry-coherence
+  co-fails; the expected block records the P-06 verdict, and the
+  deliberate interaction case belongs to mixed/. All other properties
+  hold: bounded-counter witness (P-02), pure cycle companions, optional
+  keys written at START (P-04), path_map covers both labels (P-05).

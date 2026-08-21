@@ -1,0 +1,217 @@
+# Fixture: mixed / 10
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — mixed POSITIVE: every checked property passes.
+# Guards the validators against over-flagging: this IR contains a cycle,
+# parallel fan-out, a billable effect, and a determinism claim — each in
+# its healthy form.
+
+property:
+  - graph-well-formed
+  - termination-witness
+  - signature-soundness
+  - dataflow-completeness
+  - effect-safety
+  - retry-coherence
+  - determinism-replay
+  - parallel-safety
+polarity: positive
+description: >
+  A daily market-digest agent that deliberately contains every structure
+  the negative mixed fixtures break — in its healthy form. Parallel
+  fetch_prices/fetch_news branches share the sources key through an
+  operator.add reducer; compose_digest claims determinism with a pinned
+  seed; publish_digest is billable but keyed-idempotent on its declared
+  read draft; the publish retry cycle carries a complete witness
+  (attempts < 3); every read is written upstream or is an optional graph
+  input; every referenced key and node exists. All eight checked
+  properties pass, guarding against validators that over-flag benign
+  cycles, fan-outs, effects, or determinism claims.
+
+ir:
+  ir_version: "1.0"
+  entry: prepare
+  finish: archive
+  state:
+    ticker:
+      type: str
+      optional: true       # graph input; treated as written at START
+    price_data:
+      type: str
+      optional: true       # graph input; treated as written at START (DEC-23)
+    news_data:
+      type: str
+      optional: true       # graph input; treated as written at START (DEC-23)
+    sources:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    draft: str
+    publish_status: str
+    digest: str
+    attempts:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: prepare
+      annotations:
+        pure: true
+        input: [ticker]
+        output: []
+    - id: fetch_prices
+      annotations:
+        idempotent: { key: ticker }
+        effect: [network]
+        input: [ticker]
+        output: [price_data, sources]
+    - id: fetch_news
+      annotations:
+        idempotent: { key: ticker }
+        effect: [network]
+        input: [ticker]
+        output: [news_data, sources]
+    - id: compose_digest
+      annotations:
+        deterministic: { seed: 42 }
+        input: [price_data, news_data, sources]
+        output: [draft]
+    - id: publish_digest
+      annotations:
+        effect: [billable, network]
+        idempotent: { key: draft }
+        input: [draft]
+        output: [publish_status, attempts]
+    - id: verify_publish
+      annotations:
+        pure: true
+        input: [publish_status, attempts]
+        output: []
+    - id: archive
+      annotations:
+        pure: true
+        input: [draft, publish_status]
+        output: [digest]
+  edges:
+    - from: prepare
+      to: fetch_prices
+    - from: prepare
+      to: fetch_news
+    - from: fetch_prices
+      to: compose_digest
+    - from: fetch_news
+      to: compose_digest
+    - from: compose_digest
+      to: publish_digest
+    - from: publish_digest
+      to: verify_publish
+    - from: verify_publish
+      kind: conditional
+      condition: "'retry' if publish failed and attempts < 3 else 'done'"
+      path_map:
+        retry: publish_digest
+        done: archive
+
+expected:
+  result: pass
+  witness:
+    kind: multi-property
+    properties:
+      graph-well-formed:
+        kind: well-formedness
+        reachable_from_start: [archive, compose_digest, fetch_news, fetch_prices, prepare, publish_digest, verify_publish]
+        terminal_nodes: [archive]
+        orphan_nodes: []
+        unresolved_targets: []
+      termination-witness:
+        kind: termination
+        inventory:
+          - form: a
+            element: { kind: edge, source: verify_publish, target: publish_digest, label: retry }
+            source:
+              guard_edge: { source: verify_publish, label: retry }
+              counter_key: attempts
+              bound: 3
+            discharges: all-simple-cycles-through-element
+        certificate: [START, prepare, fetch_news, fetch_prices, compose_digest, publish_digest, verify_publish, archive, END]
+        cycles:
+          exhaustive: true
+          cycles:
+            - [publish_digest, verify_publish]
+      signature-soundness:
+        undeclared_reads: []
+        undeclared_writes: []
+      dataflow-completeness:
+        kind: dataflow
+        coverage:
+          - { node: archive, key: draft, satisfied_by: [compose_digest] }
+          - { node: archive, key: publish_status, satisfied_by: [publish_digest] }
+          - { node: compose_digest, key: news_data, satisfied_by: [START, fetch_news] }
+          - { node: compose_digest, key: price_data, satisfied_by: [START, fetch_prices] }
+          - { node: compose_digest, key: sources, satisfied_by: [START, fetch_news, fetch_prices] }
+          - { node: fetch_news, key: ticker, satisfied_by: [START] }
+          - { node: fetch_prices, key: ticker, satisfied_by: [START] }
+          - { node: prepare, key: ticker, satisfied_by: [START] }
+          - { node: publish_digest, key: draft, satisfied_by: [compose_digest] }
+          - { node: verify_publish, key: attempts, satisfied_by: [publish_digest] }
+          - { node: verify_publish, key: publish_status, satisfied_by: [publish_digest] }
+      effect-safety:
+        kind: effect-safety
+        cycles:
+          - [publish_digest, verify_publish]
+        effects:
+          - node: publish_digest
+            effect: [billable, network]
+            region: retry
+            cycle: [publish_digest, verify_publish]
+            protection: idempotency_key
+            key: draft
+      retry-coherence:
+        re_enterable_nodes:
+          - node: publish_digest
+            idempotent_key: draft
+            key_in_inputs: true
+          - node: verify_publish
+            pure: true
+      determinism-replay:
+        kind: determinism
+        claims:
+          - node: compose_digest
+            llm_backed: false
+            basis: pure-local-computation
+            pinning_required: false
+        claim_class: heuristic
+      parallel-safety:
+        concurrent_writes:
+          - key: sources
+            writers: [fetch_prices, fetch_news]
+            reducer: "operator.add"
+
+notes: >
+  The mixed positive: nothing co-fails, and that is the point. Each
+  structure here is the healthy twin of a mixed negative — the witnessed
+  billable retry cycle with a valid declared-read idempotency key answers
+  mixed/01 and mixed/06; the reducer-merged parallel writes plus the
+  seed-pinned composer answer mixed/03 and mixed/07; the fully-wired
+  conditional and complete write-before-read closure answer mixed/04,
+  mixed/02, and mixed/08. A validator suite that flags anything in this IR
+  is over-flagging: cycles, fan-outs, effects, and determinism claims are
+  all admissible when their contracts are complete (D-011/D-012/D-013,
+  D-016). The witness is the full per-property list so the D-10 golden
+  harness can assert every validator's pass-shape at once, per the
+  README's witness-equality check. The P-01/P-02/P-06/P-08 sub-witnesses
+  conform to PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18,
+  DEC-11): the P-01 block carries the 5-key well-formedness form; the
+  P-02 block carries inventory + certificate with the census retained
+  under B=16; effect records list trigger-tagged nodes only ({billable,
+  irreversible}, catalog section 6.3), so the keyed network fetches are
+  no longer echoed as records; the P-08 claim renders as the non-LLM
+  form (llm_backed: false, basis: pure-local-computation), not a seed
+  echo. Non-wedge sub-blocks (P-03/P-07/P-09) ratify at their section
+  merges, and the P-04 sub-block keeps its aggregate form pending its
+  own reconciliation item. Properties P-05/P-10/P-11/P-13 are
+  omitted from the property list because their validators are not yet
+  scheduled (README layout note); their eventual positives can extend this
+  fixture's pattern. P-09(ii) advisory surface: fetch_prices/fetch_news
+  are concurrent effectful ([network]) nodes; treated as exempt from the
+  commutativity advisory because both are keyed-idempotent reads —
+  exemption rule flagged for the P-09 spec (cf.
+  parallel-safety/positive-01's effect_commutativity: vacuous).

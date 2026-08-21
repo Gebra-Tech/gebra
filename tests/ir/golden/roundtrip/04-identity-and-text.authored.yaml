@@ -1,0 +1,57 @@
+# Round-trip golden 04 — node identity (IR-SPEC §5) and text that YAML likes to reinterpret.
+#
+# Node ids: nested paths, percent-escaped source names (`/` → `%2F`, `%` → `%25`), the LCEL
+# synthetic tokens, and non-ASCII NFC names. Strings: the ones a YAML round-trip gets wrong
+# when it forgets to quote — `yes`, `null`, `1.0`, a leading dash, a colon-space, an anchor
+# and an alias character — plus a multi-line value and one with significant inner spacing.
+ir_version: "1.0"
+entry: parent/child
+finish: "caf\xE9/r\xE9sum\xE9"
+state:
+  "\xE9tat": str
+  "a b": int
+nodes:
+  - id: parent/child
+    annotations:
+      input: ["\xE9tat"]
+      output: ["a b"]
+      source: "yes"
+  - id: "chain/%seq[0]"
+    annotations:
+      map: "null"
+      idempotent:
+        key: "a b"
+  - id: "chain/%map[docs%2Fraw]"
+    annotations:
+      source: "1.0"
+  - id: "100%25/branch%2Fname"
+    annotations:
+      variant:
+        key: "\xE9tat"
+        measure: "- not a sequence item"
+  - id: "caf\xE9/r\xE9sum\xE9"
+    annotations:
+      source: "key: value"
+      map: "*alias &anchor #hash"
+edges:
+  - from: parent/child
+    to: "chain/%seq[0]"
+  - from: "chain/%seq[0]"
+    kind: conditional
+    condition: |
+      a multi-line condition,
+      declared IR content that is never evaluated
+    path_map:
+      "yes": "chain/%map[docs%2Fraw]"
+      "": "100%25/branch%2Fname"
+      "  padded  ": "caf\xE9/r\xE9sum\xE9"
+  - from: "chain/%map[docs%2Fraw]"
+    to: "END"
+  - from: "100%25/branch%2Fname"
+    to: "END"
+  - from: "caf\xE9/r\xE9sum\xE9"
+    to: "END"
+runtime:
+  recursion_limit:
+    value: 12
+    justification: "  leading and trailing spaces, and a  double  space  "

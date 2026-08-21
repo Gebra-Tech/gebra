@@ -1,0 +1,101 @@
+# Fixture: mixed / 07
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-03 + P-09 interaction.
+
+property: [signature-soundness, parallel-safety]
+polarity: negative
+description: >
+  A research fan-out where archive_subgraph is a compiled subgraph node
+  whose inner nodes use a working key scratch_notes; extraction surfaces it
+  in the node's declared writes, but the parent state schema never declares
+  it — a leaked key. The leak stays latent until the parallel sibling
+  web_search ALSO writes scratch_notes as its own scratch space: now two
+  concurrent branches write a key that, being absent from the schema,
+  cannot even declare a reducer. P-03 flags the undeclared writes; P-09
+  flags the reducer-less concurrent write they collide on.
+
+ir:
+  ir_version: "1.0"
+  entry: dispatch
+  finish: synthesize
+  state:
+    question:
+      type: str
+      optional: true       # graph input; treated as written at START
+    sources:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    digest: str
+    # scratch_notes: NOT declared — leaked from the subgraph's inner state
+  nodes:
+    - id: dispatch
+      annotations:
+        pure: true
+        input: [question]
+        output: []
+    - id: web_search
+      annotations:
+        idempotent: { key: question }
+        effect: [network]
+        input: [question]
+        output: [sources, scratch_notes]
+    - id: archive_subgraph          # compiled subgraph; inner writes surfaced
+      annotations:
+        idempotent: { key: question }
+        input: [question]
+        output: [sources, scratch_notes]
+    - id: synthesize
+      annotations:
+        pure: true
+        input: [sources]
+        output: [digest]
+  edges:
+    - from: dispatch
+      to: web_search
+    - from: dispatch
+      to: archive_subgraph
+    - from: web_search
+      to: synthesize
+    - from: archive_subgraph
+      to: synthesize
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  archive_builder = StateGraph(ArchiveState)   # ArchiveState declares scratch_notes;
+  # ...inner nodes read/write scratch_notes...  # parent ResearchState does not.
+  builder.add_node("archive_subgraph", archive_builder.compile())
+  builder.add_edge("dispatch", "web_search")       # parallel super-step:
+  builder.add_edge("dispatch", "archive_subgraph") # both leak scratch_notes
+
+expected:
+  result: fail
+  failure:
+    property_condition: "write-key-not-in-state-schema"
+    location:
+      nodes: [web_search, archive_subgraph]
+      key: scratch_notes
+    co_failures:
+      - property: parallel-safety
+        property_condition: "concurrent-writers-without-reducer"
+        location:
+          key: scratch_notes
+          writers: [web_search, archive_subgraph]
+          branch_point: dispatch
+
+notes: >
+  Co-failing properties: P-03 signature-soundness (primary — writes to a
+  key outside keys(state), the leak surfaced from the subgraph's inner
+  schema) and P-09 parallel-safety (co_failures — the leaked key is
+  concurrently written and, being undeclared, cannot carry a reducer). The
+  interaction is the point: a subgraph's private working key is harmless
+  in isolation and only becomes a clash when a parallel sibling reuses the
+  name, so P-09's reducer check must run over the FULL observed write set,
+  not just declared schema keys — otherwise the collision hides behind the
+  P-03 finding. Two disjoint fixes exist: declare scratch_notes in the
+  parent schema with a reducer (both pass), or namespace the subgraph's
+  inner state so nothing leaks — the latter is P-10 subgraph-consistency
+  territory (directory allocated when its validator is scheduled). The
+  shared `sources` key shows the healthy pattern alongside: declared, with
+  operator.add. Compare mixed/03 (declared key, reducer-less) and
+  mixed/10 (fully healthy fan-out).

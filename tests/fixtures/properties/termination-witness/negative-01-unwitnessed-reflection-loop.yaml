@@ -1,0 +1,99 @@
+# Fixture: termination-witness / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Seed fixture — proof-of-format for the v2 corpus.
+
+property: termination-witness
+polarity: negative
+description: >
+  The classic plan -> act -> reflect -> plan reasoning loop with no
+  termination witness of any kind: no bounded counter in the state schema,
+  no declared recursion_limit, no annotated loop bound. The cycle's only
+  exit is an LLM-influenced router decision, which nothing in the
+  definition bounds. P-02 flags the unwitnessed cycle at design time,
+  before the agent ever spins.
+
+ir:
+  ir_version: "1.0"
+  entry: plan
+  finish: respond
+  state:
+    goal:
+      type: str
+      optional: true       # graph input; treated as written at START
+    plan: str
+    observations:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    answer: str
+  nodes:
+    - id: plan
+      annotations:
+        idempotent: { key: goal }
+        input: [goal, observations]
+        output: [plan]
+    - id: act
+      annotations:
+        idempotent: { key: plan }
+        input: [plan]
+        output: [observations]
+    - id: reflect
+      annotations:
+        pure: true
+        input: [goal, observations]
+        output: []
+    - id: respond
+      annotations:
+        pure: true
+        input: [goal, observations]
+        output: [answer]
+  edges:
+    - from: plan
+      to: act
+    - from: act
+      to: reflect
+    - from: reflect
+      kind: conditional
+      condition: "router decides 'continue' or 'done' from latest observations (LLM-influenced; no declared bound)"
+      path_map:
+        continue: plan
+        done: respond
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.graph import StateGraph, START, END
+
+  builder = StateGraph(AgentState)
+  builder.add_node("plan", plan_node)
+  builder.add_node("act", act_node)
+  builder.add_node("reflect", reflect_node)
+  builder.add_node("respond", respond_node)
+  builder.add_edge(START, "plan")
+  builder.add_edge("plan", "act")
+  builder.add_edge("act", "reflect")
+  builder.add_conditional_edges(
+      "reflect", should_continue, {"continue": "plan", "done": "respond"}
+  )
+  builder.add_edge("respond", END)
+  graph = builder.compile()  # no recursion_limit justification, no counter in AgentState
+
+expected:
+  result: fail
+  failure:
+    property_condition: "cycle-without-termination-witness"
+    location:
+      kind: scc
+      nodes: [act, plan, reflect]
+      representative_cycle: [act, reflect, plan]
+      exhaustive: false
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Corpus discipline: only P-02 fails — the loop nodes are declared pure or
+  keyed-idempotent (retry-coherence holds), carry no effect tags
+  (effect-safety holds), and every read is written upstream or at entry.
+  The conditional exit exists, but an exit edge is not a witness: its guard
+  names no bounded counter and matches no clause of the R-05
+  TERMINATION-WITNESS-SPEC. Counterpart:
+  positive-01-counter-guarded-retry-loop.yaml.

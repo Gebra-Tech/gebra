@@ -1,0 +1,248 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gebra"
+version = "0.0.1.dev0"
+description = "Design-time verification and versioning for LangGraph agent workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+
+authors = [{ name = "Gebra Tech Inc.", email = "gebra.dev@gmail.com" }]
+keywords = ["langgraph", "langchain", "agents", "verification", "static-analysis"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "langgraph>=1.0,<2.0",
+    "langchain-core>=1.0,<2.0",
+    "pydantic>=2.11,<3",
+    "networkx>=3.0",
+    "typer>=0.12",
+    # The terminal-diagnostics rendering library (CLI-D3 ruling, PD-031), a core dependency
+    # rather than an extra because the human surface is the default no-flag path and cannot
+    # be conditionally absent. It is already a hard transitive of the pinned `typer`
+    # (typer -> typer-slim[standard] -> rich), so declaring it directly adds no weight; the
+    # `>=13.8` floor is the one PD-031's ratification note names as non-vacuous.
+    "rich>=13.8",
+    # The `gebra.toml` sidecar (ANNOTATION-API-SPEC §2) is TOML, and `tomllib` is stdlib
+    # only from 3.11 on. `tomli` is the same parser under its pre-stdlib name, conditional
+    # on the declared 3.10 floor — the SOW mandates both the sidecar and Python >=3.10, so
+    # this is what implementing the two together costs, not a widening of the D-015 set.
+    "tomli>=2; python_version < '3.11'",
+]
+
+# ── The pytest plugin (D-10 In-Scope 2; card TE-06) ──
+# `pytest11` is pytest's own plugin-discovery group: installing `gebra` into an environment
+# where pytest runs is all an adopter does — no `-p gebra`, no `conftest.py` wiring. The
+# entry-point *name* is what `-p no:gebra` disables it by.
+#
+# The cost of auto-loading is a design constraint rather than a footnote: this module is
+# imported at the start of every pytest session in every environment that has gebra
+# installed, including sessions with nothing gebra-related in them. Its import closure is
+# therefore `pytest` plus the standard library; `gebra.ir` (~90 ms) and `gebra.verify`
+# (~190 ms) are resolved inside the functions that need them, and the extractor — and with it
+# the substrate — only on the branch that is handed a live workflow.
+[project.urls]
+Homepage = "https://github.com/Gebra-Tech/gebra"
+Repository = "https://github.com/Gebra-Tech/gebra"
+Changelog = "https://github.com/Gebra-Tech/gebra/blob/main/CHANGELOG.md"
+
+[project.entry-points.pytest11]
+gebra = "gebra.pytest_plugin"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "hypothesis>=6",
+    "ruff>=0.5",
+    "mypy>=1.11",
+    "pyyaml>=6",
+    "types-PyYAML>=6",
+]
+
+# ── The tested matrix (VERSION-COMPAT §3/§4; GOV-04) ──
+#
+# The compatibility *promise* is the pair matrix, never the metadata ranges above: Python
+# {3.10, 3.11, 3.12, 3.13} x the three frozen §1 pair cells = 12 blocking CI cells, plus one
+# `--pre` early-warning cell on 3.13 = 13. These extras are the per-cell pins §4 requires the
+# `compat-test` extra to record — "including the transitively resolved pydantic" — so that a
+# CI cell and a local reproduction install the same substrate:
+#
+#     pip install -e ".[dev,compat-cell-1]"     # cell 1, exactly what CI installs
+#
+# **One extra per cell, because one extra cannot hold three cells.** The cells pin the same
+# distributions to different versions, so a single requirement set carrying all three
+# (`langgraph==1.0.10` and `langgraph==1.2.10` at once) is unsatisfiable by construction.
+# `compat-test` is therefore cell 3 — the newest frozen pair, the substrate line `uv.lock`
+# already tracks — repeated verbatim rather than as a self-referential `gebra[compat-cell-3]`
+# requirement, since `gebra` is published to no index and a self-reference invites the
+# resolver to look for it on one. `tests/test_compat_matrix.py` holds the two lists equal.
+#
+# **CANDIDATE pins, not frozen.** The values below are the §3 resolution rule's output on
+# 2026-08-04, recorded by GOV-D3 in PD-030 §C3 and consumed here per its decision item 7.
+# They re-resolve at the GOV-08 freeze (F2, gate G7) and at each §4 ceiling extension; GOV-08
+# removes this marker and cites the green drift-suite run. Yanked releases (langgraph 1.1.7,
+# 1.2.3) are excluded by these pins, not by the metadata range — a range cannot exclude a
+# point version.
+#
+# Every version except one is what the resolver produced from the cell's named pair. The
+# exception is cell 1's `langgraph-checkpoint==4.0.3`, a Gebra-chosen bound (PD-030 Q1,
+# option A): checkpoint 4.1.0 changed a module-level `Reviver()` to
+# `Reviver(allowed_objects="core")`, and that parameter first exists in the langchain-core 1.2
+# line — so an unbounded cell 1 floats to checkpoint 4.1.1 and dies at `import langgraph.graph`
+# with `TypeError: Reviver.__init__() got an unexpected keyword argument 'allowed_objects'`.
+# No resolver can prevent it: checkpoint declares only `langchain-core>=0.2.38`, and langgraph
+# 1.0.10 declares `langgraph-checkpoint<5.0.0`. Both are satisfied by the failing resolution.
+#
+# The `--pre` cell has no extra on purpose: it is `pip install --pre langgraph langchain-core`,
+# re-resolved on every run, and pinning it would delete the early warning it exists to give.
+compat-test = [
+    "langgraph==1.2.10",
+    "langchain-core==1.5.3",
+    "langgraph-checkpoint==4.1.1",
+    "langgraph-prebuilt==1.1.0",
+    "langgraph-sdk==0.4.2",
+    "langchain-protocol==0.0.18",
+    "pydantic==2.13.4",
+]
+# Cell 1 — langgraph 1.0.x + core 1.0-1.1 (§1 row 1).
+compat-cell-1 = [
+    "langgraph==1.0.10",
+    "langchain-core==1.1.3",
+    # The bound, not a resolved value — see the note above.
+    "langgraph-checkpoint==4.0.3",
+    "langgraph-prebuilt==1.0.10",
+    "langgraph-sdk==0.3.15",
+    # `langchain-protocol` is not a dependency of core 1.1.3; it enters at core 1.3.0.
+    "pydantic==2.13.4",
+]
+# Cell 2 — langgraph 1.1.x + core 1.2-1.3 (§1 row 2; 1.1.7 yanked, hence 1.1.10).
+compat-cell-2 = [
+    "langgraph==1.1.10",
+    "langchain-core==1.3.3",
+    "langgraph-checkpoint==4.1.1",
+    "langgraph-prebuilt==1.0.13",
+    "langgraph-sdk==0.3.15",
+    "langchain-protocol==0.0.18",
+    "pydantic==2.13.4",
+]
+# Cell 3 — langgraph 1.2.latest + core >=1.4.7 (§1 row 3; 1.2.3 yanked, hence 1.2.10).
+# Read literally per PD-030 Q2: the latest non-yanked core satisfying the band, re-resolved
+# at each ceiling extension. Kept identical to `compat-test` above.
+compat-cell-3 = [
+    "langgraph==1.2.10",
+    "langchain-core==1.5.3",
+    "langgraph-checkpoint==4.1.1",
+    "langgraph-prebuilt==1.1.0",
+    "langgraph-sdk==0.4.2",
+    "langchain-protocol==0.0.18",
+    "pydantic==2.13.4",
+]
+
+# The three frozen matrix cells pin mutually exclusive substrate versions by design
+# (VERSION-COMPAT §3); only CI installs them, one per job. Declared conflicting so
+# `uv lock` can resolve the project (M15 sweep, 2026-08-13 — the lockfile had been
+# unresolvable-and-stale since the extras landed at GOV-04, failing `test-locked`'s
+# staleness guard in every real CI run).
+[tool.uv]
+conflicts = [
+  [
+    { extra = "compat-test" },
+    { extra = "compat-cell-1" },
+    { extra = "compat-cell-2" },
+    { extra = "compat-cell-3" },
+  ],
+]
+
+# ── Build (hatchling; ruled by PD-005 / GOV-D1) ──
+# src-layout: the wheel carries `gebra/` taken from `src/gebra/`. Hatchling ships
+# every file under the package directory, so the `py.typed` marker needs no
+# separate package-data declaration.
+[tool.hatch.build.targets.wheel]
+packages = ["src/gebra"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    # The test suite imports the provenance guard, so the sdist stays self-testable.
+    "/tools",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/NOTICE",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["tests/fixtures/properties"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# ── Type checking (SOW §5: "ruff + `mypy --strict` clean"; GOV-02) ──
+# The gate is `mypy` with no arguments — every knob lives here so the CI job, the
+# editor, and a contributor's shell all check the same thing. `strict = true` is
+# the whole `--strict` bundle; the additions below are the knobs `--strict` still
+# leaves off.
+[tool.mypy]
+# `tools/` is development tooling that CI executes (the provenance guard); it is checked
+# as strictly as the package it guards, and never shipped in the wheel.
+files = ["src", "tests", "tools"]
+# The declared floor, not the interpreter that happens to run the job: syntax and
+# stdlib APIs that only exist on 3.11+ are errors here.
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+pretty = true
+
+# Per-module overrides are facts about the environment, never relaxations of the
+# gate; each one carries its justification.
+[[tool.mypy.overrides]]
+# `tomli` is installed only under the `python_version < '3.11'` marker, so it is
+# absent from the default (3.13) development environment the typecheck job syncs.
+# Every import of it is version-guarded — `src/gebra/annotations/sidecar.py` and
+# `tests/test_packaging.py`.
+module = ["tomli"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# `networkx` ships neither a `py.typed` marker nor inline stubs (checked at 3.6.1),
+# so strict mypy cannot follow the import. The typeshed stub package is not in the
+# locked dev set; `src/gebra/diff/` keeps the untyped boundary narrow instead —
+# every value read back off a graph lands in an explicitly-typed structure there.
+module = ["networkx"]
+ignore_missing_imports = true
+
+# ── Coverage (coverage.py via pytest-cov; GOV-02 configures, TE-12 gates) ──
+# No `fail_under` here on purpose: the ≥80% coverage gate is TE-12's card at G6.
+[tool.coverage.run]
+source_pkgs = ["gebra"]
+branch = true
+
+[tool.coverage.paths]
+# Combine the src-layout tree with an installed copy (the wheel/uv-synced path),
+# so a coverage run against an installed `gebra` reports against `src/gebra`.
+source = ["src/gebra", "*/site-packages/gebra"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@(typing\\.)?overload",
+]

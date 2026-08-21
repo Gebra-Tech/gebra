@@ -1,0 +1,104 @@
+# Fixture: parallel-safety / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: parallel-safety
+axiom_basis: [augmentation]
+polarity: positive
+description: >
+  A parallel enrichment fan-out: plan_trip fans out to check_weather and
+  check_calendar in the same superstep, and both branches append to the
+  shared notes key. P-09(i) holds because Sigma declares a reducer for
+  notes (operator.add, list-append style), so concurrent writes merge
+  instead of colliding — the design-time guarantee that LangGraph's
+  InvalidUpdateError cannot fire on this key. The satisfying structural
+  condition: every state key with two or more concurrent writers carries
+  a declared reducer.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_trip
+  finish: compose_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    trip_context: str
+    notes:
+      type: list
+      reducer: "operator.add"
+    itinerary: str
+  nodes:
+    - id: plan_trip
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_context]
+    - id: check_weather
+      annotations:
+        pure: true
+        input: [trip_context]
+        output: [notes]
+    - id: check_calendar
+      annotations:
+        pure: true
+        input: [trip_context]
+        output: [notes]
+    - id: compose_itinerary
+      annotations:
+        pure: true
+        input: [trip_context, notes]
+        output: [itinerary]
+  edges:
+    - from: plan_trip
+      to: check_weather
+    - from: plan_trip
+      to: check_calendar
+    - from: check_weather
+      to: compose_itinerary
+    - from: check_calendar
+      to: compose_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from typing import Annotated, TypedDict
+  import operator
+
+  class TravelState(TypedDict):
+      request: str
+      trip_context: str
+      notes: Annotated[list, operator.add]  # declared reducer: appends merge
+      itinerary: str
+
+  builder.add_edge("plan_trip", "check_weather")
+  builder.add_edge("plan_trip", "check_calendar")   # parallel fan-out, same superstep
+  builder.add_edge("check_weather", "compose_itinerary")
+  builder.add_edge("check_calendar", "compose_itinerary")
+
+expected:
+  result: pass
+  witness:
+    kind: parallel-safety
+    concurrent_groups:
+      - fan_out_from: plan_trip
+        branches: [check_weather, check_calendar]
+        join_at: compose_itinerary
+        shared_write_keys:
+          - key: notes
+            writers: [check_weather, check_calendar]
+            reducer: "operator.add"
+            declared_at: state
+    effect_commutativity: vacuous  # all concurrent nodes are pure — P-09(ii) has nothing to check
+
+notes: >
+  Minimal pair with negative-01-reducerless-shared-notes-fanout.yaml — the
+  only difference is the reducer declaration on notes. Corpus discipline:
+  every other catalog property holds — the graph is acyclic (P-02 vacuous),
+  all reads/writes are subsets of keys(state) (P-03), compose_itinerary's
+  reads are written on every execution (P-04), there are no conditional
+  edges (P-05), and no effect/idempotent/deterministic claims (P-06/07/08).
+  The P-09(ii) advisory half is deliberately quiescent: all concurrent
+  nodes are pure, so effect commutativity is vacuous; a warning-severity
+  (ii) fixture (e.g. book_flight and book_hotel billable effects fanned
+  out in parallel) is future work — see run notes. Witness shape
+  remains provisional until §P-09 is drafted; envelope conforms to
+  PROPERTY-CATALOG-SPEC §0 (2026-07-18).

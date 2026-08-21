@@ -1,0 +1,66 @@
+{
+  "ir_version": "1.0",
+  "entry": [
+    "alpha"
+  ],
+  "finish": [
+    "beta",
+    "gamma"
+  ],
+  "state": {
+    "bare": "str",
+    "spelled_out": {
+      "type": "str"
+    }
+  },
+  "nodes": [
+    {
+      "id": "alpha",
+      "annotations": {}
+    },
+    {
+      "id": "beta",
+      "annotations": {
+        "effect": [],
+        "input": []
+      }
+    },
+    {
+      "id": "gamma"
+    }
+  ],
+  "edges": [
+    {
+      "kind": "normal",
+      "from": "alpha",
+      "to": "beta"
+    },
+    {
+      "kind": "normal",
+      "from": "alpha",
+      "to": "gamma"
+    },
+    {
+      "kind": "normal",
+      "from": "beta",
+      "to": "END",
+      "condition": "inert on this kind, admitted for fixture fidelity"
+    },
+    {
+      "kind": "normal",
+      "from": "gamma",
+      "to": "END"
+    }
+  ],
+  "runtime": {
+    "interrupts": {
+      "before": [],
+      "after": [
+        "beta"
+      ]
+    },
+    "checkpointer": {
+      "present": false
+    }
+  }
+}

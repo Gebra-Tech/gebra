@@ -1,0 +1,34 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "ir-document",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6"
+  },
+  "properties": [],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 2,
+    "outcome": "tool-error",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": false
+  },
+  "error": {
+    "stage": "dispatch",
+    "detail": "the run could not be assembled: no validator is registered for graph-well-formed. A run that checked the rest would be a weakened gate wearing a pass (§1.4 rule 2), so no verdict is reported."
+  }
+}

@@ -1,0 +1,110 @@
+# Fixture: mixed / 06
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — P-06 + P-07, the keyed-but-wrong variant of mixed/01.
+
+property: [effect-safety, retry-coherence]
+polarity: negative
+description: >
+  A refund-issuance loop where the irreversible node LOOKS protected:
+  issue_refund declares @gebra.idempotent(key="refund_ref"). But refund_ref
+  is the node's own OUTPUT — a reference generated fresh inside each call —
+  not among its declared reads (order_id, amount). The key therefore cannot
+  stabilise re-entries: every retry mints a new refund_ref and re-executes
+  the irreversible transfer. P-07 rejects the key placement; P-06 rejects
+  the effect because the only claimed protection is unsound. The cycle
+  itself is properly witnessed (poll_count < 5), so P-02 passes.
+
+ir:
+  ir_version: "1.0"
+  entry: compute_amount
+  finish: notify_customer
+  state:
+    order_id:
+      type: str
+      optional: true       # graph input; treated as written at START
+    amount: str
+    refund_ref: str
+    refund_status: str
+    notice: str
+    poll_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: compute_amount
+      annotations:
+        pure: true
+        input: [order_id]
+        output: [amount]
+    - id: issue_refund
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: { key: refund_ref }   # key is an output, not a read
+        input: [order_id, amount]
+        output: [refund_ref, refund_status, poll_count]
+    - id: confirm_refund
+      annotations:
+        pure: true
+        input: [refund_status, poll_count]
+        output: []
+    - id: notify_customer
+      annotations:
+        pure: true
+        input: [refund_ref, refund_status]
+        output: [notice]
+  edges:
+    - from: compute_amount
+      to: issue_refund
+    - from: issue_refund
+      to: confirm_refund
+    - from: confirm_refund
+      kind: conditional
+      condition: "'retry' if refund_status == 'pending' and poll_count < 5 else 'done'"
+      path_map:
+        retry: issue_refund
+        done: notify_customer
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("irreversible", "billable")
+  @gebra.idempotent(key="refund_ref")     # refund_ref is generated BELOW —
+  def issue_refund(state: RefundState) -> dict:   # the key cannot pin retries
+      ref = payments.refund(state["order_id"], state["amount"])  # money moves
+      return {"refund_ref": ref, "refund_status": "pending", "poll_count": 1}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "idempotency-key-not-in-declared-reads"
+    location:
+      kind: node
+      node: issue_refund
+      key: refund_ref
+      declared_inputs: [order_id, amount]
+    severity: error
+    claim_class: defensible-a
+    co_failures:
+      - property: effect-safety
+        property_condition: "unprotected-effect-in-retry-region"
+        location:
+          kind: node
+          node: issue_refund
+          cycle: [confirm_refund, issue_refund]
+          effect: [irreversible, billable]
+        severity: error
+        claim_class: defensible-a
+
+notes: >
+  Co-failing properties: P-07 retry-coherence (primary — the schema's own
+  rule: an object-form idempotency key must appear in `input`) and P-06
+  effect-safety (co_failures — the irreversible+billable effect sits in a
+  retry region whose only protection claim is invalid, so it is treated as
+  unprotected). The interaction is the point: P-06 must not accept an
+  idempotency annotation at face value; its verdict depends on P-07's
+  key-placement check, which is exactly the kind of cross-validator
+  dependency the D-09 report pipeline needs to sequence. Contrast with
+  mixed/01 (no key at all) and with the D-012 forbidden combination
+  (keyless idempotent:true + irreversible, a single-property effect-safety
+  negative). The fix is @gebra.idempotent(key="order_id") — a stable
+  declared read. Healthy counterpart: mixed/10's publish_digest.

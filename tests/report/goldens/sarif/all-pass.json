@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "gebra",
+          "version": "<gebra-version>",
+          "rules": [
+            {
+              "id": "node-unreachable-from-start",
+              "name": "P-01 graph-well-formed",
+              "shortDescription": {
+                "text": "Node unreachable from START"
+              },
+              "fullDescription": {
+                "text": "P-01 graph-well-formed, condition (i): every node of the workflow definition is reachable from START in the sentinel-augmented graph. This node is not, so nothing in the definition routes into it."
+              },
+              "help": {
+                "text": "Wire an edge — or a conditional path_map label — into the node, or remove the node from the definition. See PROPERTY-CATALOG-SPEC §P-01."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/graph-well-formed",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "dead-end-node-not-wired-to-end",
+              "name": "P-01 graph-well-formed",
+              "shortDescription": {
+                "text": "Dead-end node is not wired to END"
+              },
+              "fullDescription": {
+                "text": "P-01 graph-well-formed, condition (ii): a node with no outgoing edge is wired to END through the definition's `finish` set. This node has neither an outgoing edge nor that wiring."
+              },
+              "help": {
+                "text": "Add an outgoing edge, or list the node in `finish` so its wiring to END is declared. See PROPERTY-CATALOG-SPEC §P-01."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/graph-well-formed",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "path-map-target-undefined",
+              "name": "P-01 graph-well-formed",
+              "shortDescription": {
+                "text": "Conditional path_map names an undefined target"
+              },
+              "fullDescription": {
+                "text": "P-01 graph-well-formed, condition (iv): every target a conditional edge's path_map names resolves to a node of the definition or to the END sentinel. This label resolves to neither."
+              },
+              "help": {
+                "text": "Point the label at an existing node id (or at END), or add the node it names. See PROPERTY-CATALOG-SPEC §P-01."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/graph-well-formed",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "cycle-without-termination-witness",
+              "name": "P-02 termination-witness",
+              "shortDescription": {
+                "text": "Simple cycle carries no declared termination witness"
+              },
+              "fullDescription": {
+                "text": "P-02 termination-witness, §2.1: every simple cycle of the definition carries a declared bound — a bounded counter guard with an exit edge (form a), a declared and justified graph-level recursion_limit (form b), or an annotated loop variant on a node of the cycle (form c). No simple cycle in this component carries one — or, under a strict policy naming the property, the component is covered only by the blanket form (b), which the location marks with `blanket_only: true` (TERMINATION-WITNESS-SPEC §6.1). The property records the presence of a declared witness in the definition; it observes no run."
+              },
+              "help": {
+                "text": "Declare a bounded counter guard whose exit label leaves the loop it gates, annotate a loop variant on a node of the cycle, or declare a justified runtime.recursion_limit. See PROPERTY-CATALOG-SPEC §P-02 and TERMINATION-WITNESS-SPEC §2."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/termination-witness",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "counter-guard-without-exit-edge",
+              "name": "P-02 termination-witness",
+              "shortDescription": {
+                "text": "Bounded-counter guard has no exit edge out of its component"
+              },
+              "fullDescription": {
+                "text": "P-02 termination-witness, §2.1 form (a): a bounded counter guard discharges the cycles it gates only when one of its labels leaves the loop it gates — the gated back edge's natural loop, with the enclosing component as the fail-closed fallback where none is identified (DEC-23). None of this guard's labels does, so the bound it declares is never escaped."
+              },
+              "help": {
+                "text": "Wire one of the guard's path_map labels to a node outside the loop it gates, or to END. See PROPERTY-CATALOG-SPEC §P-02 and TERMINATION-WITNESS-SPEC §2.1."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/termination-witness",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "read-key-never-written-on-path",
+              "name": "P-04 dataflow-completeness",
+              "shortDescription": {
+                "text": "State key is read on a path where nothing writes it"
+              },
+              "fullDescription": {
+                "text": "P-04 dataflow-completeness, §4.1: every (reachable reader, read key) obligation is covered on every START→node path, either by the boundary state the path starts with or by an upstream writer on that path. On the path this finding anchors, neither covers the key."
+              },
+              "help": {
+                "text": "Write the key on the offending path, or declare it in the boundary state so every path starts covered. See PROPERTY-CATALOG-SPEC §P-04."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/dataflow-completeness",
+                  "claim/DEFENSIBLE-A"
+                ],
+                "gebra/claimClass": "DEFENSIBLE-A",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "unprotected-effect-in-cycle",
+              "name": "P-06 effect-safety",
+              "shortDescription": {
+                "text": "Effect-carrying node in a cycle without binding protection"
+              },
+              "fullDescription": {
+                "text": "P-06 effect-safety, §6.1: a node declaring a trigger effect tag (`billable` or `irreversible`) that lies on a cycle declares binding protection — an idempotency key drawn from the node's declared reads, or a compensation hook naming a node of the definition. This node declares neither."
+              },
+              "help": {
+                "text": "Declare an idempotency key among the node's declared reads, or a compensation hook naming an existing node. See PROPERTY-CATALOG-SPEC §P-06."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/effect-safety",
+                  "claim/DEFENSIBLE-A"
+                ],
+                "gebra/claimClass": "DEFENSIBLE-A",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "unprotected-effect-in-retry-region",
+              "name": "P-06 effect-safety",
+              "shortDescription": {
+                "text": "Effect-carrying node in a retry region without binding protection"
+              },
+              "fullDescription": {
+                "text": "P-06 effect-safety, §6.1: a node declaring a trigger effect tag (`billable` or `irreversible`) that sits in a retry region declares binding protection — an idempotency key drawn from the node's declared reads, or a compensation hook naming a node of the definition. A retry region is either a declared node-level retry_policy or structural re-entry: the node lies on a cycle and is re-entered by a conditional label-edge, together with the `send` re-dispatch unit that edge reaches (§P-06.4 Phase 3, DEC-13). This node declares neither protection."
+              },
+              "help": {
+                "text": "Declare an idempotency key among the node's declared reads, or a compensation hook naming an existing node — or remove what puts the node in a retry region: its retry_policy, or the conditional label that re-enters it. See PROPERTY-CATALOG-SPEC §P-06."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/effect-safety",
+                  "claim/DEFENSIBLE-A"
+                ],
+                "gebra/claimClass": "DEFENSIBLE-A",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "irreversible-with-keyless-idempotent",
+              "name": "P-06 effect-safety",
+              "shortDescription": {
+                "text": "Irreversible effect declared idempotent without a key"
+              },
+              "fullDescription": {
+                "text": "P-06 effect-safety, §6.1: a node tagged `irreversible` that declares idempotence in the keyless boolean form names nothing to deduplicate on, so the declaration carries no key a replay could match. The condition is cycle-independent — it holds wherever the node sits."
+              },
+              "help": {
+                "text": "Replace `idempotent: true` with the keyed form naming a key among the node's declared reads, or drop the `irreversible` tag where it does not apply. See PROPERTY-CATALOG-SPEC §P-06."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/effect-safety",
+                  "claim/DEFENSIBLE-A"
+                ],
+                "gebra/claimClass": "DEFENSIBLE-A",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "deterministic-llm-seed-unpinned",
+              "name": "P-08 determinism-replay",
+              "shortDescription": {
+                "text": "Determinism declared on an LLM-backed node with no pinned seed"
+              },
+              "fullDescription": {
+                "text": "P-08 determinism-replay, Appendix B §B.2 C-2: an LLM-backed node that declares determinism uses the object form with a pinned seed. This node declares the bare boolean form, so the declaration pins nothing. What is read is the declaration in the definition; a provider may answer differently on replay."
+              },
+              "help": {
+                "text": "Replace `deterministic: true` with `deterministic: {seed: <n>, temperature: 0}` on the node's annotation. See PROPERTY-CATALOG-SPEC §P-08."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "property/determinism-replay",
+                  "claim/HEURISTIC"
+                ],
+                "gebra/claimClass": "HEURISTIC",
+                "problem.severity": "warning"
+              }
+            },
+            {
+              "id": "deterministic-llm-temperature-unpinned",
+              "name": "P-08 determinism-replay",
+              "shortDescription": {
+                "text": "Determinism declared with a seed but no pinned temperature"
+              },
+              "fullDescription": {
+                "text": "P-08 determinism-replay, Appendix B §B.2 C-3: the object form of a determinism declaration carries `temperature: 0` beside its seed. This declaration omits the temperature or sets it nonzero, so the pinning is incomplete."
+              },
+              "help": {
+                "text": "Set `temperature: 0` beside the pinned seed on the node's annotation. See PROPERTY-CATALOG-SPEC §P-08."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "tags": [
+                  "property/determinism-replay",
+                  "claim/HEURISTIC"
+                ],
+                "gebra/claimClass": "HEURISTIC",
+                "problem.severity": "warning"
+              }
+            },
+            {
+              "id": "orphan-node",
+              "name": "P-01 graph-well-formed",
+              "shortDescription": {
+                "text": "Node participates in no edge"
+              },
+              "fullDescription": {
+                "text": "P-01 graph-well-formed, condition (iii), reading A: every node participates in at least one edge, where membership in `entry` or `finish` counts as participation through the implicit sentinel wiring. This node participates in none of them."
+              },
+              "help": {
+                "text": "Wire the node into the graph, list it in `entry` or `finish`, or remove it. See PROPERTY-CATALOG-SPEC §P-01."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/graph-well-formed",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            },
+            {
+              "id": "edge-target-undefined",
+              "name": "P-01 graph-well-formed",
+              "shortDescription": {
+                "text": "Edge endpoint names a node that does not exist"
+              },
+              "fullDescription": {
+                "text": "P-01 graph-well-formed, condition (iv): every `from` and `to` endpoint of a normal or send edge, and every `entry`/`finish` reference, resolves to a node of the definition. This reference resolves to none, and nothing is auto-created for it."
+              },
+              "help": {
+                "text": "Correct the endpoint to an existing node id, or add the node it names. See PROPERTY-CATALOG-SPEC §P-01."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "tags": [
+                  "property/graph-well-formed",
+                  "claim/DEFENSIBLE"
+                ],
+                "gebra/claimClass": "DEFENSIBLE",
+                "problem.severity": "error"
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "gebra/verify/travel-booking-build-graph"
+      },
+      "results": [],
+      "properties": {
+        "gebra/graphVersion": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+        "gebra/exitCode": 0
+      }
+    }
+  ]
+}

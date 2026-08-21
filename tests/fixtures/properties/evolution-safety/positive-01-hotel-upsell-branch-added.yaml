@@ -1,0 +1,132 @@
+# Fixture: evolution-safety / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: positive
+description: >
+  v1.1 -> v1.2 of the travel-booking workflow: a hotel-upsell branch is
+  added after book_flight. The diff is purely additive — a new node
+  (suggest_hotel), a new state key (hotel_offer), and the existing
+  book_flight -> send_confirmation successor preserved as the 'standard'
+  label of the new router, whose path_map fully covers both labels. The
+  new branch has complete dataflow (suggest_hotel reads booking_ref,
+  written upstream by book_flight), so no prior contract is invalidated
+  (Axiom E: enlarging a schema never invalidates prior contracts). P-12
+  classifies the diff as safe.
+
+ir_before:
+  ir_version: "1.0"
+  entry: classify_request
+  finish: send_confirmation
+  state:
+    request: str
+    flight_option: str
+    booking_ref: str
+    confirmation: str
+  nodes:
+    - id: classify_request
+      annotations:
+        pure: true
+        input: []
+        output: [request]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [request]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option]
+        output: [booking_ref]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: classify_request
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+
+ir_after:
+  ir_version: "1.0"
+  entry: classify_request
+  finish: send_confirmation
+  state:
+    request: str
+    flight_option: str
+    booking_ref: str
+    hotel_offer: str
+    confirmation: str
+  nodes:
+    - id: classify_request
+      annotations:
+        pure: true
+        input: []
+        output: [request]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [request]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option]
+        output: [booking_ref]
+    - id: suggest_hotel
+      annotations:
+        pure: true
+        input: [booking_ref]
+        output: [hotel_offer]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: classify_request
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      kind: conditional
+      condition: "'upsell' if booking_ref is eligible for hotel offers else 'standard'"
+      path_map:
+        upsell: suggest_hotel
+        standard: send_confirmation
+    - from: suggest_hotel
+      to: send_confirmation
+
+expected:
+  result: pass
+  witness:
+    kind: evolution
+    classification: safe
+    bump: [S, E]
+    changes:
+      - change: node-added
+        node: suggest_hotel
+      - change: state-key-added
+        key: hotel_offer
+      - change: edge-widened
+        edge: { from: book_flight }
+        preserved_successor: send_confirmation
+        new_label: upsell
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). Bump semantics per
+  Verification-Properties P-12 (V.S.F.E: S=topology, E=state schema).
+  Corpus discipline: both snapshots
+  individually satisfy P-01..P-09 — the new branch's only read
+  (booking_ref) is written upstream, the new router's path_map covers all
+  labels, and book_flight stays keyed-idempotent outside any cycle.
+  Contrast fixture: negative-03 retargets an edge and severs dataflow —
+  the breaking mirror of this safe widening.

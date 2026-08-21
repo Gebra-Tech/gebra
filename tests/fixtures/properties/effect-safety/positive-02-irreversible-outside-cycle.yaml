@@ -1,0 +1,92 @@
+# Fixture: effect-safety / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: effect-safety
+polarity: positive
+description: >
+  A fare-watch flow in which the only cycle is a harmless polling loop
+  (fetch_fare_quote / evaluate_quote, both pure or keyed-idempotent) and
+  the irreversible+billable node charge_card sits strictly OUTSIDE any
+  cycle, on the acyclic post-loop path. P-06 passes because its scope is
+  irreversible/billable effects inside cycle or retry regions: charge_card
+  executes at most once per run, so no idempotency key or compensation
+  hook is required. The fixture exercises the region analysis — the
+  validator must classify the effect node as acyclic rather than blanket-
+  flagging every irreversible effect.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_watch
+  finish: send_receipt
+  state:
+    fare_query:
+      type: str
+      optional: true
+    watch_spec: str
+    quote: str
+    quote_verdict: str
+    payment_ref: str
+    confirmation: str
+    poll_count:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: plan_watch
+      annotations:
+        pure: true
+        input: [fare_query]
+        output: [watch_spec]
+    - id: fetch_fare_quote
+      annotations:
+        idempotent: { key: watch_spec }
+        input: [watch_spec]
+        output: [quote, poll_count]
+    - id: evaluate_quote
+      annotations:
+        pure: true
+        input: [quote, poll_count]
+        output: [quote_verdict]
+    - id: charge_card
+      annotations:
+        effect: [irreversible, billable]
+        input: [quote]
+        output: [payment_ref]
+    - id: send_receipt
+      annotations:
+        input: [payment_ref]
+        output: [confirmation]
+  edges:
+    - from: plan_watch
+      to: fetch_fare_quote
+    - from: fetch_fare_quote
+      to: evaluate_quote
+    - from: evaluate_quote
+      kind: conditional
+      condition: "'poll' if quote_verdict == 'above-target' and poll_count < 5 else 'buy'"
+      path_map:
+        poll: fetch_fare_quote
+        buy: charge_card
+    - from: charge_card
+      to: send_receipt
+
+expected:
+  result: pass
+  witness:
+    kind: effect-safety
+    cycles:
+      - [evaluate_quote, fetch_fare_quote]
+    effects:
+      - node: charge_card
+        effect: [irreversible, billable]
+        region: acyclic
+        protection: none_required
+
+notes: >
+  Corpus discipline: the polling cycle carries a bounded-counter witness
+  (poll_count < 5; P-02 holds), its members are keyed-idempotent
+  (fetch_fare_quote, key among declared reads) or pure (evaluate_quote),
+  so P-07 holds; charge_card is not re-enterable, so P-07 is not engaged
+  on it. Witness shape follows the ratified P-06 I/O contract
+  (PROPERTY-CATALOG-SPEC §6.3; walkthrough #2, 2026-07-18);
+  `region: acyclic` with `protection: none_required` is the ratified
+  encoding for the outside-any-cycle case.

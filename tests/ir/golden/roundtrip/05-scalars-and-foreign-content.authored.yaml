@@ -1,0 +1,52 @@
+# Round-trip golden 05 — numbers, and the foreign `args_schema` interior.
+#
+# The surface layer's scope is narrower than canonicalization's on purpose. This document
+# is a valid §2 document and round-trips losslessly, while `graph_version` refuses it: the
+# `minimum`/`maximum` below sit outside the I-JSON exact integer range, which the ratified
+# IR-D1 ruling (PD-004) makes an IR validity error *at hashing time*, its adjacent-gap
+# closure reaching into `args_schema`. Model equality is what IR-04 is about, so the loaders
+# carry those numbers through unchanged rather than rewriting or rejecting them.
+#
+# `args_schema` is a foreign JSON Schema object (§3.1): it is carried verbatim, `null`-valued
+# members, array order, deep nesting and empty containers included.
+ir_version: "1.0"
+entry: compute
+finish: compute
+state:
+  n: int
+  ratio: float
+nodes:
+  - id: compute
+    annotations:
+      input: [n]
+      output: [ratio]
+      deterministic:
+        seed: -9007199254740991
+        temperature: 0.125
+      retry_policy:
+        max_attempts: 1
+        retry_on: []
+      args_schema:
+        type: object
+        title: null
+        properties:
+          n:
+            type: integer
+            minimum: -9007199254740993
+            maximum: 9007199254740993
+            examples: [0, null, -1, 1.0e-05, 1.0e+17]
+          ratio:
+            type: number
+            const: null
+        prefixItems:
+          - { type: integer }
+          - { type: number }
+          - null
+        empty_object: {}
+        empty_array: []
+        nested:
+          deep:
+            deeper:
+              value: true
+edges: []
+runtime: {}

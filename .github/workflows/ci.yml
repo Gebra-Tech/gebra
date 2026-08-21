@@ -1,0 +1,411 @@
+# CI — on the GOV-D1-ruled build system (PD-005: hatchling backend, uv-managed,
+# `uv.lock` committed) carrying the GOV-02 quality gates: `ruff check`,
+# `ruff format --check`, `mypy --strict` (knobs in `pyproject.toml`, so the gate is
+# bare `mypy`), and `pytest` — with coverage measured on the locked test job.
+#
+# Two axes, deliberately different environments. The jobs above `test-matrix` run in
+# the *ruled default* environment: uv-managed, resolved from the committed lock, one
+# substrate. `test-matrix` + `test-matrix-pre` are the *compatibility surface*
+# (VERSION-COMPAT §1/§3, SOW §4): Python {3.10, 3.11, 3.12, 3.13} x three frozen pair
+# cells = 12 blocking cells, plus one `--pre` early-warning cell = 13. They install
+# with pip against the per-cell pins in `gebra[compat-cell-N]` and never touch the
+# lock — PD-005 item 4: the lock never constrains a matrix cell.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  # The uv release that produced the committed `uv.lock`.
+  UV_VERSION: "0.12.0"
+
+jobs:
+  # ── The ruled default environment: uv-managed, resolved from the committed lock ──
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Lint
+        run: uv run --no-sync ruff check .
+      - name: Format check
+        run: uv run --no-sync ruff format --check .
+
+  # ── Vendored files are byte-copy snapshots and read-only (WA-11; GOV-09) ──
+  # Stdlib only and installed-package independent on purpose: this gate must still
+  # report when the environment, the lockfile or the build is broken. The sanctioned
+  # re-vendor path (regenerate the manifest in the same commit) is documented in
+  # docs/governance/re-vendoring.md; there is no bypass flag.
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Vendored files match the provenance manifest
+        run: python tools/provenance_guard.py
+
+  # ── WA-06: repo-authored prose never overstates what gebra does ──
+  # Stdlib only and installed-package independent, same as `provenance`. The banned-phrase
+  # list lives in tools/honest-claims-phrases.txt; there is no bypass flag.
+  honest-claims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Repo-authored prose stays within witness-presence wording
+        run: python tools/honest_claims_lint.py
+
+  # ── IR-SPEC §2.5 note 5: WorkflowIR.model_json_schema() vs schema.yaml's gebra-ir $defs ──
+  # Needs the locked environment (imports gebra + pyyaml), unlike the two dependency-free
+  # guards above.
+  schema-lockstep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Model and vendored schema field vocabularies stay in lockstep
+        run: uv run --no-sync python tools/schema_lockstep.py
+
+  # ── WA-04: the vendored fixture corpus against schema.yaml v2.2 and the corpus README ──
+  # Schema conformance, one IR shape per fixture, per-directory minimums, serial collisions,
+  # witness/failure presence. The corpus is read-only: a violation is never fixed by editing a
+  # fixture here — it routes proposal -> R-05 sign-off -> re-vendor commit. Needs the locked
+  # environment (imports gebra + pyyaml), like `schema-lockstep`.
+  corpus-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Fixture corpus conforms to its vendored schema and counts table
+        run: uv run --no-sync python tools/corpus_lint.py
+
+  # ── WA-04: the golden harness over the corpus, and the fidelity matrix held to it ──
+  # Runs every registered validator over every fixture, compares as §0.3 model equality, and
+  # cross-checks docs/governance/FIDELITY-MATRIX.md against what it observed in both
+  # directions: a deviation with no open entry fails, and an open entry that no longer
+  # reproduces fails. A disagreement is a logged decision (fix the validator, or route a
+  # fixture revision through R-05), never a quiet edit. The per-fixture assertions are pytest
+  # items in `test-locked`; this job is the counted run report and the matrix gate.
+  golden-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Golden harness green and the fidelity matrix current
+        run: uv run --no-sync python tools/golden_harness.py --report
+
+  # ── Criterion 2, the literal reading: corpus green under --strict (PD-039 + DEC-24) ──
+  # Flipped 2026-08-08 when the last two routed items landed: FM-009's R-05 corpus revision
+  # (MANUAL-STEPS M13, vault Gebra-Tech/initial-documents@7be81a9) and the compose clause's
+  # ratified reclassification (PD-039 Q1, C2 re-signed). --strict fails on ANY residue, so a
+  # new shortfall goes red here rather than hiding behind an accounted default.
+  corpus-green:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Criterion 2 — corpus green with nothing unaccounted
+        run: uv run --no-sync python tools/corpus_green.py --strict
+
+  # ── Types: bare `mypy`; every strictness knob lives in pyproject.toml ──
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Type check (mypy --strict via [tool.mypy])
+        run: uv run --no-sync mypy
+
+  test-locked:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Fail if the lockfile is stale against pyproject.toml
+        run: uv lock --check
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      # Coverage settings come from [tool.coverage.*]; no threshold is enforced
+      # yet — the >=80% gate is TE-12's card at G6.
+      - name: Test with coverage
+        run: uv run --no-sync pytest -q --cov --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  # ── The distribution artifacts, built by the ruled backend ──
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Build wheel + sdist (hatchling)
+        run: uv build --out-dir dist
+      - name: Check the wheel carries the typing marker
+        run: |
+          python -m zipfile -l dist/*.whl
+          python -m zipfile -l dist/*.whl | grep -q 'gebra/py.typed'
+      - name: Install the built wheel into a clean environment
+        run: |
+          python -m venv /tmp/wheelcheck
+          /tmp/wheelcheck/bin/pip install --no-cache-dir dist/*.whl
+          /tmp/wheelcheck/bin/python -c "import gebra; print(gebra.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # ── The pip path stays supported (GOV-01 acceptance) even though uv is the ruled manager ──
+  pip-editable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Editable install with dev extras
+        run: pip install -e ".[dev]"
+      - name: Test
+        run: pytest -q
+
+  # ── The 12 blocking cells: Python {3.10..3.13} x the three frozen §1 pair cells ──
+  #
+  # The matrix carries only the *cell number*; the pins live in `pyproject.toml`'s
+  # `compat-cell-N` extras, so a CI cell and a local reproduction install the same
+  # substrate and there is one place to re-resolve at the GOV-08 freeze:
+  #
+  #     pip install -e ".[dev,compat-cell-1]"
+  #
+  # `fail-fast: false` because a matrix whose first red cell cancels the other eleven
+  # cannot report a compatibility surface. Every cell runs all four SOW §4 gates: the
+  # substrate a cell pins changes what mypy resolves and what the suite exercises, so a
+  # cell that ran only `pytest` would leave the type surface unchecked on 11 of 12.
+  #
+  # These twelve cells are BLOCKING (VERSION-COMPAT §3: a hard failure "BLOCKS that CI
+  # cell — red, release-blocking"; it "never silently downgrades, skips, or
+  # warns-and-passes"). Only `test-matrix-pre` below is non-blocking.
+  #
+  # KNOWN RED at the time this matrix landed (every cell run locally, 2026-08-05; PD-038
+  # carries the evidence, the adversarial verification and the ratified disposition).
+  # None of it is a packaging or substrate defect, and none of it is downgraded here —
+  # each has a card, and the cells stay blocking until those cards land. **All three
+  # are CLOSED as of 2026-08-08** (GOV-11 and EX-17); the history is kept because it is
+  # what the matrix was built to report and what the two cards were scoped from. What
+  # each turned out to be is recorded inline below.
+  #
+  #   * `mypy` — red on ALL 13 cells, and in the `typecheck` job above, from a *cold*
+  #     cache: `tests/sample_workflows/sentinel_resolution.py` produces two --strict
+  #     errors whose message text carries a lone surrogate, and mypy 2.3.0 then crashes
+  #     writing that text into its own cache (UnicodeEncodeError, mypy/cache.py:384).
+  #     A warm .mypy_cache never re-runs the stale SCC and reports Success, which is why
+  #     it stayed invisible; a CI runner is always cold. On a strict-UTF-8 pipe — which
+  #     is what CI log capture is — it crashes while *printing* the errors, so the job
+  #     shows an opaque internal error and not the two lines that caused it. Predates
+  #     this card entirely. Reproduce anywhere: `mypy --no-incremental`. Card: GOV-11.
+  #     FIXED (GOV-11, 2026-08-08): both --strict errors cleared without weakening the
+  #     surrogate fixture, and `tests/test_mypy_cold_cache.py` is the regression guard.
+  #
+  #   * `pytest` on cells 1 and 2 — 36 failures each, on every Python, from TWO causes
+  #     and not one. 15 of them, in `tests/extraction/test_compiled.py`, are
+  #     `sentinel_compiled.py` building its fixtures with langgraph 1.2-era builder APIs
+  #     (`set_node_defaults`, `add_node(..., error_handler=...)`) that the 1.0.x/1.1.x
+  #     builders do not have. The other 21, in `tests/extraction/test_digests.py`, have
+  #     no identified cause: that module has zero dependency on `sentinel_compiled`, and
+  #     the adversarial pass on PD-038 refuted the draft's cascade attribution. Cell 3 is
+  #     green on every Python. Neither is substrate drift, which is why the tested
+  #     ceiling is NOT capped (§4's cap is for when the substrate broke *us*).
+  #     Card: EX-17, investigation-first for the 21.
+  #     FIXED (EX-17, 2026-08-08). The 21 turned out to be **langchain-core**, not
+  #     langgraph, and not the digest rules: core 1.4.7 began filling
+  #     `BaseChatModel.metadata` with `lc_versions` (below it the default is None, which
+  #     INTROSPECTION §7.4 (c) omits), and core 1.4.0 made `bind()` answer with the
+  #     `_ChatModelBinding` subclass (below it, the stock `RunnableBinding` comes back and
+  #     §5 stitching descends into it). Both are §7.4 (e)'s ruled "a substrate release
+  #     moves `config_digest`" seen from the older side — not spec defects, so no WA-03
+  #     filing. The 15 were the named 1.2-era builder APIs. Every version-conditional
+  #     fixture, skip and expectation now reads its predicate from `tests/substrate.py`,
+  #     and `tests/test_substrate.py` re-derives each one from the installed packages.
+  #     ALSO note: `mypy` reads the *installed* builder, so the same two 1.2-era calls
+  #     were red on this gate too — three targeted `unused-ignore`-paired ignores, which
+  #     are load-bearing below 1.2 and unnecessary at 1.2+.
+  #
+  #   * `pytest` on the three 3.11 cells — one further failure,
+  #     `test_a_body_nested_past_the_walk_is_no_body_rather_than_an_error`, which passes
+  #     on 3.10, 3.12 and 3.13 with the same three substrates: CPython 3.11 gives up
+  #     parsing the 6000-term body the test builds, so the inference records
+  #     `source-unparsable` where the assertion expects `read`. Reproducible with the
+  #     stdlib alone — no gebra, no substrate. A Python-version difference, and exactly
+  #     the axis the old two-Python corner matrix could not see. Card: EX-17.
+  #     FIXED (EX-17, 2026-08-08): the property the test pins — a body too deep for the
+  #     machinery degrades to the D-011 floor, never an exception — is now asserted
+  #     unconditionally, with the *route* to that floor pinned against what each
+  #     interpreter's own `ast.parse` does, and a second test at a depth every tested
+  #     interpreter parses keeps the `body-too-deep` walk route covered everywhere.
+  test-matrix:
+    name: py${{ matrix.python-version }} / cell ${{ matrix.cell }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        cell: ["1", "2", "3"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # The frozen cells pin exact versions, so a cache hit is always the wheel the
+          # cell asked for. Keyed on pyproject.toml — the file the pins live in.
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install the package with the cell's frozen substrate pins
+        run: pip install -e ".[dev,compat-cell-${{ matrix.cell }}]"
+      - name: Record the resolved substrate
+        run: |
+          {
+            echo "### py${{ matrix.python-version }} / cell ${{ matrix.cell }}"
+            echo ''
+            echo '```'
+            python -c "import sys; print(sys.version)"
+            pip list --format=freeze | grep -Ei '^(langgraph|langchain|pydantic)' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Lint
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Type check (mypy --strict via [tool.mypy])
+        run: mypy
+      - name: Test
+        run: pytest -q
+
+  # ── The 13th cell: the `--pre` early warning, non-blocking ──
+  #
+  # VERSION-COMPAT §3: one cell, on the newest tested Python, installing the latest
+  # prerelease of both named packages (latest stable where no prerelease exists), and
+  # "on the single `--pre` cell only, the same tests run `xfail(strict=False)` —
+  # failures open a supported-range review instead of blocking".
+  #
+  # `continue-on-error` at the *job* level is that semantics in CI's own vocabulary: a
+  # failing gate still turns this job red in the checks list, and the run as a whole is
+  # not blocked by it. What it must never be is silent — so every gate carries a
+  # step-level `continue-on-error` (so one red gate does not hide the other three) and
+  # the reporting step runs `if: always()`, writes the resolved substrate and every gate
+  # outcome to the job summary, and raises a `::warning::` annotation naming the
+  # supported-range review §3 asks for.
+  #
+  # Deliberately uncached: this cell exists to see *today's* index, and a restored pip
+  # cache would let it report yesterday's resolution and call that an early warning. It
+  # is deliberately unpinned for the same reason. Note `--pre` is a global resolver flag,
+  # not a per-package one: it admits prerelease transitives too — PD-030 §C4 recorded
+  # pydantic 2.14.0a1 arriving that way on 2026-08-04, a day when neither named package
+  # had a prerelease newer than its stable release.
+  test-matrix-pre:
+    name: py3.13 / --pre early warning (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install the package with dev extras
+        run: pip install -e ".[dev]"
+      - name: Resolve the newest prerelease substrate
+        id: resolve
+        continue-on-error: true
+        run: pip install --pre --upgrade langgraph langchain-core
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: ruff check .
+      - name: Format check
+        id: format
+        continue-on-error: true
+        run: ruff format --check .
+      - name: Type check (mypy --strict via [tool.mypy])
+        id: typecheck
+        continue-on-error: true
+        run: mypy
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: pytest -q
+      - name: Report the early warning
+        if: always()
+        env:
+          OUTCOME_RESOLVE: ${{ steps.resolve.outcome }}
+          OUTCOME_RUFF_CHECK: ${{ steps.lint.outcome }}
+          OUTCOME_RUFF_FORMAT: ${{ steps.format.outcome }}
+          OUTCOME_MYPY: ${{ steps.typecheck.outcome }}
+          OUTCOME_PYTEST: ${{ steps.test.outcome }}
+        run: |
+          {
+            echo "### py3.13 / --pre early-warning cell (non-blocking)"
+            echo ''
+            echo '```'
+            pip list --format=freeze | grep -Ei '^(langgraph|langchain|pydantic)' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          failed=0
+          for pair in "resolve=$OUTCOME_RESOLVE" "ruff-check=$OUTCOME_RUFF_CHECK" \
+                      "ruff-format=$OUTCOME_RUFF_FORMAT" "mypy=$OUTCOME_MYPY" \
+                      "pytest=$OUTCOME_PYTEST"; do
+            gate="${pair%%=*}"
+            outcome="${pair#*=}"
+            echo "- \`$gate\` -> $outcome" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$outcome" != "success" ]; then
+              failed=1
+              echo "::warning title=--pre cell: $gate::$gate did not pass on the --pre early-warning cell. VERSION-COMPAT §3: this never blocks the run; it opens a supported-range review under §5 R-06 governance."
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "The --pre cell is red: recorded and annotated, never blocking (VERSION-COMPAT §3)."
+            exit 1
+          fi

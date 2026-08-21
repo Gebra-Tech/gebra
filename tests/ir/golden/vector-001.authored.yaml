@@ -1,0 +1,31 @@
+# Golden vector 001 — the IR-SPEC §6.5 worked micro-example, transcribed verbatim from the
+# vendored spec (docs/specs/IR-SPEC.md §6.5 in the delivery-docs repository).
+#
+# The triple (this authored surface form, vector-001.canonical.json, vector-001.digest) is
+# the committed golden vector of the §1.3 conformance suite: canonicalizing this document
+# MUST produce exactly the 537 bytes of vector-001.canonical.json and the digest in
+# vector-001.digest. A change to any of the three files is a WA-05 golden-file event —
+# it requires a ratified IR change with an `ir_version` bump and a decision record, never
+# a quiet edit.
+ir_version: "1.0"
+entry: plan
+finish: report
+runtime:
+  recursion_limit: {value: 10, justification: "redo loop bounded by review budget"}
+state:
+  task: str
+  result: str
+nodes:
+  - id: plan
+    annotations: {pure: true, output: [task]}
+  - id: act
+    annotations: {input: [task], output: [result], effect: [network]}
+  - id: report
+    annotations: {input: [result]}
+edges:
+  - from: plan
+    to: act
+  - from: act
+    kind: conditional
+    condition: "done(result)"
+    path_map: {done: report, redo: act}

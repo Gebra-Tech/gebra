@@ -1,0 +1,1 @@
+{"edges":[{"condition":"dispatch_legs","from":"plan_legs","kind":"dynamic"}],"entry":"plan_legs","finish":"book_leg","ir_version":"1.1","nodes":[{"annotations":{"pure":true},"id":"book_leg"},{"annotations":{"pure":true},"id":"plan_legs"}],"state":{"booked":{"optional":true,"reducer":"_operator.add","type":"list[str]"},"legs":{"optional":true,"type":"list[str]"}}}

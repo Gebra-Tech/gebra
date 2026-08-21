@@ -1,0 +1,139 @@
+gebra <gebra-version> — travel_booking:build_graph (snapshot)
+  identity                ir_version 1.0 | graph_version sha256:490e53db21df7302... | version 
+1.4.2.0 | strict off
+
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets
+    reachable from START    3 nodes: book_flight, check_availability, send_confirmation
+    terminal nodes          send_confirmation
+    orphan check            evaluated — no node stands outside every edge
+    reference check         evaluated — every edge and path_map target resolves
+
+P-02 termination-witness — pass  [DEFENSIBLE]
+  witness                 4 declared witnesses in the inventory | acyclicity certificate present | 5
+notes
+    inventory               4 entries: 1 form (a), 1 form (b), 2 form (c)
+    entry                   form (a) — guard edge route --again--> | counter key attempts | declared
+bound 3 | discharges all simple cycles through the element
+    entry                   form (b) — the cover is the graph-level recursion_limit 25, declared 
+justification: the operator caps a support loop at 25 steps | a blanket over the edge set, not a 
+per-loop bound
+    entry                   form (c) — carrier node refine | variant key budget | declared measure 
+budget | the measure is declared and trusted, not checked | discharges all simple cycles through the
+element
+    entry                   form (c) — carrier node summarize | variant key pending | declared 
+measure len(pending) | the measure is declared and trusted, not checked | discharges nothing — the 
+annotation is declared on a node lying on no cycle; declared content, and no finding of any severity
+follows from it
+    certificate             present and re-checkable — a topological order of the graph with the 
+witnessed elements removed, over 4 vertices: START -> route -> refine -> END
+    note                    scc-covered-only-by-recursion-limit (warning)
+    component               refine, route
+    representative          refine -> route -> refine
+    cycle list              not exhaustive — a re-run after a fix may surface another
+    cover                   only the graph-level recursion_limit covers this component
+    promotion               promotable under a strict flag naming termination-witness; the record 
+itself is unchanged by promotion
+    note                    recursion-limit-without-justification (no severity carried)
+    note                    variant-key-not-in-state (no severity carried)
+    carrier node            refine
+    missing key             budget
+    note                    counter-key-not-qualified (no severity carried)
+    guard edge              route --again-->
+    identifier              attempts — unmatched
+    declared type           str
+    note                    cycle-census-capped (no severity carried)
+    census                  enumeration stopped at the cap, so no cycle list is carried — this is 
+not a statement that the graph has no cycles
+    census                  exhaustive under the cap — 1 simple cycle
+    cycle                   refine -> route -> refine
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — pass  [DEFENSIBLE-A]
+  witness                 1 (reader, key) obligation covered
+    coverage                1 (reader, key) obligation covered
+    covered                 send_confirmation reads booking_id <- covered by book_flight
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-06 effect-safety — pass  [DEFENSIBLE-A]
+  witness                 1 cycle | 3 effect-tagged nodes recorded
+    cycle inventory         1 cycle
+    cycle                   book_flight -> retry_booking -> book_flight
+    effect                  book_flight [billable] in a retry region | anchor cycle book_flight -> 
+retry_booking -> book_flight | protected by idempotency key booking_ref
+    effect                  charge_card [billable, irreversible] in a cycle region | anchor cycle 
+book_flight -> retry_booking -> book_flight | protected by compensation hook refund
+    effect                  send_confirmation [audit] in a acyclic region | no protection obligation
+arose here — acyclic region
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — pass  [HEURISTIC]
+  witness                 2 declared determinism claims | provider caveat carried
+    claim class             heuristic (carried in-band)
+    claims                  2 declared claims
+    claim                   draft_itinerary — LLM-backed | pinned seed 7 | pinned temperature 0.0 | 
+divergence handling logged
+    claim                   normalize — not LLM-backed | declared basis pure-local-computation | no 
+pinning was required
+    caveat                  provider-seed-reproducibility-not-guaranteed
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and 
+has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+summary
+  findings                0 fatal | 0 error | 0 warning
+  notes                   5 carried (1 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  off
+  exit                    0 — warning-grade records were carried, and none was promoted

@@ -1,0 +1,101 @@
+# Fixture: termination-witness / negative-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# multi-node SCC with no witness on any member.
+
+property: termination-witness
+polarity: negative
+description: >
+  A supervisor-worker delegation triangle with no termination witness on
+  any SCC member. The supervisor routes to flight_worker or hotel_worker,
+  and both workers report back to the supervisor, forming one non-trivial
+  three-node SCC with two interleaved simple cycles. No bounded counter
+  exists in the state schema, no recursion_limit is declared, and no loop
+  variant is annotated — the only exit is the supervisor's LLM-delegated
+  'done' decision, which nothing in the definition bounds. P-02 flags the
+  unwitnessed SCC at design time.
+
+ir:
+  ir_version: "1.0"
+  entry: supervisor
+  finish: compile_plan
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    task_log:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    flight_options:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    hotel_options:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    plan: str
+  nodes:
+    - id: supervisor
+      annotations:
+        pure: true
+        input: [trip_request, task_log]
+        output: []
+    - id: flight_worker
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [flight_options, task_log]
+    - id: hotel_worker
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [hotel_options, task_log]
+    - id: compile_plan
+      annotations:
+        pure: true
+        input: [flight_options, hotel_options]
+        output: [plan]
+  edges:
+    - from: supervisor
+      kind: conditional
+      condition: "router picks the next unfinished task from task_log ('flights' | 'hotels' | 'done'); LLM-delegated, no declared bound"
+      path_map:
+        flights: flight_worker
+        hotels: hotel_worker
+        done: compile_plan
+    - from: flight_worker
+      to: supervisor
+    - from: hotel_worker
+      to: supervisor
+
+expected:
+  result: fail
+  failure:
+    property_condition: "cycle-without-termination-witness"
+    location:
+      kind: scc
+      nodes: [flight_worker, hotel_worker, supervisor]
+      representative_cycle: [flight_worker, supervisor]
+      exhaustive: false
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Multi-node SCC coverage: unlike negative-01 (one simple three-node
+  cycle), condensation here yields a single SCC whose two simple cycles
+  interleave through the shared supervisor. No member carries any of the
+  three witness forms. Witness/failure shape conforms to
+  PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18, DEC-11): the
+  residual SCC is reported with ONE representative witness-free cycle and
+  exhaustive: false — the SCC contains more (here the hotel_worker
+  cycle), and a re-run after a fix surfaces the next; exhaustive
+  member-cycle enumeration is rejected on complexity grounds
+  (TERMINATION-WITNESS-SPEC section 6.1). Corpus discipline: only P-02
+  fails — workers are
+  keyed-idempotent on a declared input (retry-coherence), no effect tags
+  (effect-safety), option/log keys are reducer-typed with defaults so
+  every read is written at START or upstream even on the immediate-'done'
+  path (dataflow-completeness), and all path_map labels are wired
+  (graph-well-formed).

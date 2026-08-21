@@ -1,0 +1,164 @@
+gebra <gebra-version> — travel_booking:build_graph (extracted)
+  identity                ir_version 1.0 | graph_version sha256:490e53db21df7302... | extractor 
+<gebra-version> | strict off
+
+P-01 graph-well-formed — fail  (6 findings: 5 fatal, 1 warning)
+  fatal: node-unreachable-from-start  [P-01 graph-well-formed | DEFENSIBLE]
+    node                    escalate_to_human
+    finding                 Node unreachable from START
+    remediation             Wire an edge into the node, or remove it from the definition.
+  fatal: edge-target-undefined  [co-failure, P-01 graph-well-formed | DEFENSIBLE]
+    edge                    route -> (unresolved)
+    label                   escalate
+    target                  unresolved — this label names no node
+    undefined target        escalate
+    finding                 Edge endpoint names a node that does not exist
+    note                    the label names no node in the definition
+  fatal: orphan-node  [co-failure, P-01 graph-well-formed | DEFENSIBLE]
+    node                    stranded
+    finding                 Node participates in no edge
+  fatal: path-map-target-undefined  [co-failure, P-01 graph-well-formed | DEFENSIBLE]
+    edge                    route -> book_flight
+    label                   book
+    undefined target        booking
+    finding                 Conditional path_map names an undefined target
+  fatal: dead-end-node-not-wired-to-end  [co-failure, P-01 graph-well-formed | DEFENSIBLE]
+    node                    archive
+    finding                 Dead-end node is not wired to END
+    owned upstream by       P-01 — the root cause is reported there, so this is not a second charge
+  warning: deterministic-llm-seed-unpinned  [advisory from P-08 determinism-replay | HEURISTIC]
+    node                    draft_itinerary
+    finding                 Determinism declared on an LLM-backed node with no pinned seed
+
+P-02 termination-witness — pass  [DEFENSIBLE]
+  best-effort             P-01 found the topology ill-formed, so this property's contract does not 
+cover it: read this as a diagnostic, not as a verdict
+  witness                 4 declared witnesses in the inventory | acyclicity certificate present | 5
+notes
+    inventory               4 entries: 1 form (a), 1 form (b), 2 form (c)
+    entry                   form (a) — guard edge route --again--> | counter key attempts | declared
+bound 3 | discharges all simple cycles through the element
+    entry                   form (b) — the cover is the graph-level recursion_limit 25, declared 
+justification: the operator caps a support loop at 25 steps | a blanket over the edge set, not a 
+per-loop bound
+    entry                   form (c) — carrier node refine | variant key budget | declared measure 
+budget | the measure is declared and trusted, not checked | discharges all simple cycles through the
+element
+    entry                   form (c) — carrier node summarize | variant key pending | declared 
+measure len(pending) | the measure is declared and trusted, not checked | discharges nothing — the 
+annotation is declared on a node lying on no cycle; declared content, and no finding of any severity
+follows from it
+    certificate             present and re-checkable — a topological order of the graph with the 
+witnessed elements removed, over 4 vertices: START -> route -> refine -> END
+    note                    scc-covered-only-by-recursion-limit (warning)
+    component               refine, route
+    representative          refine -> route -> refine
+    cycle list              not exhaustive — a re-run after a fix may surface another
+    cover                   only the graph-level recursion_limit covers this component
+    promotion               promotable under a strict flag naming termination-witness; the record 
+itself is unchanged by promotion
+    note                    recursion-limit-without-justification (no severity carried)
+    note                    variant-key-not-in-state (no severity carried)
+    carrier node            refine
+    missing key             budget
+    note                    counter-key-not-qualified (no severity carried)
+    guard edge              route --again-->
+    identifier              attempts — unmatched
+    declared type           str
+    note                    cycle-census-capped (no severity carried)
+    census                  enumeration stopped at the cap, so no cycle list is carried — this is 
+not a statement that the graph has no cycles
+    census                  exhaustive under the cap — 1 simple cycle
+    cycle                   refine -> route -> refine
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — fail  (1 finding: 1 fatal)
+  best-effort             P-01 found the topology ill-formed, so this property's contract does not 
+cover it: read this as a diagnostic, not as a verdict
+  fatal: read-key-never-written-on-path  [P-04 dataflow-completeness | DEFENSIBLE-A]
+    state key               booking_id
+    reading node            send_confirmation
+    shortest path           START -> check_availability -> send_confirmation
+    finding                 State key is read on a path where nothing writes it
+    writers on other paths  book_flight
+    writers wired after the reader archive
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-06 effect-safety — pass  [DEFENSIBLE-A]
+  best-effort             P-01 found the topology ill-formed, so this property's contract does not 
+cover it: read this as a diagnostic, not as a verdict
+  witness                 0 cycles | 0 effect-tagged nodes recorded
+    cycle inventory         0 cycles
+    effect                  no node declares a trigger effect tag
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — pass  [HEURISTIC]
+  witness                 0 declared determinism claims
+    claim class             heuristic (carried in-band)
+    claims                  no node declared determinism, so nothing was checked — this is not a 
+statement that every node is deterministic
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and 
+has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+summary
+  findings                6 fatal | 0 error | 1 warning
+  notes                   5 carried (1 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  off
+  best-effort             termination-witness, dataflow-completeness, effect-safety — answered on 
+topology P-01 found ill-formed, so those reports are diagnostics, not verdicts
+  exit                    1 — a FATAL or ERROR finding is present, or a strict policy promoted a 
+warning
+  snapshot                not recorded for this run: a FATAL finding is present 
+(PROPERTY-CATALOG-SPEC §0.2)

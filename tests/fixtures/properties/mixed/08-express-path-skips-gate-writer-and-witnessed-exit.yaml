@@ -1,0 +1,138 @@
+# Fixture: mixed / 08
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-04 + P-02 interaction.
+
+property: [dataflow-completeness, termination-witness]
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  A reply-drafting workflow where a late-added 'express' branch does double
+  damage. The standard route loops draft_reply through quality_gate — the
+  only witnessed exit (rounds < 3) — then writes compliance_token at
+  compliance_gate before sending. The express label routes draft_reply
+  straight to polish, whose downstream final_check can send 'redo' back to
+  draft_reply: this creates a cycle that never passes the witnessed guard
+  (P-02), and the express path reaches send_reply without ever writing the
+  compliance_token it reads (P-04). One shortcut edge simultaneously
+  bypasses the only gate writer and the only witness-carrying exit.
+
+ir:
+  ir_version: "1.0"
+  entry: intake
+  finish: send_reply
+  state:
+    ticket:
+      type: str
+      optional: true       # graph input; treated as written at START
+    reply: str
+    compliance_token: str
+    sent_receipt: str
+    rounds:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: intake
+      annotations:
+        pure: true
+        input: [ticket]
+        output: []
+    - id: draft_reply
+      annotations:
+        idempotent: { key: ticket }
+        input: [ticket]
+        output: [reply, rounds]
+    - id: quality_gate
+      annotations:
+        pure: true
+        input: [reply, rounds]
+        output: []
+    - id: compliance_gate
+      annotations:
+        pure: true
+        input: [reply]
+        output: [compliance_token]
+    - id: polish
+      annotations:
+        idempotent: { key: reply }
+        input: [reply]
+        output: [reply]
+    - id: final_check
+      annotations:
+        pure: true
+        input: [reply]
+        output: []
+    - id: send_reply
+      annotations:
+        idempotent: { key: compliance_token }
+        effect: [network]
+        input: [reply, compliance_token]
+        output: [sent_receipt]
+  edges:
+    - from: intake
+      to: draft_reply
+    - from: draft_reply
+      kind: conditional
+      condition: "'express' if ticket flagged low-risk else 'standard'"
+      path_map:
+        express: polish            # skips quality_gate AND compliance_gate
+        standard: quality_gate
+    - from: quality_gate
+      kind: conditional
+      condition: "'revise' if quality below bar and rounds < 3 else 'approve'"
+      path_map:
+        revise: draft_reply        # the only witnessed back-edge
+        approve: compliance_gate
+    - from: compliance_gate
+      to: polish
+    - from: polish
+      to: final_check
+    - from: final_check
+      kind: conditional
+      condition: "router decides 'redo' or 'send' from tone check (LLM-influenced; no declared bound)"
+      path_map:
+        redo: draft_reply          # unwitnessed back-edge
+        send: send_reply
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      key: compliance_token
+      node: send_reply
+      path: [START, intake, draft_reply, polish, final_check, send_reply]
+    severity: fatal
+    claim_class: defensible-a
+    writers_on_other_paths: [compliance_gate]
+    co_failures:
+      - property: termination-witness
+        property_condition: "cycle-without-termination-witness"
+        location:
+          kind: scc
+          nodes: [compliance_gate, draft_reply, final_check, polish, quality_gate]
+          representative_cycle: [draft_reply, polish, final_check]
+          exhaustive: false
+        severity: fatal
+        claim_class: defensible
+
+notes: >
+  Co-failing properties: P-04 dataflow-completeness (primary) and P-02
+  termination-witness (co_failures). The interaction is the point: both
+  failures are introduced by the SAME express label in draft_reply's
+  path_map — before it existed, every cycle crossed quality_gate's
+  witnessed guard and every path to send_reply crossed compliance_gate.
+  The witnessed cycle [draft_reply, quality_gate] still verifies, but
+  final_check's 'redo' back-edge creates cycles that bypass the witness
+  entirely. The P-02 co_failure carries the full residual SCC with the
+  minimal bypass cycle as its one representative (exhaustive: false, per
+  the residual-SCC shape pinned at walkthrough #2): the longer
+  standard-then-redo cycle through compliance_gate is equally unwitnessed
+  — rounds < 3 bounds only the 'revise' edge — and a re-run after a fix
+  surfaces it. P-02 requires every cycle witnessed, not some cycle.
+  axiom_basis covers the P-04 member (transitive write-before-read
+  closure, per the schema's own express-path example); P-02 derives from
+  D-016. All keys declared (P-03 holds); loop nodes pure or
+  keyed-idempotent (P-07 holds); send_reply's network effect sits inside
+  the redo-reachable region but is keyed on a declared read, so P-06
+  reports no independent finding.

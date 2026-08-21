@@ -1,0 +1,96 @@
+# Fixture: dataflow-completeness / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: positive
+description: >
+  A parallel fan-out/fan-in search topology with complete dataflow:
+  plan_search fans out to search_flights and search_hotels, which run
+  concurrently and both write the reducer-merged results key before the
+  fan-in node rank_options reads it. The structural condition satisfying
+  P-04 is that every START-to-rank_options path passes through a results
+  writer (the flights path through search_flights, the hotels path through
+  search_hotels), and search_plan is written by plan_search, which
+  dominates both branches. Sigma declares operator.add on results so the
+  concurrent writes are P-09-safe by construction.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_search
+  finish: rank_options
+  state:
+    request:
+      type: str
+      optional: true
+    search_plan: str
+    results:
+      type: list
+      reducer: "operator.add"
+    ranked: list
+  nodes:
+    - id: plan_search
+      annotations:
+        pure: true
+        input: [request]
+        output: [search_plan]
+    - id: search_flights
+      annotations:
+        effect: [network]
+        idempotent: { key: search_plan }
+        input: [search_plan]
+        output: [results]
+    - id: search_hotels
+      annotations:
+        effect: [network]
+        idempotent: { key: search_plan }
+        input: [search_plan]
+        output: [results]
+    - id: rank_options
+      annotations:
+        pure: true
+        input: [results, request]
+        output: [ranked]
+  edges:
+    - from: plan_search
+      to: search_flights
+    - from: plan_search
+      to: search_hotels
+    - from: search_flights
+      to: rank_options
+    - from: search_hotels
+      to: rank_options
+
+expected:
+  result: pass
+  witness:
+    kind: dataflow
+    coverage:
+      - node: plan_search
+        key: request
+        satisfied_by: [START]
+      - node: search_flights
+        key: search_plan
+        satisfied_by: [plan_search]
+      - node: search_hotels
+        key: search_plan
+        satisfied_by: [plan_search]
+      - node: rank_options
+        key: results
+        satisfied_by: [search_flights, search_hotels]
+      - node: rank_options
+        key: request
+        satisfied_by: [START]
+
+notes: >
+  Witness shape follows the ratified P-04 I/O contract
+  (PROPERTY-CATALOG-SPEC §4.3; walkthrough #2, 2026-07-18). Under
+  LangGraph superstep semantics both branches execute, but P-04's per-path
+  quantification is what this fixture certifies: each graph path to the
+  fan-in contains a writer of the read key. Corpus discipline: only P-04
+  is exercised — the concurrent writers of results share a declared
+  operator.add reducer, so P-09(i) holds rather than co-failing; both
+  searches are keyed-idempotent on a declared read (P-07 holds); effect
+  tags stay at [network] so P-06/P-13 are vacuous; the graph is acyclic
+  (P-02 vacuous). Companion positives cover linear (positive-01) and
+  conditional-branch (positive-02) topologies.

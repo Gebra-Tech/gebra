@@ -1,0 +1,103 @@
+# Fixture: retry-coherence / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: retry-coherence
+polarity: positive
+description: >
+  An effectful node inside a witnessed retry loop, made retry-coherent by
+  keyed idempotence: place_hotel_hold calls a flaky hold API over the
+  network and is re-entered on timeout, but it declares
+  @gebra.idempotent(key="hold_request_id") and hold_request_id IS among
+  its declared reads — the client-generated dedup token is produced
+  upstream by prepare_hold_request, so the runtime can always supply the
+  key on re-entry. Both P-07 conditions are satisfied: the re-enterable
+  effectful node is idempotent, and its key binds to a declared input.
+
+ir:
+  ir_version: "1.0"
+  entry: prepare_hold_request
+  finish: confirm_hold
+  state:
+    stay_details:
+      type: str
+      optional: true       # graph input; treated as written at START
+    hold_request_id: str
+    hold_status: str
+    hold_ref: str
+    attempt_count:
+      type: int
+      reducer: "operator.add"
+    confirmation: str
+  nodes:
+    - id: prepare_hold_request
+      annotations:
+        pure: true
+        input: [stay_details]
+        output: [hold_request_id]
+    - id: place_hotel_hold
+      annotations:
+        effect: [network]
+        idempotent: { key: hold_request_id }
+        input: [hold_request_id, stay_details]
+        output: [hold_status, hold_ref, attempt_count]
+    - id: check_hold
+      annotations:
+        pure: true
+        input: [hold_status, attempt_count]
+        output: []
+    - id: confirm_hold
+      annotations:
+        input: [hold_ref]
+        output: [confirmation]
+  edges:
+    - from: prepare_hold_request
+      to: place_hotel_hold
+    - from: place_hotel_hold
+      to: check_hold
+    - from: check_hold
+      kind: conditional
+      condition: "'retry' if hold_status == 'timeout' and attempt_count < 3 else 'done'"
+      path_map:
+        retry: place_hotel_hold
+        done: confirm_hold
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("network")
+  @gebra.idempotent(key="hold_request_id")  # key is a declared read below
+  def place_hotel_hold(state: TravelState) -> dict:
+      status, ref = hotels.place_hold(
+          dedup_token=state["hold_request_id"],  # provider dedups on this token
+          stay=state["stay_details"],
+      )
+      return {"hold_status": status, "hold_ref": ref, "attempt_count": 1}
+
+expected:
+  result: pass
+  witness:
+    kind: retry-coherence
+    obligations:
+      - node: place_hotel_hold
+        obligation: cycle-reentry
+        cycle: [place_hotel_hold, check_hold]
+        discharged_by: idempotency_key
+        key: hold_request_id
+        key_in_reads: true
+      - node: check_hold
+        obligation: cycle-reentry
+        cycle: [place_hotel_hold, check_hold]
+        discharged_by: pure
+
+notes: >
+  Witness shape remains provisional until §P-07 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). Corpus
+  discipline: the cycle is witnessed (P-02 holds); the effect is network
+  only — placing a free 24h hold — so P-06 has nothing to say (it governs
+  irreversible/billable); all reads are written upstream or optional at
+  START (P-04). The billable variant of this scenario (book_flight with
+  key flight_id, discharging P-06 and P-07 together) belongs to the
+  effect-safety positives or mixed/, not here. Counterpart:
+  negative-02-email-dedup-key-not-declared-read.yaml, which breaks
+  exactly the key-binding condition this fixture satisfies.

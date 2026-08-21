@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "_comment": "Byte-copy expectations for the vendored files this repository holds (WA-11). Regenerated only by a sanctioned vault-first re-vendor, in the same commit as the new bytes and the docs/PROVENANCE.md row update \u2014 see docs/governance/re-vendoring.md.",
+  "vault_repo": "Gebra-Tech/initial-documents",
+  "snapshot_commit": "ec34169",
+  "guarded_trees": [
+    "tests/fixtures/properties"
+  ],
+  "guarded_files": [],
+  "entries": [
+    {
+      "path": "tests/fixtures/properties/README.md",
+      "sha256": "a34461caf503ea2567e0ac9f11426a138e2cc6184837d671bf489b69e7b356a7",
+      "vault_source": "09-RnD-Docs/fixtures/properties/README.md",
+      "vault_commit": "dda57d0"
+    },
+    {
+      "path": "tests/fixtures/properties/Review-Checklist.md",
+      "sha256": "753699a56723a0c5f0bfd2cac7f71e8432346b0eee33c2b0d882db84375c6e9b",
+      "vault_source": "09-RnD-Docs/fixtures/properties/Review-Checklist.md",
+      "vault_commit": "dda57d0"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-01-express-path-skips-writer.yaml",
+      "sha256": "3e784b98d0d3b9c060c4ad0c08ee8cc5d806c4881ed8ae44f2953694e87f5215",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-01-express-path-skips-writer.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
+      "sha256": "39b4efa1453d1a881706855ea788954a76ce925e28eee5faabe5becc0edbf531",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+      "sha256": "8de1c47f6df005b08c3a3a62f4b1d708be89f58077694c82225661f0b8ddc39c",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
+      "sha256": "32f61aa6012edbd5a14f13f7d990c384b5769366926cb228e0185a4dbf52a765",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
+      "sha256": "17d63d60f402832b13d18f09bb27d2ccac96646d9bab9af2f6490aaa6afe5602",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
+      "sha256": "b1737b4072c425392912495a62f8b644b6c300b2ac14a854b6b5551fb8cb7715",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
+      "sha256": "10a00960165c73ae13d4e70d76404b693cc858fc218e7ab54e67f9fee7568582",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
+      "sha256": "f9e4532a47c1bf196c4662d1972027be9f9aca8ff82397b49bf7075077a1a873",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
+      "sha256": "ffa14d1e9d506c0b489d5626eac07ad93f5f9ba78872d5c091527a76a59c3684",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/determinism-replay/positive-02-pure-fare-normalizer.yaml",
+      "sha256": "d6bdb37652294ec75a64e1ad274ed2b4160f628fce08f014e166095a2f477af7",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/positive-02-pure-fare-normalizer.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/negative-01-billable-in-unguarded-retry.yaml",
+      "sha256": "71bab21143da107863b1ebcd34d3e41503930ac926a24565236c4d2c9945f017",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-01-billable-in-unguarded-retry.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/negative-02-irreversible-in-refinement-cycle.yaml",
+      "sha256": "725270542c1377641b509137540106461f515a774860ac3198fb6bdb613b0774",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-02-irreversible-in-refinement-cycle.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/negative-03-keyless-idempotent-on-irreversible.yaml",
+      "sha256": "2c3c59dd8e89cef816d8c7e399f89420aba87268ef1bcc1e915f38e596439937",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-03-keyless-idempotent-on-irreversible.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/positive-01-keyed-idempotent-billable-retry.yaml",
+      "sha256": "8bfd3769590eddccf27121167a59f8f6bfc563dd47d663edadcfbcaae59b0374",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/positive-01-keyed-idempotent-billable-retry.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/positive-02-irreversible-outside-cycle.yaml",
+      "sha256": "fd65a4c57063e79241e67a4c41b94ace411e24881300a80f22e6ba3954945b65",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/positive-02-irreversible-outside-cycle.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/positive-03-compensated-billable-hold-loop.yaml",
+      "sha256": "86e55fedd181d0191986c5592146ef2988ff74948c7d2fc462b8ca26c797cd0b",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/positive-03-compensated-billable-hold-loop.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/negative-01-return-date-removed-still-read.yaml",
+      "sha256": "f1b7547c7ec7d6185f365a6bb9f78b4cfa00c94d9c5dac05177a34049bccbe4e",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/negative-01-return-date-removed-still-read.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/negative-02-guard-cleanup-removes-termination-witness.yaml",
+      "sha256": "2ff6c87525c18d469942a7078ec478ad92937983698522a445a3e656f2bb71eb",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/negative-02-guard-cleanup-removes-termination-witness.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/negative-03-fast-path-retarget-severs-quote-writer.yaml",
+      "sha256": "24e0b9369048d680dcc1e027173f4c81d33312fb9d5b3e8d07183a7cdb0cb2c7",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/negative-03-fast-path-retarget-severs-quote-writer.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/positive-01-hotel-upsell-branch-added.yaml",
+      "sha256": "bfad5c5189b9ccc9f620a86ec9e929d5c64284036b7be2ec95d2e3d1063f26c6",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/positive-01-hotel-upsell-branch-added.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/positive-02-optional-loyalty-tier-key-added.yaml",
+      "sha256": "29918644ed8bd5ad5486553ee55f90dff11090a3abc36daf652a61ae1c408011",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/positive-02-optional-loyalty-tier-key-added.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/evolution-safety/positive-03-router-widened-escalation-branch.yaml",
+      "sha256": "39dabc7f15729ef6d1c2c519ce42488b8c17decb1e55c45a45b72af86d6cf1ae",
+      "vault_source": "09-RnD-Docs/fixtures/properties/evolution-safety/positive-03-router-widened-escalation-branch.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/negative-01-unreachable-escalation-node.yaml",
+      "sha256": "9d8933f97a68fad2f564b1584236ff7741ad8e035d5d06d934ff883255cd3629",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/negative-01-unreachable-escalation-node.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/negative-02-dead-end-review-branch.yaml",
+      "sha256": "6e0710970c25766f362156d7c4a1cc09867926ad515e765f462784aa85111156",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/negative-02-dead-end-review-branch.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
+      "sha256": "9bb0df68ec1e4080d73dd2019fbb56837bb758ad3808106359cdb2c6add0c65d",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/positive-01-linear-document-pipeline.yaml",
+      "sha256": "111cde16c1707a930dd51566b4faafea4b63617990e8de76037387f18401ded0",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/positive-01-linear-document-pipeline.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/positive-02-support-triage-branching.yaml",
+      "sha256": "7bdfc5fcd1b8c462c08cb0226cd7f552ba6ba5f1aa6a3d27e79a9d9f8dd52a75",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/positive-02-support-triage-branching.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph.yaml",
+      "sha256": "d7cf2f8adbc182f2de8fc726fc5bad2a02841c6eeca247dfe20094daceeac2ae",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/01-witnessed-cycle-with-unkeyed-billable-node.yaml",
+      "sha256": "46ee817cc3eccfb26bb3367227c1c20ece2ed1a79e4a0e9708eb1c7dc75bd8d3",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/01-witnessed-cycle-with-unkeyed-billable-node.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/02-unwitnessed-loop-reading-unwritten-key.yaml",
+      "sha256": "88c7bc2cb53790461418aa36fc9a7f762ca46a8bc3c34c7a9d2f63d10fa276de",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/02-unwitnessed-loop-reading-unwritten-key.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/03-parallel-reducerless-key-with-unpinned-llm-writers.yaml",
+      "sha256": "2054c6cdd5d1784ac7e42a24c1ddf3132afc44e41918b9987755021646a79aef",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/03-parallel-reducerless-key-with-unpinned-llm-writers.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/04-dangling-path-map-target-orphans-downstream-reader.yaml",
+      "sha256": "119beab08171283de3cf11767668960dfe5a7aa5b89b421bdb0dc1e79c47d508",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/04-dangling-path-map-target-orphans-downstream-reader.yaml",
+      "vault_commit": "9093972"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/05-evolution-drops-witness-and-state-field.yaml",
+      "sha256": "e2673bdbe098538957f08dbfdc8d94c3e008f31fae368a881837836541ff9ca8",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/05-evolution-drops-witness-and-state-field.yaml",
+      "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/06-irreversible-cycle-idempotency-key-not-read.yaml",
+      "sha256": "92cad5e47336d52429fd66a64e6f22cc780b2d532007713854f807892b315e8a",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/06-irreversible-cycle-idempotency-key-not-read.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/07-subgraph-leaked-key-collides-with-parallel-sibling.yaml",
+      "sha256": "9fc0df0ad741df055e163364883f877a93b31719d8cada9dd20c929373e96d37",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/07-subgraph-leaked-key-collides-with-parallel-sibling.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/08-express-path-skips-gate-writer-and-witnessed-exit.yaml",
+      "sha256": "458cf451fe9df1924e35f140cc946991f9c24cb85f4d29274c3794e3a79a6b90",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/08-express-path-skips-gate-writer-and-witnessed-exit.yaml",
+      "vault_commit": "7be81a9"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/09-send-fanout-billable-no-idempotency-in-retry.yaml",
+      "sha256": "f12ab5d7a1ef1fab00d16a1ee89b739d71b0a63c4cdb61cc2fbe3b3eaebb19f5",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/09-send-fanout-billable-no-idempotency-in-retry.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/mixed/10-all-properties-pass-healthy-research-pipeline.yaml",
+      "sha256": "339826e9eda3db184e9cd84b3d084dea2a83e15edb7cdc746c101128f92d9c97",
+      "vault_source": "09-RnD-Docs/fixtures/properties/mixed/10-all-properties-pass-healthy-research-pipeline.yaml",
+      "vault_commit": "22dd684"
+    },
+    {
+      "path": "tests/fixtures/properties/parallel-safety/negative-01-reducerless-shared-notes-fanout.yaml",
+      "sha256": "b4439877783677e02615ea97885b0f35d9ef335a5ae5352611c6dcade11b31df",
+      "vault_source": "09-RnD-Docs/fixtures/properties/parallel-safety/negative-01-reducerless-shared-notes-fanout.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/parallel-safety/negative-02-send-fanout-reducerless-findings.yaml",
+      "sha256": "f1c4b7215148efa2604ddca05dd9573f8479cf116e755d6da6c8f89cfd3d5486",
+      "vault_source": "09-RnD-Docs/fixtures/properties/parallel-safety/negative-02-send-fanout-reducerless-findings.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/parallel-safety/positive-01-reducer-guarded-parallel-enrichment.yaml",
+      "sha256": "78e0b7b307fa395d2caf65ec2564bebd336abe9b53d373b3f528128b3dc47abe",
+      "vault_source": "09-RnD-Docs/fixtures/properties/parallel-safety/positive-01-reducer-guarded-parallel-enrichment.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/parallel-safety/positive-02-disjoint-write-parallel-search.yaml",
+      "sha256": "4223ec94b1a241790a2bd5d92e8018e443485da573a782bde4aec80d42829d4d",
+      "vault_source": "09-RnD-Docs/fixtures/properties/parallel-safety/positive-02-disjoint-write-parallel-search.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/retry-coherence/negative-01-nonidempotent-fare-poll-reentry.yaml",
+      "sha256": "ee5e099ee1bf969a7fbeae0abd1aca9600469875e47476f45a0eb499b782201f",
+      "vault_source": "09-RnD-Docs/fixtures/properties/retry-coherence/negative-01-nonidempotent-fare-poll-reentry.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/retry-coherence/negative-02-email-dedup-key-not-declared-read.yaml",
+      "sha256": "7700748f8cb8cd7aeee486cd5f609db46b398b9ce565bb5c784ff7d17f0cafab",
+      "vault_source": "09-RnD-Docs/fixtures/properties/retry-coherence/negative-02-email-dedup-key-not-declared-read.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/retry-coherence/positive-01-pure-ranker-in-refinement-loop.yaml",
+      "sha256": "dfd6eea8a560331b32eac7db9f117fe1ade214775c0aa55b306f1ea8e17b058a",
+      "vault_source": "09-RnD-Docs/fixtures/properties/retry-coherence/positive-01-pure-ranker-in-refinement-loop.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/retry-coherence/positive-02-keyed-idempotent-hold-in-retry-loop.yaml",
+      "sha256": "dbf263bdbac19eb907608f4a542e21fcbeacc46f4a706a27a1e90bea9e61be31",
+      "vault_source": "09-RnD-Docs/fixtures/properties/retry-coherence/positive-02-keyed-idempotent-hold-in-retry-loop.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/schema.yaml",
+      "sha256": "d65528cc8411bb315eb7fe81b2b8d29d546553a80c5a77b069fb1e0df1177d9b",
+      "vault_source": "09-RnD-Docs/fixtures/properties/schema.yaml",
+      "vault_commit": "fd6e216"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/negative-01-read-key-absent-from-sigma.yaml",
+      "sha256": "4ce14a87a3de96bff0a53ac0fc790b477d0ee8d089e29090d3fcc0ddf1991062",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/negative-01-read-key-absent-from-sigma.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/negative-02-write-key-undeclared-in-sigma.yaml",
+      "sha256": "5bc5d2d64536c610691659a4c9c774b80e4ce2a1db60723be4ce7db114c844e3",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/negative-02-write-key-undeclared-in-sigma.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/negative-03-args-schema-type-mismatch.yaml",
+      "sha256": "f486aeac8614effa9393cce6003ca98d4dcf5e43a717ae8219b14dd998cff91c",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/negative-03-args-schema-type-mismatch.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/positive-01-linear-booking-declared-io.yaml",
+      "sha256": "d75aaaeb7ac62ef60b2788f5d1b609da4a917381e4f8ce51ce9af6ff7c675c7c",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/positive-01-linear-booking-declared-io.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/positive-02-branching-router-declared-io.yaml",
+      "sha256": "1fe7c8b699717150afe2daf07e8b92343d8b6906c31b211acfa976924888b604",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/positive-02-branching-router-declared-io.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/signature-soundness/positive-03-witnessed-polling-loop-full-contract.yaml",
+      "sha256": "9b47cd1930dd1e5aacde2b14a5f7a2d3acedf0900a31244ec7de6ff04dbbd2db",
+      "vault_source": "09-RnD-Docs/fixtures/properties/signature-soundness/positive-03-witnessed-polling-loop-full-contract.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/negative-01-unwitnessed-reflection-loop.yaml",
+      "sha256": "a5f43c595c4e5fa0c724651d33e802b34ee7998f303624f5e91ed2e0fbce029b",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/negative-01-unwitnessed-reflection-loop.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/negative-02-nested-scc-outer-only-witness.yaml",
+      "sha256": "713c56c07af1c65026ffd25b153fe9b46524c7dc8a7c3326e9f107a5170dffdf",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/negative-02-nested-scc-outer-only-witness.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/negative-03-counter-guard-without-wired-exit.yaml",
+      "sha256": "33dcba1af75f6f0de3e3236537cee0a6b24210d84d0627f2ca7c2ebfa8f9d07d",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/negative-03-counter-guard-without-wired-exit.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/negative-04-supervisor-delegation-scc-no-witness.yaml",
+      "sha256": "2a110cd02d49265debe5995268c59b5aa7f17da27151777a31d79ed80afa07b7",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/negative-04-supervisor-delegation-scc-no-witness.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-01-counter-guarded-retry-loop.yaml",
+      "sha256": "726b9789445e078a130b58cb783dcf15e445f957dc7cbe02fdf3d7b5bdb46066",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-01-counter-guarded-retry-loop.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-02-justified-recursion-limit-refinement-loop.yaml",
+      "sha256": "44112a95694a0f4ba8f2142dd101313ff4b6d09800acbe23286693d26554b59d",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-02-justified-recursion-limit-refinement-loop.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-03-shrinking-worklist-hotel-quotes.yaml",
+      "sha256": "aa2132844e07df1cd140599dcd7d1e0472cf0befa2cda23f6c0ac688ae715d12",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-03-shrinking-worklist-hotel-quotes.yaml",
+      "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
+      "sha256": "ee81d911f9aaed07ee2d886cd1cef94f690b735db4d7cf8216f9c7a79e539f9e",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
+      "vault_commit": "ec34169"
+    }
+  ]
+}

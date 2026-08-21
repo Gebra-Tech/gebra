@@ -1,0 +1,87 @@
+# Fixture: retry-coherence / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: retry-coherence
+polarity: positive
+description: >
+  An itinerary-refinement loop in which both re-enterable nodes are
+  @gebra.pure: rank_candidates re-ranks the fetched itineraries and
+  review_ranking routes back for another pass while quality is low. P-07's
+  obligation on every cycle-re-enterable node is discharged by purity —
+  D-012's "@PURE implies idempotent" — so re-entry is coherent by
+  construction. The cycle carries a bounded-counter witness
+  (refine_count < 3), keeping P-02 satisfied.
+
+ir:
+  ir_version: "1.0"
+  entry: fetch_candidates
+  finish: publish_itinerary
+  state:
+    traveler_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    candidates: list
+    ranked_itinerary: str
+    rank_quality: str
+    refine_count:
+      type: int
+      reducer: "operator.add"
+    final_itinerary: str
+  nodes:
+    - id: fetch_candidates
+      annotations:
+        effect: [network]
+        idempotent: { key: traveler_request }
+        input: [traveler_request]
+        output: [candidates]
+    - id: rank_candidates
+      annotations:
+        pure: true
+        input: [candidates, traveler_request]
+        output: [ranked_itinerary, rank_quality, refine_count]
+    - id: review_ranking
+      annotations:
+        pure: true
+        input: [rank_quality, refine_count]
+        output: []
+    - id: publish_itinerary
+      annotations:
+        input: [ranked_itinerary]
+        output: [final_itinerary]
+  edges:
+    - from: fetch_candidates
+      to: rank_candidates
+    - from: rank_candidates
+      to: review_ranking
+    - from: review_ranking
+      kind: conditional
+      condition: "'refine' if rank_quality == 'low' and refine_count < 3 else 'accept'"
+      path_map:
+        refine: rank_candidates
+        accept: publish_itinerary
+
+expected:
+  result: pass
+  witness:
+    kind: retry-coherence
+    obligations:
+      - node: rank_candidates
+        obligation: cycle-reentry
+        cycle: [rank_candidates, review_ranking]
+        discharged_by: pure
+      - node: review_ranking
+        obligation: cycle-reentry
+        cycle: [rank_candidates, review_ranking]
+        discharged_by: pure
+
+notes: >
+  Witness shape remains provisional until §P-07 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18).
+  Corpus discipline: every other catalog property holds — the single cycle
+  is witnessed (P-02), fetch_candidates sits outside the cycle and is
+  keyed-idempotent on a declared read anyway, its network effect is
+  neither irreversible nor billable (P-06), and all reads are written
+  upstream or optional at START (P-04). Obligations here arise from cycle
+  re-entry only: IR v0.1 has no serialization for a LangGraph
+  retry_policy, so P-07's retry_policy leg is not exercisable in this
+  corpus yet. Counterpart: negative-01-nonidempotent-fare-poll-reentry.yaml.

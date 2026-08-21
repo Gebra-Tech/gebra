@@ -1,0 +1,146 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+    "extractor_version": "<gebra-version>"
+  },
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "pass",
+      "witness": {
+        "kind": "well-formedness",
+        "reachable_from_start": [
+          "book_flight",
+          "check_availability",
+          "send_confirmation"
+        ],
+        "terminal_nodes": [
+          "send_confirmation"
+        ],
+        "orphan_nodes": [],
+        "unresolved_targets": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "termination-witness",
+      "property_id": "P-02",
+      "status": "not-yet-implemented",
+      "detail": "P-02 termination-witness is one of the Phase-0 wedge five, but no validator is registered for it in this build. Its contract is PROPERTY-CATALOG-SPEC §2; TERMINATION-WITNESS-SPEC. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "pass",
+      "witness": {
+        "kind": "dataflow",
+        "coverage": [
+          {
+            "node": "send_confirmation",
+            "key": "booking_id",
+            "satisfied_by": [
+              "book_flight"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "pass",
+      "witness": {
+        "kind": "effect-safety",
+        "cycles": [],
+        "effects": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "pass",
+      "witness": {
+        "kind": "determinism",
+        "claims": [],
+        "claim_class": "heuristic"
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 0,
+    "outcome": "pass",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": true
+  }
+}

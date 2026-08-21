@@ -1,0 +1,85 @@
+# Gebra property fixture (gebra-property-fixture-v2) — authored by fixture-author, 2026-07-17.
+property: signature-soundness
+polarity: positive
+description: >
+  A cyclic polling workflow: submit_booking starts an asynchronous
+  booking, poll_status loops on itself (counter-guarded self-cycle)
+  until the booking settles, and confirm_itinerary finishes. P-03 holds
+  structurally because every node's declared reads and writes --
+  including the loop counter retry_count read and re-written inside the
+  cycle -- are subsets of keys(Sigma). Demonstrates the full contract
+  decorator family (@gebra.contract input/output plus effect,
+  idempotent, pure) over a witnessed cyclic topology.
+ir:
+  ir_version: "1.0"
+  entry: submit_booking
+  finish: confirm_itinerary
+  state:
+    request: { type: str, optional: true }
+    booking_id: str
+    status: str
+    retry_count: { type: int, optional: true }
+    confirmation: str
+  nodes:
+    - id: submit_booking
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request]
+        output: [booking_id]
+    - id: poll_status
+      annotations:
+        effect: [network]
+        idempotent: { key: booking_id }
+        input: [booking_id, retry_count]
+        output: [status, retry_count]
+    - id: confirm_itinerary
+      annotations:
+        pure: true
+        input: [status]
+        output: [confirmation]
+  edges:
+    - from: submit_booking
+      to: poll_status
+    - from: poll_status
+      kind: conditional
+      condition: "'retry' if status == 'pending' and retry_count < 3 else 'done'"
+      path_map:
+        retry: poll_status
+        done: confirm_itinerary
+source_snippet: |
+  # Illustrative only -- never executed.
+  @gebra.contract(reads=["booking_id", "retry_count"],
+                  writes=["status", "retry_count"])
+  @gebra.effect("network")
+  @gebra.idempotent(key="booking_id")
+  def poll_status(state: TravelState) -> dict:
+      ...
+expected:
+  result: pass
+  witness:
+    kind: signature
+    sigma_keys: [request, booking_id, status, retry_count, confirmation]
+    contracts:
+      - node: submit_booking
+        reads: [request]
+        writes: [booking_id]
+      - node: poll_status
+        reads: [booking_id, retry_count]
+        writes: [status, retry_count]
+      - node: confirm_itinerary
+        reads: [status]
+        writes: [confirmation]
+notes: >
+  Exercises P-03 on a cyclic topology without disturbing the rest of the
+  catalog: the poll_status self-cycle carries a P-02 witness (bounded
+  counter retry_count in Sigma plus the conditional exit guard
+  "retry_count < 3", the bounded-counter form of the
+  TERMINATION-WITNESS-SPEC grammar); the in-cycle effect is network-only,
+  so P-06 does not apply, and its idempotency key booking_id appears in
+  the declared reads (P-07); retry_count is optional (carries a default
+  at START), so P-04's write-before-read closure holds on first loop
+  entry. Witness shape remains provisional pending the §P-03 I/O
+  contract (the PROPERTY-CATALOG-SPEC P-03 section is drafted at P-03
+  scheduling; `kind: signature` is reserved in the §0.3 witness
+  vocabulary).

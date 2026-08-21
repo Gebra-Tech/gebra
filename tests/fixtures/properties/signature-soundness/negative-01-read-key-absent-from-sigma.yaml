@@ -1,0 +1,64 @@
+# Gebra property fixture (gebra-property-fixture-v2) — authored by fixture-author, 2026-07-17.
+property: signature-soundness
+polarity: negative
+description: >
+  send_confirmation declares reads {booking_id, user_email}, but Sigma
+  has no user_email key -- the email lives inside the nested user object
+  (Sigma declares user: UserProfile). The contract references a key the
+  state schema cannot supply, violating reads(n) subset-of keys(Sigma);
+  P-03 fails at design time, before the runtime KeyError ships. Mirrors
+  the P-03 failure example in Verification-Properties.md.
+ir:
+  ir_version: "1.0"
+  entry: lookup_booking
+  finish: send_confirmation
+  state:
+    request: { type: str, optional: true }
+    user: { type: UserProfile, optional: true }
+    booking_id: str
+    confirmation: str
+  nodes:
+    - id: lookup_booking
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request]
+        output: [booking_id]
+    - id: send_confirmation
+      annotations:
+        effect: [network]
+        input: [booking_id, user_email]
+        output: [confirmation]
+  edges:
+    - from: lookup_booking
+      to: send_confirmation
+source_snippet: |
+  # Illustrative only -- never executed.
+  class TravelState(TypedDict):
+      request: str
+      user: UserProfile        # user.email is nested, not a top-level key
+      booking_id: str
+      confirmation: str
+
+  @gebra.contract(reads=["booking_id", "user_email"], writes=["confirmation"])
+  def send_confirmation(state: TravelState) -> dict:
+      ...
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-not-in-state-schema"
+    location:
+      node: send_confirmation
+      key: user_email
+      annotation: input
+    sigma_keys: [request, user, booking_id, confirmation]
+notes: >
+  Fails only P-03. Every read that IS in Sigma is written upstream
+  (booking_id by lookup_booking; request and user are optional graph
+  inputs), the graph is an acyclic well-formed chain (P-01 holds, P-02
+  vacuous), and the only effectful nodes sit outside any cycle with
+  idempotency keys in their reads (P-06, P-07). Per the D-010 split
+  recorded in Verification-Properties.md, the schema-membership half of
+  the old "@GET satisfied by @INPUT + prior @OUTPUTs" check lands in
+  P-03 and the ordering half in P-04, so P-04's path closure is scoped
+  to keys(Sigma) and does not co-fail on user_email.

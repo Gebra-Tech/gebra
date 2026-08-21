@@ -1,0 +1,158 @@
+# Fixture: evolution-safety / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: negative
+description: >
+  v1.1 -> v1.2 of a booking-quote workflow: in v1.1 both intake branches
+  (new booking via gather_details, change via load_existing_booking)
+  funnel through compute_quote, the only writer of quote, before
+  present_quote reads it. A v1.2 "fast path" refactor retargets the
+  load_existing_booking edge from compute_quote directly to present_quote
+  ("change flows get re-quoted later") — severing the only upstream
+  writer of quote on the change path while every node stays reachable.
+  The retarget breaks the write-before-read closure on exactly one path,
+  so P-12 classifies the diff as breaking.
+
+ir_before:
+  ir_version: "1.0"
+  entry: intake
+  finish: present_quote
+  state:
+    request:
+      type: str
+      optional: true
+    request_kind: str
+    trip_spec: str
+    quote: str
+    reply: str
+  nodes:
+    - id: intake
+      annotations:
+        pure: true
+        input: [request]
+        output: [request_kind]
+    - id: gather_details
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_spec]
+    - id: load_existing_booking
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_spec]
+    - id: compute_quote
+      annotations:
+        pure: true
+        input: [trip_spec]
+        output: [quote]
+    - id: present_quote
+      annotations:
+        input: [quote]
+        output: [reply]
+  edges:
+    - from: intake
+      kind: conditional
+      condition: "'new' if request_kind == 'new' else 'change'"
+      path_map:
+        new: gather_details
+        change: load_existing_booking
+    - from: gather_details
+      to: compute_quote
+    - from: load_existing_booking
+      to: compute_quote
+    - from: compute_quote
+      to: present_quote
+
+ir_after:
+  ir_version: "1.0"
+  entry: intake
+  finish: present_quote
+  state:
+    request:
+      type: str
+      optional: true
+    request_kind: str
+    trip_spec: str
+    quote: str
+    reply: str
+  nodes:
+    - id: intake
+      annotations:
+        pure: true
+        input: [request]
+        output: [request_kind]
+    - id: gather_details
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_spec]
+    - id: load_existing_booking
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_spec]
+    - id: compute_quote
+      annotations:
+        pure: true
+        input: [trip_spec]
+        output: [quote]
+    - id: present_quote
+      annotations:
+        input: [quote]
+        output: [reply]
+  edges:
+    - from: intake
+      kind: conditional
+      condition: "'new' if request_kind == 'new' else 'change'"
+      path_map:
+        new: gather_details
+        change: load_existing_booking
+    - from: gather_details
+      to: compute_quote
+    - from: load_existing_booking
+      to: present_quote
+    - from: compute_quote
+      to: present_quote
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  # v1.2 refactor: "change flows will be re-quoted in a later sprint"
+  # builder.add_edge("load_existing_booking", "compute_quote")   # v1.1
+  builder.add_edge("load_existing_booking", "present_quote")     # v1.2
+
+expected:
+  result: fail
+  failure:
+    property_condition: "sole-writer-severed"
+    classification: breaking
+    location:
+      edge:
+        from: load_existing_booking
+        to_before: compute_quote
+        to_after: present_quote
+      node: present_quote
+      key: quote
+      path: [START, intake, load_existing_booking, present_quote]
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). The breaking
+  change itself induces the named violation in ir_after: on the change
+  path, present_quote's read of quote loses its only upstream writer, so
+  ir_after co-fails P-04 dataflow-completeness
+  (read-key-never-written-on-path) BY CONSTRUCTION — that induced
+  violation is what makes the retarget breaking; it is the point of the
+  fixture. ir_before satisfies P-01..P-09 in full; ir_after satisfies
+  everything else — critically, compute_quote remains reachable via the
+  'new' branch, so P-01 graph-well-formed still holds and the fixture
+  isolates the dataflow-severing retarget from an unreachable-node
+  breakage (a candidate future negative). Condition id canonical per the
+  R-05 lead review (2026-07-17, DEC-05): "sole-writer severed" — deleting
+  or retargeting away the only writer of a still-read key — is P-12's
+  blessed fourth breaking class, condition sole-writer-severed. Safe
+  mirror: positive-01, where an edge is rewired through a NEW node while
+  preserving the write-before-read closure.

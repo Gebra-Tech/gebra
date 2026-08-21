@@ -1,0 +1,11 @@
+# Round-trip golden 01 — the smallest legal ir_version 1.0 document.
+#
+# One node, no edges. `edges: []` is authored explicitly because the five REQUIRED
+# members carry no model default (IR-SPEC §2.5 note 6), and `entry`/`finish` are the
+# scalar form of a singleton wired set.
+ir_version: "1.0"
+entry: only
+finish: only
+nodes:
+  - id: only
+edges: []

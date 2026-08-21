@@ -1,0 +1,40 @@
+# Round-trip golden 03 — the surface distinctions canonicalization deliberately collapses.
+#
+# Every member here has a second spelling that IR-SPEC §6.3 maps onto the same canonical
+# bytes: a singleton `entry` list vs the scalar, an explicit `kind: normal` vs a tagless
+# edge, `{type: str}` vs the bare `str`, an empty `interrupts.before` vs its absence, an
+# empty `annotations` object vs no annotations. Under model equality they are different
+# documents, so a lossless round-trip has to keep each one exactly as authored.
+ir_version: "1.0"
+entry: [alpha]
+finish: [beta, gamma]
+state:
+  bare: str
+  spelled_out:
+    type: str
+nodes:
+  - id: alpha
+    annotations: {}
+  - id: beta
+    annotations:
+      effect: []
+      input: []
+  - id: gamma
+edges:
+  - from: alpha
+    kind: normal
+    to: beta
+  - from: alpha
+    to: gamma
+  - from: beta
+    kind: normal
+    to: "END"
+    condition: inert on this kind, admitted for fixture fidelity
+  - from: gamma
+    to: "END"
+runtime:
+  interrupts:
+    before: []
+    after: [beta]
+  checkpointer:
+    present: false

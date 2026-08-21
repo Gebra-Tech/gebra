@@ -1,0 +1,122 @@
+# Fixture: evolution-safety / negative-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Snapshot-pair form (ir_before + ir_after) — permitted for evolution-safety only.
+
+property: evolution-safety
+axiom_basis: [extension, augmentation]
+polarity: negative
+description: >
+  v1.1 -> v1.2 of the travel-booking workflow: a "one-way trips" cleanup
+  removes return_date from the state schema and scrubs it from
+  parse_dates' writes and search_flights' reads — but book_flight, a
+  surviving node, still declares return_date in its input. The catalog's
+  canonical breaking case (Verification-Properties P-12, read-key
+  removal): a schema shrink that strands a surviving reader is never
+  additive, so P-12 classifies the diff as breaking regardless of whether
+  happy paths still appear to work.
+
+ir_before:
+  ir_version: "1.0"
+  entry: parse_dates
+  finish: send_confirmation
+  state:
+    trip_request:
+      type: str
+      optional: true
+    depart_date: str
+    return_date: str
+    flight_option: str
+    booking_ref: str
+    confirmation: str
+  nodes:
+    - id: parse_dates
+      annotations:
+        pure: true
+        input: [trip_request]
+        output: [depart_date, return_date]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [depart_date, return_date]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option, return_date]
+        output: [booking_ref]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: parse_dates
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+
+ir_after:
+  ir_version: "1.0"
+  entry: parse_dates
+  finish: send_confirmation
+  state:
+    trip_request:
+      type: str
+      optional: true
+    depart_date: str
+    flight_option: str
+    booking_ref: str
+    confirmation: str
+  nodes:
+    - id: parse_dates
+      annotations:
+        pure: true
+        input: [trip_request]
+        output: [depart_date]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [depart_date]
+        output: [flight_option]
+    - id: book_flight
+      annotations:
+        effect: [billable]
+        idempotent: { key: flight_option }
+        input: [flight_option, return_date]
+        output: [booking_ref]
+    - id: send_confirmation
+      annotations:
+        input: [booking_ref]
+        output: [confirmation]
+  edges:
+    - from: parse_dates
+      to: search_flights
+    - from: search_flights
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-removed"
+    classification: breaking
+    location:
+      key: return_date
+      node: book_flight
+    surviving_readers: [book_flight]
+    removed_writers: [parse_dates]
+
+notes: >
+  Witness shape remains provisional until §P-12 is drafted; envelope
+  conforms to PROPERTY-CATALOG-SPEC §0 (2026-07-18). The breaking
+  change itself induces the named violation in ir_after: book_flight's
+  declared read of return_date is no longer a subset of keys(state), so
+  ir_after co-fails P-03 signature-soundness (and hence P-04) BY
+  CONSTRUCTION — that induced violation is precisely why the diff is
+  breaking; it is the point of the fixture, not a corpus-discipline leak.
+  ir_before satisfies P-01..P-09 in full; ir_after satisfies everything
+  except the induced P-03/P-04 breakage at book_flight. Counterpart safe
+  direction: positive-02 (key ADDED with optional: true).

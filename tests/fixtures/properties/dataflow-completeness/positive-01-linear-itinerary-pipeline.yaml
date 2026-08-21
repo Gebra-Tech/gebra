@@ -1,0 +1,90 @@
+# Fixture: dataflow-completeness / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: positive
+description: >
+  A linear four-node itinerary pipeline in which every read key is covered
+  by the write-before-read transitive closure: each node's declared reads
+  are written by a strict predecessor on the single START-to-node path, and
+  the graph-input key (request, declared optional in Sigma) is treated as
+  written at START — including a late re-read of request by the final node,
+  exercising the graph-input rule deep in the chain.
+
+ir:
+  ir_version: "1.0"
+  entry: parse_request
+  finish: draft_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    search_query: str
+    flight_options: list
+    selected_flight: str
+    itinerary: str
+  nodes:
+    - id: parse_request
+      annotations:
+        pure: true
+        input: [request]
+        output: [search_query]
+    - id: search_flights
+      annotations:
+        effect: [network]
+        idempotent: { key: search_query }
+        input: [search_query]
+        output: [flight_options]
+    - id: select_flight
+      annotations:
+        pure: true
+        input: [flight_options]
+        output: [selected_flight]
+    - id: draft_itinerary
+      annotations:
+        pure: true
+        input: [selected_flight, request]
+        output: [itinerary]
+  edges:
+    - from: parse_request
+      to: search_flights
+    - from: search_flights
+      to: select_flight
+    - from: select_flight
+      to: draft_itinerary
+
+expected:
+  result: pass
+  witness:
+    kind: dataflow
+    coverage:
+      - node: parse_request
+        key: request
+        satisfied_by: [START]
+      - node: search_flights
+        key: search_query
+        satisfied_by: [parse_request]
+      - node: select_flight
+        key: flight_options
+        satisfied_by: [search_flights]
+      - node: draft_itinerary
+        key: selected_flight
+        satisfied_by: [select_flight]
+      - node: draft_itinerary
+        key: request
+        satisfied_by: [START]
+
+notes: >
+  Witness shape follows the ratified P-04 I/O contract
+  (PROPERTY-CATALOG-SPEC §4.3; walkthrough #2, 2026-07-18): `coverage` lists
+  one entry per (node, read key), and `satisfied_by` is the set of upstream
+  writers such that every START-to-node path contains at least one of them;
+  the START sentinel denotes a graph-input key (`optional: true` in Sigma).
+  Corpus discipline: only P-04 is exercised — the graph is acyclic (P-02
+  vacuous), all declared reads/writes are Sigma keys (P-03 holds), the
+  idempotency key of search_flights is a declared read (P-07 holds), no
+  irreversible/billable effect tags appear (P-06/P-13 vacuous), and there
+  are no concurrent writers (P-09 vacuous). Counterpart:
+  negative-02-writer-downstream-of-reader.yaml breaks the same linear
+  topology by ordering the writer after the reader.

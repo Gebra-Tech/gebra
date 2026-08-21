@@ -1,0 +1,83 @@
+# Fixture: determinism-replay / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): coherence of the determinism claim,
+# never a proof that the provider is deterministic.
+
+property: determinism-replay
+polarity: positive
+description: >
+  A non-LLM pure computation node (normalize_fares — currency conversion
+  over a fixed rate table) declares the bare @gebra.deterministic claim.
+  Structural condition satisfied: the node is pure with no network/external
+  effect tags, so P-08's LLM coherence conditions (seed + temperature
+  pinning) do not engage — a determinism claim on pure local computation is
+  trivially coherent and unlocks D-013 memoisation/replay reasoning without
+  any pinning obligation.
+
+ir:
+  ir_version: "1.0"
+  entry: request_quotes
+  finish: select_offer
+  state:
+    route:
+      type: str
+      optional: true
+    raw_quotes: list
+    normalized_quotes: list
+    best_offer: str
+  nodes:
+    - id: request_quotes
+      annotations:
+        effect: [network]
+        idempotent: { key: route }
+        input: [route]
+        output: [raw_quotes]
+    - id: normalize_fares
+      annotations:
+        pure: true
+        deterministic: true
+        input: [raw_quotes]
+        output: [normalized_quotes]
+    - id: select_offer
+      annotations:
+        pure: true
+        input: [normalized_quotes]
+        output: [best_offer]
+  edges:
+    - from: request_quotes
+      to: normalize_fares
+    - from: normalize_fares
+      to: select_offer
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  @gebra.deterministic
+  @gebra.pure
+  def normalize_fares(state: TravelState) -> dict:
+      table = FIXED_RATE_TABLE  # shipped with the workflow, not fetched
+      return {"normalized_quotes": [to_eur(q, table) for q in state["raw_quotes"]]}
+
+expected:
+  result: pass
+  witness:
+    kind: determinism
+    claims:
+      - node: normalize_fares
+        llm_backed: false
+        basis: pure-local-computation
+        pinning_required: false
+    claim_class: heuristic
+
+notes: >
+  Witness shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + Appendix B; walkthrough #2, 2026-07-18).
+  The bare boolean form is exactly right here: seed pinning is an
+  obligation only for nodes whose effect set evidences an external LLM call
+  (network/external), per the tutorial's §7 P-08 walkthrough. Corpus
+  isolation: request_quotes carries a network effect OUTSIDE any retry
+  region (acyclic graph, P-02/P-06 hold) and its idempotency key `route`
+  names a declared input (P-07 holds); `route` is optional:true, i.e. a
+  graph input written at START (P-04 holds); all declared keys are in the
+  state schema (P-03); no fan-out or shared writes (P-09). Counterpart
+  contrast: positive-01 shows the pinned-LLM pass; this fixture shows the
+  trivial non-LLM pass.

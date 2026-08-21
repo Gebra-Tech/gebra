@@ -1,0 +1,331 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+    "extractor_version": "<gebra-version>"
+  },
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "fail",
+      "failure": {
+        "property_condition": "node-unreachable-from-start",
+        "location": {
+          "kind": "node",
+          "node": "escalate_to_human"
+        },
+        "severity": "fatal",
+        "claim_class": "defensible",
+        "remediation": "Wire an edge into the node, or remove it from the definition.",
+        "co_failures": [
+          {
+            "property": "graph-well-formed",
+            "property_condition": "edge-target-undefined",
+            "location": {
+              "kind": "edge",
+              "source": "route",
+              "label": "escalate",
+              "undefined_target": "escalate"
+            },
+            "severity": "fatal",
+            "claim_class": "defensible",
+            "note": "the label names no node in the definition"
+          },
+          {
+            "property": "graph-well-formed",
+            "property_condition": "orphan-node",
+            "location": {
+              "kind": "node",
+              "node": "stranded"
+            },
+            "severity": "fatal",
+            "claim_class": "defensible"
+          },
+          {
+            "property": "graph-well-formed",
+            "property_condition": "path-map-target-undefined",
+            "location": {
+              "kind": "edge",
+              "source": "route",
+              "target": "book_flight",
+              "label": "book",
+              "undefined_target": "booking"
+            },
+            "severity": "fatal",
+            "claim_class": "defensible"
+          },
+          {
+            "property": "graph-well-formed",
+            "property_condition": "dead-end-node-not-wired-to-end",
+            "location": {
+              "kind": "node",
+              "node": "archive"
+            },
+            "severity": "fatal",
+            "claim_class": "defensible",
+            "subsumed_by": "P-01"
+          }
+        ],
+        "advisories": [
+          {
+            "property": "determinism-replay",
+            "property_condition": "deterministic-llm-seed-unpinned",
+            "severity": "warning",
+            "claim_class": "heuristic",
+            "location": {
+              "kind": "node",
+              "node": "draft_itinerary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "property": "termination-witness",
+      "result": "pass",
+      "witness": {
+        "kind": "termination",
+        "inventory": [
+          {
+            "form": "a",
+            "element": {
+              "kind": "edge",
+              "source": "route",
+              "target": "retry",
+              "label": "again"
+            },
+            "source": {
+              "guard_edge": {
+                "source": "route",
+                "label": "again"
+              },
+              "counter_key": "attempts",
+              "bound": 3
+            },
+            "discharges": "all-simple-cycles-through-element"
+          },
+          {
+            "form": "b",
+            "source": {
+              "recursion_limit": {
+                "value": 25,
+                "justification": "the operator caps a support loop at 25 steps"
+              }
+            },
+            "discharges": "blanket"
+          },
+          {
+            "form": "c",
+            "element": {
+              "kind": "node",
+              "node": "refine"
+            },
+            "source": {
+              "variant": {
+                "key": "budget",
+                "measure": "budget"
+              }
+            },
+            "discharges": "all-simple-cycles-through-element"
+          },
+          {
+            "form": "c",
+            "element": {
+              "kind": "node",
+              "node": "summarize"
+            },
+            "source": {
+              "variant": {
+                "key": "pending",
+                "measure": "len(pending)"
+              }
+            },
+            "discharges": []
+          }
+        ],
+        "certificate": [
+          "START",
+          "route",
+          "refine",
+          "END"
+        ],
+        "notes": [
+          {
+            "kind": "scc-covered-only-by-recursion-limit",
+            "severity": "warning",
+            "locations": [
+              {
+                "kind": "scc",
+                "nodes": [
+                  "refine",
+                  "route"
+                ],
+                "representative_cycle": [
+                  "refine",
+                  "route"
+                ],
+                "exhaustive": false,
+                "blanket_only": true
+              }
+            ]
+          },
+          {
+            "kind": "recursion-limit-without-justification"
+          },
+          {
+            "kind": "variant-key-not-in-state",
+            "node": "refine",
+            "key": "budget"
+          },
+          {
+            "kind": "counter-key-not-qualified",
+            "guard_edge": {
+              "source": "route",
+              "label": "again"
+            },
+            "identifier": "attempts",
+            "declared_type": "str"
+          },
+          {
+            "kind": "cycle-census-capped"
+          }
+        ],
+        "cycles": {
+          "exhaustive": true,
+          "cycles": [
+            [
+              "refine",
+              "route"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "fail",
+      "failure": {
+        "property_condition": "read-key-never-written-on-path",
+        "location": {
+          "kind": "state-key",
+          "key": "booking_id",
+          "node": "send_confirmation",
+          "path": [
+            "START",
+            "check_availability",
+            "send_confirmation"
+          ]
+        },
+        "severity": "fatal",
+        "claim_class": "defensible-a",
+        "writers_on_other_paths": [
+          "book_flight"
+        ],
+        "downstream_writers": [
+          "archive"
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "pass",
+      "witness": {
+        "kind": "effect-safety",
+        "cycles": [],
+        "effects": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "pass",
+      "witness": {
+        "kind": "determinism",
+        "claims": [],
+        "claim_class": "heuristic"
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [
+    "termination-witness",
+    "dataflow-completeness",
+    "effect-safety"
+  ],
+  "gate": {
+    "exit_code": 1,
+    "outcome": "fail",
+    "counts": {
+      "fatal": 6,
+      "error": 0,
+      "warning": 1
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": false
+  }
+}

@@ -1,0 +1,100 @@
+# Fixture: termination-witness / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# witness form (c), annotated loop variant / bound.
+
+property: termination-witness
+polarity: positive
+description: >
+  A worklist loop that collects a quote for each hotel on a fixed
+  shortlist. The single cycle is witnessed by a loop variant — witness
+  form (c) of P-02: the hotel_shortlist state key strictly shrinks each
+  iteration (quote_next_hotel consumes the head, per its declared output
+  contract) and the conditional exit guard bounds the loop by the
+  worklist's emptiness (len(hotel_shortlist) > 0). P-02 proves witness
+  PRESENCE only; the strict-decrease claim is annotation-trusted, and
+  semantic termination is not claimed.
+
+ir:
+  ir_version: "1.0"
+  entry: build_shortlist
+  finish: rank_quotes
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    hotel_shortlist: list
+    hotel_quotes:
+      type: list
+      reducer: "operator.add"
+      optional: true       # defaults to []; treated as written at START
+    ranking: str
+  nodes:
+    - id: build_shortlist
+      annotations:
+        pure: true
+        input: [trip_request]
+        output: [hotel_shortlist]
+    - id: quote_next_hotel
+      annotations:
+        idempotent: { key: hotel_shortlist }
+        variant:
+          key: hotel_shortlist
+          measure: "len(hotel_shortlist) strictly decreases each iteration (head consumed)"
+        input: [hotel_shortlist]
+        output: [hotel_shortlist, hotel_quotes]   # pops the head; appends its quote
+    - id: check_worklist
+      annotations:
+        pure: true
+        input: [hotel_shortlist]
+        output: []
+    - id: rank_quotes
+      annotations:
+        pure: true
+        input: [hotel_quotes]
+        output: [ranking]
+  edges:
+    - from: build_shortlist
+      to: quote_next_hotel
+    - from: quote_next_hotel
+      to: check_worklist
+    - from: check_worklist
+      kind: conditional
+      condition: "'next' if len(hotel_shortlist) > 0 else 'done'"
+      path_map:
+        next: quote_next_hotel
+        done: rank_quotes
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: c
+        element: { kind: node, node: quote_next_hotel }
+        source:
+          variant:
+            key: hotel_shortlist
+            measure: "len(hotel_shortlist) strictly decreases each iteration (head consumed)"
+        discharges: all-simple-cycles-through-element
+    certificate: [START, build_shortlist, check_worklist, rank_quotes, END]
+    cycles:
+      exhaustive: true
+      cycles:
+        - [check_worklist, quote_next_hotel]
+
+notes: >
+  Witness form (c) of P-02: an annotated loop variant, carried at
+  ir_version 1.0 on the first-class nodes[].annotations.variant
+  {key, measure} slot (ledger section 3; 0.1->1.0 migration per DEC-09).
+  The worklist-emptiness guard (len(hotel_shortlist) > 0) is deliberately
+  OUTSIDE the TERMINATION-WITNESS-SPEC section 3 grammar (R5 / the L0
+  parenthesis rule): shrinking-ness is not IR-decidable, so the variant
+  annotation — not the guard — is the sanctioned witness carrier, and the
+  witness discharges the carrier node. Honest claim: the strict-decrease
+  of the variant is trusted from the annotation (DEFENSIBLE-A flavor),
+  not proven. Witness/failure shape conforms to PROPERTY-CATALOG-SPEC
+  (wedge five pinned 2026-07-18, DEC-11). Corpus discipline: only P-02 is
+  exercised and
+  it passes — no effect tags, keyed idempotency on a declared input, all
+  reads written upstream or optional, path_map labels fully wired.

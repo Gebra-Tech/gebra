@@ -1,0 +1,121 @@
+# Fixture: termination-witness / positive-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# nested cycles inside one SCC, each carrying its own witness.
+
+property: termination-witness
+polarity: positive
+description: >
+  Nested cycles in a single SCC, each with its own witness. An outer
+  itinerary-revision loop (draft -> quote -> validate -> assess -> draft)
+  encloses an inner fare re-quoting loop (quote -> validate -> quote).
+  SCC condensation yields one non-trivial SCC with two simple cycles; the
+  inner cycle carries the bounded counter quote_retry_count with exit
+  guard quote_retry_count < 3, and the outer cycle carries revision_round
+  with exit guard revision_round < 5 — witness form (a) on both cycles,
+  independently. P-02 proves witness PRESENCE only; semantic termination
+  is not claimed.
+
+ir:
+  ir_version: "1.0"
+  entry: draft_itinerary
+  finish: finalize_booking
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    itinerary: str
+    quote: str
+    quote_retry_count:
+      type: int
+      reducer: "operator.add"
+    revision_round:
+      type: int
+      reducer: "operator.add"
+    booking_summary: str
+  nodes:
+    - id: draft_itinerary
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [itinerary, revision_round]   # increments the outer counter
+    - id: quote_fares
+      annotations:
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [quote, quote_retry_count]    # increments the inner counter
+    - id: validate_quote
+      annotations:
+        pure: true
+        input: [quote, quote_retry_count]
+        output: []
+    - id: assess_itinerary
+      annotations:
+        pure: true
+        input: [itinerary, quote, revision_round]
+        output: []
+    - id: finalize_booking
+      annotations:
+        pure: true
+        input: [itinerary, quote]
+        output: [booking_summary]
+  edges:
+    - from: draft_itinerary
+      to: quote_fares
+    - from: quote_fares
+      to: validate_quote
+    - from: validate_quote
+      kind: conditional
+      condition: "'requote' if quote is transient-stale and quote_retry_count < 3 else 'accept'"
+      path_map:
+        requote: quote_fares
+        accept: assess_itinerary
+    - from: assess_itinerary
+      kind: conditional
+      condition: "'revise' if itinerary exceeds budget and revision_round < 5 else 'finalize'"
+      path_map:
+        revise: draft_itinerary
+        finalize: finalize_booking
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: a
+        element: { kind: edge, source: validate_quote, target: quote_fares, label: requote }
+        source:
+          guard_edge: { source: validate_quote, label: requote }
+          counter_key: quote_retry_count
+          bound: 3
+        discharges: all-simple-cycles-through-element
+      - form: a
+        element: { kind: edge, source: assess_itinerary, target: draft_itinerary, label: revise }
+        source:
+          guard_edge: { source: assess_itinerary, label: revise }
+          counter_key: revision_round
+          bound: 5
+        discharges: all-simple-cycles-through-element
+    certificate: [START, draft_itinerary, quote_fares, validate_quote, assess_itinerary, finalize_booking, END]
+    cycles:
+      exhaustive: true
+      cycles:
+        - [quote_fares, validate_quote]
+        - [assess_itinerary, draft_itinerary, quote_fares, validate_quote]
+
+notes: >
+  Flagship nested-SCC positive: condensation gives one non-trivial SCC
+  {draft_itinerary, quote_fares, validate_quote, assess_itinerary}
+  containing exactly two simple cycles, and the inventory carries two
+  form-(a) element witnesses — each cycle bounded by its OWN counter and
+  its OWN conditional exit whose declared guard matches the
+  bounded-counter grammar. Neither counter is shared: the outer bound
+  does not bound inner spins and vice versa, so both witnesses are
+  load-bearing (DEC-05 D1, Lemma-1 coverage). Witness/failure shape
+  conforms to PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18,
+  DEC-11): per-cycle enumeration rides the optional capped census
+  (B=16), not the inventory. Corpus discipline:
+  only P-02 is exercised and it passes — keyed idempotency on declared
+  inputs, no effect tags, all reads written upstream or optional, all
+  path_map labels wired. Negative counterpart:
+  negative-02-nested-scc-outer-only-witness.yaml.

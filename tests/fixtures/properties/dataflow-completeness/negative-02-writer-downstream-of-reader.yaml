@@ -1,0 +1,76 @@
+# Fixture: dataflow-completeness / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  An ordering bug on a linear chain: notify_traveler reads itinerary_url,
+  but the only writer of itinerary_url is publish_itinerary, which is
+  wired DOWNSTREAM of the reader. The write-before-read closure is
+  ordered, so a downstream writer contributes nothing — on the single
+  path START -> compile_itinerary -> notify_traveler the key is unwritten.
+  This is the "@GET on S with no prior @PUT on S" case of the Sequence
+  Dependency Rule, distinct from branch-skip violations: the writer
+  exists, it is just on the wrong side of the reader.
+
+ir:
+  ir_version: "1.0"
+  entry: compile_itinerary
+  finish: publish_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    itinerary: str
+    itinerary_url: str
+    notify_status: str
+  nodes:
+    - id: compile_itinerary
+      annotations:
+        pure: true
+        input: [request]
+        output: [itinerary]
+    - id: notify_traveler
+      annotations:
+        effect: [network]
+        idempotent: { key: itinerary }
+        input: [itinerary, itinerary_url]
+        output: [notify_status]
+    - id: publish_itinerary
+      annotations:
+        effect: [network]
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [itinerary_url]
+  edges:
+    - from: compile_itinerary
+      to: notify_traveler
+    - from: notify_traveler
+      to: publish_itinerary
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: notify_traveler
+      key: itinerary_url
+      path: [START, compile_itinerary, notify_traveler]
+    severity: fatal
+    claim_class: defensible-a
+    downstream_writers: [publish_itinerary]
+
+notes: >
+  The likely fix is swapping the last two edges (publish before notify),
+  which would make the fixture isomorphic to
+  positive-01-linear-itinerary-pipeline.yaml's covered pattern. Corpus
+  discipline: only P-04 fails — notify_traveler's other read (itinerary)
+  IS written upstream, so exactly one (node, key) pair is violated;
+  its idempotency key names the covered read itinerary, so P-07 holds
+  independently of the broken key; effect tags stay at [network]
+  (P-06/P-13 vacuous); the chain is acyclic with no orphans or dead ends
+  (P-01/P-02 hold). The extra failure field downstream_writers is an
+  optional diagnostic on the P04Failure subtype, ratified kept at
+  walkthrough #2 (2026-07-18; PROPERTY-CATALOG-SPEC §4.3).

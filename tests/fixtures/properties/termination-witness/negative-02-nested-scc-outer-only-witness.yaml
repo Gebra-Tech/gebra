@@ -1,0 +1,103 @@
+# Fixture: termination-witness / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Authored 2026-07-17 (fixture-author batch) — flagship edge-case coverage:
+# nested cycles where only the OUTER cycle carries a witness.
+
+property: termination-witness
+polarity: negative
+description: >
+  Nested cycles where only the outer cycle is witnessed. The outer
+  itinerary-revision loop (draft -> poll fare -> judge -> assess -> draft)
+  carries witness form (a): the revision_round counter plus the exit guard
+  revision_round < 5. But the inner fare re-polling loop (poll_fare ->
+  judge_fare -> poll_fare) exits only on an LLM-influenced stability
+  judgement — no counter, no declared limit, no variant. The outer bound
+  does not bound inner spins: a single outer iteration can re-poll fares
+  forever. P-02 flags the unwitnessed inner cycle.
+
+ir:
+  ir_version: "1.0"
+  entry: draft_itinerary
+  finish: finalize_booking
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    itinerary: str
+    fare: str
+    revision_round:
+      type: int
+      reducer: "operator.add"
+    booking_summary: str
+  nodes:
+    - id: draft_itinerary
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [itinerary, revision_round]   # increments the outer counter
+    - id: poll_fare
+      annotations:
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [fare]
+    - id: judge_fare
+      annotations:
+        pure: true
+        input: [fare]
+        output: []
+    - id: assess_itinerary
+      annotations:
+        pure: true
+        input: [itinerary, fare, revision_round]
+        output: []
+    - id: finalize_booking
+      annotations:
+        pure: true
+        input: [itinerary, fare]
+        output: [booking_summary]
+  edges:
+    - from: draft_itinerary
+      to: poll_fare
+    - from: poll_fare
+      to: judge_fare
+    - from: judge_fare
+      kind: conditional
+      condition: "router judges fare stability from the latest quote ('requote' or 'accept'); LLM-influenced, no declared bound"
+      path_map:
+        requote: poll_fare
+        accept: assess_itinerary
+    - from: assess_itinerary
+      kind: conditional
+      condition: "'revise' if itinerary exceeds budget and revision_round < 5 else 'finalize'"
+      path_map:
+        revise: draft_itinerary
+        finalize: finalize_booking
+
+expected:
+  result: fail
+  failure:
+    property_condition: "cycle-without-termination-witness"
+    location:
+      kind: scc
+      nodes: [judge_fare, poll_fare]
+      representative_cycle: [judge_fare, poll_fare]
+      exhaustive: false
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Mirror of positive-04-nested-scc-dual-counter-witnesses.yaml with the
+  inner counter and its bounded guard removed: same SCC, two simple
+  cycles, but only the outer one is witnessed. The load-bearing point for
+  the D-09 validator: a witness on an enclosing cycle must NOT satisfy
+  P-02 for an inner cycle, because the outer counter increments only at
+  draft_itinerary, which the inner cycle never visits. Corpus discipline:
+  only P-02 fails — loop nodes are pure or keyed-idempotent on declared
+  inputs (retry-coherence), carry no effect tags (effect-safety), every
+  read is written upstream or optional (dataflow-completeness), and all
+  path_map labels are wired (graph-well-formed). Witness/failure shape
+  conforms to PROPERTY-CATALOG-SPEC (wedge five pinned 2026-07-18,
+  DEC-11): the outer guard is a recognized form-(a) element, so the
+  element residual retains exactly the inner SCC {judge_fare, poll_fare},
+  reported with one representative witness-free cycle and
+  exhaustive: false.

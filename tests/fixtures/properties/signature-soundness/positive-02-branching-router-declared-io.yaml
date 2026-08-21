@@ -1,0 +1,81 @@
+# Gebra property fixture (gebra-property-fixture-v2) — authored by fixture-author, 2026-07-17.
+property: signature-soundness
+polarity: positive
+description: >
+  A branching itinerary graph: classify_request routes to book_flight or
+  book_hotel via a conditional edge, both branches re-joining at
+  send_confirmation. P-03 holds structurally because each node's declared
+  reads and writes are subsets of keys(Sigma) = {request, trip_kind,
+  booking_id, confirmation} on both branches of the router.
+ir:
+  ir_version: "1.0"
+  entry: classify_request
+  finish: send_confirmation
+  state:
+    request: { type: str, optional: true }
+    trip_kind: str
+    booking_id: str
+    confirmation: str
+  nodes:
+    - id: classify_request
+      annotations:
+        pure: true
+        input: [request]
+        output: [trip_kind]
+    - id: book_flight
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: { key: request }
+        input: [request, trip_kind]
+        output: [booking_id]
+    - id: book_hotel
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: { key: request }
+        input: [request, trip_kind]
+        output: [booking_id]
+    - id: send_confirmation
+      annotations:
+        effect: [network]
+        input: [booking_id]
+        output: [confirmation]
+  edges:
+    - from: classify_request
+      kind: conditional
+      condition: "'flight' if trip_kind == 'flight' else 'hotel'"
+      path_map:
+        flight: book_flight
+        hotel: book_hotel
+    - from: book_flight
+      to: send_confirmation
+    - from: book_hotel
+      to: send_confirmation
+expected:
+  result: pass
+  witness:
+    kind: signature
+    sigma_keys: [request, trip_kind, booking_id, confirmation]
+    contracts:
+      - node: classify_request
+        reads: [request]
+        writes: [trip_kind]
+      - node: book_flight
+        reads: [request, trip_kind]
+        writes: [booking_id]
+      - node: book_hotel
+        reads: [request, trip_kind]
+        writes: [booking_id]
+      - node: send_confirmation
+        reads: [booking_id]
+        writes: [confirmation]
+notes: >
+  Exercises P-03 over a conditional-branch topology. Isolation: the
+  router's path_map covers both condition labels (P-05); both branches
+  write booking_id before send_confirmation reads it, so P-04 holds on
+  every path; the branches are mutually exclusive, not parallel, so P-09
+  is not in play; the graph is acyclic (P-02 vacuous); both effectful
+  nodes sit outside any cycle (P-06) and carry idempotency keys drawn
+  from their declared reads (P-07). Witness shape remains provisional
+  pending the §P-03 I/O contract (the PROPERTY-CATALOG-SPEC P-03 section
+  is drafted at P-03 scheduling; `kind: signature` is reserved in the
+  §0.3 witness vocabulary).

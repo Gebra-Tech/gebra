@@ -1,0 +1,162 @@
+# Fixture: mixed / 05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Cross-property fixture — deliberate P-12 + P-02 + P-04 interaction.
+# The only mixed fixture using the ir_before/ir_after pair form (permitted
+# because `property` includes evolution-safety).
+
+property: [evolution-safety, termination-witness, dataflow-completeness]
+axiom_basis: [extension, augmentation, transitivity]
+polarity: negative
+description: >
+  An evolution pair in which one "simplifying" refactor breaks two
+  properties at once. ir_before is fully healthy: authenticate writes
+  auth_token, and the fetch/validate retry loop carries a complete witness
+  (attempts < 3). ir_after deletes the authenticate node (dropping the only
+  write of auth_token, which fetch_data still reads), removes the attempts
+  counter from the state schema, and swaps the exit guard for an opaque
+  LLM-assisted freshness judgement. P-12 classifies the diff as breaking on
+  both counts; P-02 and P-04 independently fail on the after-snapshot.
+
+ir_before:
+  ir_version: "1.0"
+  entry: authenticate
+  finish: publish
+  state:
+    query:
+      type: str
+      optional: true       # graph input; treated as written at START
+    auth_token: str
+    payload: str
+    status: str
+    report: str
+    attempts:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: authenticate
+      annotations:
+        idempotent: { key: query }
+        effect: [network]
+        input: [query]
+        output: [auth_token]
+    - id: fetch_data
+      annotations:
+        idempotent: { key: query }
+        effect: [network]
+        input: [query, auth_token]
+        output: [payload, status, attempts]
+    - id: validate
+      annotations:
+        pure: true
+        input: [status, attempts]
+        output: []
+    - id: publish
+      annotations:
+        pure: true
+        input: [payload]
+        output: [report]
+  edges:
+    - from: authenticate
+      to: fetch_data
+    - from: fetch_data
+      to: validate
+    - from: validate
+      kind: conditional
+      condition: "'retry' if status == 'stale' and attempts < 3 else 'done'"
+      path_map:
+        retry: fetch_data
+        done: publish
+
+ir_after:
+  ir_version: "1.0"
+  entry: fetch_data
+  finish: publish
+  state:
+    query:
+      type: str
+      optional: true
+    auth_token: str        # kept in the schema, but its only writer is gone
+    payload: str
+    status: str
+    report: str
+    # attempts: REMOVED — the witness counter no longer exists
+  nodes:
+    - id: fetch_data
+      annotations:
+        idempotent: { key: query }
+        effect: [network]
+        input: [query, auth_token]
+        output: [payload, status]
+    - id: validate
+      annotations:
+        pure: true
+        input: [status]
+        output: []
+    - id: publish
+      annotations:
+        pure: true
+        input: [payload]
+        output: [report]
+  edges:
+    - from: fetch_data
+      to: validate
+    - from: validate
+      kind: conditional
+      condition: "router judges payload freshness and decides 'retry' or 'done' (LLM-assisted; no declared bound)"
+      path_map:
+        retry: fetch_data
+        done: publish
+
+expected:
+  result: fail
+  failure:
+    property_condition: "termination-witness-removed"
+    location:
+      cycle: [fetch_data, validate]
+      removed_key: attempts
+    co_failures:
+      - property: evolution-safety
+        property_condition: "sole-writer-severed"
+        location:
+          node: fetch_data
+          key: auth_token
+          removed_writer: authenticate
+      - property: termination-witness
+        property_condition: "cycle-without-termination-witness"
+        location:
+          kind: scc
+          nodes: [fetch_data, validate]
+          representative_cycle: [fetch_data, validate]
+          exhaustive: false
+          snapshot: ir_after
+        severity: fatal
+        claim_class: defensible
+      - property: dataflow-completeness
+        property_condition: "read-key-never-written-on-path"
+        location:
+          kind: state-key
+          node: fetch_data
+          key: auth_token
+          path: [START, fetch_data]
+          snapshot: ir_after
+        severity: fatal
+        claim_class: defensible-a
+
+notes: >
+  Co-failing properties: P-12 evolution-safety (primary; breaking on two
+  independent grounds) with P-02 and P-04 as co_failures scoped to
+  ir_after — the co_failures carry a `snapshot` field because the
+  single-snapshot properties fail on the after-image only; ir_before
+  passes everything. The interaction is the point: `gebra diff` must
+  attribute BOTH regressions to the one commit — witness removal (S bump:
+  topology/guard change, plus E bump: state key attempts removed) and
+  removed-writer orphaning (S bump: node deleted; auth_token retained in
+  the schema, so P-03 still holds and only P-04 catches it). A validator
+  that stops at the first breaking finding under-reports the V.S.F.E
+  impact. The removed-writer co_failure carries the canonical condition
+  id sole-writer-severed per the R-05 lead review (2026-07-17, DEC-05),
+  which blessed "sole-writer severed" as P-12's fourth breaking class.
+  axiom_basis: extension/augmentation for the P-12 member,
+  transitivity for the P-04 member (Skavantzos & Link 2023, cited per
+  D-019); P-02 derives from D-016. Pair form per schema.yaml oneOf; see
+  README "Evolution-safety fixtures" note.

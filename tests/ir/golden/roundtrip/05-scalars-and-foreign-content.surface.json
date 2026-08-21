@@ -1,0 +1,72 @@
+{
+  "ir_version": "1.0",
+  "entry": "compute",
+  "finish": "compute",
+  "state": {
+    "n": "int",
+    "ratio": "float"
+  },
+  "nodes": [
+    {
+      "id": "compute",
+      "annotations": {
+        "deterministic": {
+          "seed": -9007199254740991,
+          "temperature": 0.125
+        },
+        "input": [
+          "n"
+        ],
+        "output": [
+          "ratio"
+        ],
+        "args_schema": {
+          "type": "object",
+          "title": null,
+          "properties": {
+            "n": {
+              "type": "integer",
+              "minimum": -9007199254740993,
+              "maximum": 9007199254740993,
+              "examples": [
+                0,
+                null,
+                -1,
+                1e-05,
+                1e+17
+              ]
+            },
+            "ratio": {
+              "type": "number",
+              "const": null
+            }
+          },
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            null
+          ],
+          "empty_object": {},
+          "empty_array": [],
+          "nested": {
+            "deep": {
+              "deeper": {
+                "value": true
+              }
+            }
+          }
+        },
+        "retry_policy": {
+          "max_attempts": 1,
+          "retry_on": []
+        }
+      }
+    }
+  ],
+  "edges": [],
+  "runtime": {}
+}

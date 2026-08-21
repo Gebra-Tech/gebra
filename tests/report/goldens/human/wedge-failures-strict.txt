@@ -1,0 +1,150 @@
+gebra <gebra-version> — travel_booking:build_graph (extracted)
+  identity                ir_version 1.0 | graph_version sha256:490e53db21df7302... | extractor 
+<gebra-version> | strict all
+
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets
+    reachable from START    3 nodes: book_flight, check_availability, send_confirmation
+    terminal nodes          send_confirmation
+    orphan check            evaluated — no node stands outside every edge
+    reference check         evaluated — every edge and path_map target resolves
+
+P-02 termination-witness — fail  (2 findings: 2 fatal)
+  fatal: cycle-without-termination-witness  [P-02 termination-witness | DEFENSIBLE]
+    component               book_flight, confirm, retry_booking
+    representative          book_flight -> retry_booking -> confirm -> book_flight
+    cycle list              not exhaustive — a re-run after a fix may surface another
+    finding                 Simple cycle carries no declared termination witness
+    note                    scc-covered-only-by-recursion-limit (warning)
+    component               draft, review
+    representative          draft -> review -> draft
+    cycle list              not exhaustive — a re-run after a fix may surface another
+    cover                   only the graph-level recursion_limit covers this component
+    promotion               promotable under a strict flag naming termination-witness; the record 
+itself is unchanged by promotion
+    remediation             Declare a bounded counter guard with an exit edge, or annotate a 
+variant.
+  fatal: counter-guard-without-exit-edge  [co-failure, P-02 termination-witness | DEFENSIBLE]
+    cycle                   book_flight -> retry_booking -> book_flight
+    counter key             attempts
+    guard edge              route on again, stop
+    finding                 Bounded-counter guard has no exit edge out of its component
+    note                    counter-key-not-qualified (no severity carried)
+    guard edge              route --again-->
+    identifier              attempts — unmatched
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — fail  (1 finding: 1 fatal)
+  fatal: read-key-never-written-on-path  [P-04 dataflow-completeness | DEFENSIBLE-A]
+    state key               booking_id
+    reading node            send_confirmation
+    shortest path           START -> check_availability -> send_confirmation
+    finding                 State key is read on a path where nothing writes it
+    writers on other paths  book_flight
+    writers wired after the reader archive
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-06 effect-safety — fail  (4 findings: 1 fatal, 2 error, 1 warning)
+  fatal: irreversible-with-keyless-idempotent  [P-06 effect-safety | DEFENSIBLE-A]
+    node                    charge_card
+    declared effects        billable, irreversible
+    idempotent              keyless
+    fan-out                 send
+    compensation hook       refund — names no node
+    finding                 Irreversible effect declared idempotent without a key
+  error: unprotected-effect-in-cycle  [co-failure, P-06 effect-safety | DEFENSIBLE-A]
+    cycle                   book_flight -> retry_booking -> book_flight
+    finding                 Effect-carrying node in a cycle without binding protection
+  error: unprotected-effect-in-retry-region  [co-failure, P-06 effect-safety | DEFENSIBLE-A]
+    node                    book_flight
+    declared effects        billable
+    anchor cycle            book_flight -> retry_booking -> book_flight
+    finding                 Effect-carrying node in a retry region without binding protection
+  warning: deterministic-llm-temperature-unpinned  [advisory from P-08 determinism-replay | 
+HEURISTIC]
+    node                    extract_fields
+    finding                 Determinism declared with a seed but no pinned temperature
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — fail  (2 findings: 2 warning)
+  warning: deterministic-llm-seed-unpinned  [P-08 determinism-replay | HEURISTIC]
+    node                    draft_itinerary
+    declared                annotation deterministic | form bare-boolean | effects network, external
+    finding                 Determinism declared on an LLM-backed node with no pinned seed
+  warning: deterministic-llm-temperature-unpinned  [co-failure, P-08 determinism-replay | HEURISTIC]
+    node                    extract_fields
+    declared                annotation deterministic | seed 7 | temperature 0.7
+    finding                 Determinism declared with a seed but no pinned temperature
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and 
+has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+summary
+  findings                4 fatal | 2 error | 3 warning
+  notes                   2 carried (1 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  all
+  promotions              4 selected — each record is unchanged and keeps its own warning grade
+    promoted                P-02 termination-witness: scc-covered-only-by-recursion-limit 
+(witness-note), reported under cycle-without-termination-witness at component draft, review
+    promoted                P-08 determinism-replay: deterministic-llm-temperature-unpinned 
+(advisory) at node extract_fields
+    promoted                P-08 determinism-replay: deterministic-llm-seed-unpinned (failure) at 
+node draft_itinerary
+    promoted                P-08 determinism-replay: deterministic-llm-temperature-unpinned 
+(co-failure) at node extract_fields
+  exit                    1 — a FATAL or ERROR finding is present, or a strict policy promoted a 
+warning
+  snapshot                not recorded for this run: a FATAL finding is present 
+(PROPERTY-CATALOG-SPEC §0.2)

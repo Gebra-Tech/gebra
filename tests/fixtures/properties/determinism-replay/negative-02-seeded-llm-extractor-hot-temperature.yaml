@@ -1,0 +1,95 @@
+# Fixture: determinism-replay / negative-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): the expected failure below is an
+# advisory diagnostic (severity: warning), not a blocking verdict.
+# This is the canonical tutorial §7 scenario: seed pinned, temperature not.
+
+property: determinism-replay
+polarity: negative
+description: >
+  An LLM-backed preference extractor (extract_preferences) declares
+  @gebra.deterministic(seed=7), but the underlying model is configured with
+  temperature=0.7 — the seed half of the D-013 contract is pinned while the
+  temperature half is hot. Under schema v2.1 (DEC-05) the sampling
+  configuration is carried directly in the annotation object, so the
+  IR-decidable incoherence is: a determinism claim whose own declared
+  configuration records a nonzero temperature. P-08 warns (never blocks):
+  the claim is recorded and replay divergence must be logged, not silently
+  accepted.
+
+ir:
+  ir_version: "1.0"
+  entry: collect_notes
+  finish: build_profile
+  state:
+    trip_notes: str
+    preferences: str
+    traveler_profile: str
+  nodes:
+    - id: collect_notes
+      annotations:
+        pure: true
+        input: []
+        output: [trip_notes]
+    - id: extract_preferences
+      annotations:
+        deterministic: { seed: 7, temperature: 0.7 }
+        effect: [network, external]
+        input: [trip_notes]
+        output: [preferences]
+    - id: build_profile
+      annotations:
+        input: [preferences]
+        output: [traveler_profile]
+  edges:
+    - from: collect_notes
+      to: extract_preferences
+    - from: extract_preferences
+      to: build_profile
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  llm = init_chat_model("openai:gpt-4.1-mini", temperature=0.7, seed=7)
+  # ^ seed pinned, but sampling stays hot — replays will diverge.
+
+  @gebra.deterministic(seed=7)
+  @gebra.contract(reads={"trip_notes"}, writes={"preferences"},
+                  effects={"network", "external"})
+  def extract_preferences(state: TravelState) -> dict:
+      return {"preferences": llm.invoke(PREFS_PROMPT.format(text=state["trip_notes"])).content}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "deterministic-llm-temperature-unpinned"
+    severity: warning
+    claim_class: heuristic
+    location:
+      kind: node
+      node: extract_preferences
+      annotation: deterministic
+      seed: 7
+      temperature: 0.7
+    remediation: >-
+      The claim is recorded. Replay divergence must be logged, never
+      silently accepted. Keep the annotation if you accept approximate
+      determinism; remove it if replay reproducibility should not be relied
+      on.
+
+notes: >
+  Failure shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + Appendix B; walkthrough #2, 2026-07-18).
+  Encoding updated 2026-07-17 per the R-05 lead review (DEC-05):
+  the schema v2.1 addendum extends the `deterministic` object form to
+  {seed, temperature}, so the hot sampling configuration is now carried
+  directly as deterministic: {seed: 7, temperature: 0.7} and the earlier
+  provisional `stochastic` effect-tag workaround is retired — temperature
+  pinning is IR-decidable. The node keeps effect: [network, external] as
+  the P-08 evidence that it is LLM-backed. The scenario mirrors tutorial
+  §7's canonical warning ("'temperature' is not pinned in the node's
+  configuration") — a caveat, not an error. Corpus isolation: acyclic
+  (P-02 vacuous), reads written upstream (P-04), keys declared (P-03), no
+  idempotency claims and no effects inside a retry region (P-06/P-07
+  hold), no fan-out (P-09). Counterparts:
+  positive-01-pinned-seed-zero-temp-classifier.yaml,
+  negative-01-seedless-deterministic-llm-classifier.yaml.

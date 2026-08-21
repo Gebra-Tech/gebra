@@ -1,0 +1,35 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+    "extractor_version": "<gebra-version>"
+  },
+  "properties": [],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 2,
+    "outcome": "tool-error",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "all",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": false
+  },
+  "error": {
+    "stage": "dispatch",
+    "detail": "the gate could not be derived: ValueError: note kind 'variant-key-not-in-state' is WARNING-grade but TERMINATION-WITNESS-SPEC §6.1 fixes no condition ID for promoting it. Extending the promotable vocabulary is a spec addendum (§0.4 registry discipline), not a local patch.. A run whose gate cannot be assembled reached no verdict (§2.4)."
+  }
+}

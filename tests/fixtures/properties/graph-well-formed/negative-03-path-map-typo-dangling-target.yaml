@@ -1,0 +1,103 @@
+# Fixture: graph-well-formed / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: graph-well-formed
+polarity: negative
+description: >
+  The canonical P-01 failure from the Verification-Properties catalog: the
+  travel agent's review router maps the 'confirm' label to
+  'send_confirmatoin' — a typo — while the node registered with the
+  builder is send_confirmation. The path_map value names no node in V,
+  violating condition (iv). LangGraph may not surface this until the
+  confirm branch is taken in production; gebra verify fails it at design
+  time.
+
+ir:
+  ir_version: "1.0"
+  entry: prepare_booking
+  finish: [send_confirmation, cancel_booking]
+  state:
+    trip_request:
+      type: str
+      optional: true       # graph input; treated as written at START
+    booking: str
+    decision: str
+    confirmation_id: str
+    cancellation_note: str
+  nodes:
+    - id: prepare_booking
+      annotations:
+        idempotent: { key: trip_request }
+        input: [trip_request]
+        output: [booking]
+    - id: review_booking
+      annotations:
+        pure: true
+        input: [booking]
+        output: [decision]
+    - id: send_confirmation
+      annotations:
+        effect: [external]
+        idempotent: { key: booking }
+        input: [booking]
+        output: [confirmation_id]
+    - id: cancel_booking
+      annotations:
+        effect: [external]
+        idempotent: { key: booking }
+        input: [booking]
+        output: [cancellation_note]
+  edges:
+    - from: prepare_booking
+      to: review_booking
+    - from: review_booking
+      kind: conditional
+      condition: "'confirm' if decision == 'approve' else 'cancel'"
+      path_map:
+        confirm: send_confirmatoin   # BUG: typo — no such node in V
+        cancel: cancel_booking
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_node("send_confirmation", send_confirmation_node)
+  builder.add_conditional_edges(
+      "review_booking", route_decision,
+      {"confirm": "send_confirmatoin",   # typo survives until runtime
+       "cancel": "cancel_booking"},
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "path-map-target-undefined"
+    location:
+      kind: edge
+      source: review_booking
+      label: confirm
+      undefined_target: send_confirmatoin
+    severity: fatal
+    claim_class: defensible
+    co_failures:
+      - property: graph-well-formed
+        property_condition: "node-unreachable-from-start"
+        location:
+          kind: node
+          node: send_confirmation
+        severity: fatal
+        claim_class: defensible
+
+notes: >
+  Within-property cascade of the same defect: because the 'confirm' label
+  dangles, the real send_confirmation node is also unreachable from START
+  (condition i) — the cascade rides expected.co_failures per the section-0
+  same-property packaging rule. Both diagnostics trace to the single typo;
+  the fixture's primary condition is the dangling target, the root cause.
+  It is not an orphan — being listed in finish means it participates in
+  the implicit edge to END (sentinel wiring counts toward condition iii
+  per walkthrough #2, 2026-07-18: a finish-only node is wired).
+  Witness/failure shape conforms to PROPERTY-CATALOG-SPEC (wedge five
+  pinned 2026-07-18, DEC-11). Corpus
+  discipline: only P-01 fails — the declared guard codomain is exactly the
+  two path_map labels (P-05); all reads on live paths are written upstream
+  or at START (P-04); effects are keyed-idempotent on declared inputs
+  (P-06/P-07); the graph is acyclic (P-02 vacuous).

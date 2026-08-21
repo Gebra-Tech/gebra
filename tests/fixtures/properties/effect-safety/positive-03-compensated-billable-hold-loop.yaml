@@ -1,0 +1,112 @@
+# Fixture: effect-safety / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: effect-safety
+polarity: positive
+description: >
+  A date-negotiation loop: place_hotel_hold is @gebra.effect("billable")
+  (a refundable hold fee) and sits inside a witnessed cycle, but it
+  declares a first-class compensation hook — the annotation
+  compensation: {hook: release_hotel_hold} names the release node that
+  sits on the loop-back path, so every re-entry into the billable node
+  is preceded by the compensating release.
+  P-06 passes via the second protection arm of its formal statement: a
+  billable effect in a cycle region with a DECLARED compensation hook.
+  The pass claims declaration presence only; Gebra does not verify that
+  the release actually refunds the fee.
+
+ir:
+  ir_version: "1.0"
+  entry: propose_dates
+  finish: confirm_stay
+  state:
+    traveler_prefs:
+      type: str
+      optional: true
+    proposed_dates: str
+    hold_ref: str
+    hold_review: str
+    itinerary: str
+    adjust_round:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: propose_dates
+      annotations:
+        pure: true
+        input: [traveler_prefs]
+        output: [proposed_dates, adjust_round]
+    - id: place_hotel_hold
+      annotations:
+        effect: [billable]
+        compensation: { hook: release_hotel_hold }
+        input: [proposed_dates]
+        output: [hold_ref]
+    - id: review_hold
+      annotations:
+        pure: true
+        input: [hold_ref, proposed_dates, traveler_prefs, adjust_round]
+        output: [hold_review]
+    - id: release_hotel_hold
+      annotations:
+        effect: [network]
+        idempotent: { key: hold_ref }
+        input: [hold_ref]
+        output: []
+    - id: confirm_stay
+      annotations:
+        input: [hold_ref]
+        output: [itinerary]
+  edges:
+    - from: propose_dates
+      to: place_hotel_hold
+    - from: place_hotel_hold
+      to: review_hold
+    - from: review_hold
+      kind: conditional
+      condition: "'adjust' if hold_review == 'mismatch' and adjust_round < 2 else 'accept'"
+      path_map:
+        adjust: release_hotel_hold
+        accept: confirm_stay
+    - from: release_hotel_hold
+      to: propose_dates
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("billable")
+  @gebra.compensate("release_hotel_hold")  # serialized into the compensation: {hook} slot
+  def place_hotel_hold(state: TravelState) -> dict:
+      return {"hold_ref": hotels.place_hold(state["proposed_dates"])}
+
+expected:
+  result: pass
+  witness:
+    kind: effect-safety
+    cycles:
+      - [place_hotel_hold, review_hold, release_hotel_hold, propose_dates]
+    effects:
+      - node: place_hotel_hold
+        effect: [billable]
+        region: cycle
+        cycle: [place_hotel_hold, review_hold, release_hotel_hold, propose_dates]
+        protection: compensation_hook
+        hook: release_hotel_hold
+
+notes: >
+  Serialization promoted at walkthrough #2 (2026-07-18): the DEC-05 D7
+  compensation-as-protection ruling now rides the first-class
+  compensation: {hook} node-annotation slot of the frozen IR 1.0
+  (PROPERTY-CATALOG-SPEC §6.1/§6.3; DEC-09), replacing this fixture's
+  former free-form "compensated_by:<node_id>" effect-tag encoding — the
+  effect list is back to [billable] only, matching the witness record.
+  Witness shape follows the ratified §6.3 contract. Known co-failure
+  (P-06/P-07 coupling): P-07's letter
+  requires re-enterable nodes to be pure or idempotent and does not
+  recognize compensation hooks, so place_hotel_hold co-fails P-07 —
+  recorded here per corpus discipline and flagged as a contract gap for
+  the P-06/P-07 spec sections. Other properties hold: the cycle carries
+  a bounded-counter witness (adjust_round < 2; P-02), release_hotel_hold
+  is keyed-idempotent on a declared read, and traveler_prefs is optional
+  (written at START) so P-04 holds.

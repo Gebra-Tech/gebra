@@ -1,0 +1,85 @@
+# Fixture: parallel-safety / positive-02
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: parallel-safety
+axiom_basis: [augmentation]
+polarity: positive
+description: >
+  A parallel search fan-out with disjoint write sets: gather_requirements
+  fans out to search_flights and search_hotels, which write flight_options
+  and hotel_options respectively; rank_packages joins and reads both.
+  P-09(i) holds vacuously — no state key has two concurrent writers, so no
+  reducer is demanded anywhere, and the bare list types are legitimate.
+  The satisfying structural condition: the write sets of all nodes on
+  concurrent branches are pairwise disjoint.
+
+ir:
+  ir_version: "1.0"
+  entry: gather_requirements
+  finish: rank_packages
+  state:
+    request:
+      type: str
+      optional: true
+    criteria: str
+    flight_options: list
+    hotel_options: list
+    shortlist: str
+  nodes:
+    - id: gather_requirements
+      annotations:
+        pure: true
+        input: [request]
+        output: [criteria]
+    - id: search_flights
+      annotations:
+        pure: true
+        input: [criteria]
+        output: [flight_options]
+    - id: search_hotels
+      annotations:
+        pure: true
+        input: [criteria]
+        output: [hotel_options]
+    - id: rank_packages
+      annotations:
+        pure: true
+        input: [flight_options, hotel_options]
+        output: [shortlist]
+  edges:
+    - from: gather_requirements
+      to: search_flights
+    - from: gather_requirements
+      to: search_hotels
+    - from: search_flights
+      to: rank_packages
+    - from: search_hotels
+      to: rank_packages
+
+expected:
+  result: pass
+  witness:
+    kind: parallel-safety
+    concurrent_groups:
+      - fan_out_from: gather_requirements
+        branches: [search_flights, search_hotels]
+        join_at: rank_packages
+        shared_write_keys: []
+        write_sets:
+          search_flights: [flight_options]
+          search_hotels: [hotel_options]
+    effect_commutativity: vacuous  # all concurrent nodes are pure — P-09(ii) has nothing to check
+
+notes: >
+  Demonstrates that P-09 demands reducers only where concurrent writers
+  collide: flight_options and hotel_options are bare list types with a
+  single writer each, and that is fine. Corpus discipline: all other
+  catalog properties hold. P-04 note for the D-09 validator author:
+  rank_packages reads both branch outputs, and under parallel-fan-out
+  superstep semantics both branches complete before the join fires, so its
+  reads are written in every execution — a simple-path analysis (which
+  would find a START->gather_requirements->search_flights->rank_packages
+  path that never writes hotel_options) would mis-flag this fixture;
+  unconditional fan-out edges are concurrent, not alternative. Witness
+  shape remains provisional until §P-09 is drafted; envelope conforms
+  to PROPERTY-CATALOG-SPEC §0 (2026-07-18).

@@ -1,0 +1,92 @@
+# Fixture: determinism-replay / positive-01
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): coherence of the determinism claim,
+# never a proof that the provider is deterministic.
+
+property: determinism-replay
+polarity: positive
+description: >
+  An LLM-backed request classifier (classify_request, effects
+  [network, external]) declares @gebra.deterministic(seed=42) with a fully
+  pinned generation configuration: seed=42 AND temperature=0. Structural
+  condition satisfied: the deterministic annotation carries the object form
+  with both seed and temperature pinned (schema v2.1, DEC-05), and
+  divergence handling is declared as logged. P-08 records the
+  claim as coherent — it does NOT assert the provider actually reproduces
+  outputs; that caveat is part of the witness.
+
+ir:
+  ir_version: "1.0"
+  entry: receive_request
+  finish: plan_itinerary
+  state:
+    raw_request: str
+    destination: str
+    trip_dates: str
+    itinerary: str
+  nodes:
+    - id: receive_request
+      annotations:
+        pure: true
+        input: []
+        output: [raw_request]
+    - id: classify_request
+      annotations:
+        deterministic: { seed: 42, temperature: 0 }
+        effect: [network, external]
+        input: [raw_request]
+        output: [destination, trip_dates]
+    - id: plan_itinerary
+      annotations:
+        pure: true
+        input: [destination, trip_dates]
+        output: [itinerary]
+  edges:
+    - from: receive_request
+      to: classify_request
+    - from: classify_request
+      to: plan_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  llm = init_chat_model("openai:gpt-4.1-mini", temperature=0, seed=42)
+
+  @gebra.deterministic(seed=42)
+  @gebra.contract(reads={"raw_request"},
+                  writes={"destination", "trip_dates"},
+                  effects={"network", "external"})
+  def classify_request(state: TravelState) -> dict:
+      result = llm.invoke(CLASSIFY_PROMPT.format(text=state["raw_request"]))
+      return parse_classification(result)
+
+expected:
+  result: pass
+  witness:
+    kind: determinism
+    claims:
+      - node: classify_request
+        llm_backed: true
+        seed: 42
+        temperature: 0
+        divergence_handling: logged
+    caveat: provider-seed-reproducibility-not-guaranteed
+    claim_class: heuristic
+
+notes: >
+  Witness shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + Appendix B; walkthrough #2, 2026-07-18).
+  Encoding updated 2026-07-17 per the R-05 lead review (DEC-05):
+  the schema v2.1 addendum extends the `deterministic` object form to
+  {seed, temperature}, so temperature=0 is now represented directly in the
+  IR — the former "D-013 usage rule attests temperature" caveat is
+  retired, and the half-pinned counterpart (negative-02) is distinguished
+  structurally by its deterministic: {seed: 7, temperature: 0.7} object
+  rather than by a provisional `stochastic` effect tag.
+  Honest-claims discipline: this
+  fixture demonstrates claim COHERENCE only, never semantic determinism of
+  the provider (P-08 is HEURISTIC/WARNING by construction). Corpus
+  isolation: graph is acyclic (P-02 vacuous), all reads written upstream
+  (P-04), all keys declared (P-03), no idempotency/effect-safety surface
+  (P-06/P-07), no fan-out (P-09). Counterparts:
+  negative-01-seedless-deterministic-llm-classifier.yaml,
+  negative-02-seeded-llm-extractor-hot-temperature.yaml.

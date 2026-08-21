@@ -1,0 +1,92 @@
+# Fixture: dataflow-completeness / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  A fan-in node reading a key that only one incoming branch writes:
+  identify_traveler routes returning travelers to fetch_loyalty_profile
+  (writes loyalty_tier) and first-time travelers to create_guest_profile
+  (writes guest_id, NOT loyalty_tier); both branches converge on
+  price_quote, which reads loyalty_tier to apply a discount. The guest
+  path START -> identify_traveler -> create_guest_profile -> price_quote
+  contains no loyalty_tier writer, so P-04's every-path quantification
+  fails at the merge even though both branches do real work — unlike the
+  express case, no branch skips ahead; one simply writes the wrong keys.
+
+ir:
+  ir_version: "1.0"
+  entry: identify_traveler
+  finish: price_quote
+  state:
+    request:
+      type: str
+      optional: true
+    traveler_ref: str
+    loyalty_tier: str
+    guest_id: str
+    quote: str
+  nodes:
+    - id: identify_traveler
+      annotations:
+        effect: [network]
+        idempotent: { key: request }
+        input: [request]
+        output: [traveler_ref]
+    - id: fetch_loyalty_profile
+      annotations:
+        effect: [network]
+        idempotent: { key: traveler_ref }
+        input: [traveler_ref]
+        output: [loyalty_tier]
+    - id: create_guest_profile
+      annotations:
+        effect: [network]
+        idempotent: { key: traveler_ref }
+        input: [traveler_ref]
+        output: [guest_id]
+    - id: price_quote
+      annotations:
+        pure: true
+        input: [request, loyalty_tier]
+        output: [quote]
+  edges:
+    - from: identify_traveler
+      kind: conditional
+      condition: "'returning' if traveler_ref matches a loyalty account else 'guest'"
+      path_map:
+        returning: fetch_loyalty_profile
+        guest: create_guest_profile
+    - from: fetch_loyalty_profile
+      to: price_quote
+    - from: create_guest_profile
+      to: price_quote
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: price_quote
+      key: loyalty_tier
+      path: [START, identify_traveler, create_guest_profile, price_quote]
+    severity: fatal
+    claim_class: defensible-a
+    writers_on_other_paths: [fetch_loyalty_profile]
+
+notes: >
+  Structural mirror of positive-02-conditional-both-branches-write.yaml:
+  same split/merge shape, but the branches write DIFFERENT keys and the
+  fan-in reads the one only the returning branch supplies. The fix is
+  either having create_guest_profile default loyalty_tier (making it a
+  second writer) or declaring loyalty_tier optional in Sigma. Corpus
+  discipline: only P-04 fails — the branches are alternatives, so no
+  concurrent-write conflict (P-09 vacuous); guest_id being written but
+  never read is not a catalog violation; path_map covers both declared
+  labels (P-05 holds); idempotency keys are declared reads (P-07 holds);
+  effect tags stay at [network] (P-06/P-13 vacuous). The extra failure
+  field writers_on_other_paths is an optional diagnostic on the
+  P04Failure subtype, ratified kept at walkthrough #2 (2026-07-18;
+  PROPERTY-CATALOG-SPEC §4.3).

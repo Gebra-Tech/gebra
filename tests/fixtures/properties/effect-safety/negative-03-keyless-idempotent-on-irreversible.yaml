@@ -1,0 +1,80 @@
+# Fixture: effect-safety / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+
+property: effect-safety
+polarity: negative
+description: >
+  The D-012 forbidden combination, isolated: charge_deposit is
+  @gebra.effect("irreversible", "billable") AND declares keyless
+  @gebra.idempotent — a bare safety claim ("the payment provider dedups")
+  that Gebra cannot tie to any input field or verify at design time. Per
+  the P-06 formal statement this combination is a design error outright
+  (FATAL severity), independent of cycle membership — the graph here is
+  deliberately acyclic to show the hard error fires with no cycle or
+  retry region anywhere. The fix is @gebra.idempotent(key="payment_method")
+  pinning the claim to a declared read.
+
+ir:
+  ir_version: "1.0"
+  entry: collect_payment_method
+  finish: issue_receipt
+  state:
+    rental_quote:
+      type: str
+      optional: true
+    payment_method: str
+    deposit_ref: str
+    receipt: str
+  nodes:
+    - id: collect_payment_method
+      annotations:
+        pure: true
+        input: [rental_quote]
+        output: [payment_method]
+    - id: charge_deposit
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: true
+        input: [payment_method]
+        output: [deposit_ref]
+    - id: issue_receipt
+      annotations:
+        input: [deposit_ref]
+        output: [receipt]
+  edges:
+    - from: collect_payment_method
+      to: charge_deposit
+    - from: charge_deposit
+      to: issue_receipt
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  import gebra
+
+  @gebra.effect("irreversible", "billable")
+  @gebra.idempotent  # keyless — the D-012 forbidden combination, rejected outright
+  def charge_deposit(state: RentalState) -> dict:
+      return {"deposit_ref": payments.charge(state["payment_method"])}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "irreversible-with-keyless-idempotent"
+    location:
+      kind: node
+      node: charge_deposit
+      effect: [irreversible, billable]
+      idempotent: keyless
+    severity: fatal
+    claim_class: defensible-a
+
+notes: >
+  The FATAL arm of P-06 (vs the ERROR arm exercised by negative-01 and
+  negative-02). Deliberately acyclic so the fixture fails ONLY P-06:
+  with no cycle, P-02 holds vacuously and P-07 is not engaged on
+  charge_deposit (keyless @gebra.idempotent satisfies P-07's letter; only
+  P-06 forbids its combination with irreversible) — no co-failure at all,
+  the cleanest isolation in the effect-safety directory. Counterpart
+  scenario "keyless idempotent inside a witnessed retry cycle" would
+  co-fail nothing extra either but is redundant given the outright-error
+  semantics; skipped to avoid near-duplicates.

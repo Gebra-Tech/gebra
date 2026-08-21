@@ -1,0 +1,65 @@
+# Gebra property fixture (gebra-property-fixture-v2) — authored by fixture-author, 2026-07-17.
+property: signature-soundness
+polarity: positive
+description: >
+  A linear travel-booking pipeline (parse_request -> book_flight ->
+  send_confirmation) in which every node's declared contract satisfies
+  P-03 structurally: reads(n) and writes(n) are subsets of keys(Sigma) =
+  {request, itinerary, booking_id, confirmation} at all three nodes, so
+  the schema-membership condition of D-010 holds throughout.
+ir:
+  ir_version: "1.0"
+  entry: parse_request
+  finish: send_confirmation
+  state:
+    request: { type: str, optional: true }
+    itinerary: str
+    booking_id: str
+    confirmation: str
+  nodes:
+    - id: parse_request
+      annotations:
+        pure: true
+        input: [request]
+        output: [itinerary]
+    - id: book_flight
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [booking_id]
+    - id: send_confirmation
+      annotations:
+        effect: [network]
+        input: [booking_id]
+        output: [confirmation]
+  edges:
+    - from: parse_request
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+expected:
+  result: pass
+  witness:
+    kind: signature
+    sigma_keys: [request, itinerary, booking_id, confirmation]
+    contracts:
+      - node: parse_request
+        reads: [request]
+        writes: [itinerary]
+      - node: book_flight
+        reads: [itinerary]
+        writes: [booking_id]
+      - node: send_confirmation
+        reads: [booking_id]
+        writes: [confirmation]
+notes: >
+  Baseline P-03 positive over the simplest topology. Isolation: the graph
+  is acyclic and well-formed (P-01 holds, P-02 vacuous), request is
+  optional (graph input, treated as written at START) so P-04's
+  write-before-read closure holds, book_flight is effectful but sits in
+  no cycle (P-06), and its idempotency key (itinerary) appears in its
+  declared reads (P-07). Witness shape remains provisional pending the
+  §P-03 I/O contract (the PROPERTY-CATALOG-SPEC P-03 section is drafted
+  at P-03 scheduling; `kind: signature` is reserved in the §0.3 witness
+  vocabulary).

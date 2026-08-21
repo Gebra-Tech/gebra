@@ -1,0 +1,82 @@
+# Gebra property fixture (gebra-property-fixture-v2) — authored by fixture-author, 2026-07-17.
+property: signature-soundness
+polarity: negative
+description: >
+  book_flight's tool-facing args_schema declares passenger_count as a
+  JSON Schema string, but Sigma types passenger_count as int -- the
+  contract's args_schema is inconsistent with the type of the state key
+  it binds, violating the type-consistency arm of P-03. Both membership
+  arms pass: every declared read and write at every node is in
+  keys(Sigma).
+ir:
+  ir_version: "1.0"
+  entry: collect_travel_details
+  finish: send_confirmation
+  state:
+    request: { type: str, optional: true }
+    passenger_count: int
+    itinerary: str
+    booking_id: str
+    confirmation: str
+  nodes:
+    - id: collect_travel_details
+      annotations:
+        pure: true
+        input: [request]
+        output: [passenger_count, itinerary]
+    - id: book_flight
+      annotations:
+        effect: [irreversible, billable]
+        idempotent: { key: itinerary }
+        input: [itinerary, passenger_count]
+        output: [booking_id]
+        args_schema:
+          type: object
+          properties:
+            itinerary: { type: string }
+            passenger_count: { type: string }  # Sigma types passenger_count as int
+    - id: send_confirmation
+      annotations:
+        effect: [network]
+        input: [booking_id]
+        output: [confirmation]
+  edges:
+    - from: collect_travel_details
+      to: book_flight
+    - from: book_flight
+      to: send_confirmation
+source_snippet: |
+  # Illustrative only -- never executed.
+  @gebra.contract(
+      reads=["itinerary", "passenger_count"],
+      writes=["booking_id"],
+      args_schema={
+          "type": "object",
+          "properties": {
+              "itinerary": {"type": "string"},
+              "passenger_count": {"type": "string"},  # Sigma says int
+          },
+      },
+  )
+  def book_flight(state: TravelState) -> dict:
+      ...
+expected:
+  result: fail
+  failure:
+    property_condition: "args-schema-type-mismatch"
+    location:
+      node: book_flight
+      key: passenger_count
+      state_type: int
+      args_schema_type: string
+notes: >
+  Fails only P-03 (type-consistency arm); the membership arms and all
+  other catalog properties hold (acyclic well-formed chain, upstream
+  writes for every declared read, effectful node outside any cycle with
+  its idempotency key in reads). IR-decidable since ir 1.0 (args_schema
+  slot, DEC-09); un-skipped. The mismatched tool schema is carried
+  first-class on book_flight's annotations.args_schema, so the D-10
+  harness reproduces this verdict from the ir block alone. The
+  property_condition and location shape remain provisional pending the
+  §P-03 I/O contract (the P-03 condition IDs enter the §0.4 registry
+  with the §P-03 merge).

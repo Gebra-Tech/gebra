@@ -148,21 +148,24 @@ def test_the_spec_is_in_the_library_repo_beside_the_code() -> None:
     assert SPEC_PATH.is_file(), f"{SPEC_PATH} is missing"
 
 
-def test_the_spec_states_it_describes_no_shipped_capability(spec_text: str) -> None:
-    """WA-12: there is no `gebra` command, and the document has to say so."""
+def test_the_spec_states_what_is_shipped_and_what_is_not(spec_text: str) -> None:
+    """WA-12: the header names the landed surface exactly — ``verify`` as of CLI-04,
+    nothing more — and still routes users to DOC-15 rather than posing as user docs."""
     assert "not user documentation" in spec_text
     assert "WA-12" in spec_text
-    assert "no console script" in spec_text or "declares no console script" in spec_text
+    assert "CLI-04" in spec_text
+    header = _flat(spec_text.split("## Table of contents")[0])
+    assert "`verify` verb" in header or "verify" in header
+    for unlanded in ("snapshot", "diff", "display", "history"):
+        assert f"gebra {unlanded}` works" not in header
 
 
-def test_no_cli_exists_yet_for_the_spec_to_be_describing() -> None:
-    """The honesty claim above, checked against the package rather than trusted.
-
-    ``typer`` is a declared dependency (D-015) and is unused; when CLI-04 lands the entry
-    point, this test is the reminder that the header's wording has to move with it.
-    """
-    assert not (REPO_ROOT / "src" / "gebra" / "cli").exists()
-    assert "[project.scripts]" not in (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+def test_the_cli_the_spec_describes_now_exists() -> None:
+    """The header's claim, checked against the package rather than trusted: CLI-04 landed
+    the console script and the ``gebra.cli`` package, and the wording above moved with it."""
+    assert (REPO_ROOT / "src" / "gebra" / "cli" / "app.py").is_file()
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'gebra = "gebra.cli:main"' in pyproject
 
 
 def test_the_spec_names_its_authorities(spec_text: str) -> None:

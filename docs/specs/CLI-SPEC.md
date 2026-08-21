@@ -7,11 +7,13 @@
 > engine (CLI-03), the four verb cards (CLI-04…CLI-06) and the integration suite (CLI-07) build
 > against one surface instead of five.
 >
-> **It is not user documentation, and nothing here describes a shipped capability.** There is
-> no `gebra` command: the package declares no console script, ships no CLI module, and imports
-> `typer` nowhere. The CLI reference a user will read is DOC-15's, written after the verbs
-> merge (WA-12 — docs tell no futures). The frozen, vendored specs (PROPERTY-CATALOG-SPEC,
-> IR-SPEC, INTROSPECTION-SPEC, ANNOTATION-API-SPEC, …) live in the delivery repository and are
+> **It is not user documentation.** As of card CLI-04 (2026-08-21) the package ships the
+> `gebra` console script (`gebra.cli`, on `typer` per brief D-12) carrying the application
+> level and the `verify` verb; the other four verbs are CLI-05's and CLI-06's and do not
+> exist until those cards land — an unknown verb is refused, never advertised. The CLI
+> reference a user will read is DOC-15's, written after the verbs merge (WA-12 — docs tell
+> no futures). The frozen, vendored specs (PROPERTY-CATALOG-SPEC, IR-SPEC,
+> INTROSPECTION-SPEC, ANNOTATION-API-SPEC, …) live in the delivery repository and are
 > read-only; this file restates them where it must and redefines nothing.
 >
 > **Status:** ratified as CLI-02's artifact. Stamped final at the D-12 promotion (CLI-08).
@@ -167,8 +169,9 @@ error, not a resolution.
 
 ### 0.6 Code anchors
 
-The package symbols this document names. They exist today; the CLI that will call them does
-not. `tests/docs/test_cli_spec.py` imports every row, so a rename in the package fails a test
+The package symbols this document names. They exist, and as of CLI-04 the `verify` verb calls
+its rows through `gebra.cli`; the store- and diff-facing rows wait on CLI-05/CLI-06.
+`tests/docs/test_cli_spec.py` imports every row, so a rename in the package fails a test
 here rather than rotting quietly in prose.
 
 | Symbol | What the CLI uses it for |
@@ -512,6 +515,13 @@ spellings**, so a reader who arrived from the frozen spec finds the one they typ
 - **An unhandled exception is exit `2`**, reported as a tool error with the traceback on
   stderr and an invitation to file it. A crash is not a finding (REPORT-FORMAT-SPEC §2.4) and
   must never be reported as a clean run.
+- **An `--output` file that cannot be written is exit `2`**, with a stderr diagnostic naming
+  the path and the failure — no traceback, since a missing directory is an environment fact
+  rather than a bug to file. The run may have reached a verdict, but the artifact was not
+  delivered where the invocation asked, and an undelivered answer is never presented as one;
+  the artifact is not rerouted to stdout, which the invocation asked to keep clean. *(Recorded
+  at CLI-04, 2026-08-21 — this case predates no behavior; the first build to have `--output`
+  ships this rule.)*
 
 ### 3.5 What never moves an exit code
 
@@ -778,7 +788,8 @@ same facts, and CLI-07 goldens both.
   has to strip them.
 - `--output`/`-o` writes the artifact to a file instead of stdout. A report written to a file
   ends with a single trailing newline; one written to a stream does not add one
-  (REPORT-FORMAT-SPEC §1.5).
+  (REPORT-FORMAT-SPEC §1.5). A file that cannot be written is the §3.4 exit-`2` case stated
+  there: a diagnostic, no artifact anywhere, never a silent fallback to stdout.
 - **Extraction warnings are rendered on every surface**, always to stderr, in emission order,
   as the structured records they are (INTROSPECTION-SPEC §8's closed taxonomy). They are never
   silently dropped, and they never move an exit code (§3.5). The run report carries no warning
@@ -931,7 +942,16 @@ per-verb mode restriction, §3.2's `verify` row including tool-error stages, §3
 and its alias (both spellings tested, both shown in `--help`), §4.1's flag table. Land the
 never-invokes tripwire for `verify`'s live-target resolution in the same change, in the shape
 §0.5 item 3 fixes — sentinel armed at four points, `BaseException`-derived, asserted on the
-recorded call list rather than on the exit code.
+recorded call list rather than on the exit code. **Landed 2026-08-21** as `gebra.cli`: the
+`gebra` console script and `python -m gebra.cli` both name `gebra.cli.main`, which returns
+the exit code rather than exiting; the §3.3 strict grammar is read off the raw argument list
+before parsing (`gebra.cli.invocation`), which is what keeps a bare `--strict` from
+swallowing the target a conventional optional-value option would eat; §2's three resolutions
+live in `gebra.cli.resolve` with the extractor imported only on the import-reference path,
+so an ir-document or snapshot run reaches no substrate import at all (held by a guarded
+interpreter in `tests/cli/test_never_invokes.py`, beside the §0.5 item 3 sentinel arms and
+the strong-form socket/compile child this seam owes as the third live-object hand-off to
+`extract()`). The §0.5 tripwire module is `tests/sample_workflows/sentinel_cli.py`.
 
 **CLI-05 (`snapshot`, `diff`, `history`)** — §4.2, §4.3 and §4.5, including the §0.2 recording
 refusal, single subject resolution per invocation, the S/F/E bump class in diff output, the
@@ -1009,7 +1029,7 @@ Two absences are deliberate and stated so an implementer does not read them as o
 | OI-4 | SD-07's audit export (`.gebra/reports/<version>.report.json`, REPORT-FORMAT-SPEC §6) is exposed by no verb: no Phase-0 card wires it to the CLI. | SD-07 and CLI-08. |
 | OI-5 | `display` has no live-target (import-reference) input mode (§4.4), per PD-034 finding 2 and CLI-06's prereq set. | CLI-08, or a Phase-1 card that owns the added extraction scope. |
 | OI-6 | No configuration file and no `GEBRA_*` environment variables (§6). | An amendment here plus a card, on evidence of a need the command line cannot meet. |
-| OI-7 | `typer` ships `--install-completion`/`--show-completion` by default. Shell completion is not part of this contract; CLI-04 either disables the pair or documents it as outside the specified surface. | CLI-04, then CLI-08. |
+| OI-7 | ~~`typer` ships `--install-completion`/`--show-completion` by default. Shell completion is not part of this contract; CLI-04 either disables the pair or documents it as outside the specified surface.~~ **Closed at CLI-04, 2026-08-21: disabled.** The application is built with the pair off (`add_completion=False`), so the options do not exist on any verb; `tests/cli/test_app.py::test_the_completion_pair_is_not_part_of_the_surface` holds it there. Re-adding completion is a CLI-08 (or later-card) amendment to this contract, not a default drifting back in. | Closed. |
 | OI-8 | This document is ratified as CLI-02's artifact and stamped final at the D-12 promotion. | CLI-08. |
 | OI-9 | ~~PROPERTY-CATALOG-SPEC §0.3 defines P-02/P-04/P-06 results **only over P-01-clean topology** ("best-effort diagnostics, not contract-bearing verdicts" otherwise), but no rendering obligation says so.~~ **Closed at CLI-03, 2026-08-08.** The amendment this item asked for landed at VAL-11 as `report_format` `1.1`: `RunReport.best_effort` carries the qualification into the artifact (REPORT-FORMAT-SPEC §1.3), §4.2 gives it two rendering rows, §4.6 rule 9 forbids showing a best-effort report as a plain verdict, and §5.1 rule 7 requires the human surface to state it *where those reports are*, not only in the summary. | Closed. CLI-03's `gebra.report.human` implements §5.1 rule 7 and `tests/report/test_human.py::test_best_effort_is_stated_where_its_reports_are` holds it there; a SARIF log carries no such qualification by design (§4.2: "SARIF has no place to qualify a result's weight"). |
-| OI-10 | `--call` (§2.4) is the CLI's only path that executes user code, and it is opt-in. Whether the common `build_graph()` layout deserves a smoother route than "write `graph = build_graph()` in your module, or pass `--call`" is a UX question Phase-0 answers conservatively. | CLI-04's implementation experience, then CLI-08. |
+| OI-10 | `--call` (§2.4) is the CLI's only path that executes user code, and it is opt-in. Whether the common `build_graph()` layout deserves a smoother route than "write `graph = build_graph()` in your module, or pass `--call`" is a UX question Phase-0 answers conservatively. *CLI-04 implementation note (2026-08-21): the conservative shape cost nothing to build and reads well in the refusal message — the refusal names the found type and both remedies in one sentence, and the tripwire suite pins that no probe softens it. No smoother route was added; whether one is wanted is evidence for CLI-08 to weigh, not a gap this card found.* | CLI-08. |

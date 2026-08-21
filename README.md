@@ -36,8 +36,13 @@ properties in catalog order (the eight outside the Phase-0 wedge answer with
 structured not-implemented markers, never silent passes), the exit codes 0/1/2
 of the severity ladder, strict mode in both its bare and per-property forms —
 which changes the gate and never a record — and the FATAL-suppresses-the-snapshot
-signal. There is no `gebra` command yet: this is a library call, and the CLI that
-will wrap it is the CLI track's. So is the extraction entry point `gebra.extract()`
+signal. The `gebra` command now carries its first verb: `gebra verify` runs that
+same gate from the shell — over a serialized IR document, a stored snapshot
+version, or an import path like `gebra verify travel_booking:graph`, where
+`--call` is the one explicit way to have the CLI call a zero-argument factory you
+name — and returns the report's own exit code, rendered as terminal output, JSON,
+or SARIF (`--format`). The other four verbs are still under development. The
+extraction entry point `gebra.extract()` is in as a library call too
 (`gebra.extraction`) — object-family dispatch, the typed `ExtractionError`, and the
 provenance envelope with its structured warning taxonomy, all of it behind a
 tripwire that fails if anything handed to it is invoked or compiled.
@@ -204,8 +209,9 @@ nothing and reports the version the store already holds. `gebra.audit` closes th
 `.gebra/reports/<version>.report.json` — the same run report a verification produces, in
 its snapshot profile, with no second schema and no timestamp, so re-exporting an unchanged
 version rewrites identical bytes — and `freshness(ir, store=store)` answers whether the
-store's current snapshot is still the definition in front of you. The `gebra snapshot`
-command is still under active development, as is every one of the five CLI verbs.
+store's current snapshot is still the definition in front of you. Of the five CLI
+verbs, `verify` exists today; `gebra snapshot`, `diff`, `display` and `history` are
+still under active development, and the library calls above are their surface until then.
 The **pytest plugin** is in, and pytest loads it itself: installing the package registers a
 `pytest11` entry point, so nothing needs adding to a `conftest.py` to switch it on. Put
 `@pytest.mark.gebra` on a function that returns your `StateGraph` — or your compiled graph,

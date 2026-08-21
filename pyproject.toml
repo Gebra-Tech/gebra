@@ -28,7 +28,11 @@ dependencies = [
     "langchain-core>=1.0,<2.0",
     "pydantic>=2.11,<3",
     "networkx>=3.0",
-    "typer>=0.12",
+    # The CLI framework (brief D-12's naming; D-015 stack). The floor is the vendoring era:
+    # `gebra.cli` imports the parser exceptions from `typer._click`, the click fork typer
+    # ships instead of depending on `click`, and an older typer has no such module — a
+    # resolver satisfying a lower floor would break `gebra.cli` at import (CLI-04).
+    "typer>=0.27",
     # The terminal-diagnostics rendering library (CLI-D3 ruling, PD-031), a core dependency
     # rather than an extra because the human surface is the default no-flag path and cannot
     # be conditionally absent. It is already a hard transitive of the pinned `typer`
@@ -53,6 +57,13 @@ dependencies = [
 # therefore `pytest` plus the standard library; `gebra.ir` (~90 ms) and `gebra.verify`
 # (~190 ms) are resolved inside the functions that need them, and the extractor — and with it
 # the substrate — only on the branch that is handed a live workflow.
+# ── The CLI (brief D-12; CLI-SPEC.md; card CLI-04) ──
+# One console script, whose behavior surface is docs/specs/CLI-SPEC.md. `main` returns the
+# exit code rather than calling sys.exit itself, so the generated wrapper, `python -m
+# gebra.cli`, and an in-process test all run the identical function.
+[project.scripts]
+gebra = "gebra.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/Gebra-Tech/gebra"
 Repository = "https://github.com/Gebra-Tech/gebra"

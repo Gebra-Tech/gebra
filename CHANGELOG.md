@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The `gebra` command line, with its first verb: `gebra verify`** (card CLI-04; CLI-SPEC
+  §4.1). The package now declares one console script — `gebra = "gebra.cli:main"`, on `typer`
+  per brief D-12, with `python -m gebra.cli` naming the same function — carrying the
+  application level (`--version`, `--help`, exit-code discipline: usage errors `2`, SIGINT
+  `130`, a crash `2` with the traceback and an invitation to file it, never a clean run) and
+  the `verify` verb over all three CLI-SPEC §2 input modes: a serialized IR document, a stored
+  snapshot version, and a live import target.
+  - **Subject resolution is §2.2's grammar in its normative order** (V.S.F.E label → IR
+    suffix → import reference), with the explicit `--ir`/`--import`/`--snapshot` selectors,
+    `--store` for the snapshot store (default `./.gebra`, no upward search), and every
+    resolution failure reported as the §2.6 tool error it is — exit `2`, the stage named
+    (`input`/`extraction`/`ir-validation`), a stderr diagnostic stating that no verdict was
+    reached, and the tool-error run report as the stdout artifact on whichever `--format` was
+    selected. An ir 1.1 document is `verify()`'s own DEC-28 refusal, carried through unchanged.
+  - **The never-invokes boundary of §2.4, exactly**: resolving `module:attribute` imports the
+    module (the user's own act), reads the attribute, and refuses anything that is not already
+    a workflow object — nothing is called, no signature is probed, and
+    `gebra verify pkg:main` cannot start an application by accident. `--call` is the one
+    opt-in that executes user code: one call, no arguments. The extractor (and with it
+    langgraph) is imported only on this path — verifying an IR document or a snapshot reaches
+    no substrate import at all, held by a guarded interpreter in
+    `tests/cli/test_never_invokes.py` alongside the CLI-SPEC §0.5 item 3 sentinel tripwires
+    (`tests/sample_workflows/sentinel_cli.py`) and a strong-form socket/compile child.
+  - **Exit codes are the report's own** (§3.1/§3.2): the verb returns `gate.exit_code`
+    unchanged — `0` pass (WARNING-grade notes included), `1` fail or strict promotion, `2`
+    tool error — and `--format`/`--output`/`--color` never move it (§3.5).
+  - **Strict mode in both spellings** (§3.3): bare `--strict` promotes every WARNING,
+    `--strict=<slug>[,…]` the named properties'; `--gebra-strict` is an exact alias and both
+    spellings show in `--help`. The flag is read off the raw argument list before parsing, so
+    a bare `--strict` never swallows the target; giving the flag twice, an empty value, or an
+    unrecognized slug is a usage error with a did-you-mean over the thirteen catalog slugs.
+  - **Reports on the three §4.1 surfaces** through the CLI-03 rendering engine: `human` (the
+    no-flag default), `json` (the lossless run report), `sarif` (the findings-only
+    projection). `--output`/`-o` writes the artifact to a file (machine formats gain the §1.5
+    trailing newline); stdout carries the artifact and nothing else, stderr the diagnostics —
+    extraction warnings render there in emission order, never dropped, with §5.4's
+    did-you-mean attached to an `annotation-unknown-node` record.
+  - **Usage errors report everything at once** (§5.3): unknown flags (with suggestions from
+    the verb's own flag set), selector conflicts, mode-restricted flags (`--sidecar`/`--call`
+    outside an import subject), and strict-grammar problems arrive as one diagnostic; a usage
+    error emits no run report on any format. Typer's shell-completion options are disabled
+    (CLI-SPEC Appendix B OI-7, resolved).
+  - Golden-tested end to end: one passing and one failing corpus fixture on all three
+    surfaces (`tests/cli/goldens/`, `tool.version` normalized and nothing else), within a
+    117-test suite across the shell, the strict reading, resolution, the verb, and the WA-07
+    tripwires.
+  - The declared `typer` floor rises `>=0.12` → `>=0.27`: `gebra.cli` imports the parser
+    exceptions from `typer._click`, the click fork typer now vendors instead of depending on
+    `click`, and an older typer has no such module — the floor states what the code needs.
+
 - **The round-trip drift suite — designated corpus fixtures against live extractor output**
   (card TE-11; brief D-10 In-Scope 5 / Deliverable 6, and the risk row it answers: *hand-written
   fixtures drift from what `gebra.extract()` actually emits — golden tests pass against an IR no

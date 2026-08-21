@@ -152,7 +152,38 @@ on this path and socket construction the whole of the post-import network claim,
 raiser-*class* granularity would leave both untested. It adds **no extraction path** — it calls
 `gebra.extract()` and nothing else — so §1's machine check owes it nothing.
 
-The **pytest plugin** (`src/gebra/pytest_plugin.py`, card TE-06) is a second seam between a live
+The **CLI's live-target resolution** (`src/gebra/cli/`, card CLI-04) is the seam CLI-SPEC §0.5
+item 3 names: `gebra verify <module>:<attribute>` imports a module and hands what it finds to
+`gebra.extract()`, and the explicit `--call` opt-in is the one path on which the CLI itself
+calls a user attribute (once, no arguments, no signature probe — §2.4). Its tripwire is
+`tests/cli/test_never_invokes.py` over `tests/sample_workflows/sentinel_cli.py`, in exactly the
+shape the spec fixes: the sentinel derives from `BaseException` and records before raising, the
+four armed points are the spec's four (node callables in the resolved graph; a zero-argument
+non-factory attribute, pinning the refusal to call without `--call`; an argument-needing
+callable under `--call`, pinning the exit-2 refusal; and an import-time marker, so the
+"top-level code runs" concession is observed rather than assumed), every run goes through
+`gebra.cli.main` — the function the console script names — and the never-invokes assertions
+are on the ledgers rather than on the exit code, which §3.4 makes uninformative for that
+purpose by mapping an escaping exception to a specified exit `2` (the exit codes the spec
+itself fixes, like the exit-2 refusal, are of course pinned as codes). As a live-object hand-off to the extractor it also carries
+the **strong** form, in the snapshot engine's pattern: a fresh-interpreter child arms name
+resolution, connection opening, socket construction (counted through the import phase, refused
+once the CLI's work begins — the same urllib3 capability-probe residual as every other guarded
+child) and `StateGraph.compile`, then drives three whole invocations through `main()` (a
+module-level graph, a `--call` factory, and the no-`--call` refusal) and asserts the ledgers,
+the socket count, and `langgraph.pregel.remote`'s absence from `sys.modules`; five per-raiser
+armed controls are matched on each raiser's full message, plus the leg no socket probe can arm
+— a probe that fires a node body and swallows the sentinel, failed by the record-before-raise
+ledger. A second child holds the boundary in the other direction: with the substrate made
+**unimportable** (a `sys.meta_path` blocker), verifying an IR document completes on all three
+`--format` surfaces and a stored snapshot version verifies end to end (store write,
+digest-checked read, all thirteen properties) — which is `gebra.cli.resolve`'s lazy extractor
+import held to its word on both substrate-free modes, and its own armed control imports
+langgraph and dies. The CLI adds **no extraction path** — it
+calls `classify()` (isinstance-only, INTROSPECTION §1 rule 3's licensed reads) to route §2.4's
+refusal, and `gebra.extract()` for everything else — so §1's machine check owes it nothing.
+
+The **pytest plugin** (`src/gebra/pytest_plugin.py`, card TE-06) is another seam between a live
 workflow object and the extractor — a marked function's return value goes straight to
 `gebra.extract()` — and it carries **two** tripwires, because the claim has two halves and one
 guard cannot hold both.

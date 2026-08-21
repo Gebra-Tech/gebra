@@ -1,0 +1,291 @@
+{
+  "report_format": "1.1",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "ir-document",
+    "source": "pass.ir.yaml",
+    "ir_version": "1.0",
+    "graph_version": "sha256:273315d2af705dcc97ba03a407409de4b00ef88b76230e103f547bdc912aac49"
+  },
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "pass",
+      "witness": {
+        "kind": "well-formedness",
+        "reachable_from_start": [
+          "archive",
+          "compose_digest",
+          "fetch_news",
+          "fetch_prices",
+          "prepare",
+          "publish_digest",
+          "verify_publish"
+        ],
+        "terminal_nodes": [
+          "archive"
+        ],
+        "orphan_nodes": [],
+        "unresolved_targets": []
+      }
+    },
+    {
+      "property": "termination-witness",
+      "result": "pass",
+      "witness": {
+        "kind": "termination",
+        "inventory": [
+          {
+            "form": "a",
+            "element": {
+              "kind": "edge",
+              "source": "verify_publish",
+              "target": "publish_digest",
+              "label": "retry"
+            },
+            "source": {
+              "guard_edge": {
+                "source": "verify_publish",
+                "label": "retry"
+              },
+              "counter_key": "attempts",
+              "bound": 3
+            },
+            "discharges": "all-simple-cycles-through-element"
+          }
+        ],
+        "certificate": [
+          "START",
+          "prepare",
+          "fetch_news",
+          "fetch_prices",
+          "compose_digest",
+          "publish_digest",
+          "verify_publish",
+          "archive",
+          "END"
+        ],
+        "notes": [],
+        "cycles": {
+          "exhaustive": true,
+          "cycles": [
+            [
+              "publish_digest",
+              "verify_publish"
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "pass",
+      "witness": {
+        "kind": "dataflow",
+        "coverage": [
+          {
+            "node": "archive",
+            "key": "draft",
+            "satisfied_by": [
+              "compose_digest"
+            ]
+          },
+          {
+            "node": "archive",
+            "key": "publish_status",
+            "satisfied_by": [
+              "publish_digest"
+            ]
+          },
+          {
+            "node": "compose_digest",
+            "key": "news_data",
+            "satisfied_by": [
+              "START",
+              "fetch_news"
+            ]
+          },
+          {
+            "node": "compose_digest",
+            "key": "price_data",
+            "satisfied_by": [
+              "START",
+              "fetch_prices"
+            ]
+          },
+          {
+            "node": "compose_digest",
+            "key": "sources",
+            "satisfied_by": [
+              "START",
+              "fetch_news",
+              "fetch_prices"
+            ]
+          },
+          {
+            "node": "fetch_news",
+            "key": "ticker",
+            "satisfied_by": [
+              "START"
+            ]
+          },
+          {
+            "node": "fetch_prices",
+            "key": "ticker",
+            "satisfied_by": [
+              "START"
+            ]
+          },
+          {
+            "node": "prepare",
+            "key": "ticker",
+            "satisfied_by": [
+              "START"
+            ]
+          },
+          {
+            "node": "publish_digest",
+            "key": "draft",
+            "satisfied_by": [
+              "compose_digest"
+            ]
+          },
+          {
+            "node": "verify_publish",
+            "key": "attempts",
+            "satisfied_by": [
+              "publish_digest"
+            ]
+          },
+          {
+            "node": "verify_publish",
+            "key": "publish_status",
+            "satisfied_by": [
+              "publish_digest"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "pass",
+      "witness": {
+        "kind": "effect-safety",
+        "cycles": [
+          [
+            "publish_digest",
+            "verify_publish"
+          ]
+        ],
+        "effects": [
+          {
+            "node": "publish_digest",
+            "effect": [
+              "billable",
+              "network"
+            ],
+            "region": "retry",
+            "cycle": [
+              "publish_digest",
+              "verify_publish"
+            ],
+            "protection": "idempotency_key",
+            "key": "draft"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "pass",
+      "witness": {
+        "kind": "determinism",
+        "claims": [
+          {
+            "node": "compose_digest",
+            "llm_backed": false,
+            "basis": "pure-local-computation",
+            "pinning_required": false
+          }
+        ],
+        "claim_class": "heuristic"
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 0,
+    "outcome": "pass",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": true
+  }
+}

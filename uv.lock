@@ -421,7 +421,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2" },
-    { name = "typer", specifier = ">=0.12" },
+    { name = "typer", specifier = ">=0.27" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6" },
 ]
 provides-extras = ["dev", "compat-test", "compat-cell-1", "compat-cell-2", "compat-cell-3"]

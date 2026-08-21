@@ -35,7 +35,8 @@ of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContra
   `ExtractionEnvelope`, `ExtractedFrom`, `CompiledSurfaces`, `CrossCheck`, `FoldedDefault`,
   `Declarations`, `NodeContracts`, `NodeDigests`, `StateReading`, `PromptGap`,
   `FragmentKind`, `FragmentReading`, `stitch_fragment`.
-- **Errors & the §8 warnings taxonomy** — `ExtractionError`, `ExtractionErrorReason`,
+- **Errors & the §8 warnings taxonomy** — `ExtractionError`, `ExtractionErrorReason`
+  (+`LABEL_COLLISION`, the DEC-32-sanctioned additive member, 2026-08-22),
   `ExtractionModel`, `ExtractionWarning`, `ExtractionWarningCode`, `WarningRule`,
   `WARNING_RULES`, `warning_rule`, `contract_warnings`, `sidecar_warnings`,
   `unknown_node_warnings`, `out_of_range_warning`, `FINDING_CODES`,
@@ -108,6 +109,7 @@ freeze exists to keep explicit rather than let drift into a quiet local call.
 | 16 | Synthetic composition kinds beyond §5.2 | New segment-kind tokens for compositions 1.0 refuses | PD-025 | *(added 2026-08-13)* — **needs future DEC** |
 | 17 | Router-contract surface | `@gebra.contract` on a router is silently inert in 1.0/1.1 (PD-044 D13) | PD-044 D13 | *(added 2026-08-13)* — **needs future DEC** |
 | 18 | Send-classified codomain recording | `_record_codomain` is conditional-branch-only in 1.0/1.1 (PD-044 D14) | PD-044 D14 | *(added 2026-08-13)* — **needs future DEC** |
+| 19 | Non-string `path_map` label projection | Declined in 1.0/1.1 — DEC-32 rules refusal; a closed projection table (exact-type `bool` first: `"true"`/`"false"`, matching §7.4(d) Coercion K's JCS rendering) is the candidate. Design constraints from the 2026-08-20 probes bind any future table: explicit dispatch order (enum-int hybrids match two rows); no instance dunder reads (`int.__str__` resolves through `object.__str__` to a subclass `__repr__`; the safe spellings are `int.__repr__(x)` and the enum machinery's own `name` getter); composite `Flag` `.name` is `None` on py3.10 vs `"A|B"` on 3.13 (interpreter-varying — cannot enter hash scope); source-dict equal-hash merges (`{True: 'a', 1: 'b'}`) happen before extraction can see them, so collision-is-error is enforceable only post-projection; str-subclass labels never reach the table (verbatim-value, DEC-32). Trigger: a genuine production refusal report. | DEC-32 | *(added 2026-08-22)* — **needs future DEC** |
 
 Items 9 and 10 are EX-05's non-mirrored-fields disposition (PD-023 D6), taken here
 verbatim per that decision's own "Consequences" clause ("EX-15 takes D6 verbatim as the
@@ -130,7 +132,7 @@ slot for any §3/§4.1 non-mirrored field — is a **minor `ir_version` bump** u
 IR-SPEC §8's additive-optional rule, and per WA-03/WA-04 that requires a vault decision
 record *first*: a proposal, R-06 vault sign-off, a re-vendored commit citing the new vault
 hash, and the `ir_version` bump landed alongside the code change in one PR. None of the
-ten rows may be improvised into an existing slot, coerced into provenance-as-data, or
+backlog rows may be improvised into an existing slot, coerced into provenance-as-data, or
 inferred from a heuristic in the meantime — the extractor's present posture (decline, or
 provenance-only, per §2's "Status" column) is the conforming one until its DEC lands.
 
@@ -139,9 +141,9 @@ provenance-only, per §2's "Status" column) is the conforming one until its DEC 
 This record states extractor/annotation API surface stability and the 1.x backlog's spec
 anchors only. It does not claim: that gate **G5** is signed (G5's exit-card list, master
 plan §4, is larger than this one card — TE-11 is also still open as of this writing); that
-any §2 backlog item is ratified (all ten await a future DEC — "candidate" and "needs
+any §2 backlog item is ratified (every row awaits a future DEC — "candidate" and "needs
 future DEC" throughout, never "planned" or "coming"); that the IR-models freeze (IR-06) or
 the validator-result freeze (VAL-12) are this document's to record — each is its own
-card's; or that the ten rows in §2 are the *complete* set of everything ir 1.x might ever
+card's; or that the rows in §2 are the *complete* set of everything ir 1.x might ever
 need — they are the deferred items the specs and the EX-05/EX-16 cards name today, and a
 future review may add rows the same way EX-16 added row 8.

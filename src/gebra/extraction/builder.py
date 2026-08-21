@@ -37,10 +37,14 @@ the object boundary and nowhere else ("extraction is total over supported object
 construct this path cannot map is warned inside the IR rather than raised. One shape is still
 refused, because for it every other option is ruled out in terms:
 
-* A non-string routing label. ir 1.0 types a ``path_map`` key ``str``, the substrate types it
-  ``Hashable``, and no spec states the spelling of the difference — a gap recorded with
-  DEC-18 and filed for ruling with PD-046. Coercing would fix a digest surface by
+* A non-string routing label. ir 1.0/1.1 types a ``path_map`` key ``str``, the substrate
+  types it ``Hashable``, and the spec specifies refusal for the difference
+  (INTROSPECTION-SPEC §6, ruled at DEC-32; a closed projection table stays a future-minor
+  candidate in the extractor freeze backlog). Coercing would fix a digest surface by
   improvisation *and* run the label's own ``__str__``.
+* Two declared routing labels resolving to one ``path_map`` key after NFC normalization
+  (DEC-32: an error, never a merge — a merged key silently drops a declared edge from
+  ``graph_version``).
 
 Everything else extracts. In particular ``StateNodeSpec.ends`` — which the substrate fills
 from ``destinations=`` **and from a ``Command[Literal[...]]`` return annotation** — is
@@ -526,8 +530,10 @@ def _read_declared_destinations(
     hint = _router_hint(spec, reading, where=where, node=node_id)
     declared = ends if isinstance(ends, Mapping) else {target: target for target in ends}
     path_map: dict[str, str] = {}
+    seen_labels: set[str] = set()
     for declared_label, target in declared.items():
         label = _path_map_label(declared_label, workflow=workflow, where=where)
+        _refuse_label_collision(label, seen_labels, workflow=workflow, where=where)
         resolved = _path_map_target(
             target,
             reading,
@@ -876,9 +882,11 @@ def _read_router(
         )
         return
     path_map: dict[str, str] = {}
+    seen_labels: set[str] = set()
     for declared_label, target in spec.ends.items():
         where = f"router {name!r} on node {source!r}"
         label = _path_map_label(declared_label, workflow=workflow, where=where)
+        _refuse_label_collision(label, seen_labels, workflow=workflow, where=where)
         resolved = _path_map_target(
             target,
             reading,
@@ -1134,8 +1142,9 @@ def _path_map_label(label: object, *, workflow: object, where: str) -> str:
 
     The substrate types ``path_map`` keys ``Hashable``, not ``str``, so a label may be an
     enum member, an ``int``, a ``bool``, or any user object. ir 1.0 types the key ``str`` and
-    puts it in the NFC identifier role (IR-SPEC §6.3), and **no spec states the spelling of a
-    non-string label** — that gap is recorded with DEC-18 and is not this path's to close.
+    puts it in the NFC identifier role (IR-SPEC §6.3), and **the spec specifies refusal for
+    a non-string label** (INTROSPECTION-SPEC §6, ruled at DEC-32 — a closed projection table
+    for selected forms stays a future-minor candidate in the extractor freeze backlog).
 
     So a non-``str`` label is refused at the object boundary rather than coerced. Both halves
     matter. Coercing would improvise a digest-affecting spelling: the key lands verbatim in
@@ -1153,16 +1162,48 @@ def _path_map_label(label: object, *, workflow: object, where: str) -> str:
     same rule one level down, normalizing a node-id segment before escaping it.
     """
     if isinstance(label, str):
-        return unicodedata.normalize("NFC", label)
+        # ``"".join((label,))`` first: it reads the buffer at C level and returns a
+        # built-in ``str`` from any subclass without calling one of its methods. The
+        # label becomes a dict key and (EX-18) a collision-set member, and a subclass
+        # ``__hash__``/``__eq__``/``__str__`` — a str-mixin enum's, say — must never
+        # run on this path (§1 rule 3; probe-verified: ``str()`` calls ``__str__``,
+        # and NFC's already-normal fast path returns the subclass object unchanged).
+        return unicodedata.normalize("NFC", "".join((label,)))  # noqa: FLY002 — an f-string calls __format__ (user code)
     raise ExtractionError.for_object(
         workflow,
         f"the {where} declares the non-string routing label of type "
-        f"{type_identity(label)}; ir 1.0 types a path_map key as a string and no spelling "
-        "for a non-string label is specified, so this build refuses rather than choosing "
-        "one — the choice would land inside graph_version",
+        f"{type_identity(label)}; ir types a path_map key as a string and the spec "
+        "specifies refusal for any other type (INTROSPECTION-SPEC §6, DEC-32), so this "
+        "build refuses rather than coercing — a coerced spelling would land inside "
+        "graph_version. Use string labels: return strings from the router and key "
+        "path_map with the same strings (e.g. 'yes'/'no' instead of True/False)",
         reason=ExtractionErrorReason.CONSTRUCT_NOT_CARRIED,
         family=ObjectFamily.BUILDER,
     )
+
+
+def _refuse_label_collision(
+    label: str, seen_labels: set[str], *, workflow: object, where: str
+) -> None:
+    """Refuse two declared labels that resolve to one ``path_map`` key (DEC-32).
+
+    ``_path_map_label`` NFC-normalizes (IR-SPEC §6.3), so distinct authored spellings —
+    composed vs decomposed accents being the live case — can name one key. Keeping the
+    last writer would silently drop a declared edge from ``graph_version``: a partial IR
+    through the back door, which §2's posture forbids. The collision is a fact about the
+    handed object, never the build, so the fix is the caller's — rename one label.
+    """
+    if label in seen_labels:
+        raise ExtractionError.for_object(
+            workflow,
+            f"the {where} declares two routing labels that resolve to the single "
+            f"path_map key {label!r} after NFC normalization; a merged key would "
+            "silently drop a declared edge from graph_version, so this build refuses "
+            "— rename one label (a collision is an error, never a merge; DEC-32)",
+            reason=ExtractionErrorReason.LABEL_COLLISION,
+            family=ObjectFamily.BUILDER,
+        )
+    seen_labels.add(label)
 
 
 def _node_id(name: str, *, workflow: object, role: str) -> str:

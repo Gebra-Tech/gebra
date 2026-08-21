@@ -32,6 +32,7 @@ from gebra.extraction import (
     SlotGrade,
     extract,
 )
+from gebra.extraction import builder as builder_module
 from gebra.ir.canonical import graph_version
 from gebra.ir.models import (
     Annotations,
@@ -766,19 +767,82 @@ def test_a_targetless_router_is_a_dynamic_edge() -> None:
 def test_a_nonstring_routing_label_is_refused_rather_than_coerced() -> None:
     """Two reasons, and either alone would be enough.
 
-    The substrate types a ``path_map`` key ``Hashable``; ir 1.0 types it ``str``; **no spec
-    states the spelling of the difference** — a gap recorded with DEC-18 and explicitly left
-    for a ruling before a branch is emitted. Choosing ``str(label)`` here would fix a
-    ``graph_version`` surface by improvisation. It would also *call* the label's ``__str__``,
-    which §1's closed operation list does not admit — and the fixture's label raises from
-    both ``__str__`` and ``__repr__``, so a coercion anywhere on this path fails the run
-    rather than passing quietly.
+    The substrate types a ``path_map`` key ``Hashable``; ir types it ``str``; the spec
+    **specifies refusal** for the difference (INTROSPECTION-SPEC §6, ruled at DEC-32).
+    Choosing ``str(label)`` here would fix a ``graph_version`` surface by improvisation.
+    It would also *call* the label's ``__str__``, which §1's closed operation list does
+    not admit — and the fixture's label raises from both ``__str__`` and ``__repr__``,
+    so a coercion anywhere on this path fails the run rather than passing quietly. The
+    refusal names the caller's fix: string labels.
     """
     with pytest.raises(ExtractionError) as caught:
         extract(sg.build_nonstring_label_graph())
 
     assert caught.value.reason is ExtractionErrorReason.CONSTRUCT_NOT_CARRIED
     assert "SentinelLabel" in str(caught.value)  # named by its type, never rendered
+    assert "Use string labels" in str(caught.value)  # the workaround, stated (DEC-32)
+
+
+def test_two_labels_sharing_one_nfc_form_are_refused_never_merged() -> None:
+    """DEC-32 ruling 2: a label collision is an error, never a merge.
+
+    ``café`` composed and decomposed are distinct Python strings the substrate holds side
+    by side; after the IR's NFC normalization (IR-SPEC §6.3) they name one ``path_map``
+    key. Before the ruling this path kept the last writer — a declared edge silently
+    vanished from ``graph_version`` with no warning. The refusal is the fix, and the
+    reason is its own code: the collision is a fact of the object (rename one label),
+    not of the build, so ``CONSTRUCT_NOT_CARRIED`` would be the wrong claim.
+    """
+    with pytest.raises(ExtractionError) as caught:
+        extract(sg.build_nfc_collision_label_graph())
+
+    assert caught.value.reason is ExtractionErrorReason.LABEL_COLLISION
+    assert "caf\u00e9" in str(caught.value)
+    assert "rename one label" in str(caught.value)
+
+
+def test_a_str_mixin_enum_label_carries_its_verbatim_value() -> None:
+    """DEC-32's str-subclass clause, pinned against the accident chain that delivers it.
+
+    A ``str``-mixin enum member IS a ``str``: it passes the label boundary as a string
+    and the IR carries its verbatim **value** — never ``str(member)`` (whose render
+    differs and here raises) and never ``.name``. This pins hash-scoped behaviour the
+    build has shipped since EX-02; the spec now states it (INTROSPECTION-SPEC §6,
+    DEC-32) rather than leaving it to the implementation's fast path.
+    """
+    ir = extract(sg.build_str_mixin_enum_label_graph()).ir
+
+    routed = next(e for e in ir.edges if e.kind == "conditional")
+    assert set(routed.path_map) == {"crimson"}  # the value; never "RED", never a render
+    assert routed.path_map["crimson"] == "act_step"
+
+
+def test_the_label_projection_returns_a_built_in_str_for_a_subclass() -> None:
+    """The ``"".join((label,))`` spelling is load-bearing, pinned directly (EX-18).
+
+    NFC's already-normal fast path returns a str-SUBCLASS object unchanged, and the
+    label then becomes a dict key and a collision-set member — both of which would run
+    a subclass ``__hash__``/``__eq__``. The join reads the buffer at C level and yields
+    a built-in ``str``; if it regresses to the bare label, this test fails even though
+    the model-level assertions above keep passing (the subclass here raises from every
+    dunder the projection must not touch).
+    """
+
+    class Hostile(str):
+        def __str__(self) -> str:
+            raise AssertionError("__str__ ran")
+
+        def __hash__(self) -> int:
+            raise AssertionError("__hash__ ran")
+
+        def __eq__(self, other: object) -> bool:
+            raise AssertionError("__eq__ ran")
+
+    projected = builder_module._path_map_label(
+        Hostile("caf\u00e9"), workflow=object(), where="unit probe"
+    )
+    assert type(projected) is str
+    assert projected == "caf\u00e9"
 
 
 def test_a_node_named_with_the_empty_string_is_refused() -> None:

@@ -34,7 +34,7 @@ class ExtractionErrorReason(str, Enum):
     """Why extraction refused an object at the boundary — a stable code to branch on.
 
     The first three are the §2 error posture; the next two are facts about this build rather
-    than about the object; the last is a fact about the object that no build will carry.
+    than about the object; the last two are facts about the object that no build will carry.
 
     Attributes:
         UNSUPPORTED_OBJECT: The object is none of the three families — a raw dict, a
@@ -64,6 +64,14 @@ class ExtractionErrorReason(str, Enum):
             grammar — the substrate admits an empty node name, and no grammar admits ``""``.
             Unlike the two refusals above this is not about the build: no future version
             carries it, and the fix is to rename the node.
+        LABEL_COLLISION: Two declared routing labels resolve to one ``path_map`` key —
+            distinct source strings sharing one NFC normal form (IR-SPEC §6.3 puts labels
+            in the NFC identifier role, so both authored spellings name the same key).
+            Like :data:`UNREPRESENTABLE_NODE_ID` this is a fact about the object, never
+            the build: no version can carry two identical ``dict[str, str]`` keys, a merge
+            would silently drop a declared edge from ``graph_version`` (the partial IR §2
+            forbids), and the fix is to rename one label (ruled — DEC-32: a collision is
+            an error, never a merge).
     """
 
     UNSUPPORTED_OBJECT = "unsupported-object"
@@ -72,6 +80,7 @@ class ExtractionErrorReason(str, Enum):
     EXTRACTOR_NOT_REGISTERED = "extractor-not-registered"
     CONSTRUCT_NOT_CARRIED = "construct-not-carried"
     UNREPRESENTABLE_NODE_ID = "unrepresentable-node-id"
+    LABEL_COLLISION = "label-collision"
 
 
 class ExtractionError(Exception):
@@ -83,9 +92,8 @@ class ExtractionError(Exception):
             §2 requires the error to name the object type; this is that name, in the
             identity spelling of :func:`~gebra.extraction.base.type_identity`.
         family: The object family the refusal happened in, when classification got that far
-            — set for :data:`~ExtractionErrorReason.EMPTY_NODE_SET` and
-            :data:`~ExtractionErrorReason.EXTRACTOR_NOT_REGISTERED`, ``None`` for the two
-            refusals that *are* a failure to classify.
+            — set wherever classification reached a family (the builder-path refusals
+            included), ``None`` for the two refusals that *are* a failure to classify.
     """
 
     def __init__(

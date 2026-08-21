@@ -13,6 +13,7 @@ external service, and requires no API keys. ``compile()`` is guarded behind
 
 from __future__ import annotations
 
+import enum
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -318,7 +319,7 @@ class SentinelTrigger:
 
 
 def build_nonstring_label_graph() -> StateGraph[SentinelState]:
-    """A router whose `path_map` keys are not strings — an unruled ir 1.0 spelling."""
+    """A router whose `path_map` keys are not strings — refused per DEC-32 (ruled)."""
     builder = StateGraph(SentinelState)
     builder.add_node("plan_step", raiser("plan_step"))
     builder.add_node("act_step", raiser("act_step"))
@@ -326,6 +327,52 @@ def build_nonstring_label_graph() -> StateGraph[SentinelState]:
     builder.add_conditional_edges(
         "plan_step", raiser("route_plan"), {SentinelLabel("go"): "act_step"}
     )
+    builder.add_edge("act_step", END)
+    return builder
+
+
+def build_nfc_collision_label_graph() -> StateGraph[SentinelState]:
+    """Two distinct authored labels sharing one NFC normal form — a DEC-32 collision.
+
+    ``café`` spelled composed (U+00E9) and decomposed (``e`` + U+0301): two different
+    Python strings the substrate holds side by side, one ``path_map`` key after the
+    IR's NFC normalization.
+    """
+    composed = "caf\u00e9"
+    decomposed = "cafe\u0301"
+    builder = StateGraph(SentinelState)
+    builder.add_node("plan_step", raiser("plan_step"))
+    builder.add_node("act_step", raiser("act_step"))
+    builder.add_node("check_step", raiser("check_step"))
+    builder.add_edge(START, "plan_step")
+    builder.add_conditional_edges(
+        "plan_step",
+        raiser("route_plan"),
+        {composed: "act_step", decomposed: "check_step", "other": END},
+    )
+    builder.add_edge("act_step", END)
+    builder.add_edge("check_step", END)
+    return builder
+
+
+def build_str_mixin_enum_label_graph() -> StateGraph[SentinelState]:
+    """A string-mixin enum label — IS a ``str``, carries its verbatim value (DEC-32).
+
+    The member's ``str()`` render and its ``.name`` both differ from its value; the IR
+    must carry the value, reading neither.
+    """
+
+    class Colour(str, enum.Enum):
+        RED = "crimson"
+
+        def __str__(self) -> str:  # the render a coercion would leak
+            raise AssertionError("str() was called on a routing label")
+
+    builder = StateGraph(SentinelState)
+    builder.add_node("plan_step", raiser("plan_step"))
+    builder.add_node("act_step", raiser("act_step"))
+    builder.add_edge(START, "plan_step")
+    builder.add_conditional_edges("plan_step", raiser("route_plan"), {Colour.RED: "act_step"})
     builder.add_edge("act_step", END)
     return builder
 
@@ -385,6 +432,7 @@ EXTRACTABLE_BUILDERS: dict[str, Callable[[], StateGraph[SentinelState]]] = {
     "destinations": build_destinations_graph,
     "reserved_routing_target": build_reserved_routing_target_graph,
     "non_nfc_label": build_non_nfc_label_graph,
+    "str_mixin_enum_label": build_str_mixin_enum_label_graph,
     # Moved here from REFUSED_BUILDERS when the ruled `kind: dynamic` form landed (DEC-28,
     # 2026-08-09; EX-03). It extracts now, and it is the same object either way, so the WA-07
     # claim over it is unbroken across the change rather than re-established.
@@ -395,6 +443,7 @@ EXTRACTABLE_BUILDERS: dict[str, Callable[[], StateGraph[SentinelState]]] = {
 #: runs these too: a refusal must also reach it without executing anything.
 REFUSED_BUILDERS: dict[str, Callable[[], StateGraph[SentinelState]]] = {
     "nonstring_label": build_nonstring_label_graph,
+    "nfc_collision_label": build_nfc_collision_label_graph,
     "unnamed_node": build_unnamed_node_graph,
 }
 

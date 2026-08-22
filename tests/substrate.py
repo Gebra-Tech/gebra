@@ -77,6 +77,26 @@ NODE_ERROR_HANDLER_REASON: str = (
     f"{'.'.join(map(str, LANGGRAPH_VERSION))}"
 )
 
+#: ``StateGraph.add_node(..., timeout=...)`` and the ``StateNodeSpec.timeout`` field it
+#: fills (a ``TimeoutPolicy``). Same 1.2.0 arrival and same ``**kwargs`` hazard as
+#: ``error_handler=``: the 1.0/1.1 builders accept and drop the keyword, so only the
+#: signature (or the spec field's presence) distinguishes the substrates.
+HAS_NODE_TIMEOUT: bool = LANGGRAPH_VERSION >= (1, 2, 0)
+NODE_TIMEOUT_REASON: str = (
+    "needs StateGraph.add_node(..., timeout=...) and the StateNodeSpec.timeout field, "
+    "introduced in langgraph 1.2.0; installed langgraph is "
+    f"{'.'.join(map(str, LANGGRAPH_VERSION))}"
+)
+
+#: ``langgraph.channels.delta.DeltaChannel`` — the beta reducer channel (A2 §4; explicitly
+#: beta in the changelog, VERSION-COMPAT §2/§3 row 9). The module does not exist on the 1.0
+#: and 1.1 lines: importing it there raises ``ModuleNotFoundError``.
+HAS_DELTA_CHANNEL: bool = LANGGRAPH_VERSION >= (1, 2, 0)
+DELTA_CHANNEL_REASON: str = (
+    "needs langgraph.channels.delta.DeltaChannel, introduced in langgraph 1.2.0; "
+    f"installed langgraph is {'.'.join(map(str, LANGGRAPH_VERSION))}"
+)
+
 
 # ── langchain-core model surfaces ────────────────────────────────────────────────────────
 
@@ -116,11 +136,15 @@ __all__ = [
     "CHAT_MODEL_BINDING_REASON",
     "CORE_BINDS_TO_A_SUBCLASS",
     "CORE_FILLS_LC_VERSIONS_METADATA",
+    "DELTA_CHANNEL_REASON",
+    "HAS_DELTA_CHANNEL",
     "HAS_NODE_DEFAULTS",
     "HAS_NODE_ERROR_HANDLER",
+    "HAS_NODE_TIMEOUT",
     "LANGCHAIN_CORE_VERSION",
     "LANGGRAPH_VERSION",
     "LC_VERSIONS_METADATA_REASON",
     "NODE_DEFAULTS_REASON",
     "NODE_ERROR_HANDLER_REASON",
+    "NODE_TIMEOUT_REASON",
 ]

@@ -4,7 +4,9 @@ Normative authority: docs/specs/VERSION-COMPAT.md §3 (the supplementary repo's 
 document) and its fact base, memo A2 §6. The suite runs once per matrix cell — Python
 {3.10..3.13} × the three frozen substrate pair cells, plus the one non-blocking ``--pre``
 cell — because it rides ``pytest -q``, which is what every cell of the CI matrix runs.
-**This package carries tests 1-6 (GOV-05); tests 7-12 are GOV-06's card.**
+**This package carries the full 12-test §3 inventory** (tests 1-6 landed with GOV-05,
+tests 7-12 with GOV-06 — including the row-4/row-8 review-proposal branches in
+:mod:`tests.version_drift.review` and the row-9 beta xfail).
 
 **What one drift test is.** The §3 golden-equality contract, executed: build the row's
 minimal fixture workflow live, run ``gebra.extract()``, and compare the **core IR only** —

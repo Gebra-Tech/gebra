@@ -164,9 +164,11 @@ def ir_topology(document: Mapping[str, Any]) -> Topology:
 
     A ``conditional`` (or any other non-``normal``) routing edge expands per ``path_map``
     value with the conditional flag set — the drawing draws one flagged edge per declared
-    target, which is §4.3 rule 2's label expansion. A ``path_map`` target of ``__end__``
-    would expand to a ``finish`` incidence; a ``dynamic`` edge has no targets to expand and
-    is outside this fixture's vocabulary (the six goldens carry none).
+    target, which is §4.3 rule 2's label expansion. A ``path_map`` target of ``END`` — the
+    IR's blessed literal for the exit in a ``path_map`` (ledger §4, DEC-27), never the
+    reserved segment ``__end__`` — expands to a ``finish`` incidence; a ``dynamic`` edge
+    has no targets to expand and is outside this fixture's vocabulary (the twelve goldens
+    carry none).
     """
     entry = frozenset(_members(document.get("entry", ())))
     finish = set(_members(document.get("finish", ())))
@@ -184,7 +186,7 @@ def ir_topology(document: Mapping[str, Any]) -> Topology:
         else:  # a targetless (`dynamic`) edge — nothing to expand at this granularity
             continue
         for target in targets:
-            if target == "__end__":
+            if target == "END":
                 finish.add(source)
             else:
                 edges.add((source, target, True))

@@ -1,0 +1,56 @@
+{
+ "edge_count": 8,
+ "edges": [
+  {
+   "conditional": false,
+   "from": "Lambda",
+   "to": "LambdaOutput"
+  },
+  {
+   "conditional": false,
+   "from": "Parallel<docs,meta>Input",
+   "to": "_fetch_docs"
+  },
+  {
+   "conditional": false,
+   "from": "Parallel<docs,meta>Input",
+   "to": "_fetch_meta"
+  },
+  {
+   "conditional": false,
+   "from": "Parallel<docs,meta>Output",
+   "to": "Lambda"
+  },
+  {
+   "conditional": false,
+   "from": "_fetch_docs",
+   "to": "Parallel<docs,meta>Output"
+  },
+  {
+   "conditional": false,
+   "from": "_fetch_meta",
+   "to": "Parallel<docs,meta>Output"
+  },
+  {
+   "conditional": false,
+   "from": "_gather_context",
+   "to": "Parallel<docs,meta>Input"
+  },
+  {
+   "conditional": false,
+   "from": "_gather_context_input",
+   "to": "_gather_context"
+  }
+ ],
+ "node_count": 8,
+ "nodes": [
+  "Lambda",
+  "LambdaOutput",
+  "Parallel<docs,meta>Input",
+  "Parallel<docs,meta>Output",
+  "_fetch_docs",
+  "_fetch_meta",
+  "_gather_context",
+  "_gather_context_input"
+ ]
+}

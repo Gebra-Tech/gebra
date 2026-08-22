@@ -41,6 +41,24 @@ def test_the_error_handler_predicate_matches_the_installed_builder() -> None:
     assert ("error_handler" in parameters) is substrate.HAS_NODE_ERROR_HANDLER
 
 
+def test_the_timeout_predicate_matches_the_installed_builder() -> None:
+    """Same signature reading as ``error_handler`` — the ``**kwargs`` hazard is shared."""
+    parameters = inspect.signature(StateGraph.add_node).parameters
+
+    assert ("timeout" in parameters) is substrate.HAS_NODE_TIMEOUT
+
+
+def test_the_delta_channel_predicate_matches_the_installed_package() -> None:
+    """Whether ``langgraph.channels.delta`` exists — module presence, not an import-use.
+
+    ``find_spec`` locates the module without executing it; on the 1.0/1.1 lines the module
+    is simply not there.
+    """
+    from importlib.util import find_spec
+
+    assert (find_spec("langgraph.channels.delta") is not None) is substrate.HAS_DELTA_CHANNEL
+
+
 def test_the_binding_predicate_matches_what_bind_answers_with() -> None:
     """Whether ``bind()`` answers with a stock ``RunnableBinding`` or a subclass of one."""
     sd.TRIPPED.clear()
@@ -74,6 +92,8 @@ def test_every_reason_names_an_api_and_the_minor_that_introduced_it() -> None:
     reasons = [
         substrate.NODE_DEFAULTS_REASON,
         substrate.NODE_ERROR_HANDLER_REASON,
+        substrate.NODE_TIMEOUT_REASON,
+        substrate.DELTA_CHANNEL_REASON,
         substrate.CHAT_MODEL_BINDING_REASON,
         substrate.LC_VERSIONS_METADATA_REASON,
     ]

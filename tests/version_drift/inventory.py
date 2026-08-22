@@ -18,11 +18,20 @@ consumes.
 installed owner distribution's ``(major, minor)`` release line — the granularity A2 §3
 observed additive churn at ("additive node-spec fields land in minors"). The recorded sets
 were read off each frozen cell's pinned substrate with :func:`member_names` /
-:func:`public_instance_attrs` at GOV-05 landing (evidence in the card's artifacts); a set
-is a *recording of what is*, never a claim about what should be — the should-claims are the
-tests' hard ⊇ assertions. An installed line with **no** recorded entry (a future minor, or
-the ``--pre`` cell resolving a new line) is itself a soft divergence: the honest reading of
-"this substrate line has never been inventoried", surfaced without blocking anything.
+:func:`public_instance_attrs` at GOV-05 landing for tests 1-6 and at GOV-06 landing for
+tests 7-12 (evidence in each card's artifacts); a set is a *recording of what is*, never a
+claim about what should be — the should-claims are the tests' hard ⊇ assertions. An
+installed line with **no** recorded entry (a future minor, or the ``--pre`` cell resolving
+a new line) is itself a soft divergence: the honest reading of "this substrate line has
+never been inventoried", surfaced without blocking anything.
+
+**Document-shaped surfaces ride the same seam.** §3 row 7's soft half is *full-dict
+equality* of the rendered jsonschemas — a document, not a member set. Rather than a second
+divergence channel, :func:`flatten_documents` encodes a document losslessly as a set of
+leaf-path atoms (``input.title="ResearchBrief"``), so document equality **is** atom-set
+equality and the ordinary :func:`soft_exact_set` machinery — collection, the stable line,
+the gained/lost sentence — applies unchanged. The recorded side is kept as a readable
+document literal and flattened at module load.
 
 Updating a recorded set (or adding a line) is the soft half of the §4 ceiling-extension
 path: it lands in a commit citing the drift-suite run that observed the new set, beside the
@@ -36,6 +45,7 @@ WA-07: this module reads type metadata (``dataclasses.fields``, ``_fields``, ``_
 from __future__ import annotations
 
 import dataclasses
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
@@ -76,6 +86,41 @@ def public_instance_attrs(surface: object) -> frozenset[str]:
     return frozenset(name for name in vars(surface) if not name.startswith("_"))
 
 
+def flatten_documents(documents: Mapping[str, object]) -> frozenset[str]:
+    """A mapping of JSON-shaped documents as leaf-path atoms — set equality ⇔ doc equality.
+
+    Each top-level key prefixes its document's leaf paths (``input.properties.topic.type``);
+    list members carry their index (``input.required[0]``); every leaf value is spelled via
+    ``json.dumps``, so ``"true"`` and ``true`` stay distinct; an empty container is itself a
+    leaf. Faithful because paths encode position exactly — with the one guard that a mapping
+    key containing a path delimiter is refused rather than silently aliased.
+    """
+    atoms: set[str] = set()
+    _flatten_into(atoms, documents)
+    return frozenset(atoms)
+
+
+def _flatten_into(atoms: set[str], node: object, path: str = "") -> None:
+    if isinstance(node, Mapping):
+        if not node and path:
+            atoms.add(f"{path}={{}}")
+            return
+        for key, value in node.items():
+            name = str(key)
+            if "." in name or "[" in name or "=" in name:
+                raise ValueError(f"unencodable document key {name!r} under {path!r}")
+            _flatten_into(atoms, value, f"{path}.{name}" if path else name)
+        return
+    if isinstance(node, (list, tuple)):
+        if not node:
+            atoms.add(f"{path}=[]")
+            return
+        for index, value in enumerate(node):
+            _flatten_into(atoms, value, f"{path}[{index}]")
+        return
+    atoms.add(f"{path}={json.dumps(node, sort_keys=True)}")
+
+
 @dataclass(frozen=True)
 class SurfaceInventory:
     """One drift surface's recorded exact member sets, per owner release line."""
@@ -86,10 +131,54 @@ class SurfaceInventory:
     """Observed member set per ``(major, minor)`` line of the owner, at recording time."""
 
 
+#: The full jsonschema document both row-7 getters rendered for the fixture state
+#: (``tests.version_drift.workflows.ResearchBrief``) on every frozen line and every tested
+#: Python at GOV-06 landing — kept as the readable document; the inventory entry flattens
+#: it. Identical for input and output today; a line that renders them apart records two.
+_ROW7_RENDERED_SCHEMA: Final[dict[str, object]] = {
+    "properties": {
+        "attempts": {"title": "Attempts", "type": "integer"},
+        "sources": {"items": {"type": "string"}, "title": "Sources", "type": "array"},
+        "topic": {"title": "Topic", "type": "string"},
+    },
+    "required": ["topic", "attempts", "sources"],
+    "title": "ResearchBrief",
+    "type": "object",
+}
+
+#: The compiled Pregel's public instance-attribute set on the 1.0 and 1.1 lines — shared
+#: between their entries below; the 1.2 entry is this plus its two additions.
+_PREGEL_ATTRS_1_0: Final[frozenset[str]] = frozenset(
+    {
+        "builder",
+        "cache",
+        "cache_policy",
+        "channels",
+        "checkpointer",
+        "config",
+        "context_schema",
+        "debug",
+        "input_channels",
+        "interrupt_after_nodes",
+        "interrupt_before_nodes",
+        "name",
+        "nodes",
+        "output_channels",
+        "retry_policy",
+        "schema_to_mapper",
+        "step_timeout",
+        "store",
+        "stream_channels",
+        "stream_eager",
+        "stream_mode",
+        "trigger_to_nodes",
+    }
+)
+
 #: The recorded inventories, one per drift-test surface. Lines (1, 0)/(1, 1)/(1, 2) for
 #: langgraph and (1, 1)/(1, 3)/(1, 5) for langchain-core are the three frozen matrix
 #: cells' pins (PD-030 §C3); every set below was observed on that cell's installed
-#: substrate at GOV-05 landing.
+#: substrate at GOV-05 landing (tests 1-6) or GOV-06 landing (tests 7-12).
 INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
     # Test 1 — StateNodeSpec's declared fields (A2 §3: additive churn lands here).
     "state-node-spec-fields": SurfaceInventory(
@@ -259,6 +348,128 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
             ),
         },
     ),
+    # Test 7 — the full rendered jsonschema documents (§3 row 7's designated soft half:
+    # "full-dict equality"), as flatten_documents atoms. Both getters rendered the same
+    # document for the fixture state on every frozen line at GOV-06 landing; the pydantic
+    # that renders it is pinned transitively per cell (2.13.4 — no independent axis).
+    "input-output-jsonschema": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): flatten_documents(
+                {"input": _ROW7_RENDERED_SCHEMA, "output": _ROW7_RENDERED_SCHEMA}
+            ),
+            (1, 1): flatten_documents(
+                {"input": _ROW7_RENDERED_SCHEMA, "output": _ROW7_RENDERED_SCHEMA}
+            ),
+            (1, 2): flatten_documents(
+                {"input": _ROW7_RENDERED_SCHEMA, "output": _ROW7_RENDERED_SCHEMA}
+            ),
+        },
+    ),
+    # Test 8 — the warning classes the legacy `config_schema=` construction emits. The
+    # class is the substrate's own deprecation vocabulary; a rename that stays inside
+    # DeprecationWarning keeps the hard half green and lands here as an annotation.
+    "config-schema-warning-classes": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): frozenset({"LangGraphDeprecatedSinceV10"}),
+            (1, 1): frozenset({"LangGraphDeprecatedSinceV10"}),
+            (1, 2): frozenset({"LangGraphDeprecatedSinceV10"}),
+        },
+    ),
+    # Test 9 — the two carried channel classes' declared members (slots over the MRO):
+    # the reducer channel and the plain-value channel the extractor's Σ read identifies.
+    "binop-channel-members": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): frozenset({"key", "operator", "typ", "value"}),
+            (1, 1): frozenset({"key", "operator", "typ", "value"}),
+            (1, 2): frozenset({"key", "operator", "typ", "value"}),
+        },
+    ),
+    "last-value-channel-members": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): frozenset({"key", "typ", "value"}),
+            (1, 1): frozenset({"key", "typ", "value"}),
+            (1, 2): frozenset({"key", "typ", "value"}),
+        },
+    ),
+    # Test 10 — `add_node`'s signature parameter names: the surface the 1.2-era additive
+    # kwargs landed on, and the one reading that distinguishes "accepted" from "swallowed
+    # through **kwargs" (tests/substrate.py). `self` and `kwargs` are part of the read.
+    "add-node-params": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): frozenset(
+                {
+                    "action",
+                    "cache_policy",
+                    "defer",
+                    "destinations",
+                    "input_schema",
+                    "kwargs",
+                    "metadata",
+                    "node",
+                    "retry_policy",
+                    "self",
+                }
+            ),
+            (1, 1): frozenset(
+                {
+                    "action",
+                    "cache_policy",
+                    "defer",
+                    "destinations",
+                    "input_schema",
+                    "kwargs",
+                    "metadata",
+                    "node",
+                    "retry_policy",
+                    "self",
+                }
+            ),
+            (1, 2): frozenset(
+                {
+                    "action",
+                    "cache_policy",
+                    "defer",
+                    "destinations",
+                    "error_handler",
+                    "input_schema",
+                    "kwargs",
+                    "metadata",
+                    "node",
+                    "retry_policy",
+                    "self",
+                    "timeout",
+                }
+            ),
+        },
+    ),
+    # Test 11 — the RunnableSequence's public instance attributes: the composition members
+    # the extractor's LCEL walk reads (langchain-core's surface, the hottest-churn
+    # distribution on the matrix).
+    "runnable-sequence-instance-attrs": SurfaceInventory(
+        owner=LANGCHAIN_CORE,
+        recorded={
+            (1, 1): frozenset({"first", "last", "middle", "name"}),
+            (1, 3): frozenset({"first", "last", "middle", "name"}),
+            (1, 5): frozenset({"first", "last", "middle", "name"}),
+        },
+    ),
+    # Test 12 — the compiled Pregel's public instance attributes: the compiled surface the
+    # P-13 carrier read lives on. The 1.2 line added `node_error_handler_map` and
+    # `stream_transformers`; the set is compile-option-independent (observed identical with
+    # and without checkpointer/interrupt gates on every frozen cell).
+    "compiled-pregel-instance-attrs": SurfaceInventory(
+        owner=LANGGRAPH,
+        recorded={
+            (1, 0): _PREGEL_ATTRS_1_0,
+            (1, 1): _PREGEL_ATTRS_1_0,
+            (1, 2): _PREGEL_ATTRS_1_0 | {"node_error_handler_map", "stream_transformers"},
+        },
+    ),
 }
 
 
@@ -317,6 +528,23 @@ def _installed(owner: str) -> tuple[tuple[int, int], str]:
         substrate.LANGGRAPH_VERSION if owner == LANGGRAPH else substrate.LANGCHAIN_CORE_VERSION
     )
     return (version[0], version[1]), ".".join(map(str, version))
+
+
+def soft_documents_exact(test: str, surface: str, documents: Mapping[str, object]) -> None:
+    """The document-shaped soft compare: flatten, then the ordinary exact-set collect.
+
+    An observed document the atom encoding cannot represent (a mapping key carrying a path
+    delimiter — see :func:`flatten_documents`) is itself **recorded as a divergence**
+    rather than raised: §3 designates this compare soft, so no rendering shape a future
+    substrate produces may harden it into a cell failure. The strict raise stays on
+    :func:`flatten_documents` itself, where it guards *our* recorded literals at module
+    load.
+    """
+    try:
+        observed = flatten_documents(documents)
+    except ValueError as error:
+        observed = frozenset({f"unencodable-document={error}"})
+    soft_exact_set(test, surface, observed)
 
 
 def soft_exact_set(test: str, surface: str, observed: frozenset[str]) -> None:

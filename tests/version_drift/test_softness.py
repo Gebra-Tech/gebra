@@ -171,6 +171,90 @@ def test_the_summary_hook_is_silent_with_nothing_to_report(
     assert reporter.lines == []
 
 
+# ── flatten_documents — the document-shaped soft encoding (GOV-06) ───────────────────────
+
+
+def test_flatten_documents_is_faithful_to_leaf_position_and_value() -> None:
+    """Leaf paths carry mapping keys and list indices; values are json-spelled."""
+    atoms = inventory.flatten_documents(
+        {"input": {"title": "S", "required": ["a", "b"], "count": 1}}
+    )
+
+    assert 'input.title="S"' in atoms
+    assert 'input.required[0]="a"' in atoms
+    assert 'input.required[1]="b"' in atoms
+    assert "input.count=1" in atoms
+
+
+def test_flatten_documents_distinguishes_the_string_from_the_scalar() -> None:
+    """``"true"`` and ``true`` (and ``"1"`` and ``1``) never collide — the json spelling."""
+    assert inventory.flatten_documents({"d": {"x": "true"}}) != inventory.flatten_documents(
+        {"d": {"x": True}}
+    )
+    assert inventory.flatten_documents({"d": {"x": "1"}}) != inventory.flatten_documents(
+        {"d": {"x": 1}}
+    )
+
+
+def test_flatten_documents_ignores_key_order_and_keeps_list_order() -> None:
+    """Set equality ⇔ document equality: mapping order is JSON-irrelevant, list order is
+    positional and therefore encoded."""
+    left = {"input": {"properties": {"a": {"type": "string"}, "b": {"type": "integer"}}}}
+    right = {"input": {"properties": {"b": {"type": "integer"}, "a": {"type": "string"}}}}
+
+    assert inventory.flatten_documents(left) == inventory.flatten_documents(right)
+    assert inventory.flatten_documents(
+        {"input": {"required": ["a", "b"]}}
+    ) != inventory.flatten_documents({"input": {"required": ["b", "a"]}})
+
+
+def test_flatten_documents_keeps_empty_containers_as_leaves() -> None:
+    """An empty mapping or list is a fact of the document, not an absence."""
+    atoms = inventory.flatten_documents({"d": {"props": {}, "req": []}})
+
+    assert "d.props={}" in atoms
+    assert "d.req=[]" in atoms
+
+
+def test_flatten_documents_refuses_an_unencodable_key() -> None:
+    """A key carrying a path delimiter fails loudly rather than aliasing two paths."""
+    with pytest.raises(ValueError):
+        inventory.flatten_documents({"d": {"a.b": 1}})
+
+
+def test_an_unencodable_observed_document_records_and_never_raises(
+    staged_divergences: list[inventory.SoftDivergence],
+) -> None:
+    """The §3-designated-soft compare cannot be hardened by a rendering shape: through
+    :func:`soft_documents_exact`, an unencodable observed document becomes a recorded
+    divergence — the cell stays green and the fact still reaches the annotation channel."""
+    inventory.soft_documents_exact(
+        "test_drift_schema_getters_jsonschema",
+        "input-output-jsonschema",
+        {"input": {"weird.key": 1}},
+    )
+
+    assert len(staged_divergences) == 1
+    recorded = staged_divergences[0]
+    assert recorded.surface == "input-output-jsonschema"
+    assert any(atom.startswith("unencodable-document=") for atom in recorded.observed)
+
+
+def test_the_row7_recorded_inventory_flattens_the_readable_document() -> None:
+    """The recorded atoms are exactly the flatten of the readable schema literal — the
+    derivation asserted, so the two spellings cannot drift apart."""
+    entry = inventory.INVENTORIES["input-output-jsonschema"]
+    derived = inventory.flatten_documents(
+        {
+            "input": inventory._ROW7_RENDERED_SCHEMA,
+            "output": inventory._ROW7_RENDERED_SCHEMA,
+        }
+    )
+
+    for recorded in entry.recorded.values():
+        assert recorded == derived
+
+
 # ── The member-name cascade, pinned per branch ───────────────────────────────────────────
 
 

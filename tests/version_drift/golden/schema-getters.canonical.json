@@ -1,0 +1,1 @@
+{"edges":[],"entry":"plan","finish":"plan","ir_version":"1.0","nodes":[{"annotations":{"pure":true},"id":"plan"}],"state":{"attempts":{"optional":true,"type":"int"},"sources":{"optional":true,"type":"list[str]"},"topic":{"optional":true,"type":"str"}}}

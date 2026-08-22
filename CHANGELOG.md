@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The version-drift suite completed: tests 7–12** (card GOV-06; VERSION-COMPAT §3).
+  `tests/version_drift/` now carries the full twelve-test §3 inventory. The six new tests
+  cover the jsonschema getters (named-key document golden beside the core-IR golden; the
+  full rendered dict is the row's designated *soft* half, recorded per release line), the
+  `context_schema`/`config_schema` constructor surface (the legacy spelling must still
+  deprecation-warn and auto-route — both spellings are held to one golden), the per-key
+  channel objects behind Σ (`BinaryOperatorAggregate`/`LastValue` classes,
+  `ValueType`/`UpdateType`, the recorded member sets), the 1.2-era additive `add_node`
+  kwargs (`timeout=`/`error_handler=` round-trip into the node spec and
+  `node_error_handler_map` on the line that has them, with the pre-1.2 fields held
+  undisturbed against a cross-cell plain-twin golden; the 1.0/1.1 builders *swallow* both
+  kwargs, so presence-gating — never try/except — decides which arm runs), LCEL fragment
+  identity (drawn names + topology as a document golden, raw uuid-per-call ids asserted
+  disjoint across draws and absent from the extracted ledger-§5 synthetic ids, double
+  extraction byte-identical), and the compiled P-13 carriers (`runtime.interrupts` /
+  `runtime.checkpointer` against a golden — the one registry fixture handed to
+  `extract()` compiled). Special §3 semantics land with them: the row-9 DeltaChannel
+  variant is `xfail(strict=False)` on every cell (beta never blocks; the marker itself is
+  integrity-tested), and the row-4/row-8 failure branches now **block and route**: a
+  drawable-only divergence records a templated `get-graph-demotion` review proposal, an
+  observed `config_schema` removal records the 2.0-ceiling `major-version-review`
+  proposal — recorded (with its optional `GEBRA_DRIFT_REVIEW_DIR` file drop and
+  run-summary append) *before* the blocking assertion fires, then emitted at end of run as
+  a terminal-summary section, a stable `DRIFT-REVIEW-PROPOSAL` line (the version-gap
+  automation seam) and a CI annotation; both branches are dry-run-proven by driving the
+  real tests to failure in
+  `tests/version_drift/test_review.py`. `tools/drift_goldens.py` gains the two new
+  document goldens; `tests/substrate.py` gains the `HAS_NODE_TIMEOUT` and
+  `HAS_DELTA_CHANNEL` predicates. Verified locally on all three substrate cells across
+  four CPython versions (seven combinations), goldens byte-identical on every run.
+
 - **The version-drift suite, tests 1–6** (card GOV-05; VERSION-COMPAT §3). A new
   `tests/version_drift/` package runs the first six drift-detection conformance tests on
   every compatibility-matrix cell (it rides `pytest`, so all 13 cells exercise it against

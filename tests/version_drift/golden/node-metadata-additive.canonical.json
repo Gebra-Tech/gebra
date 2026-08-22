@@ -1,0 +1,1 @@
+{"edges":[],"entry":"ingest","finish":"ingest","ir_version":"1.0","nodes":[{"annotations":{"pure":true,"retry_policy":{"max_attempts":4,"retry_on":["ValueError"]}},"id":"ingest"}],"state":{"job":{"optional":true,"type":"str"},"output":{"optional":true,"type":"str"}}}

@@ -313,6 +313,28 @@ through the entry point traverses, plus `routing` — reached only by the one se
 drawing is taken. The import-and-network half of the invariant for every one of those paths is
 what their own guarded children measure.
 
+The **version-drift suite** (`tests/version_drift/`, cards GOV-05/GOV-06) hands the extractor one
+live fixture per VERSION-COMPAT §3 row — builders, one bare LCEL chain, and one **compiled** graph
+carrying an `InMemorySaver` and both interrupt gates (row 12: the P-13 carriers exist only at the
+compiled level) — and additionally performs the substrate reads the §3 rows themselves name:
+`get_graph(xray=True)` on the drawable fixture, `get_graph()` twice on the LCEL chain, the two
+jsonschema getters, `compile()` in fixtures and tests, and one deprecated-constructor probe under
+a recording warnings filter. It carries the ordinary in-process guard form: every node body,
+router, reducer and inline lambda records itself in `tests.version_drift.workflows.TRIPPED` and
+raises a `BaseException` subclass; the package `conftest.py` reads that ledger after **every**
+test; and `test_the_drift_fixtures_are_armed` fires every body — walking `builder.nodes[…]` and
+`.branches`, the LCEL sequence steps and parallel branches, and the two line-gated 1.2 graphs
+where the substrate builds them, with the line-gated bodies (one of them `async`, driven to its
+immediate raise by a single `send(None)`) additionally fired directly on every cell — so the
+arming is measured, not described. The golden tool (`tools/drift_goldens.py`) checks the same
+ledger around every take. It adds **no extraction path** — `gebra.extract()` and attribute reads
+only, so §1's machine check owes it nothing — and every path it reaches carries its own guarded
+child above: the compiled path (§1; its checkpointer drawing route is §2 route 2, armed by
+`ArmedSaver`), the LCEL path (§1), and the builder path. The suite-side drawing and rendering
+calls are §3-row-named surface reads over fully armed fixtures under the per-test ledger, not new
+routes: a substrate release whose drawing or schema rendering started invoking bodies trips the
+sentinels and fails the run loudly.
+
 One **fixture** carries a guarded child of its own, listed here because a reviewer looking for it
 would look at this index: the shared travel-booking agent
 (`tests/sample_workflows/travel_booking.py`, card TE-05) is guarded by

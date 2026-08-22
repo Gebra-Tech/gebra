@@ -156,15 +156,26 @@ the cell count, the pin values, and which gates each cell runs.
 
 ### Drift suite
 
-`tests/version_drift/` is the substrate drift-detection suite: each test builds a
-minimal live workflow, drives it through `gebra.extract()`, and holds the core IR
-byte-identical (and its `graph_version` string-equal) to a committed golden under
+`tests/version_drift/` is the substrate drift-detection suite — the full twelve-test
+VERSION-COMPAT §3 inventory: each test builds a minimal live workflow, drives it
+through `gebra.extract()`, and holds the core IR byte-identical (and its
+`graph_version` string-equal) to a committed golden under
 `tests/version_drift/golden/`, beside direct shape assertions on the substrate
-surfaces extraction reads. It runs wherever `pytest` runs, so every matrix cell
-above exercises it against its own pinned substrate. A *hard* mismatch fails the
-cell; a *soft* divergence — a substrate surface gaining or losing a member against
-the recorded per-line inventory in `tests/version_drift/inventory.py` — keeps the
-cell green and is emitted as a warning annotation at the end of the run. Goldens
-and recorded inventories change only with a stated justification (see
+surfaces extraction reads (three tests carry a second, document-shaped golden:
+the xray drawing, the jsonschema getters' named keys, the drawn LCEL topology).
+It runs wherever `pytest` runs, so every matrix cell above exercises it against
+its own pinned substrate. A *hard* mismatch fails the cell; a *soft* divergence —
+a substrate surface gaining or losing a member (or a rendered schema document
+moving) against the recorded per-line inventory in
+`tests/version_drift/inventory.py` — keeps the cell green and is emitted as a
+warning annotation at the end of the run. Three rows carry special semantics:
+the DeltaChannel beta variant is `xfail(strict=False)` everywhere (beta never
+blocks a cell), and the drawable-fidelity and `config_schema` tests **block and
+route** — their designated failure branches record a templated review proposal
+(`tests/version_drift/review.py`: a terminal-summary section, a stable
+`DRIFT-REVIEW-PROPOSAL` line, a CI annotation, plus a file drop when
+`GEBRA_DRIFT_REVIEW_DIR` is set) before the cell goes red, naming the
+VERSION-COMPAT §5 R-06 governance route the follow-up takes. Goldens and
+recorded inventories change only with a stated justification (see
 `tests/version_drift/golden/README.md`); regenerate goldens with
 `python tools/drift_goldens.py --write`.

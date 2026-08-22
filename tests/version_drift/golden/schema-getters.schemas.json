@@ -1,0 +1,20 @@
+{
+ "input": {
+  "properties": {
+   "attempts": "integer",
+   "sources": "array",
+   "topic": "string"
+  },
+  "title": "ResearchBrief",
+  "type": "object"
+ },
+ "output": {
+  "properties": {
+   "attempts": "integer",
+   "sources": "array",
+   "topic": "string"
+  },
+  "title": "ResearchBrief",
+  "type": "object"
+ }
+}

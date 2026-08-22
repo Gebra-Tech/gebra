@@ -30,8 +30,10 @@ standing on the suite alone.
 
 from __future__ import annotations
 
+import importlib
 import re
 from importlib import metadata
+from typing import Any
 
 #: Leading ``major.minor.patch`` of a PEP 440 version, ignoring any pre/post/dev suffix. The
 #: ``--pre`` matrix cell installs prereleases (``1.6.0a1``), and a prerelease of a line is
@@ -132,6 +134,55 @@ LC_VERSIONS_METADATA_REASON: str = (
     f"{'.'.join(map(str, LANGCHAIN_CORE_VERSION))}"
 )
 
+# ── typed-portable access to the 1.2-line node surfaces (GOV-12) ─────────────────────────
+# Per-cell mypy types the suite against whichever substrate a cell pins (ci.yml: a cell
+# that ran only pytest would leave the type surface unchecked), and the 1.0/1.1 stubs
+# carry none of the 1.2-line members the drift suite describes — so a direct attribute
+# read fails attr-defined on those cells even inside a runtime-gated block. These
+# accessors are the typing half of the seam: ``getattr`` keeps the member names out of
+# the checked surface, the ``HAS_*`` gates above keep the calls off the pre-1.2 lines,
+# and the consuming assertions stay exactly as strong (values are asserted, not types).
+
+
+def node_spec_timeout(spec: object) -> Any:
+    """``StateNodeSpec.timeout`` where :data:`HAS_NODE_TIMEOUT`; ``None`` below it."""
+    return getattr(spec, "timeout", None)
+
+
+def node_spec_error_handler_node(spec: object) -> Any:
+    """``StateNodeSpec.error_handler_node`` where :data:`HAS_NODE_ERROR_HANDLER`."""
+    return getattr(spec, "error_handler_node", None)
+
+
+def node_spec_is_error_handler(spec: object) -> Any:
+    """``StateNodeSpec.is_error_handler`` where :data:`HAS_NODE_ERROR_HANDLER`."""
+    return getattr(spec, "is_error_handler", None)
+
+
+def compiled_node_error_handler_map(compiled: object) -> Any:
+    """``CompiledStateGraph.node_error_handler_map`` where :data:`HAS_NODE_ERROR_HANDLER`."""
+    return getattr(compiled, "node_error_handler_map", None)
+
+
+def add_node_1_2(builder: Any, name: str, action: Any, **kwargs: Any) -> None:
+    """``add_node`` with 1.2-line keywords (``timeout``/``error_handler``).
+
+    The builder parameter is ``Any`` so the pre-1.2 stubs never see the keywords; the
+    caller stays behind the ``HAS_*`` gates, so the call never runs there either.
+    """
+    builder.add_node(name, action, **kwargs)
+
+
+def import_delta_channel() -> Any:
+    """``langgraph.channels.delta.DeltaChannel`` via ``importlib``.
+
+    Raises ``ModuleNotFoundError`` on the pre-1.2 lines exactly as the direct import
+    would — the consuming xfail's trigger — while the module name never enters the
+    typed import graph that per-cell mypy checks.
+    """
+    return importlib.import_module("langgraph.channels.delta").DeltaChannel
+
+
 __all__ = [
     "CHAT_MODEL_BINDING_REASON",
     "CORE_BINDS_TO_A_SUBCLASS",
@@ -147,4 +198,10 @@ __all__ = [
     "NODE_DEFAULTS_REASON",
     "NODE_ERROR_HANDLER_REASON",
     "NODE_TIMEOUT_REASON",
+    "add_node_1_2",
+    "compiled_node_error_handler_map",
+    "import_delta_channel",
+    "node_spec_error_handler_node",
+    "node_spec_is_error_handler",
+    "node_spec_timeout",
 ]

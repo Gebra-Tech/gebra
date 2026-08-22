@@ -546,15 +546,15 @@ def test_drift_node_metadata_additive() -> None:
     if substrate.HAS_NODE_TIMEOUT and substrate.HAS_NODE_ERROR_HANDLER:
         enriched = workflows.build_node_metadata_enriched()
         spec = enriched.nodes["ingest"]
-        timeout_policy = spec.timeout
+        timeout_policy = substrate.node_spec_timeout(spec)
         assert timeout_policy is not None
         assert type(timeout_policy).__name__ == "TimeoutPolicy"
         assert timeout_policy.run_timeout == 30.5
-        handler_name = spec.error_handler_node
+        handler_name = substrate.node_spec_error_handler_node(spec)
         assert isinstance(handler_name, str) and handler_name
-        assert spec.is_error_handler is False
+        assert substrate.node_spec_is_error_handler(spec) is False
         handler_spec = enriched.nodes[handler_name]
-        assert handler_spec.is_error_handler is True
+        assert substrate.node_spec_is_error_handler(handler_spec) is True
         assert innermost(handler_spec.runnable) is workflows.recover_ingest
         assert spec.metadata == plain_spec.metadata == workflows.INGEST_METADATA
         assert spec.retry_policy == plain_spec.retry_policy
@@ -565,7 +565,7 @@ def test_drift_node_metadata_additive() -> None:
         assert spec.cache_policy is None and plain_spec.cache_policy is None
         assert spec.defer is False and spec.ends == plain_spec.ends
         compiled = enriched.compile()
-        assert compiled.node_error_handler_map == {"ingest": handler_name}
+        assert substrate.compiled_node_error_handler_map(compiled) == {"ingest": handler_name}
     else:
         assert not (plain_members & {"timeout", "error_handler_node", "is_error_handler"})
 

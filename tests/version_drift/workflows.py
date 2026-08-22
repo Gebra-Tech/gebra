@@ -90,6 +90,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy, Send
 from typing_extensions import TypedDict as PortableTypedDict
 
+from tests import substrate
+
 #: Every sentinel that was reached, recorded **before** it raises, so a raise something
 #: swallowed is still visible. The suite clears and checks this per test.
 TRIPPED: list[str] = []
@@ -456,11 +458,13 @@ def build_channel_reducer_delta() -> StateGraph[Any]:
 
     The import and the state class live inside the factory: ``langgraph.channels.delta``
     does not exist on the 1.0/1.1 lines, and the ``Annotated`` metadata holds a channel
-    *instance*, which would otherwise be constructed at module import. The consuming test
-    is ``xfail(strict=False)`` — on the pre-1.2 lines this factory raises
-    ``ModuleNotFoundError``, which is that xfail firing, not an error to hide.
+    *instance*, which would otherwise be constructed at module import. The import goes
+    through the seam's ``importlib`` accessor so per-cell mypy never types the module
+    name (GOV-12); at runtime it raises ``ModuleNotFoundError`` on the pre-1.2 lines
+    exactly as the direct import would — the consuming ``xfail(strict=False)`` firing,
+    not an error to hide.
     """
-    from langgraph.channels.delta import DeltaChannel
+    DeltaChannel = substrate.import_delta_channel()
 
     class DeltaLedger(TypedDict):
         log: Annotated[list[str], DeltaChannel(merge_delta, list[str])]
@@ -536,7 +540,10 @@ def build_node_metadata_enriched() -> StateGraph[IngestState]:
     handler node is part of the built graph, which is a 1.2-line node set by construction.
     """
     builder = StateGraph(IngestState)
-    builder.add_node(
+    # add_node's timeout/error_handler keywords are 1.2-line; the seam call keeps them
+    # off the pre-1.2 stubs per-cell mypy checks (GOV-12). Runtime-gated by the caller.
+    substrate.add_node_1_2(
+        builder,
         "ingest",
         ingest_enriched,
         metadata=dict(INGEST_METADATA),

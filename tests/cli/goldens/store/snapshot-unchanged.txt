@@ -1,0 +1,3 @@
+nothing moved — the store already holds this content as 1.0.0.0
+  file                    .gebra/snapshots/1.0.0.0.yaml
+  graph_version           sha256:273315d2af705dcc...

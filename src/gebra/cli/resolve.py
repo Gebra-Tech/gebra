@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     # For annotations only: importing `gebra.extraction.warnings` at runtime would import
     # its parent package, and with it the substrate — exactly what the lazy boundary above
     # exists to keep off the ir-document and snapshot paths.
+    from gebra.extraction.envelope import ExtractionEnvelope
     from gebra.extraction.warnings import ExtractionWarning
 
 from gebra.ir import (
@@ -48,7 +49,7 @@ from gebra.ir import (
     read_ir,
 )
 from gebra.report import did_you_mean, suggestion_sentence
-from gebra.store import SnapshotStore, StoreError
+from gebra.store import Snapshot, SnapshotStore, StoreError
 from gebra.verify import SubjectRef
 
 __all__ = [
@@ -63,6 +64,7 @@ __all__ = [
     "resolve_ir_document",
     "resolve_snapshot",
     "store_for",
+    "stored_snapshot",
 ]
 
 #: §2.2 rule 1 — a V.S.F.E label: four dot-separated ASCII decimal components.
@@ -108,11 +110,17 @@ class ResolvedSubject:
         warnings: Extraction's structured warnings, in emission order — non-empty only in
             ``extracted`` mode. Rendered to stderr by the verb (§5.2), never dropped, and
             never a finding (§3.5).
+        envelope: The whole extraction envelope, in ``extracted`` mode only. Carried for
+            ``gebra snapshot`` (CLI-05): §4.2 requires the eligibility run and the write to
+            share **one** resolution, and :func:`gebra.snapshot.record` takes the envelope,
+            so the extraction that produced :attr:`ir` must travel with it rather than be
+            made a second time.
     """
 
     ir: WorkflowIR
     reference: SubjectRef
     warnings: tuple[ExtractionWarning, ...] = ()
+    envelope: ExtractionEnvelope | None = None
 
 
 def detect_mode(target: str) -> Mode:
@@ -206,12 +214,14 @@ def store_for(store_dir: str | None) -> SnapshotStore:
     return SnapshotStore(store_dir)
 
 
-def resolve_snapshot(label: str, store_dir: str | None) -> ResolvedSubject:
-    """§2.1's ``snapshot`` mode: read the version ``label`` from the store.
+def stored_snapshot(store: SnapshotStore, label: str) -> Snapshot:
+    """The snapshot ``label`` names in ``store``, with every §2.6 failure as a :class:`Refusal`.
 
-    ``subject.source`` is the stored snapshot's ``extracted_from.source`` and
-    ``subject.version`` the label (§2.1) — the stored digest itself is not taken on trust:
-    the store re-checks it on read, and ``verify()`` recomputes the digest it reports.
+    The store-facing half of snapshot-mode resolution, separated (CLI-05) because
+    ``gebra diff`` needs the :class:`~gebra.store.models.Snapshot` itself — the diff
+    engine's anchor carries the V.S.F.E label only when handed the whole document — while
+    ``verify`` wants the :class:`ResolvedSubject` built from it. The stored digest is not
+    taken on trust: the store re-checks it on read.
 
     Raises:
         Refusal: ``input`` for a malformed label, a label the store does not hold (with
@@ -224,13 +234,25 @@ def resolve_snapshot(label: str, store_dir: str | None) -> ResolvedSubject:
             f"{label!r} is not a V.S.F.E version label: a label is four dot-separated "
             "decimal components, e.g. 1.4.2.0 (CLI-SPEC §2.2)",
         )
-    store = store_for(store_dir)
     try:
         if not store.holds(label):
             raise Refusal("input", _unheld_label_detail(store, label))
-        snapshot = store.read(label)
+        return store.read(label)
     except StoreError as error:
         raise Refusal("input", str(error)) from error
+
+
+def resolve_snapshot(label: str, store_dir: str | None) -> ResolvedSubject:
+    """§2.1's ``snapshot`` mode: read the version ``label`` from the store.
+
+    ``subject.source`` is the stored snapshot's ``extracted_from.source`` and
+    ``subject.version`` the label (§2.1) — the stored digest itself is not taken on trust:
+    the store re-checks it on read, and ``verify()`` recomputes the digest it reports.
+
+    Raises:
+        Refusal: as :func:`stored_snapshot`.
+    """
+    snapshot = stored_snapshot(store_for(store_dir), label)
     return ResolvedSubject(
         ir=snapshot.ir,
         reference=SubjectRef(
@@ -339,6 +361,7 @@ def resolve_import_reference(
             sidecar=envelope.extracted_from.sidecar,
         ),
         warnings=envelope.warnings,
+        envelope=envelope,
     )
 
 

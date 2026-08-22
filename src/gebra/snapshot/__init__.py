@@ -25,7 +25,10 @@ IR-SPEC §4.1 envelope wraps it with a V.S.F.E label and its provenance, and
 :func:`~gebra.snapshot.engine.snapshot` takes a live workflow;
 :func:`~gebra.snapshot.engine.record` takes an
 :class:`~gebra.extraction.envelope.ExtractionEnvelope` that already exists, which is what a
-caller who has already verified the same IR wants. Both answer with a
+caller who has already verified the same IR wants; and
+:func:`~gebra.snapshot.engine.record_document` (CLI-05) takes a serialized IR document that
+was never extracted at all — ``gebra snapshot --ir``'s path, under the same label policy
+with document-honest provenance. All three answer with a
 :class:`~gebra.snapshot.models.SnapshotOutcome`.
 
 **What the engine decides, and what it only carries.** It decides two things and they are the
@@ -50,7 +53,7 @@ twice in a fresh interpreter where name resolution and connection opening raise 
 line and ``StateGraph.compile`` raises from before gebra is imported.
 """
 
-from gebra.snapshot.engine import record, snapshot
+from gebra.snapshot.engine import record, record_document, snapshot
 from gebra.snapshot.models import (
     SnapshotAction,
     SnapshotError,
@@ -64,5 +67,6 @@ __all__ = [
     "SnapshotErrorReason",
     "SnapshotOutcome",
     "record",
+    "record_document",
     "snapshot",
 ]

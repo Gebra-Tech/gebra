@@ -9,10 +9,11 @@
 >
 > **It is not user documentation.** As of card CLI-04 (2026-08-21) the package ships the
 > `gebra` console script (`gebra.cli`, on `typer` per brief D-12) carrying the application
-> level and the `verify` verb; the other four verbs are CLI-05's and CLI-06's and do not
-> exist until those cards land — an unknown verb is refused, never advertised. The CLI
-> reference a user will read is DOC-15's, written after the verbs merge (WA-12 — docs tell
-> no futures). The frozen, vendored specs (PROPERTY-CATALOG-SPEC, IR-SPEC,
+> level and the `verify` verb, and as of card CLI-05 (2026-08-22) the three store-facing
+> verbs beside it (`snapshot`, `diff`, `history` — §4.2, §4.3, §4.5); the remaining verb
+> (`display`) is CLI-06's and does not exist until that card lands — an unknown verb is
+> refused, never advertised. The CLI reference a user will read is DOC-15's, written after
+> the verbs merge (WA-12 — docs tell no futures). The frozen, vendored specs (PROPERTY-CATALOG-SPEC, IR-SPEC,
 > INTROSPECTION-SPEC, ANNOTATION-API-SPEC, …) live in the delivery repository and are
 > read-only; this file restates them where it must and redefines nothing.
 >
@@ -170,7 +171,8 @@ error, not a resolution.
 ### 0.6 Code anchors
 
 The package symbols this document names. They exist, and as of CLI-04 the `verify` verb calls
-its rows through `gebra.cli`; the store- and diff-facing rows wait on CLI-05/CLI-06.
+its rows through `gebra.cli`; as of CLI-05 the store- and diff-facing rows are called by
+`snapshot`, `diff` and `history`, and only `display`'s rows wait on CLI-06.
 `tests/docs/test_cli_spec.py` imports every row, so a rename in the package fails a test
 here rather than rotting quietly in prose.
 
@@ -959,7 +961,22 @@ deferred-P-12 marker rendered as *not checked*, and PD-033's oldest-first table 
 step summaries and explicit `n/a`. **Two of the three live-target paths are this card's**
 (`snapshot`, and `diff` on either or both sides), so it lands their tripwires too, in the same
 shape (§0.5 item 3) — including the mixed case where one side is a stored label and the other
-an import reference.
+an import reference. **Landed 2026-08-22** as three verb modules beside `verify`'s
+(`gebra.cli.snapshot`, `gebra.cli.diff`, `gebra.cli.history`, over shared plumbing in
+`gebra.cli.common` and line rendering in `gebra.cli.render`): `snapshot` resolves once, runs
+the eligibility `verify()` over that one IR, and hands the report to the SD-03 engine, which
+applies `gate.snapshot_eligible` — via `gebra.snapshot.record` for an import subject (the
+resolver now carries the extraction envelope for exactly this hand-off) and via
+`gebra.snapshot.record_document`, added to the engine at this card, for the `--ir` mode an
+extraction envelope cannot honestly describe; `diff` resolves each side by §2.2's grammar
+with `gebra.lineage.compare` on the both-stored path and `gebra.diff.workflow_diff`
+otherwise, a stored side handed in whole so its anchor keeps the V.S.F.E label; `history`
+passes the window arguments through to `gebra.lineage.lineage` unchanged and writes
+`dump_lineage` verbatim under `--format json`. The §0.5 item 3 tripwires are
+`tests/cli/test_never_invokes_store.py`, over CLI-04's own sentinel module — the four arms
+on the snapshot path, the mixed and two-sided diff cases, and the two call-count pins only a
+ledger can state (one resolution serves the gate and the write; a dead run resolves no
+further side).
 
 **CLI-06 (`display` + DIAGRAM-STYLE-GUIDE)** — §4.4, including the IR-only input surface, the
 overlay's `report_format` and digest checks, and claim classes on painted findings. `display`

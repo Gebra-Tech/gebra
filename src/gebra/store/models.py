@@ -185,16 +185,22 @@ class ExtractedFrom(StoreModel):
     Distinct from :class:`gebra.extraction.envelope.ExtractedFrom`, which is what one
     extraction knows about itself — an object family, warning-bearing surfaces, no clock
     reading. This one is what the *store* records about a snapshot, and it is the §4.1
-    envelope field proper. Bridging the two is :func:`gebra.snapshot.engine.record`'s, which
-    is also where the clock the ``extracted_at`` member needs is read; nothing in this package
-    imports the extractor.
+    envelope field proper. Filling it is the snapshot engine's —
+    :func:`gebra.snapshot.engine.record` bridges an extraction envelope over, and
+    :func:`gebra.snapshot.engine.record_document` (CLI-05) states what a document recording
+    knows — and that engine is also where the clock the ``extracted_at`` member needs is
+    read; nothing in this package imports the extractor.
 
     Attributes:
         source: Where the IR came from, in whatever form the producer's provenance takes —
-            an object reference for an extraction, a file path for a hand-built fixture.
-            Free text on purpose: §4.1 says "source reference" and the extractor owns what a
-            reference means.
-        extractor_version: The version of the producer that made the IR.
+            an object reference for an extraction, a file path for a hand-built fixture or
+            a recorded IR document. Free text on purpose: §4.1 says "source reference" and
+            the producer owns what a reference means.
+        extractor_version: The version of the producer that made the IR as stored. For an
+            extraction that is the extracting build, carried verbatim; for a recorded IR
+            document — whose authoring producer the document does not name — it is the
+            build that read, validated and re-emitted it
+            (:func:`gebra.snapshot.engine.record_document` states the reading in full).
         extracted_at: When it was made, in :data:`TIMESTAMP_FORMAT`.
         sidecar_path: The absolute path of the ``gebra.toml`` sidecar the extraction
             consulted, or ``None`` when none was — ANNOTATION-API-SPEC §2, "so digest

@@ -1,0 +1,23 @@
+workflow diff
+  before                  1.0.0.0  sha256:5e0ca21b6261ec13...
+  after                   1.2.2.1  sha256:296bc4bf3ba66166...
+  bump class              S F E
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          the bump class names moved counters, never safety
+
+topology
+  + node audit
+  ~ node report — its edges moved; the node itself persists
+  ~ node work — its edges moved; the node itself persists
+  + finish wiring audit -> END
+  + edge audit -> report [normal]
+  ~ edge work [normal]: target report -> audit
+
+contracts
+  values shown            canonical JSON — what the digest saw, never the source
+  + node contract audit {"effect":["write"],"input":["result"]}
+  ~ node contract work:
+      ~ effect: ["write"] -> ["billable","irreversible"]
+
+state schema
+  + key receipt: str (optional=true)

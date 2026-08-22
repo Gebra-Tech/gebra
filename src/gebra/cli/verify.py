@@ -19,11 +19,17 @@ here as :class:`UsageFailure` and rendered by the application shell.
 from __future__ import annotations
 
 import sys
-from collections import Counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Final, TextIO
+from typing import TYPE_CHECKING, TextIO
 
 import gebra
+from gebra.cli.common import (
+    OutputError,
+    UsageFailure,
+    split_arguments,
+    unknown_flag_problems,
+    write_extraction_warnings,
+)
 from gebra.cli.invocation import StrictReading
 from gebra.cli.resolve import (
     Refusal,
@@ -57,33 +63,11 @@ from gebra.verify import (
 
 if TYPE_CHECKING:
     from gebra.cli.resolve import Mode
-    from gebra.extraction.warnings import ExtractionWarning
 
 __all__ = ["OutputError", "UsageFailure", "VerifyRequest", "run_verify"]
 
-
-class UsageFailure(Exception):
-    """A §3.4 usage error: the invocation never became a run.
-
-    Everything independently wrong is carried together (§5.3) — the shell renders the
-    problems as one diagnostic on stderr and exits ``2``, and no run report is emitted on
-    any format.
-    """
-
-    def __init__(self, verb: str, problems: tuple[str, ...]) -> None:
-        super().__init__("; ".join(problems))
-        self.verb: Final = verb
-        self.problems: Final = problems
-
-
-class OutputError(Exception):
-    """``--output`` could not be written after the run completed.
-
-    Deliberately not a run-report tool error — the run reached its answer; what failed is
-    delivering it where the invocation asked. The shell reports it on stderr and exits
-    ``2``, which keeps the §0.2 reading intact: no answer was delivered, and a partial or
-    missing artifact is never presented as one.
-    """
+# UsageFailure and OutputError moved to gebra.cli.common at CLI-05, where the four verb
+# modules share them; re-exported here because this is where CLI-04 defined them.
 
 
 @dataclass(frozen=True)
@@ -159,23 +143,8 @@ def run_verify(request: VerifyRequest) -> int:
 
 
 def _split_arguments(request: VerifyRequest) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Separate the collected argument tokens into targets and unknown flags.
-
-    A ``-``-leading token is an unknown flag **unless** it stood after ``--``, where §1.2
-    makes it a target; the multiset accounting keeps a spelling that appears on both sides
-    of ``--`` honest.
-    """
-    literal = Counter(request.literal_targets)
-    positional: list[str] = []
-    unknown: list[str] = []
-    for token in request.arguments:
-        if token.startswith("-") and token != "-" and not literal[token]:
-            unknown.append(token)
-            continue
-        if literal[token]:
-            literal[token] -= 1
-        positional.append(token)
-    return tuple(positional), tuple(unknown)
+    """Targets and unknown flags, by :func:`gebra.cli.common.split_arguments`'s one reading."""
+    return split_arguments(request.arguments, request.literal_targets)
 
 
 def _usage_problems(
@@ -188,10 +157,7 @@ def _usage_problems(
     so subject-arity problems are reported only on an invocation whose flags all parsed.
     """
     problems: list[str] = list(request.strict.problems)
-    for token in unknown_flags:
-        name = token.split("=", 1)[0]
-        hint = suggestion_sentence(did_you_mean(name, request.flag_vocabulary))
-        problems.append(f"unknown option {name!r}" + (f". {hint}" if hint else ""))
+    problems.extend(unknown_flag_problems(unknown_flags, request.flag_vocabulary))
     if request.report_format not in REPORT_FORMATS:
         hint = suggestion_sentence(did_you_mean(request.report_format, REPORT_FORMATS))
         problems.append(
@@ -358,28 +324,8 @@ def _write_stage_diagnostic(stage: str, detail: str) -> None:
 
 
 def _write_extraction_warnings(subject: ResolvedSubject) -> None:
-    """Extraction warnings, on stderr, in emission order (§5.2) — never dropped.
-
-    They are not findings and never move the exit code (§3.5). An
-    ``annotation-unknown-node`` record carries the name that missed, and the IR beside it
-    holds the closed vocabulary the name missed *from*, so that one row gets §5.4's
-    did-you-mean attached — a legibility aid on the extractor's finding, never a selection.
-    """
-    if not subject.warnings:
-        return
-    stream = _stderr()
-    node_ids = tuple(node.id for node in subject.ir.nodes)
-    for warning in subject.warnings:
-        stream.write(_warning_line(warning, node_ids))
-
-
-def _warning_line(warning: ExtractionWarning, node_ids: tuple[str, ...]) -> str:
-    line = f"extraction warning [{warning.code.value}]: {warning.message}"
-    if warning.code.value == "annotation-unknown-node" and warning.node is not None:
-        hint = suggestion_sentence(did_you_mean(warning.node, node_ids))
-        if hint:
-            line += f" {hint}"
-    return line + "\n"
+    """The §5.2 warning rendering, by :func:`gebra.cli.common.write_extraction_warnings`."""
+    write_extraction_warnings(subject)
 
 
 def _write_artifact(report: RunReport, request: VerifyRequest) -> None:

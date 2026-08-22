@@ -31,12 +31,16 @@ def test_version_prints_the_installed_version_on_stdout_and_exits_zero(run_cli: 
 
 
 def test_application_help_exits_zero_and_lists_only_landed_verbs(run_cli: RunCli) -> None:
-    """WA-12: the help surface names the verbs this build registers, not the roadmap."""
+    """WA-12: the help surface names the verbs this build registers, not the roadmap.
+
+    As of CLI-05 that is four of PD-033's five — ``verify``, ``snapshot``, ``diff`` and
+    ``history``; ``display`` stays unadvertised until CLI-06 lands it.
+    """
     result = run_cli("--help")
     assert result.exit_code == 0
-    assert "verify" in result.stdout
-    for unlanded in ("snapshot", "diff", "display", "history"):
-        assert f"\n  {unlanded}" not in result.stdout, f"help advertises unlanded {unlanded!r}"
+    for landed in ("verify", "snapshot", "diff", "history"):
+        assert f"\n  {landed}" in result.stdout, f"help does not list landed {landed!r}"
+    assert "\n  display" not in result.stdout, "help advertises unlanded 'display'"
 
 
 def test_h_is_the_short_help_spelling(run_cli: RunCli) -> None:

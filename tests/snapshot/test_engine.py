@@ -27,10 +27,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from gebra.diff import WorkflowDiff, workflow_diff
+from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.ir.canonical import graph_version
-from gebra.ir.models import Node, WorkflowIR
+from gebra.ir.models import DynamicEdge, Node, WorkflowIR
 from gebra.lineage import lineage
 from gebra.snapshot import (
     SnapshotAction,
@@ -38,6 +40,7 @@ from gebra.snapshot import (
     SnapshotErrorReason,
     SnapshotOutcome,
     record,
+    record_document,
 )
 from gebra.snapshot import engine as engine_module
 from gebra.store import ExtractedFrom, Snapshot, SnapshotStore, StoreError, StoreErrorReason
@@ -665,3 +668,122 @@ def _hand_written(ir: WorkflowIR, version: str) -> Snapshot:
             extracted_at="2026-08-12T09:00:00Z",
         ),
     )
+
+
+# ── The document entry point (CLI-05) ────────────────────────────────────────────────────
+
+
+def test_a_document_records_under_the_same_policy(store: SnapshotStore) -> None:
+    """`record_document` is the same recorder at a third mouth, not a second policy.
+
+    A document seeds the store at the chosen initial label, an envelope recording bumps from
+    it, and a later document recording bumps from *that* — one `current`-anchored policy
+    whichever entry point a call came through, which is what keeps CLI-SPEC §4.2's
+    "label assignment and re-snapshot policy are SD-03's" one sentence about one thing.
+    """
+    seeded = record_document(
+        golden_vector_ir(), store=store, source="build/base.ir.yaml", extracted_at=MOMENT
+    )
+    assert seeded.recorded and seeded.first
+    assert seeded.version == "1.0.0.0"
+
+    via_envelope = stored(store, with_extra_node())
+    assert via_envelope.recorded and via_envelope.previous == "1.0.0.0"
+
+    grown = record_document(
+        with_extra_state_key(), store=store, source="build/next.ir.yaml", extracted_at=MOMENT
+    )
+    assert grown.recorded and grown.previous == via_envelope.version
+    assert grown.bump_class == changed_components(with_extra_node(), with_extra_state_key())
+
+
+def test_a_document_recording_states_document_provenance(store: SnapshotStore) -> None:
+    """The four `extracted_from` members, filled with the facts a document recording has.
+
+    The source is the caller's reference verbatim; the producer version is this build's —
+    the build that read, validated and canonically re-emitted the document — never a value
+    invented for an extraction that did not happen; the sidecar member is an honest absence,
+    because no extraction consulted one; and the instant is the injectable one.
+    """
+    import gebra
+
+    record_document(
+        golden_vector_ir(), store=store, source="build/agent.ir.yaml", extracted_at=MOMENT
+    )
+
+    provenance = store.read("1.0.0.0").extracted_from
+    assert provenance.source == "build/agent.ir.yaml"
+    assert provenance.extractor_version == gebra.__version__
+    assert provenance.sidecar_path is None
+    assert provenance.extracted_at == "2026-08-12T09:00:00Z"
+
+
+def test_an_unchanged_document_recording_writes_nothing_and_reads_no_clock(
+    store: SnapshotStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The idempotency policy holds at this mouth too, clock-freedom included.
+
+    The second call gets no instant and the module clock is armed to fail, so the no-op
+    branch is shown never to build provenance at all — the same "no clock is read" the
+    envelope entry point states.
+    """
+    record_document(
+        golden_vector_ir(), store=store, source="build/agent.ir.yaml", extracted_at=MOMENT
+    )
+    before = {path: path.read_bytes() for path in store.path.rglob("*") if path.is_file()}
+
+    def _no_clock() -> dt.datetime:
+        raise AssertionError("an unchanged document recording read the clock")
+
+    monkeypatch.setattr(engine_module, "_now", _no_clock)
+    again = record_document(golden_vector_ir(), store=store, source="elsewhere/agent.ir.yaml")
+
+    assert not again.recorded and again.version == "1.0.0.0"
+    assert again.diff is not None and again.diff.identical
+    assert {path: path.read_bytes() for path in store.path.rglob("*") if path.is_file()} == before
+
+
+def test_a_document_recording_applies_the_recording_rule(store: SnapshotStore) -> None:
+    """PROPERTY-CATALOG-SPEC §0.2 reaches the document mouth unchanged.
+
+    The report is a real ``verify()`` run over the same IR, exactly as the envelope-side
+    test states it; the refusal and the store's untouched state are the same claim.
+    """
+    base = golden_vector_ir()
+    unreachable = base.model_copy(update={"nodes": (*base.nodes, Node(id="orphan"))})
+    report = verify(unreachable)
+    assert not report.gate.snapshot_eligible
+
+    with pytest.raises(SnapshotError) as caught:
+        record_document(
+            unreachable,
+            store=store,
+            source="build/agent.ir.yaml",
+            extracted_at=MOMENT,
+            eligibility=report,
+        )
+
+    assert caught.value.reason is SnapshotErrorReason.NOT_SNAPSHOT_ELIGIBLE
+    assert not store.exists
+
+
+def test_an_empty_document_source_is_refused(store: SnapshotStore) -> None:
+    """The store model's own floor holds: a source has to say something (PD-012)."""
+    with pytest.raises(PydanticValidationError):
+        record_document(golden_vector_ir(), store=store, source="", extracted_at=MOMENT)
+    assert not store.exists
+
+
+def test_a_dynamic_document_is_declined_at_the_document_mouth(store: SnapshotStore) -> None:
+    """The DEC-28 decline covers the third entry point on the same terms as the other two."""
+    dynamic = WorkflowIR(
+        ir_version="1.1",
+        entry="plan",
+        finish="collect",
+        nodes=(Node(id="plan"), Node(id="collect")),
+        edges=(DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route"),),
+    )
+
+    with pytest.raises(DynamicEdgeUnsupportedError):
+        record_document(dynamic, store=store, source="build/dynamic.ir.yaml", extracted_at=MOMENT)
+    assert not store.exists

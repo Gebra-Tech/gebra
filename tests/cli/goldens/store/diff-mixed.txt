@@ -1,0 +1,13 @@
+workflow diff
+  before                  1.1.2.0  sha256:67d25d12f37134b2...
+  after                   sha256:296bc4bf3ba66166...
+  bump class              S E
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          the bump class names moved counters, never safety
+
+topology
+  ~ node audit — its edges moved; the node itself persists
+  + finish wiring audit -> END
+
+state schema
+  + key receipt: str (optional=true)

@@ -183,6 +183,22 @@ langgraph and dies. The CLI adds **no extraction path** — it
 calls `classify()` (isinstance-only, INTROSPECTION §1 rule 3's licensed reads) to route §2.4's
 refusal, and `gebra.extract()` for everything else — so §1's machine check owes it nothing.
 
+The **store-facing verbs** (card CLI-05) put two more verbs in front of that same seam —
+`gebra snapshot` over an import reference, and `gebra diff` with one or both sides one — and
+add no resolution of their own: both drive `gebra.cli.resolve`'s §2.4 boundary exactly as
+`verify` does, and the snapshot verb then hands the *same* envelope to
+`gebra.snapshot.record` (whose own guarded-child evidence is the snapshot-engine paragraph
+above; `record_document`, added at CLI-05, takes a file-loaded IR and reaches no live object
+at all). Their per-path tripwire (CLI-SPEC §0.5's table rows 2–3) is
+`tests/cli/test_never_invokes_store.py`, over the same sentinel module and through `main()`:
+the four arms on **each** path (on diff, the refusal and argument-needing arms ride a mixed
+invocation and the fresh-module import arm is its own), the mixed stored-label/import diff
+the spec names, a two-sided `--call` diff, and two call-count pins only the factory ledger
+can state — the snapshot verb's eligibility run and store write share **one** resolution
+(one factory call per invocation, never one per phase), and a diff whose first side failed
+resolves no further side, so no user code runs for a comparison that can no longer happen.
+`gebra history` reaches no live object on any path: it reads `meta.yaml` and nothing else.
+
 The **pytest plugin** (`src/gebra/pytest_plugin.py`, card TE-06) is another seam between a live
 workflow object and the extractor — a marked function's return value goes straight to
 `gebra.extract()` — and it carries **two** tripwires, because the claim has two halves and one

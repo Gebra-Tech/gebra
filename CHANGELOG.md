@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The three store-facing CLI verbs: `gebra snapshot`, `gebra diff`, `gebra history`**
+  (card CLI-05; CLI-SPEC §4.2, §4.3, §4.5; PD-033). Four of the five verbs now exist —
+  `display` remains CLI-06's. `gebra snapshot` records a V.S.F.E-versioned snapshot of an
+  IR document or an import reference: one resolution serves both the eligibility
+  `verify()` run and the write, PROPERTY-CATALOG-SPEC §0.2's recording rule is applied by
+  the SD-03 engine off `gate.snapshot_eligible` (exit `1` with the FATAL findings rendered
+  when it refuses; no bypass flag exists), an unchanged definition is a stated no-op at
+  the label the store already holds, and `--quiet` writes the recorded label or nothing.
+  `gebra diff BEFORE AFTER` renders the structural delta exactly as the engine returns
+  it — both anchors (a stored side keeps its V.S.F.E label), the topology/contract/state
+  deltas with contract values in canonical JSON, the `regrouped` flag, and the S/F/E bump
+  class — with the deferred-P-12 marker rendered as *not checked* on every outcome: no
+  diff is labelled safe or breaking, and `--exit-code` is an opt-in difference signal
+  carrying no such claim. `gebra history` lists a store as PD-033's oldest-first table
+  (index, version, digest prefix, created-at, a current-pointer marker, and a per-row
+  step summary with an explicit `n/a` and a distinct marker for a counter that
+  decreased); `--since`/`--until`/`--limit` pass through to `gebra.lineage.lineage`
+  unchanged, `--reverse` is display-only, and `--format json` writes `dump_lineage`'s
+  byte-stable projection verbatim. Never-invokes tripwires for the two new live-target
+  paths (snapshot; diff with an import-reference side, the mixed case included) land in
+  the same change, and every subcommand is golden-tested against a prepared store.
+- **`gebra.snapshot.record_document`** (same card): the recording policy over a
+  serialized IR document — the `gebra snapshot --ir` path, which has no extraction
+  envelope to hand `record()`. Same label policy, same §0.2 eligibility application, same
+  ir 1.1 decline; the provenance states what a document recording honestly knows (the
+  caller's reference, the recording build's version, no sidecar).
+
 - **The version-drift suite completed: tests 7–12** (card GOV-06; VERSION-COMPAT §3).
   `tests/version_drift/` now carries the full twelve-test §3 inventory. The six new tests
   cover the jsonschema getters (named-key document golden beside the core-IR golden; the

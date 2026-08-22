@@ -1,0 +1,8 @@
+history of .gebra — 5 versions; current 3.0.0.0
+
+  #  version  graph_version     created               step
+  0  1.2.0.0  sha256:5e0ca2...  2026-08-04T00:00:00Z  n/a (oldest version)
+  1  1.1.0.0  sha256:3b57a8...  2026-08-04T01:00:00Z  -S, content changed
+  2  draft    sha256:3b57a8...  2026-08-04T02:00:00Z  n/a (label not V.S.F.E)
+  3  2.0.0.0  sha256:5e0ca2...  2026-08-04T03:00:00Z  n/a (label not V.S.F.E)
+* 4  3.0.0.0  sha256:3b57a8...  2026-08-04T04:00:00Z  +V, content changed

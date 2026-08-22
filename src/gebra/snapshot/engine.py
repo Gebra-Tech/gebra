@@ -47,6 +47,16 @@ construction rather than by caller discipline. Hand it no report and it records:
 rather than defaulted-around, because a caller who ran no validators has established nothing
 for this engine to apply.
 
+**A third entry point takes a serialized document rather than an extraction** (added at
+CLI-05). ``docs/specs/CLI-SPEC.md`` §4.2 gives ``gebra snapshot`` an ``ir-document`` mode
+beside the import-reference one, and an IR document has no extraction envelope — it is a file
+someone already wrote, loaded by ``gebra.ir.read_ir``. Fabricating an envelope around it would
+fabricate provenance (an object family, an extraction that never happened), and re-deriving
+the label policy in the caller would give the recording act a second implementation. So
+:func:`record_document` applies the same policy over a bare :class:`~gebra.ir.models.WorkflowIR`
+with the provenance a document recording can honestly state — see its docstring for exactly
+what that is.
+
 **One document class is refused rather than stored.** Node ids MUST be unique within a document
 (IR-SPEC §2.1, ratified DEC-22), and every IR reaching here goes through
 :func:`~gebra.diff.topology.resolve_subject` — the same precondition
@@ -101,6 +111,7 @@ from __future__ import annotations
 import datetime as _datetime
 from typing import TYPE_CHECKING, Final
 
+from gebra import __version__
 from gebra.diff.topology import resolve_subject
 from gebra.diff.workflow import WorkflowDiff, workflow_diff
 from gebra.extraction import extract
@@ -116,12 +127,14 @@ from gebra.versioning.models import Version, VersionFormatError
 
 if TYPE_CHECKING:
     import os
+    from collections.abc import Callable
 
     from gebra.extraction.envelope import ExtractionEnvelope
+    from gebra.ir.models import WorkflowIR
     from gebra.store.store import SnapshotStore
     from gebra.verify.run import RunReport
 
-__all__ = ["record", "snapshot"]
+__all__ = ["record", "record_document", "snapshot"]
 
 #: How the recorder names itself when it declines an ir 1.1 document (see the module
 #: docstring). Two spellings rather than one, because the two refusals have different remedies:
@@ -255,7 +268,96 @@ def record(
             rules must decline, and :func:`gebra.audit.freshness` for the same decline on the
             check that reads the same two documents.
     """
-    ir, anchor = resolve_subject(envelope.ir)
+    return _record(
+        envelope.ir,
+        store=store,
+        eligibility=eligibility,
+        provenance=lambda: _provenance(envelope, source=source, extracted_at=extracted_at),
+    )
+
+
+def record_document(
+    ir: WorkflowIR,
+    *,
+    store: SnapshotStore,
+    source: str,
+    extracted_at: _datetime.datetime | None = None,
+    eligibility: RunReport | None = None,
+) -> SnapshotOutcome:
+    """Record a serialized IR document's ``ir`` in ``store`` — same policy, honest provenance.
+
+    The document-mode half of ``docs/specs/CLI-SPEC.md`` §4.2 (``gebra snapshot --ir``, added
+    at CLI-05): the subject is a file ``gebra.ir.read_ir`` loaded, no extraction happened, and
+    the label policy applied is exactly :func:`record`'s — one implementation of the recording
+    act, whatever produced the IR.
+
+    **What the provenance says, member by member.** PD-012 fixes ``extracted_from`` at four
+    members, and a document recording fills them with the facts it has rather than the facts an
+    extraction would have had:
+
+    * ``source`` — the caller's reference to the document, verbatim (for the CLI, the path
+      exactly as the invocation gave it). :class:`~gebra.store.models.ExtractedFrom` declares
+      the member free text with a file path as a named example, and §2.1 there reads a stored
+      snapshot's ``source`` back as the subject reference of a snapshot-mode report — a path is
+      exactly what that reader wants quoted back.
+    * ``extractor_version`` — **this** build's version: the one producer fact a document
+      recording knows. The document names no producer of its own, and this build is the one
+      that read it, validated it against the IR model, and canonically re-emitted it into the
+      store. This is deliberately not :func:`record`'s rule — there, a version that arrived on
+      the envelope is carried verbatim and never re-read off the installed build, because known
+      provenance must not be overwritten; here there is none to overwrite, and an invented
+      ``unknown`` would hide the one fact this call can state. The ``source``'s shape keeps the
+      two readings apart: a path says "read from a file", an object reference says "extracted".
+    * ``extracted_at`` — when this recording read the document; injectable, as everywhere in
+      this engine. The file's own mtime is deliberately not consulted: it is a foreign
+      filesystem fact this call did not observe being set, not provenance.
+    * ``sidecar_path`` — ``None``, spelled rather than defaulted around: ANNOTATION-API-SPEC
+      §2's member records the sidecar an extraction consulted, and no extraction ran.
+
+    Args:
+        ir: The loaded document — what ``gebra.ir.read_ir`` returned.
+        store: The ``.gebra/`` store to record in. Created on first write.
+        source: The caller's reference to the document (a path, for the CLI). The store model
+            refuses the empty string.
+        extracted_at: When to say the document was read; defaults to now, in UTC.
+        eligibility: A run report over ``ir``, whose ``gate.snapshot_eligible`` is applied
+            (§0.2). ``None`` runs no check — as for :func:`record`.
+
+    Returns:
+        What the call did — see :class:`~gebra.snapshot.models.SnapshotOutcome`.
+
+    Raises:
+        SnapshotError: as for :func:`record`.
+        StoreError: as for :func:`record`.
+        CanonicalizationError: as for :func:`record`.
+        ValueError: as for :func:`record` (a repeated node id — IR-SPEC §2.1, DEC-22).
+        pydantic.ValidationError: if ``source`` is the empty string.
+        VersionFormatError: as for :func:`record`.
+        DynamicEdgeUnsupportedError: as for :func:`record` — an ir 1.1 document is declined at
+            the mouth on both sides, and nothing is migrated.
+    """
+    return _record(
+        ir,
+        store=store,
+        eligibility=eligibility,
+        provenance=lambda: _document_provenance(source=source, extracted_at=extracted_at),
+    )
+
+
+def _record(
+    document_ir: WorkflowIR,
+    *,
+    store: SnapshotStore,
+    eligibility: RunReport | None,
+    provenance: Callable[[], ExtractedFrom],
+) -> SnapshotOutcome:
+    """The recording policy, once — both public entry points land here.
+
+    ``provenance`` is a supplier rather than a value so that an unchanged call stays
+    clock-free: it is invoked exactly on the write path, which is the one place an
+    ``extracted_at`` instant is needed.
+    """
+    ir, anchor = resolve_subject(document_ir)
     refuse_dynamic_edges(ir.edges, consumer=_RECORDER)
     digest = anchor.graph_version
     _refuse_ineligible(eligibility, digest)
@@ -280,13 +382,7 @@ def record(
         diff = workflow_diff(current, ir)
         version = _bumped(current.version, diff)
 
-    written = store.write(
-        Snapshot.of(
-            ir,
-            version=str(version),
-            extracted_from=_provenance(envelope, source=source, extracted_at=extracted_at),
-        )
-    )
+    written = store.write(Snapshot.of(ir, version=str(version), extracted_from=provenance()))
     return SnapshotOutcome(
         action=SnapshotAction.RECORDED,
         version=str(version),
@@ -404,6 +500,22 @@ def _provenance(
         extractor_version=envelope.extracted_from.extractor_version,
         extracted_at=format_timestamp(moment),
         sidecar_path=envelope.extracted_from.sidecar,
+    )
+
+
+def _document_provenance(*, source: str, extracted_at: _datetime.datetime | None) -> ExtractedFrom:
+    """The ``extracted_from`` a document recording can honestly state.
+
+    Member-by-member reasoning is in :func:`record_document`'s docstring — the short form:
+    the caller's reference, this build's version, this recording's instant, and no sidecar,
+    because no extraction ran.
+    """
+    moment = extracted_at if extracted_at is not None else _now()
+    return ExtractedFrom(
+        source=source,
+        extractor_version=__version__,
+        extracted_at=format_timestamp(moment),
+        sidecar_path=None,
     )
 
 

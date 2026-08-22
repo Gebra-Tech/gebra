@@ -1,0 +1,8 @@
+workflow diff
+  before                  1.2.2.1  sha256:296bc4bf3ba66166...
+  after                   1.2.2.1  sha256:296bc4bf3ba66166...
+  bump class              none — the counters do not move
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          the bump class names moved counters, never safety
+
+nothing moved: both sides carry one graph_version

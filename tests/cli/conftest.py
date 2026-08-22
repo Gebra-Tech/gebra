@@ -92,3 +92,38 @@ def in_documents_dir(documents_dir: Path, monkeypatch: pytest.MonkeyPatch) -> Pa
     """Run the test from the documents directory, so targets are bare relative names."""
     monkeypatch.chdir(documents_dir)
     return documents_dir
+
+
+@pytest.fixture
+def project_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A fresh project directory to run from — corpus documents beside an unborn store.
+
+    The store-facing verbs (CLI-05) write here, so unlike :func:`documents_dir` this one is
+    per-test: no store state leaks between tests, and every path in an invocation — the
+    documents, ``--store .gebra`` — stays a bare relative name, which is what keeps the
+    goldens byte-stable.
+    """
+    monkeypatch.chdir(tmp_path)
+    write_ir(fixture_ir(PASSING_FIXTURE), tmp_path / "pass.ir.yaml")
+    write_ir(fixture_ir(FAILING_FIXTURE), tmp_path / "fail.ir.yaml")
+    write_ir(fixture_ir(NOTED_FIXTURE), tmp_path / "noted.ir.yaml")
+    return tmp_path
+
+
+@pytest.fixture
+def evolved_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A project holding the five-version lineage store, plus two working documents.
+
+    The store is ``tests/lineage/stores.py``'s :func:`~tests.lineage.stores.evolved_store`
+    — five versions (``1.0.0.0`` … ``1.2.2.1``), every label derived by the diff engine and
+    every timestamp fixed — so listings and stored-pair diffs are functions of the fixture
+    alone. ``final.ir.yaml`` holds the newest stage's content and ``base.ir.yaml`` the
+    oldest's, for the mixed stored-versus-document cases.
+    """
+    from tests.lineage.stores import STAGES, evolved_store
+
+    monkeypatch.chdir(tmp_path)
+    evolved_store(tmp_path)
+    write_ir(STAGES[0].build(), tmp_path / "base.ir.yaml")
+    write_ir(STAGES[-1].build(), tmp_path / "final.ir.yaml")
+    return tmp_path

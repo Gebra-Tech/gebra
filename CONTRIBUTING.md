@@ -179,3 +179,24 @@ VERSION-COMPAT §5 R-06 governance route the follow-up takes. Goldens and
 recorded inventories change only with a stated justification (see
 `tests/version_drift/golden/README.md`); regenerate goldens with
 `python tools/drift_goldens.py --write`.
+
+The failure handling is wired end to end in CI (VERSION-COMPAT §3). Every
+matrix cell writes a machine-readable drift report at the end of its pytest
+run (the conftest, when `GEBRA_DRIFT_REPORT_FILE` is set; the cell identity
+rides in `GEBRA_DRIFT_CELL`) and uploads it; after the matrix, the
+`drift-issues` job feeds every report to `tools/drift_issues.py`, which opens
+or updates at most one *version-gap* issue per frozen substrate cell — a hard
+failure blocks its cell and lands in the issue, a soft-only divergence keeps
+its cell green and still lands in the issue — and routes the `--pre` cell's
+signals, or a red `--pre` pytest gate, to a *supported-range-review* issue
+instead. Dedup rides a fingerprint marker in the issue body: unchanged signals
+add nothing on later runs, changed signals land as comments, and an automation
+failure turns the `drift-issues` job red rather than passing silently. The
+whole chain reproduces locally without touching GitHub: run the suite with the
+variables set, then `python tools/drift_issues.py --reports <dir>` — a dry run
+prints every payload it would send (`--apply` is CI's). The owner-triggered
+`drift-issue-drill` workflow demonstrates the live path on demand: it flips
+one golden byte in the runner's checkout, watches the suite go red, and opens
+real `[drill]`-labeled issues that are safe to close. The `--pre` cell's
+non-pytest gates (resolve/ruff/mypy) stay annotation-and-summary only, as the
+matrix wired them.

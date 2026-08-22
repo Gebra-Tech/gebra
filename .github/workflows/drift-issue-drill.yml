@@ -1,0 +1,77 @@
+# GOV-07's live demonstration: show, on the real repo, that a hard drift failure blocks
+# its cell and opens a version-gap issue — the whole chain, on demand.
+#
+# `workflow_dispatch` ONLY. The drill opens real issues (labeled `drill`, `[drill]`-titled,
+# under drill-scoped fingerprints so they can never collide with or update a real gap
+# record), so it runs when the owner clicks it — never on push, pull_request or a schedule.
+# The opened issues are safe to close after inspection.
+#
+# The version-gap half is the REAL chain, not a synthetic report: one byte of one
+# committed golden is flipped in the runner's checkout (nothing is committed anywhere),
+# the drift suite runs and goes red exactly as a frozen cell would, the package conftest
+# writes the drift report, and `tools/drift_issues.py` opens the issue from that report.
+# The range-review half feeds a small synthetic --pre report through the same tool in the
+# same invocation, so both issue kinds are demonstrated in one run.
+name: drift-issue-drill
+
+on:
+  workflow_dispatch:
+
+env:
+  # The uv release that produced the committed `uv.lock` (same as ci.yml).
+  UV_VERSION: "0.12.0"
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Sync the locked development environment
+        run: uv sync --extra dev --frozen
+      - name: Tamper one golden byte (runner checkout only; nothing is committed)
+        run: |
+          uv run --no-sync python - <<'EOF'
+          from pathlib import Path
+
+          path = Path("tests/version_drift/golden/send-signature.canonical.json")
+          data = bytearray(path.read_bytes())
+          data[40] ^= 0x01
+          path.write_bytes(bytes(data))
+          print(f"flipped byte 40 of {path}")
+          EOF
+      - name: Run the drift suite against the tampered golden (expected red)
+        id: drift
+        continue-on-error: true
+        env:
+          # The uv-locked dev environment stands in for cell 3: its pins are cell 3's
+          # (the newest frozen pair, the line uv.lock tracks). The report's context line
+          # records the actually-installed pair either way, and everything this drill
+          # opens is drill-scoped — it can never touch a real cell-3 gap record.
+          GEBRA_DRIFT_REPORT_FILE: drift-reports/drift-report-py3.13-cell3/drift-report.txt
+          GEBRA_DRIFT_CELL: "3"
+          GEBRA_DRIFT_REVIEW_DIR: drift-reports/drift-report-py3.13-cell3/drift-review
+        run: uv run --no-sync pytest tests/version_drift/ -q
+      - name: The drill is void if the tampered suite did not go red
+        if: ${{ steps.drift.outcome != 'failure' }}
+        run: |
+          echo "::error title=drift issue drill::the tampered run did not fail, so nothing was demonstrated"
+          exit 1
+      - name: Stage a synthetic --pre report for the range-review half
+        run: |
+          mkdir -p drift-reports/drift-report-pre
+          cat > drift-reports/drift-report-pre/drift-report.txt <<'EOF'
+          DRIFT-REPORT-CONTEXT cell=pre python=3.13.3 langgraph=9.9.9 langchain-core=9.9.9
+          DRIFT-HARD-FAILURE phase=call test=tests/version_drift/test_version_drift.py::test_drift_builder_nodes_spec_shape
+          EOF
+          printf 'pytest=failure\n' > drift-reports/drift-report-pre/pre-outcome.txt
+      - name: Open the drill issues from the reports
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: uv run --no-sync python tools/drift_issues.py --reports drift-reports --apply --drill

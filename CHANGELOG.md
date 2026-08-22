@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Version-gap issue automation — the drift suite's failure handling wired end to end**
+  (card GOV-07; VERSION-COMPAT §3–§4; SOW §2 criterion 4). Every matrix cell now writes
+  a machine-readable drift report at the end of its pytest run
+  (`tests/version_drift/conftest.py`, when CI sets `GEBRA_DRIFT_REPORT_FILE`): one
+  context line naming the cell, Python and substrate pair, one stable
+  `DRIFT-HARD-FAILURE` line per failed or errored drift test — now also emitted as a
+  terminal section and, under Actions, an `::error` annotation each — plus the existing
+  soft-divergence and review-proposal lines verbatim. Each cell uploads its report, and
+  the new `drift-issues` CI job aggregates all thirteen once the matrix finishes,
+  driving `tools/drift_issues.py` (new; stdlib-only): at most one open *version-gap*
+  issue per frozen substrate cell — a hard failure blocks its cell AND lands in the
+  issue, a soft-only divergence keeps its cell green and still lands in the issue — and
+  the `--pre` cell's signals (or its red pytest gate, recorded in the artifact) open a
+  *supported-range-review* issue instead, carrying the §5 R-06 routing. Issues dedup by
+  a fingerprint marker: unchanged signals add nothing on later runs, changed signals
+  land as comments, and an automation failure turns the job red rather than passing
+  silently. A dry run (`--reports` without `--apply`) prints every payload offline; the
+  tests drive the API flows through fake transports only (WA-07). The owner-triggered
+  `drift-issue-drill` workflow demonstrates the live chain on demand — one golden byte
+  flipped in the runner's checkout, the suite goes red, and real `[drill]`-labeled
+  issues open from the real report (safe to close after inspection).
 - **The three store-facing CLI verbs: `gebra snapshot`, `gebra diff`, `gebra history`**
   (card CLI-05; CLI-SPEC §4.2, §4.3, §4.5; PD-033). Four of the five verbs now exist —
   `display` remains CLI-06's. `gebra snapshot` records a V.S.F.E-versioned snapshot of an

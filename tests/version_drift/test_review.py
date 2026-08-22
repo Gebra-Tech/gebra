@@ -34,6 +34,7 @@ def staged_proposals(monkeypatch: pytest.MonkeyPatch) -> list[review.ReviewPropo
     monkeypatch.setattr(review, "PROPOSALS", staged)
     monkeypatch.delenv(review.REVIEW_DIR_VARIABLE, raising=False)
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv(conftest.REPORT_FILE_VARIABLE, raising=False)
     return staged
 
 

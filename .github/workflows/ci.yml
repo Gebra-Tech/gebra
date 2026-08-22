@@ -295,6 +295,16 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         cell: ["1", "2", "3"]
+    # GOV-07: every cell writes the machine-readable drift report at the end of its
+    # pytest run (tests/version_drift/conftest.py) — hard failures, soft divergences and
+    # review proposals as the stable DRIFT-* lines — and uploads it for the
+    # `drift-issues` job below, which opens the §3 version-gap issues. Uploaded
+    # `if: always()`: a report from a red cell is the whole point, and a green cell's
+    # context-only report is what lets the aggregation tell "clean" from "missing".
+    env:
+      GEBRA_DRIFT_REPORT_FILE: drift-report.txt
+      GEBRA_DRIFT_CELL: ${{ matrix.cell }}
+      GEBRA_DRIFT_REVIEW_DIR: drift-review
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -324,6 +334,20 @@ jobs:
         run: mypy
       - name: Test
         run: pytest -q
+      - name: Upload the drift report for the issue automation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-py${{ matrix.python-version }}-cell${{ matrix.cell }}
+          path: |
+            drift-report.txt
+            drift-review/
+          # `error` fires only when NOTHING matches. A green cell always reaches
+          # terminal summary and writes the report, so this can only trip inside an
+          # already-red cell whose pytest never produced one — and then "report
+          # missing" is a loud red step, not a warning nobody reads (§3: the issue
+          # channel never narrows silently).
+          if-no-files-found: error
 
   # ── The 13th cell: the `--pre` early warning, non-blocking ──
   #
@@ -350,6 +374,15 @@ jobs:
     name: py3.13 / --pre early warning (non-blocking)
     runs-on: ubuntu-latest
     continue-on-error: true
+    # GOV-07: this cell reports like the twelve above, but its signals route to a
+    # *supported-range-review* issue instead of a version-gap issue (§3: on the --pre
+    # cell "failures open a supported-range review instead of blocking"). The pytest
+    # gate's outcome rides in the artifact (`pre-outcome.txt`) rather than a job
+    # output, so the drift-issues job still sees it when this job's last step exits 1.
+    env:
+      GEBRA_DRIFT_REPORT_FILE: drift-report.txt
+      GEBRA_DRIFT_CELL: pre
+      GEBRA_DRIFT_REVIEW_DIR: drift-review
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -409,3 +442,59 @@ jobs:
             echo "The --pre cell is red: recorded and annotated, never blocking (VERSION-COMPAT §3)."
             exit 1
           fi
+      - name: Record the pytest gate outcome for the drift-issues job
+        if: always()
+        env:
+          OUTCOME_PYTEST: ${{ steps.test.outcome }}
+        run: printf 'pytest=%s\n' "$OUTCOME_PYTEST" > pre-outcome.txt
+      - name: Upload the drift report for the issue automation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-report-pre
+          path: |
+            drift-report.txt
+            drift-review/
+            pre-outcome.txt
+          # Same posture as the matrix upload; here `pre-outcome.txt` always exists
+          # (the recorder above runs `if: always()`), so a missing *report* still
+          # uploads the outcome and the drift-issues job opens the range review from
+          # it — the crashed-before-summary path stays covered either way.
+          if-no-files-found: error
+
+  # ── GOV-07: the issue side of VERSION-COMPAT §3 — version-gap / range-review ──
+  #
+  # §3 attaches an issue to every drift outcome: a hard failure "BLOCKS that CI cell
+  # (red, release-blocking) and opens a version-gap issue"; a soft-only divergence
+  # keeps its cell green "and auto-opens a version-gap issue"; on the --pre cell
+  # "failures open a supported-range review instead of blocking". The cells above
+  # each uploaded a machine-readable drift report; this job reads them all once the
+  # matrix is done and opens or updates the issues through `tools/drift_issues.py`
+  # (stdlib-only — no environment sync needed): at most one open issue per substrate
+  # cell (the four Pythons of a cell share one pinned pair), deduped across runs by a
+  # fingerprint marker, with changed signals landing as comments. It runs whether the
+  # matrix is green or red — soft divergences leave cells green by design — and never
+  # on a cancelled run. An automation failure turns THIS job red: the issue channel
+  # itself is not allowed to fail silently (§3: nothing "silently downgrades, skips,
+  # or warns-and-passes").
+  drift-issues:
+    runs-on: ubuntu-latest
+    needs: [test-matrix, test-matrix-pre]
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download every cell's drift report
+        uses: actions/download-artifact@v4
+        with:
+          pattern: drift-report-*
+          path: drift-reports
+      - name: Open or update version-gap and range-review issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/drift_issues.py --reports drift-reports --apply

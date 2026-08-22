@@ -329,7 +329,7 @@ through the entry point traverses, plus `routing` — reached only by the one se
 drawing is taken. The import-and-network half of the invariant for every one of those paths is
 what their own guarded children measure.
 
-The **version-drift suite** (`tests/version_drift/`, cards GOV-05/GOV-06) hands the extractor one
+The **version-drift suite** (`tests/version_drift/`, cards GOV-05/GOV-06/GOV-07) hands the extractor one
 live fixture per VERSION-COMPAT §3 row — builders, one bare LCEL chain, and one **compiled** graph
 carrying an `InMemorySaver` and both interrupt gates (row 12: the P-13 carriers exist only at the
 compiled level) — and additionally performs the substrate reads the §3 rows themselves name:
@@ -349,7 +349,13 @@ child above: the compiled path (§1; its checkpointer drawing route is §2 route
 `ArmedSaver`), the LCEL path (§1), and the builder path. The suite-side drawing and rendering
 calls are §3-row-named surface reads over fully armed fixtures under the per-test ledger, not new
 routes: a substrate release whose drawing or schema rendering started invoking bodies trips the
-sentinels and fails the run loudly.
+sentinels and fails the run loudly. GOV-07's report seam adds no execution surface: the package
+conftest's terminal-summary hook additionally writes the collected signal lines to a text file
+when CI asks (`GEBRA_DRIFT_REPORT_FILE`), and the issue automation (`tools/drift_issues.py`) is
+a stdlib CLI that CI runs after the suite — its tests (`tests/test_drift_issues.py`,
+`tests/test_drift_issue_wiring.py`) drive every API flow through in-process fake transports and
+hold the one real transport to its loud no-token refusal, so nothing in the suite or its tests
+opens a network connection.
 
 One **fixture** carries a guarded child of its own, listed here because a reviewer looking for it
 would look at this index: the shared travel-booking agent

@@ -370,7 +370,8 @@ def test_a_red_pre_cell_is_reported_rather_than_swallowed(workflow: dict[str, An
     steps = workflow["jobs"]["test-matrix-pre"]["steps"]
     reports = [step for step in steps if step.get("if") == "always()"]
     assert reports, "the --pre cell has no always-run reporting step"
-    body = "\n".join(step["run"] for step in reports)
+    # `.get`: the GOV-07 drift-report upload also runs `if: always()` and has no `run`.
+    body = "\n".join(step.get("run", "") for step in reports)
     assert "::warning" in body
     assert "GITHUB_STEP_SUMMARY" in body
     assert "supported-range review" in body

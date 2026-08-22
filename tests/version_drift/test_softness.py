@@ -31,6 +31,7 @@ def staged_divergences(monkeypatch: pytest.MonkeyPatch) -> list[inventory.SoftDi
     """A patched divergence ledger, so staged divergences never reach the real summary."""
     staged: list[inventory.SoftDivergence] = []
     monkeypatch.setattr(inventory, "DIVERGENCES", staged)
+    monkeypatch.delenv(conftest.REPORT_FILE_VARIABLE, raising=False)
     return staged
 
 

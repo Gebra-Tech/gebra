@@ -152,6 +152,32 @@ on this path and socket construction the whole of the post-import network claim,
 raiser-*class* granularity would leave both untested. It adds **no extraction path** — it calls
 `gebra.extract()` and nothing else — so §1's machine check owes it nothing.
 
+The **evolution sequence** (`tests/sample_workflows/travel_booking_evolution.py`, card SD-08)
+extends the travel-booking *fixture family* rather than any engine surface: eight builder-level
+versions of the TE-05 agent, whose every body — twelve node bodies and two routers of its own,
+since the evolved stages carry schema-neutral twins of v1's functions — records itself in the
+**same** `TRIPPED` ledger and raises the same `BaseException`-derived sentinel, so one ledger
+covers the family and `tests/evolution/test_travel_booking_evolution.py` asserts it empty on
+entry to and exit from every test. The arming test fires every body reachable from **any**
+evolved stage's built graph — fourteen callables once deduplicated by function identity, the
+twins the later stages supersede (`replan`, `check_booking`) included, since those stay the live
+runnables most of the sequence hands to the extractor — so a node added to any stage, or
+swapped in mid-sequence, and forgotten is still fired, and the fired label set is pinned to the
+module's fourteen. The scenario carries the
+**strong** form in the snapshot engine's pattern: a fresh-interpreter child runs the whole
+eight-stage `snapshot()` → `extract()` → store sequence under the same raisers (name resolution,
+connection opening, socket construction counted through the import phase and refused once
+gebra's own work begins, `StateGraph.compile` removed before gebra is imported — every stage's
+subject is the builder, so nothing on the path ever compiles), re-asserts each stage's expected
+V.S.F.E label and bump class under the guard, pins the final stored document to the evolved node
+set and to a fresh extraction's digest, and keeps `langgraph.pregel.remote` out of
+`sys.modules`. Five per-raiser armed controls are matched on each raiser's full message, plus
+the legs no socket probe can arm: a probe that fires an evolution body in both the raising and
+the swallowed form — the record-before-raise ledger is what fails the swallowed one — and a
+`langgraph.pregel.remote` import. It adds **no extraction path** — every stage goes through
+`gebra.snapshot.snapshot()` and `gebra.extract()` and nothing else — so §1's machine check owes
+it nothing.
+
 The **CLI's live-target resolution** (`src/gebra/cli/`, card CLI-04) is the seam CLI-SPEC §0.5
 item 3 names: `gebra verify <module>:<attribute>` imports a module and hands what it finds to
 `gebra.extract()`, and the explicit `--call` opt-in is the one path on which the CLI itself

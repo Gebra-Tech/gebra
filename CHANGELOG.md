@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The travel-booking evolution scenario — brief D-11's W9 sequence as a regression suite**
+  (card SD-08; PD-006 R4 / PHASE-0-DOD-CHECKLIST §S2; SOW §2 criterion 1 context). Eight
+  builder-level versions of the TE-05 travel-booking agent
+  (`tests/sample_workflows/travel_booking_evolution.py`) covering D-11's three
+  safe-extension shapes — a new optional Σ key, a new wired contracted node, a new guarded
+  edge — and the three canonical breaking cases, with the read-key case in both spellings:
+  removal *and* retype, termination-witness removal (the form-(c) `variant` carrier), and
+  effect-class escalation into the P-06 trigger set. The expected V.S.F.E label and bump
+  class per stage are recorded beside the builders (`EVOLUTION`), and `tests/evolution/`
+  holds the engines to that record: recording the sequence assigns exactly the expected
+  labels with byte-identical stores across independent runs; every one of the twenty-eight
+  version pairs derives exactly the expected S/F/E classes in both directions, the
+  deferred-P-12 marker on every diff and each step's delta content pinned by name (which
+  key, which node, which slot); every snapshot reloads to the IR it was made from; and the
+  eligibility boundary SD-09's DoD pipeline inherits is measured rather than assumed —
+  v1–v6 verify clean and snapshot-eligible (P-04 skips a read of a key outside Σ, whose
+  membership is the non-wedge P-03's finding, so the read-key pairs are graded only by
+  the deferred P-12's structural classes), while v7–v8 carry the catalog's FATAL
+  `cycle-without-termination-witness`, so the sequence stores all eight only through the
+  recorder's documented handed-none-records posture. Classification is structural
+  S/F/E only throughout; no output makes a safe/breaking claim (SOW §8; PD-006 R4).
 - **Version-gap issue automation — the drift suite's failure handling wired end to end**
   (card GOV-07; VERSION-COMPAT §3–§4; SOW §2 criterion 4). Every matrix cell now writes
   a machine-readable drift report at the end of its pytest run

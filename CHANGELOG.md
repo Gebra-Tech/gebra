@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Phase-0 DoD scenario — five seeded defects, the end-to-end harness, and its
+  dedicated CI job** (card SD-09; SOW §2 criterion 1; PD-006 R1/R2/R5; PD-047 mitigation).
+  Five builder-level seeded-defect variants of the travel-booking agent
+  (`tests/sample_workflows/travel_booking_defects.py`) with their expectations recorded
+  beside them: a witness-stripped booking cycle (P-02 FATAL
+  `cycle-without-termination-witness` on the five-node SCC), an unprotected
+  irreversible/billable `book_flight` inside the structural retry region (P-06 ERROR
+  `unprotected-effect-in-retry-region`), a seed-only determinism claim on the LLM-backed
+  classifier (P-08 WARNING `deterministic-llm-temperature-unpinned`, gated exit 1 under the
+  `determinism-replay` per-property promotion while the record stays warning/heuristic), an
+  `express` label that skips both bookings (P-04 FATAL `read-key-never-written-on-path` at
+  `(notify_traveler, itinerary)`), and a live `Send` fan-out whose billable worker is
+  unprotected in the send-extended retry region (P-06 ERROR with `fanout: send` evidence —
+  the mixed/09 reference pattern as a live graph, RATIFIED conditions only). `tests/dod/`
+  runs the whole PD-006 R5 scenario — extract → verify → snapshot → evolve → diff → report
+  — over one store: the healthy agent clean through the pytest plugin, every catch asserted
+  by property + condition ID + locus + gate and negative-tested (the checker refuses a
+  report the defect is absent from, and defects 2/5 are held to distinct loci), the
+  evolution sequence recorded through the measured eligibility boundary, per-version audit
+  exports conforming to the §6 snapshot profile, and — the PD-047 mitigation, documented in
+  `docs/governance/DOD-SCENARIO.md` — a `reports/lineage.json` lineage document written
+  beside the per-version reports, so the store's audit files answer "what changed" without
+  a `gebra` installation. The dedicated `dod` CI job runs `pytest tests/dod
+  tests/evolution` on the designated blocking cell (py3.13 / cell 3) with
+  `timeout-minutes: 5` — the R5 budget made enforcing — and the suite reports the
+  non-gating "gebra-work seconds" sub-metric per leg in the job's step summary.
 - **`gebra display` — the fifth CLI verb, with its style contract** (card CLI-06;
   CLI-SPEC §4.4; PD-034). `gebra display <ir.yaml | V.S.F.E label>` renders a workflow
   definition as Mermaid text, emitted **directly from the IR** by the new `gebra.display`

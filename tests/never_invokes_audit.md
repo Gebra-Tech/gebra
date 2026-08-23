@@ -178,6 +178,32 @@ the swallowed form — the record-before-raise ledger is what fails the swallowe
 `gebra.snapshot.snapshot()` and `gebra.extract()` and nothing else — so §1's machine check owes
 it nothing.
 
+The **seeded-defect variants** (`tests/sample_workflows/travel_booking_defects.py`, card SD-09)
+extend the same fixture family once more: five builder-level variants of the TE-05 agent, one
+per SOW §2 criterion-1 defect, each reusing v1's sentinel bodies wherever its story says
+"unchanged" and carrying six schema-neutral twins of its own (five node bodies and the
+`Send`-hinted `route_legs` router), every one recording itself in the **same** `TRIPPED` ledger
+and raising the same `BaseException`-derived sentinel. `tests/dod/conftest.py` asserts the
+ledger empty on entry to and exit from every DoD test; the arming test
+(`tests/dod/test_dod_guard.py`) fires every body reachable from **any** variant's built graph —
+seventeen callables once deduplicated by function identity, the eleven reused v1 bodies
+included, so the collected surface is the whole family and a node added to a variant and
+forgotten is still fired — and pins the fired label sets to both modules' expected names. The
+strong form runs the DoD's whole catch leg in a fresh-interpreter child under the family's
+raiser set (name resolution, connection opening, socket construction counted through the import
+phase and refused once gebra's own work begins, `StateGraph.compile` removed before gebra is
+imported — every variant's subject is the builder, so nothing on the path ever compiles):
+healthy v1 verifies clean and **all five defects are caught under the guard** — named property,
+condition ID, locus and gate, the defect-3 strict promotion included — so the DoD's acceptance
+claim is asserted where nothing could have run. Five per-raiser armed controls are matched on
+each raiser's full, DoD-specific message (no control can alias the evolution child's), plus the
+legs no socket probe can arm: a defect twin fired in the raising and the swallowed form, and a
+`langgraph.pregel.remote` import. It adds **no extraction path** — the only live objects the
+harness touches go to `gebra.extract()`; everything after that is IR- and file-level engine
+work (`gebra.verify.verify()`, `gebra.snapshot.record()`, `gebra.store.SnapshotStore`,
+`gebra.diff.workflow_diff`, `gebra.audit`, `gebra.lineage`), each with its own §4 guard row —
+so §1's machine check owes it nothing.
+
 The **CLI's live-target resolution** (`src/gebra/cli/`, card CLI-04) is the seam CLI-SPEC §0.5
 item 3 names: `gebra verify <module>:<attribute>` imports a module and hands what it finds to
 `gebra.extract()`, and the explicit `--call` opt-in is the one path on which the CLI itself

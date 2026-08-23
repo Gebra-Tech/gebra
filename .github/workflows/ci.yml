@@ -214,6 +214,35 @@ jobs:
       - name: Test
         run: pytest -q
 
+  # ── The DoD scenario job — SOW §2 criterion 1's dedicated clock (SD-09; PD-006 R5) ──
+  #
+  # One dedicated job on one designated blocking cell — py3.13 / cell 3, the newest
+  # frozen pair, the same substrate line `uv.lock` tracks — running the scenario R5
+  # names: extract → verify → snapshot → evolve → diff → report, the five seeded-defect
+  # variants plus the R4 evolution sequence. `timeout-minutes: 5` is the R5 budget made
+  # enforcing: the job cannot finish green over budget, so "job green" and "< 5:00 total
+  # job wall-clock" are one observation. The suite's terminal summary appends the
+  # non-gating "gebra-work seconds" sub-metric to the step summary (R5 amendment,
+  # guard 2), so a slow run attributes to setup or to scenario work rather than to
+  # guesswork. Scope note per the R5 amendment, guard 1: this clock is the DoD demo
+  # job's acceptance budget, not a product latency target — none exists in the frozen
+  # package.
+  dod:
+    name: "DoD scenario (py3.13 / cell 3)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install the package with the designated cell's frozen substrate pins
+        run: pip install -e ".[dev,compat-cell-3]"
+      - name: Run the DoD scenario (five seeded defects + the evolution sequence)
+        run: pytest tests/dod tests/evolution -q
+
   # ── The 12 blocking cells: Python {3.10..3.13} x the three frozen §1 pair cells ──
   #
   # The matrix carries only the *cell number*; the pins live in `pyproject.toml`'s

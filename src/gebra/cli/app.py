@@ -5,7 +5,8 @@ D-015 Python-first stack)"), used as a thin parsing layer: verbs are typer comma
 everything the parser cannot express in this contract's terms — the §3.3 strict grammar,
 §5.3's report-everything usage diagnostics, §2's resolution — lives in
 :mod:`gebra.cli.invocation`, the per-verb behavior modules (:mod:`gebra.cli.verify`,
-:mod:`gebra.cli.snapshot`, :mod:`gebra.cli.diff`, :mod:`gebra.cli.history`) and
+:mod:`gebra.cli.snapshot`, :mod:`gebra.cli.diff`, :mod:`gebra.cli.display`,
+:mod:`gebra.cli.history`) and
 :mod:`gebra.cli.resolve`. Two
 framework defaults are turned off by name: shell completion (typer's
 ``--install-completion`` pair is outside the specified surface — CLI-SPEC Appendix B OI-7
@@ -42,6 +43,7 @@ from typer.main import get_command
 import gebra
 from gebra.cli.common import OutputError, UsageFailure
 from gebra.cli.diff import DiffRequest, run_diff
+from gebra.cli.display import DisplayRequest, run_display
 from gebra.cli.history import HistoryRequest, run_history
 from gebra.cli.invocation import Invocation, read_invocation
 from gebra.cli.snapshot import SnapshotRequest, run_snapshot
@@ -406,6 +408,97 @@ def _diff(
         flag_vocabulary=_flag_vocabulary(ctx),
     )
     return run_diff(request)
+
+
+@app.command(
+    "display",
+    help="Render a workflow definition as Mermaid, optionally overlaid with a run report.",
+    context_settings={"ignore_unknown_options": True, **_HELP_NAMES},
+)
+def _display(
+    ctx: typer.Context,
+    targets: Annotated[
+        list[str] | None,
+        typer.Argument(
+            metavar="[TARGET]",
+            help=(
+                "The subject: an IR document path (*.yaml, *.yml, *.json) or a stored "
+                "V.S.F.E version label (1.4.2.0). display has no live-target mode: an "
+                "import reference is refused before any import happens (CLI-SPEC §4.4)."
+            ),
+        ),
+    ] = None,
+    ir_path: Annotated[
+        str | None,
+        typer.Option("--ir", metavar="PATH", help="Draw the subject read from this IR document."),
+    ] = None,
+    snapshot_version: Annotated[
+        str | None,
+        typer.Option(
+            "--snapshot", metavar="VERSION", help="Draw this stored version from the store."
+        ),
+    ] = None,
+    store_dir: Annotated[
+        str | None,
+        typer.Option(
+            "--store",
+            metavar="DIR",
+            help="The snapshot store a version label resolves against.  [default: ./.gebra]",
+        ),
+    ] = None,
+    report_path: Annotated[
+        str | None,
+        typer.Option(
+            "--report",
+            metavar="PATH",
+            help=(
+                "A native-JSON run report (gebra verify --format json) whose findings are "
+                "painted onto the diagram; it must record the displayed IR's own "
+                "graph_version."
+            ),
+        ),
+    ] = None,
+    display_format: Annotated[
+        str,
+        typer.Option(
+            "--format",
+            metavar="{mermaid}",
+            help="The diagram format: mermaid is the only value in Phase-0.",
+        ),
+    ] = "mermaid",
+    output: Annotated[
+        str | None,
+        typer.Option(
+            "--output", "-o", metavar="PATH", help="Write the diagram here instead of stdout."
+        ),
+    ] = None,
+    color: Annotated[
+        bool | None,
+        typer.Option(
+            "--color/--no-color",
+            help=(
+                "Force styled or plain stderr diagnostics; the diagram itself is plain "
+                "Mermaid text on every setting."
+            ),
+        ),
+    ] = None,
+) -> int:
+    """The parser side of ``gebra display`` — everything after parsing is the verb module's."""
+    invocation = ctx.obj if isinstance(ctx.obj, Invocation) else Invocation(argv=())
+    request = DisplayRequest(
+        arguments=tuple(targets or ()),
+        literal_targets=invocation.literal_targets,
+        ir_path=ir_path,
+        snapshot_version=snapshot_version,
+        store_dir=store_dir,
+        report_path=report_path,
+        display_format=display_format,
+        output=output,
+        color=color,
+        strict=invocation.strict,
+        flag_vocabulary=_flag_vocabulary(ctx),
+    )
+    return run_display(request)
 
 
 @app.command(

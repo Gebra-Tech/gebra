@@ -1,0 +1,28 @@
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: pass.ir.yaml (ir-document)
+%% ir_version: 1.0
+flowchart TD
+
+  START(["START"])
+  n_prepare["prepare"]
+  n_fetch_5fprices["fetch_prices"]
+  n_fetch_5fnews["fetch_news"]
+  n_compose_5fdigest["compose_digest"]
+  n_publish_5fdigest["publish_digest"]
+  n_verify_5fpublish["verify_publish"]
+  n_archive["archive"]
+  END(["END"])
+
+  START --> n_prepare
+  n_archive --> END
+  n_prepare --> n_fetch_5fprices
+  n_prepare --> n_fetch_5fnews
+  n_fetch_5fprices --> n_compose_5fdigest
+  n_fetch_5fnews --> n_compose_5fdigest
+  n_compose_5fdigest --> n_publish_5fdigest
+  n_publish_5fdigest --> n_verify_5fpublish
+  n_verify_5fpublish -->|"retry"| n_publish_5fdigest
+  n_verify_5fpublish -->|"done"| n_archive
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  class START,END gebra_sentinel

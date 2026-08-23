@@ -1,0 +1,18 @@
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: tests.lineage.stores:the base workflow (snapshot)
+%% ir_version: 1.0
+flowchart TD
+
+  START(["START"])
+  n_plan["plan"]
+  n_work["work"]
+  n_report["report"]
+  END(["END"])
+
+  START --> n_plan
+  n_report --> END
+  n_plan --> n_work
+  n_work --> n_report
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  class START,END gebra_sentinel

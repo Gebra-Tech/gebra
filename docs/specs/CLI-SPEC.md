@@ -9,10 +9,11 @@
 >
 > **It is not user documentation.** As of card CLI-04 (2026-08-21) the package ships the
 > `gebra` console script (`gebra.cli`, on `typer` per brief D-12) carrying the application
-> level and the `verify` verb, and as of card CLI-05 (2026-08-22) the three store-facing
-> verbs beside it (`snapshot`, `diff`, `history` — §4.2, §4.3, §4.5); the remaining verb
-> (`display`) is CLI-06's and does not exist until that card lands — an unknown verb is
-> refused, never advertised. The CLI reference a user will read is DOC-15's, written after
+> level and the `verify` verb; as of card CLI-05 (2026-08-22) the three store-facing
+> verbs beside it (`snapshot`, `diff`, `history` — §4.2, §4.3, §4.5); and as of card
+> CLI-06 (2026-08-23) the fifth verb, `display` (§4.4), with its DIAGRAM-STYLE-GUIDE
+> artifact — the full §1.1 verb set now ships, and an unknown verb is refused, never
+> advertised. The CLI reference a user will read is DOC-15's, written after
 > the verbs merge (WA-12 — docs tell no futures). The frozen, vendored specs (PROPERTY-CATALOG-SPEC, IR-SPEC,
 > INTROSPECTION-SPEC, ANNOTATION-API-SPEC, …) live in the delivery repository and are
 > read-only; this file restates them where it must and redefines nothing.
@@ -172,7 +173,8 @@ error, not a resolution.
 
 The package symbols this document names. They exist, and as of CLI-04 the `verify` verb calls
 its rows through `gebra.cli`; as of CLI-05 the store- and diff-facing rows are called by
-`snapshot`, `diff` and `history`, and only `display`'s rows wait on CLI-06.
+`snapshot`, `diff` and `history`; and as of CLI-06 the loader and store rows are called by
+`display` too, whose emitter is `gebra.display` (PD-034; DIAGRAM-STYLE-GUIDE).
 `tests/docs/test_cli_spec.py` imports every row, so a rename in the package fails a test
 here rather than rotting quietly in prose.
 
@@ -982,7 +984,22 @@ further side).
 overlay's `report_format` and digest checks, and claim classes on painted findings. `display`
 reaches no live object by construction (an import-shaped target is a usage error, §2.2); a
 change that ever gave it one makes it a live-target path and pulls §0.5 item 3's obligation
-with it.
+with it. **Landed 2026-08-23** as `gebra.cli.display` over the new `gebra.display` package
+(PD-034's IR-native emitter; `docs/specs/DIAGRAM-STYLE-GUIDE.md` is the style contract):
+the diagram is the sentinel-augmented, label-expanded multigraph drawn per the guide's §3,
+with unresolved references carried as dashed phantom vertices; `--report` reads the
+native-JSON run report with `report_format` first (an unknown MAJOR refused by that fact
+alone — §1.6's MUST — and any other `report_format` this build's strict models were not
+built against refused naming the one they read: for a higher MINOR that is the refusal
+§1.6's MAY grants a strict consumer, and for `1.0` it is the models' own pinned literal,
+a format nothing ever emitted per §1.6's amendment log), then refuses a subject-less report (a tool
+error that preceded IR identity records no `graph_version` for the provenance check and
+holds no findings to paint — the "overlays name their own graph" rule applied to the one
+report shape that names none) and a digest mismatch; a `dynamic`-bearing ir 1.1 document
+is declined as the `ir-validation` §2.6 row, exactly as `verify()` declines it. The
+diagram is plain Mermaid text on stdout on every color setting; conformance is
+parse-checked by `tools/mermaid_check.py` (the guide's §9 checker) across the corpus in
+`tests/display/` and `tests/cli/test_display_verb.py`.
 
 **CLI-07 (integration suite)** — the exit codes of §3.2 on constructed cases for all five
 verbs (including at least one `2` per stage the verb can reach), the format flags of §4, the

@@ -315,6 +315,24 @@ for surface in ("human", "json", "sarif"):
         code = main(["verify", str(document), "--format", surface])
     assert code == 0, (surface, code, err.getvalue())
 
+# The display legs (CLI-06): the whole §4.4 surface — a plain drawing, and one overlaid
+# with a run report produced under this same blocker — completes with the substrate
+# unimportable, which is what "display reaches no live object on any path" costs to hold.
+report_path = scratch / "report.json"
+out, err = io.StringIO(), io.StringIO()
+with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    code = main(["verify", str(document), "--format", "json", "--output", str(report_path)])
+assert code == 0, (code, err.getvalue())
+for argv in (
+    ["display", str(document)],
+    ["display", "--ir", str(document), "--report", str(report_path)],
+):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        code = main(argv)
+    assert code == 0, (argv, code, err.getvalue())
+    assert out.getvalue().startswith("%% gebra display:"), argv
+
 # The snapshot leg: the store writes and reads under the same blocker, so the whole
 # stored-version path — resolution, digest re-check, all thirteen properties — is held
 # substrate-free too, not only claimed so.
@@ -334,6 +352,12 @@ out, err = io.StringIO(), io.StringIO()
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
     code = main(["verify", "--snapshot", "1.0.0.0", "--store", str(store.path)])
 assert code == 0, (code, err.getvalue())
+
+out, err = io.StringIO(), io.StringIO()
+with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+    code = main(["display", "--snapshot", "1.0.0.0", "--store", str(store.path)])
+assert code == 0, (code, err.getvalue())
+assert out.getvalue().startswith("%% gebra display:")
 
 """
 
@@ -371,3 +395,36 @@ def test_the_substrate_blocker_is_armed() -> None:
     assert finished.returncode != 0
     assert "WA07-SUBSTRATE langgraph" in finished.stderr
     assert "blocked" in finished.stderr
+
+
+# ── display: no live object on any path (CLI-06, §4.4) ───────────────────────────────────
+
+
+def test_display_refuses_an_import_shaped_target_before_any_import(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`display` has no live-target mode, and the refusal is a *usage* error — decided by
+    grammar alone, before resolution. The proof is on ``sys.modules``: the named module is
+    absent afterwards, so no top-level code ran, no ledger could fill, and §0.5's "reaches
+    no live object at all" is an observation rather than a claim."""
+    monkeypatch.delitem(sys.modules, MODULE, raising=False)
+    code, out, err = _run("display", f"{MODULE}:graph", capsys=capsys)
+    assert code == 2
+    assert out == ""
+    assert "usage error" in err and "no live-target mode" in err
+    assert MODULE not in sys.modules, "display imported the target it must refuse"
+    assert sentinel_cli.TRIPPED == [] and sentinel_cli.FACTORY_CALLS == []
+
+
+def test_display_refuses_the_import_selector_without_resolving_it(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """There is no ``--import`` on this verb (§4.4): the flag is an unknown option, and the
+    would-be reference is never resolved — held on ``sys.modules`` exactly as above."""
+    monkeypatch.delitem(sys.modules, MODULE, raising=False)
+    code, out, err = _run("display", "--import", f"{MODULE}:graph", capsys=capsys)
+    assert code == 2
+    assert out == ""
+    assert "unknown option '--import'" in err
+    assert MODULE not in sys.modules
+    assert sentinel_cli.TRIPPED == [] and sentinel_cli.FACTORY_CALLS == []

@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`gebra display` — the fifth CLI verb, with its style contract** (card CLI-06;
+  CLI-SPEC §4.4; PD-034). `gebra display <ir.yaml | V.S.F.E label>` renders a workflow
+  definition as Mermaid text, emitted **directly from the IR** by the new `gebra.display`
+  package (PD-034's ratified strategy: no `get_graph()`/`draw_mermaid()` dependency
+  anywhere on the path) — the sentinel-augmented, label-expanded multigraph the validators
+  anchor findings to, with unresolved references drawn as dashed phantom vertices rather
+  than silently dropped. `--report run.json` (a `gebra verify --format json` artifact)
+  paints the report's findings onto the drawing: severity-colored node fills and edge
+  strokes, `[Fn]` markers, and a rendered legend carrying each finding's severity, claim
+  class, condition ID and REPORT-FORMAT-SPEC §4.5 anchor phrase — accepted only after the
+  §1.6 `report_format`-first read and the §4.4 provenance check (the report's recorded
+  `subject.graph_version` must equal the displayed IR's own digest). The rules the diagram
+  follows are `docs/specs/DIAGRAM-STYLE-GUIDE.md`, a new repo-authored contract artifact
+  (the brief D-12 deliverable resolving OQ-12-02's overlay design), machine-pinned to the
+  emitter by `tests/docs/test_diagram_style_guide.py`; emissions are parse-checked against
+  the guide's licensed Mermaid subset by the new `tools/mermaid_check.py` across the whole
+  corpus (60 fixtures, 67 IRs, plain and overlaid). `display` has no live-target mode: an
+  import-shaped target is a usage error refused before any import happens (CLI-SPEC §4.4,
+  OI-5), held in the never-invokes suite on `sys.modules` itself and in the
+  substrate-blocked guarded child. An `ir_version` 1.1 `dynamic`-bearing document is
+  declined exactly as `verify()` declines it — the diagram representation of a headless
+  router edge lands with the kind's consumer-side semantics, not by improvisation.
 - **The travel-booking evolution scenario — brief D-11's W9 sequence as a regression suite**
   (card SD-08; PD-006 R4 / PHASE-0-DOD-CHECKLIST §S2; SOW §2 criterion 1 context). Eight
   builder-level versions of the TE-05 travel-booking agent

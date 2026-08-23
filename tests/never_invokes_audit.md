@@ -225,6 +225,24 @@ can state — the snapshot verb's eligibility run and store write share **one** 
 resolves no further side, so no user code runs for a comparison that can no longer happen.
 `gebra history` reaches no live object on any path: it reads `meta.yaml` and nothing else.
 
+The **display verb** (card CLI-06) is the one CLI verb with **no** live-target mode at all:
+CLI-SPEC §4.4 gives it the ir-document and snapshot modes only, so an import-shaped target
+is a §3.4 *usage* error decided by grammar before resolution — no import, no attribute
+read, no refusal-with-remedy that could tempt a later change into resolving it. The
+emitter behind it (`gebra.display`, PD-034) is string-building over the IR models plus the
+shared `gebra.verify.graph` model; it imports nothing from the substrate, and the
+`--report` overlay path reads a JSON file through the run-report models — no network, no
+execution, and the digest comparison is a string-compare. The evidence is in
+`tests/cli/test_never_invokes.py`: the import-shaped refusal is held on `sys.modules`
+itself (the sentinel module is demonstrably absent after the run, so its top-level code
+never ran — a stronger fact than an empty ledger), the nonexistent `--import` selector is
+held the same way, and the substrate-blocked guarded child runs the whole §4.4 surface —
+a plain drawing, an overlaid drawing whose report was produced under the same blocker, and
+a stored-snapshot drawing — to completion with `langgraph` unimportable. CLI-SPEC §0.5's
+tripwire table therefore has no `display` row to land: the verb adds no extraction path,
+and a change that ever gave it one pulls the §0.5 item 3 obligation with it (§7's CLI-06
+entry states this in the contract itself).
+
 The **pytest plugin** (`src/gebra/pytest_plugin.py`, card TE-06) is another seam between a live
 workflow object and the extractor — a marked function's return value goes straight to
 `gebra.extract()` — and it carries **two** tripwires, because the claim has two halves and one

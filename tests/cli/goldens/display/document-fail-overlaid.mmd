@@ -1,0 +1,34 @@
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: fail.ir.yaml (ir-document)
+%% ir_version: 1.0
+%% overlay: run report for graph_version sha256:32b0b9dc8aaa0184... - gate: fail (exit 1)
+%% overlay counts: fatal 1, error 1, warning 0
+flowchart TD
+
+  START(["START"])
+  n_compose_5fmessage["compose_message"]
+  n_send_5fsms["send_sms [F2]"]
+  n_verify_5fdelivery["verify_delivery"]
+  n_log_5freceipt["log_receipt"]
+  END(["END"])
+
+  START --> n_compose_5fmessage
+  n_log_5freceipt --> END
+  n_compose_5fmessage --> n_send_5fsms
+  n_send_5fsms -->|"[F1]"| n_verify_5fdelivery
+  n_verify_5fdelivery -->|"retry [F1]"| n_send_5fsms
+  n_verify_5fdelivery -->|"done"| n_log_5freceipt
+
+  subgraph gebra_findings["gebra findings overlay"]
+    f_1["F1 fatal [defensible] cycle-without-termination-witness - component send_sms, verify_delivery"]
+    f_2["F2 error [defensible-a] unprotected-effect-in-retry-region - node send_sms"]
+  end
+
+  classDef gebra_fatal fill:#dc2626,stroke:#7f1d1d,color:#ffffff
+  classDef gebra_error fill:#fecaca,stroke:#dc2626,color:#7f1d1d
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  class f_1 gebra_fatal
+  class n_send_5fsms,f_2 gebra_error
+  class START,END gebra_sentinel
+  linkStyle 3 stroke:#7f1d1d,stroke-width:3px
+  linkStyle 4 stroke:#7f1d1d,stroke-width:3px

@@ -149,17 +149,18 @@ def test_the_spec_is_in_the_library_repo_beside_the_code() -> None:
 
 
 def test_the_spec_states_what_is_shipped_and_what_is_not(spec_text: str) -> None:
-    """WA-12: the header names the landed surface exactly — ``verify`` as of CLI-04 and
-    the three store-facing verbs as of CLI-05, with ``display`` still CLI-06's — and still
-    routes users to DOC-15 rather than posing as user docs."""
+    """WA-12: the header names the landed surface exactly — ``verify`` as of CLI-04, the
+    three store-facing verbs as of CLI-05, and ``display`` as of CLI-06, the full §1.1
+    verb set — and still routes users to DOC-15 rather than posing as user docs."""
     assert "not user documentation" in spec_text
     assert "WA-12" in spec_text
     assert "CLI-04" in spec_text
     header = _flat(spec_text.split("## Table of contents")[0])
     assert "verify" in header
     assert "CLI-05" in header and "snapshot" in header and "history" in header
-    assert "`display`) is CLI-06's and does not exist until that card lands" in header
-    assert "gebra display` works" not in header
+    assert "CLI-06" in header and "`display`" in header
+    assert "DIAGRAM-STYLE-GUIDE" in header
+    assert "does not exist until that card lands" not in header
 
 
 def test_the_cli_the_spec_describes_now_exists() -> None:

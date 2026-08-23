@@ -15,10 +15,11 @@ spellings, and the three report surfaces of §4.1 — and the three store-facing
 resolution shared by the gate and the write), ``diff`` (§4.3, the structural delta with
 its S/F/E bump class and the deferred-P-12 marker rendered as *not checked*), and
 ``history`` (§4.5, PD-033's oldest-first table over ``gebra.lineage``, with
-``--format json`` as ``dump_lineage``'s unchanged projection). The remaining verb lands
-with its own card (``display`` — CLI-06) and does not exist until it does: an unknown verb
-is refused with a suggestion drawn from the verbs this build registers, never from a
-roadmap (WA-12).
+``--format json`` as ``dump_lineage``'s unchanged projection). The fifth verb is
+``display`` (CLI-06): §4.4's Mermaid rendering of an IR document or a stored snapshot
+through ``gebra.display``'s PD-034 emitter, with a ``--report`` overlay painted per
+DIAGRAM-STYLE-GUIDE. An unknown verb is refused with a suggestion drawn from the verbs
+this build registers, never from a roadmap (WA-12).
 
 **Never-invokes** (§0.5, WA-07): no verb executes a workflow node, router, tool or model,
 and none opens a network connection. Resolving an import target imports the named module —
@@ -31,8 +32,10 @@ interpreters. ``snapshot`` wraps the SD-03 engine, which imports the extractor b
 ("wired to extract" — its package docstring prices this in), so that verb imports the
 substrate on both of its modes — imported, and nothing more; the engine import happens
 inside the verb, keeping ``import gebra.cli`` itself substrate-free. ``diff`` reaches the
-extractor only on an import-reference side, and ``history`` reads a store index and
-nothing else.
+extractor only on an import-reference side; ``display`` accepts no import reference at all
+— an import-shaped target is a §3.4 usage error refused before any import (§4.4), so the
+verb reaches no live object on any path — and ``history`` reads a store index and nothing
+else.
 
 Entry points: the ``gebra`` console script and ``python -m gebra.cli`` both call
 :func:`main`, which returns the process exit code rather than calling ``sys.exit`` itself

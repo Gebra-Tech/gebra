@@ -1,165 +1,94 @@
-gebra <gebra-version> — 
-tests.sample_workflows.travel_booking_evolution:build_travel_booking_v7 
-(extracted)
-  identity                ir_version 1.0 | graph_version 
-sha256:003959bfed0dfe7e... | extractor <gebra-version> | strict off
+gebra <gebra-version> — tests.sample_workflows.travel_booking_evolution:build_travel_booking_v7 (extracted)
+  identity                ir_version 1.0 | graph_version sha256:003959bfed0dfe7e... | extractor <gebra-version> | strict off
 
 P-01 graph-well-formed — pass  [DEFENSIBLE]
-  witness                 10 nodes reachable from START | 3 terminal nodes | no 
-orphan nodes | no unresolved targets
-    reachable from START    10 nodes: availability_check, book_flight, 
-book_hotel, check_booking, classify_request, compile_itinerary, join_waitlist, 
-notify_traveler, release_hotel_hold, replan
+  witness                 10 nodes reachable from START | 3 terminal nodes | no orphan nodes | no unresolved targets
+    reachable from START    10 nodes: availability_check, book_flight, book_hotel, check_booking, classify_request, compile_itinerary, join_waitlist, notify_traveler, release_hotel_hold, replan
     terminal nodes          join_waitlist, notify_traveler, release_hotel_hold
     orphan check            evaluated — no node stands outside every edge
     reference check         evaluated — every edge and path_map target resolves
 
 P-02 termination-witness — fail  (1 finding: 1 fatal)
-  fatal: cycle-without-termination-witness  [P-02 termination-witness | 
-DEFENSIBLE]
-    component               availability_check, book_flight, book_hotel, 
-check_booking, replan
-    representative          availability_check -> book_flight -> book_hotel -> 
-check_booking -> replan -> availability_check
-    cycle list              not exhaustive — a re-run after a fix may surface 
-another
+  fatal: cycle-without-termination-witness  [P-02 termination-witness | DEFENSIBLE]
+    component               availability_check, book_flight, book_hotel, check_booking, replan
+    representative          availability_check -> book_flight -> book_hotel -> check_booking -> replan -> availability_check
+    cycle list              not exhaustive — a re-run after a fix may surface another
     finding                 Simple cycle carries no declared termination witness
 
 P-03 signature-soundness — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-03 signature-soundness is outside the Phase-0 
-wedge (SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-04 dataflow-completeness — pass  [DEFENSIBLE-A]
   witness                 19 (reader, key) obligations covered
     coverage                19 (reader, key) obligations covered
-    covered                 availability_check reads request_kind <- covered by 
-classify_request, replan
-    covered                 availability_check reads traveler_id <- covered by 
-START (boundary source)
-    covered                 book_flight reads availability <- covered by 
-availability_check
-    covered                 book_flight reads booking_request_id <- covered by 
-START (boundary source)
-    covered                 book_hotel reads availability <- covered by 
-availability_check
-    covered                 book_hotel reads booking_request_id <- covered by 
-START (boundary source)
-    covered                 check_booking reads flight_id <- covered by 
-book_flight
-    covered                 check_booking reads hotel_id <- covered by 
-book_hotel
-    covered                 classify_request reads request <- covered by START 
-(boundary source)
-    covered                 compile_itinerary reads booking_status <- covered by
-check_booking
-    covered                 compile_itinerary reads flight_id <- covered by 
-book_flight
-    covered                 compile_itinerary reads hotel_id <- covered by 
-book_hotel
-    covered                 join_waitlist reads availability <- covered by 
-availability_check
-    covered                 join_waitlist reads traveler_id <- covered by START 
-(boundary source)
-    covered                 notify_traveler reads traveler_id <- covered by 
-START (boundary source)
-    covered                 release_hotel_hold reads booking_request_id <- 
-covered by START (boundary source)
-    covered                 release_hotel_hold reads hotel_id <- covered by 
-book_hotel
-    covered                 replan reads availability <- covered by 
-availability_check
-    covered                 replan reads replan_budget <- covered by START 
-(boundary source)
+    covered                 availability_check reads request_kind <- covered by classify_request, replan
+    covered                 availability_check reads traveler_id <- covered by START (boundary source)
+    covered                 book_flight reads availability <- covered by availability_check
+    covered                 book_flight reads booking_request_id <- covered by START (boundary source)
+    covered                 book_hotel reads availability <- covered by availability_check
+    covered                 book_hotel reads booking_request_id <- covered by START (boundary source)
+    covered                 check_booking reads flight_id <- covered by book_flight
+    covered                 check_booking reads hotel_id <- covered by book_hotel
+    covered                 classify_request reads request <- covered by START (boundary source)
+    covered                 compile_itinerary reads booking_status <- covered by check_booking
+    covered                 compile_itinerary reads flight_id <- covered by book_flight
+    covered                 compile_itinerary reads hotel_id <- covered by book_hotel
+    covered                 join_waitlist reads availability <- covered by availability_check
+    covered                 join_waitlist reads traveler_id <- covered by START (boundary source)
+    covered                 notify_traveler reads traveler_id <- covered by START (boundary source)
+    covered                 release_hotel_hold reads booking_request_id <- covered by START (boundary source)
+    covered                 release_hotel_hold reads hotel_id <- covered by book_hotel
+    covered                 replan reads availability <- covered by availability_check
+    covered                 replan reads replan_budget <- covered by START (boundary source)
 
 P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-05 guard-exhaustiveness is outside the Phase-0 
-wedge (SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-06 effect-safety — pass  [DEFENSIBLE-A]
   witness                 1 cycle | 2 effect-tagged nodes recorded
     cycle inventory         1 cycle
     cycle                   availability_check -> replan -> availability_check
-    effect                  book_flight [irreversible, billable, network] in a 
-retry region | anchor cycle availability_check -> book_flight -> book_hotel -> 
-check_booking -> replan -> availability_check | protected by idempotency key 
-booking_request_id
-    effect                  book_hotel [billable, network] in a cycle region | 
-anchor cycle availability_check -> book_flight -> book_hotel -> check_booking ->
-replan -> availability_check | protected by compensation hook release_hotel_hold
+    effect                  book_flight [irreversible, billable, network] in a retry region | anchor cycle availability_check -> book_flight -> book_hotel -> check_booking -> replan -> availability_check | protected by idempotency key booking_request_id
+    effect                  book_hotel [billable, network] in a cycle region | anchor cycle availability_check -> book_flight -> book_hotel -> check_booking -> replan -> availability_check | protected by compensation hook release_hotel_hold
 
 P-07 retry-coherence — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-07 retry-coherence is outside the Phase-0 wedge 
-(SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-08 determinism-replay — pass  [HEURISTIC]
-  witness                 2 declared determinism claims | provider caveat 
-carried
+  witness                 2 declared determinism claims | provider caveat carried
     claim class             heuristic (carried in-band)
     claims                  2 declared claims
-    claim                   classify_request — LLM-backed | pinned seed 42 | 
-pinned temperature 0.0 | divergence handling logged
-    claim                   compile_itinerary — not LLM-backed | declared basis 
-pure-local-computation | no pinning was required
+    claim                   classify_request — LLM-backed | pinned seed 42 | pinned temperature 0.0 | divergence handling logged
+    claim                   compile_itinerary — not LLM-backed | declared basis pure-local-computation | no pinning was required
     caveat                  provider-seed-reproducibility-not-guaranteed
 
 P-09 parallel-safety — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-09 parallel-safety is outside the Phase-0 wedge 
-(SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-10 subgraph-consistency is outside the Phase-0 
-wedge (SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-11 join-key-soundness — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-11 join-key-soundness is outside the Phase-0 wedge
-(SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-12 evolution-safety — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-12 evolution-safety is outside the Phase-0 wedge 
-(SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
-  status                  no verdict was reached — this is not a pass, and it is
-outside the Phase-0 wedge
-    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 
-wedge (SOW §8) and has no validator in this release; the catalog contract is 
-PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No
-verdict was reached — this is not a pass.
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
 
 summary
   findings                1 fatal | 0 error | 0 warning
   notes                   0 carried (0 warning-grade)
   properties              5 reported | 8 produced no verdict
   strict                  off
-  exit                    1 — a FATAL or ERROR finding is present, or a strict 
-policy promoted a warning
-  snapshot                not recorded for this run: a FATAL finding is present 
-(PROPERTY-CATALOG-SPEC §0.2)
+  exit                    1 — a FATAL or ERROR finding is present, or a strict policy promoted a warning
+  snapshot                not recorded for this run: a FATAL finding is present (PROPERTY-CATALOG-SPEC §0.2)

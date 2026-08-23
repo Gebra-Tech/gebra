@@ -90,6 +90,13 @@ def run_gebra(
     environment = {
         name: value for name, value in os.environ.items() if name not in _TERMINAL_VARIABLES
     }
+    # Stripping the inherited terminal variables makes the child hermetic; pinning a wide
+    # console makes its LAYOUT deterministic too. Without this the CLI wraps at the rich
+    # non-TTY default of 80 columns, and a phrase that sits after a path in the same
+    # sentence splits across the wrap on runners whose tmp paths are longer than a
+    # workstation's — which is a fact about the machine, not about the output the
+    # assertions pin (CLI-09: CLI-07's confirming run red on exactly that).
+    environment["COLUMNS"] = "500"
     inherited = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = (
         str(REPO_ROOT) if not inherited else f"{REPO_ROOT}{os.pathsep}{inherited}"

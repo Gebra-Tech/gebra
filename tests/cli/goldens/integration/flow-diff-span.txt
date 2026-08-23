@@ -10,16 +10,12 @@ topology
   ~ node availability_check — its edges moved; the node itself persists
   ~ node check_booking — its edges moved; the node itself persists
   + finish wiring join_waitlist -> END
-  + edge availability_check -> join_waitlist [conditional 'waitlist'] guard 
-route_availability
-  + edge check_booking -> join_waitlist [conditional 'waitlist'] guard 
-route_booking
+  + edge availability_check -> join_waitlist [conditional 'waitlist'] guard route_availability
+  + edge check_booking -> join_waitlist [conditional 'waitlist'] guard route_booking
 
 contracts
   values shown            canonical JSON — what the digest saw, never the source
-  + node contract join_waitlist 
-{"effect":["external","network"],"input":["availability","traveler_id"],"output"
-:["booking_status"]}
+  + node contract join_waitlist {"effect":["external","network"],"input":["availability","traveler_id"],"output":["booking_status"]}
 
 state schema
   + key seat_preference: str (optional=true)

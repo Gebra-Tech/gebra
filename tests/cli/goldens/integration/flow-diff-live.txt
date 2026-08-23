@@ -8,5 +8,4 @@ workflow diff
 contracts
   values shown            canonical JSON — what the digest saw, never the source
   ~ node contract replan:
-      - variant = {"key":"replan_budget","measure":"replan_budget strictly 
-decreases each lap (one replanning attempt consumed)"}
+      - variant = {"key":"replan_budget","measure":"replan_budget strictly decreases each lap (one replanning attempt consumed)"}

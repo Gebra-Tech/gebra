@@ -1,0 +1,12 @@
+workflow diff
+  before                  1.2.1.3  sha256:e01c03b8157eda8f...
+  after                   sha256:003959bfed0dfe7e...
+  bump class              F
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          the bump class names moved counters, never safety
+
+contracts
+  values shown            canonical JSON — what the digest saw, never the source
+  ~ node contract replan:
+      - variant = {"key":"replan_budget","measure":"replan_budget strictly 
+decreases each lap (one replanning attempt consumed)"}

@@ -1,0 +1,37 @@
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: tests.sample_workflows.travel_booking_evolution:build_travel_booking_v6 (snapshot)
+%% ir_version: 1.0
+flowchart TD
+
+  START(["START"])
+  n_availability_5fcheck["availability_check"]
+  n_book_5fflight["book_flight"]
+  n_book_5fhotel["book_hotel"]
+  n_check_5fbooking["check_booking"]
+  n_classify_5frequest["classify_request"]
+  n_compile_5fitinerary["compile_itinerary"]
+  n_join_5fwaitlist["join_waitlist"]
+  n_notify_5ftraveler["notify_traveler"]
+  n_release_5fhotel_5fhold["release_hotel_hold"]
+  n_replan["replan"]
+  END(["END"])
+
+  START --> n_classify_5frequest
+  n_join_5fwaitlist --> END
+  n_notify_5ftraveler --> END
+  n_release_5fhotel_5fhold --> END
+  n_book_5fflight --> n_book_5fhotel
+  n_book_5fhotel --> n_check_5fbooking
+  n_classify_5frequest --> n_availability_5fcheck
+  n_compile_5fitinerary --> n_notify_5ftraveler
+  n_replan --> n_availability_5fcheck
+  n_availability_5fcheck -->|"available"| n_book_5fflight
+  n_availability_5fcheck -->|"revise"| n_replan
+  n_availability_5fcheck -->|"waitlist"| n_join_5fwaitlist
+  n_check_5fbooking -->|"confirmed"| n_compile_5fitinerary
+  n_check_5fbooking -->|"revise"| n_replan
+  n_check_5fbooking -->|"abort"| n_release_5fhotel_5fhold
+  n_check_5fbooking -->|"waitlist"| n_join_5fwaitlist
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  class START,END gebra_sentinel

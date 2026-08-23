@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The CLI integration suite, and the render sign-off it records** (card CLI-07;
+  CLI-SPEC §7; brief D-12's "subprocess tests against the fixture corpus" row). The five
+  verbs are now exercised at the process boundary: `tests/cli/test_integration_flow.py`
+  drives the SD-08 travel-booking evolution through real child processes of the shipped
+  entry points — `verify` over the live definition and a stored version, the six clean
+  stages recording under SD-08's own labels, the witness-removal stage's §0.2 FATAL
+  refusal, stored-span and stored-versus-live diffs with their S/F/E classes, `history`
+  over the live store with `--format json` byte-equal to the engine's `dump_lineage`, and
+  `display` plain and overlaid with a report the flow's own `verify --output` wrote — with
+  nine byte-compared goldens (`tool.version` normalized and nothing else);
+  `tests/cli/test_integration_matrix.py` re-observes the §3.2 exit-code table per verb
+  (at least one exit-2 per reachable §2.6 stage, the registry-dependent `dispatch` row in
+  process by stated decision), the §3.3 strict forms, §3.5 format invariance, Appendix-A
+  blank-cell refusals, §5.1 styled/plain equality on a real pipe, and the console script
+  answering byte-identically to `python -m gebra.cli`;
+  `tests/cli/test_integration_corpus.py` holds CLI-SPEC §0.1's presentation-only boundary
+  as an equality over every corpus IR (exit code and JSON artifact equal to the library's
+  own run, a SARIF representative per corpus directory schema-validated), and every stream
+  the suite captures is swept against the TE-15 banned-phrase list. The "every
+  witness/failure variant renders cleanly" sign-off owed to the VAL track is recorded as
+  `docs/governance/RENDER-SIGNOFF.md` — the record VALIDATOR-API-FREEZE.md §3 defers to
+  CLI-07 by name — pinned to its cited evidence by `tests/docs/test_render_signoff.py`.
 - **The Phase-0 DoD scenario — five seeded defects, the end-to-end harness, and its
   dedicated CI job** (card SD-09; SOW §2 criterion 1; PD-006 R1/R2/R5; PD-047 mitigation).
   Five builder-level seeded-defect variants of the travel-booking agent

@@ -269,6 +269,29 @@ tripwire table therefore has no `display` row to land: the verb adds no extracti
 and a change that ever gave it one pulls the §0.5 item 3 obligation with it (§7's CLI-06
 entry states this in the contract itself).
 
+The **CLI integration suite** (card CLI-07) puts child processes in front of the same seam
+and adds **no extraction path and no live-target verb**, so CLI-SPEC §0.5's tripwire table
+gains no row here. What its children reach, they reach through the shipped boundary the
+rows above already cover: real `python -m gebra.cli` and console-script processes driving
+`--import` + `--call` over the sentinel-guarded travel-booking family (one shared `TRIPPED`
+ledger, `BaseException` sentinels) and `tests/cli/targets.py`'s body-less refusal targets.
+A parent-process ledger cannot speak for a child, so the child legs rest on output/exit
+disjointness instead, stated rather than hoped: a tripped body escapes `resolve.py`'s
+deliberate `(Exception, SystemExit)`-only catches and maps to §3.4's crash — exit 2 with a
+traceback banner — which is disjoint from every asserted live-path exit (0 or 1) and from
+the `(stage: …)` refusal diagnostics the suite's exit-2 assertions pin, with byte-strict
+goldens over stdout besides; the ledger-asserted guarded-child form for these boundaries
+remains `tests/cli/test_never_invokes.py` / `tests/cli/test_never_invokes_store.py`,
+untouched. The runner (`tests/cli/integration.py`) prepends the repository root to each
+child's `PYTHONPATH` (src layout, so the installed package cannot be shadowed; the only
+modules children import are the import-safe fixture modules), passes the environment
+through minus the terminal variables, reads the SARIF schema and the banned-phrase list
+from disk, and opens no network connection. The in-process legs execute nothing: the
+corpus module runs `verify()` over file-loaded fixture IRs, the matrix module's one
+registry monkeypatch constructs §2.6's `dispatch` tool error, and the flow module's
+fixture use is imports and EVOLUTION-table reads under its own entry-and-exit `TRIPPED`
+guard.
+
 The **pytest plugin** (`src/gebra/pytest_plugin.py`, card TE-06) is another seam between a live
 workflow object and the extractor — a marked function's return value goes straight to
 `gebra.extract()` — and it carries **two** tripwires, because the claim has two halves and one

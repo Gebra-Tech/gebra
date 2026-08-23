@@ -1,0 +1,7 @@
+recorded 1.1.1.1
+  file                    .gebra/snapshots/1.1.1.1.yaml
+  graph_version           sha256:e64137fc94d8dd15...
+  previous                1.0.0.1
+  moved                   S F
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          no safe/breaking classification exists in Phase 0

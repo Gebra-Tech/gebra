@@ -1003,16 +1003,25 @@ def _check_gwf_neg03_cascade(corpus: Sequence[PropertyFixture]) -> tuple[bool, s
 
 
 def _check_p04_diagnostics(corpus: Sequence[PropertyFixture]) -> tuple[bool, str]:
-    # Four carriers since DEC-24 (2026-08-08): the three DEC-11 negatives plus mixed/08,
-    # whose missing `writers_on_other_paths` was the FM-009 deviation until the M13 owner
-    # action added it (vault `Gebra-Tech/initial-documents@7be81a9`).
+    # Five carriers: the three DEC-11 negatives, mixed/08 (whose missing
+    # `writers_on_other_paths` was the FM-009 deviation until the M13 owner action added it,
+    # vault `Gebra-Tech/initial-documents@7be81a9`), and the DEC-16 entry-at-reader gap
+    # fixture (TE-14, vault `e6ea366`), whose in-cycle writer appears in BOTH optional
+    # fields. Asserted as the exact set so a carrier lost or gained is named, not counted.
+    expected = {
+        "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
+        "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
+        "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+        "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
+        "mixed/08-express-path-skips-gate-writer-and-witnessed-exit.yaml",
+    }
     present = [
         fixture.fixture_id
         for fixture in corpus
         if (fixture.expected_failure or {}).keys()
         & {"writers_on_other_paths", "downstream_writers"}
     ]
-    return len(present) == 4, f"P04Failure diagnostics kept on {present}"
+    return set(present) == expected, f"P04Failure diagnostics kept on {present}"
 
 
 def _p06_regions(fixture: PropertyFixture) -> Iterator[tuple[str, Any]]:
@@ -1089,8 +1098,17 @@ def _check_p08_divergence_echo(corpus: Sequence[PropertyFixture]) -> tuple[bool,
 
 
 def _check_no_dangling_hook(corpus: Sequence[PropertyFixture]) -> tuple[bool, str]:
-    """VAL-D2 / DEC-13's dangling-hook case is a *gap* fixture (TE-14), not a corpus drift."""
+    """DEC-13's dangling-hook case is a *gap* fixture, and since TE-14 it exists.
+
+    The DEC-16-authorized ``effect-safety/negative-05`` declares a hook that names no node
+    ON PURPOSE — its ``expected:`` block records exactly that danglingness as the
+    ``dangling_compensation_hook`` evidence field. So the invariant since the extension is
+    two-sided: every OTHER hook in the corpus resolves within its own IR, and the one
+    authorized fixture both dangles and says so in its expected failure.
+    """
+    authorized = "effect-safety/negative-05-dangling-compensation-hook.yaml"
     hooks: list[str] = []
+    dangling_recorded = False
     for fixture in corpus:
         for ir in fixture.irs:
             ids = {node.id for node in ir.nodes}
@@ -1099,9 +1117,21 @@ def _check_no_dangling_hook(corpus: Sequence[PropertyFixture]) -> tuple[bool, st
                 if compensation is None:
                     continue
                 hooks.append(compensation.hook)
-                if compensation.hook not in ids:
+                if compensation.hook in ids:
+                    continue
+                if fixture.fixture_id != authorized:
                     return False, f"{fixture.fixture_id}: hook {compensation.hook!r} names no node"
-    return bool(hooks), f"compensation hooks {hooks}, every one resolving to a node in its own IR"
+                location = (fixture.expected_failure or {}).get("location") or {}
+                if location.get("dangling_compensation_hook") != compensation.hook:
+                    return False, (
+                        f"{authorized}: the authorized dangling hook is not recorded as "
+                        "the dangling_compensation_hook evidence field"
+                    )
+                dangling_recorded = True
+    return bool(hooks) and dangling_recorded, (
+        f"compensation hooks {hooks}; every one resolves in its own IR except {authorized}'s "
+        "deliberate dangle, which its expected block records (DEC-16 item 11)"
+    )
 
 
 def _check_p02_rotation(corpus: Sequence[PropertyFixture]) -> tuple[bool, str]:
@@ -1175,8 +1205,10 @@ VERIFICATIONS: Final[tuple[Verification, ...]] = (
     ),
     Verification(
         "V-10",
-        "The DEC-11-kept P-04 diagnostics survive on their four carriers (DEC-24 added mixed/08).",
-        "DEC-11 pin 3; DEC-24; PROPERTY-CATALOG-SPEC §4.3 (Optional diagnostic fields)",
+        "The DEC-11-kept P-04 diagnostics survive on their five carriers "
+        "(DEC-24 added mixed/08; DEC-16/TE-14 added the entry-at-reader gap fixture).",
+        "DEC-11 pin 3; DEC-24; DEC-16 item 5; PROPERTY-CATALOG-SPEC §4.3 "
+        "(Optional diagnostic fields)",
         _check_p04_diagnostics,
     ),
     Verification(
@@ -1193,8 +1225,9 @@ VERIFICATIONS: Final[tuple[Verification, ...]] = (
     ),
     Verification(
         "V-13",
-        "Every compensation hook in the corpus names a node of its own IR (no dangling hook).",
-        "PD-009 / DEC-13 Q3; DEC-05 D7 side condition; PROPERTY-CATALOG-SPEC §6.3",
+        "Every compensation hook resolves in its own IR, except the DEC-16 dangling-hook "
+        "gap fixture's deliberate one, which its expected block records as evidence.",
+        "PD-009 / DEC-13 Q3; DEC-05 D7 side condition; DEC-16 item 11; PROPERTY-CATALOG-SPEC §6.3",
         _check_no_dangling_hook,
     ),
     Verification(
@@ -1487,7 +1520,7 @@ def _refuse_vendored(destination: Path, source: Path) -> None:
     ``samefile`` settles the rest, and is what makes the guard hold on a case-insensitive
     filesystem, where ``tests/fixtures/PROPERTIES`` resolves to a *different string* for the
     same directory. Ancestors are refused too: emitting into a parent of the corpus would copy
-    sixty fixtures alongside the vendored ones.
+    seventy-one fixtures alongside the vendored ones.
     """
     resolved = destination.resolve()
     guarded = {source.resolve(), VENDORED_CORPUS.resolve()}

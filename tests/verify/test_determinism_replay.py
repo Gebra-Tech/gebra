@@ -71,16 +71,18 @@ from gebra.verify.properties.determinism_replay import (
 )
 from tests.conftest import FIXTURES_DIR
 
-#: The four P-08 property fixtures (§8.6), by path.
+#: The six P-08 property fixtures (§8.6's four + the DEC-16 3+3 top-up, TE-14), by path.
 FIXTURES: tuple[str, ...] = (
     "determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
     "determinism-replay/positive-02-pure-fare-normalizer.yaml",
+    "determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation.yaml",
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
+    "determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",
 )
 
-POSITIVES: tuple[str, ...] = FIXTURES[:2]
-NEGATIVES: tuple[str, ...] = FIXTURES[2:]
+POSITIVES: tuple[str, ...] = FIXTURES[:3]
+NEGATIVES: tuple[str, ...] = FIXTURES[3:]
 
 
 # ── Fixture loading (§0.3's rule, spelled out — the second, independent path) ────────────
@@ -163,8 +165,12 @@ def test_the_reconciled_negatives_carry_the_shapes_dec17_landed(relative: str) -
     assert vendored["remediation"].startswith("The claim is recorded.")
 
 
-def test_the_corpus_holds_exactly_four_determinism_fixtures() -> None:
-    """§8.6: 2 positive + 2 negative. A top-up (tracked in PR-08) lands here as a diff."""
+def test_the_corpus_holds_exactly_six_determinism_fixtures() -> None:
+    """§8.6's 2+2 plus the DEC-16 top-up (TE-14, vault ``e6ea366``): 3 positive + 3 negative.
+
+    The top-up PR-08 tracked has landed — the ≥3+≥3 house minimum is met. A further change
+    lands here as a diff.
+    """
     found = sorted(
         path.relative_to(FIXTURES_DIR).as_posix()
         for path in (FIXTURES_DIR / "determinism-replay").glob("*.yaml")

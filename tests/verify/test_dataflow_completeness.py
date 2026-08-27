@@ -77,18 +77,20 @@ from gebra.verify.properties.dataflow_completeness import (
 )
 from tests.conftest import FIXTURES_DIR
 
-#: The six P-04 property fixtures (§4.6), by path.
+#: The eight P-04 property fixtures (§4.6's six + the DEC-16 cycle-entry pair, TE-14), by path.
 FIXTURES: tuple[str, ...] = (
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
+    "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
     "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
     "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+    "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
 )
 
-POSITIVES: tuple[str, ...] = FIXTURES[:3]
-NEGATIVES: tuple[str, ...] = FIXTURES[3:]
+POSITIVES: tuple[str, ...] = FIXTURES[:4]
+NEGATIVES: tuple[str, ...] = FIXTURES[4:]
 
 #: The four mixed-corpus members §4.6 names as exercising P-04.
 MIXED_02 = "mixed/02-unwitnessed-loop-reading-unwritten-key.yaml"
@@ -1258,7 +1260,7 @@ def _tripwire_script(probe: str = "") -> str:
         "        report = check_dataflow_completeness(ir)\n"
         "        failed += report.result == 'fail'\n"
         "        seen += 1\n"
-        "assert (seen, failed) == (67, 9), (seen, failed)\n"
+        "assert (seen, failed) == (78, 10), (seen, failed)\n"
         f"{probe}"
         f"print([m for m in sys.modules if m.split('.')[0] in {_FORBIDDEN}] + attempts)\n"
     )
@@ -1272,7 +1274,7 @@ def test_running_p04_over_the_corpus_creates_no_socket_and_resolves_no_name() ->
     the import closure; no socket is created and no name resolved, either while importing the
     module or while validating every IR snapshot in the vendored corpus; and a swallowed
     exception still fails the run, because every attempt is recorded before the raise and also
-    announced on stderr. The child asserts its own counts (67 snapshots, 9 failing) so a glob
+    announced on stderr. The child asserts its own counts (78 snapshots, 10 failing) so a glob
     that silently stopped matching would fail the tripwire rather than pass it vacuously.
 
     One residual, named rather than left implicit, the same one VAL-03/VAL-05/VAL-06 recorded:

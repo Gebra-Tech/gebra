@@ -1,0 +1,94 @@
+# Fixture: termination-witness / negative-05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 6, authored under TE-14): the §2.7 self-loop
+# edge case — a length-1 cycle whose singleton SCC is non-trivial, the
+# highest silent-false-negative risk in residual SCC detection.
+
+property: termination-witness
+polarity: negative
+description: >
+  A self-polishing reply drafter: compose_reply routes back to ITSELF on
+  'polish' until an LLM-influenced review judges the tone right — a
+  length-1 cycle carried by a single label-expanded self-loop edge, with
+  no termination witness of any kind: no bounded counter in the state
+  schema, no declared recursion_limit, no variant annotation. A self-loop
+  is a simple cycle (TERMINATION-WITNESS-SPEC §1: a singleton SCC with a
+  self-loop is non-trivial), and it is the shape a residual-SCC detector
+  silently under-reports if it tests only |K| >= 2 — this fixture
+  exercises the surviving-self-loop branch of that definition directly.
+  P-02 flags the unwitnessed cycle at design time.
+
+ir:
+  ir_version: "1.0"
+  entry: receive_ticket
+  finish: dispatch_reply
+  state:
+    ticket_summary:
+      type: str
+      optional: true
+    draft_reply: str
+    send_receipt: str
+  nodes:
+    - id: receive_ticket
+      annotations:
+        pure: true
+        input: [ticket_summary]
+        output: []
+    - id: compose_reply
+      annotations:
+        idempotent: { key: ticket_summary }
+        input: [ticket_summary]
+        output: [draft_reply]
+    - id: dispatch_reply
+      annotations:
+        effect: [network]
+        idempotent: { key: draft_reply }
+        input: [draft_reply]
+        output: [send_receipt]
+  edges:
+    - from: receive_ticket
+      to: compose_reply
+    - from: compose_reply
+      kind: conditional
+      condition: "'polish' if reviewer judges the tone off else 'send'"
+      path_map:
+        polish: compose_reply
+        send: dispatch_reply
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_conditional_edges(
+      "compose_reply", review_tone,
+      {"polish": "compose_reply", "send": "dispatch_reply"},
+      # ^ routes back to ITSELF — a length-1 cycle; nothing bounds it
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "cycle-without-termination-witness"
+    location:
+      kind: scc
+      nodes: [compose_reply]
+      representative_cycle: [compose_reply]
+      exhaustive: false
+    severity: fatal
+    claim_class: defensible
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14),
+  polarity confirmed NEGATIVE at ratification: an unwitnessed self-loop
+  exercises the surviving-self-loop half of the non-trivial-SCC
+  definition (TERMINATION-WITNESS-SPEC §1; §2.4 Step 4's
+  R.has_edge(only(K), only(K)) branch) at the highest
+  silent-false-negative risk, whereas a witnessed self-loop would repeat
+  positive-01's form-(a) discharge shape. The exit guard derives the §3
+  host shape but carries no bounded-comparison conjunct, so it is opaque
+  under R1/R5 — an exit edge is not a witness (negative-01's rule, on the
+  minimal topology). Corpus discipline: only P-02 fails — compose_reply
+  is keyed-idempotent on a declared read (P-07 holds; its own draft is
+  deliberately NOT a declared read, so P-04's first-arrival semantics
+  hold too), no effect tags sit in the cycle (P-06), all keys are Sigma
+  members (P-03), reads are written upstream or optional at START (P-04),
+  no fan-out (P-09). Counterparts: negative-01 (multi-node unwitnessed
+  loop), negative-02/negative-04 (multi-cycle SCC shapes).

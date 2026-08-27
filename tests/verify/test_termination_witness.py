@@ -97,20 +97,24 @@ from tests.conftest import FIXTURES_DIR
 from tools import honest_claims_lint
 from tools.honest_claims_lint import load_phrases
 
-#: The flagship 4+4 under ``termination-witness/`` (§2.6), by path.
+#: The flagship 7+5 under ``termination-witness/`` (§2.6's 4+4 + the DEC-16 quartet, TE-14), by path.
 FIXTURES: tuple[str, ...] = (
     "termination-witness/positive-01-counter-guarded-retry-loop.yaml",
     "termination-witness/positive-02-justified-recursion-limit-refinement-loop.yaml",
     "termination-witness/positive-03-shrinking-worklist-hotel-quotes.yaml",
     "termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
+    "termination-witness/positive-05-recursion-limit-only-scc-note.yaml",
+    "termination-witness/positive-06-cycle-census-capped-overflow.yaml",
+    "termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory.yaml",
     "termination-witness/negative-01-unwitnessed-reflection-loop.yaml",
     "termination-witness/negative-02-nested-scc-outer-only-witness.yaml",
     "termination-witness/negative-03-counter-guard-without-wired-exit.yaml",
     "termination-witness/negative-04-supervisor-delegation-scc-no-witness.yaml",
+    "termination-witness/negative-05-unwitnessed-self-loop.yaml",
 )
 
-POSITIVES: tuple[str, ...] = FIXTURES[:4]
-NEGATIVES: tuple[str, ...] = FIXTURES[4:]
+POSITIVES: tuple[str, ...] = FIXTURES[:7]
+NEGATIVES: tuple[str, ...] = FIXTURES[7:]
 
 #: The mixed-corpus members §2.6 names as exercising P-02 (plus ``mixed/10``'s PR-4 entry;
 #: ``mixed/05``'s share is the ruled FM-005 unmodelled record and is asserted as such below).
@@ -1365,15 +1369,28 @@ def test_the_certificate_is_a_re_checkable_topological_order(relative: str) -> N
         for entry in witness.inventory
         if entry.form == "a" and entry.element is not None
     }
+    blanket = any(entry.form == "b" for entry in witness.inventory)
     position = {
         from_display(reference): index for index, reference in enumerate(witness.certificate)
     }
 
     model = build_graph_model(ir, carry_unresolved_references=True)
+    # §6.2's certificate is over G \ S, so it names every S-surviving vertex exactly once —
+    # asserted for every polarity of S, including the blanket case below.
+    assert len(witness.certificate) == len(position)
+    assert sorted(position) == sorted(
+        vertex for vertex in model.vertices if vertex not in removed_nodes
+    )
     for edge in model.edges:
         if edge.source in removed_nodes or edge.target in removed_nodes:
             continue
         if (edge.source, edge.target, edge.label) in removed_edges:
+            continue
+        if blanket:
+            # §2.4: S_b = E is layered on top of the element witnesses, so on a
+            # blanket-carrying pass the default-profile S contains every edge, G \ S is
+            # edgeless, and no edge constrains the order — the recorded blanket-path
+            # certificate spelling (FIDELITY-MATRIX §5; `positive-05` pins the bytes).
             continue
         assert position[edge.source] < position[edge.target], (relative, edge)
 
@@ -1599,19 +1616,30 @@ def test_the_census_cap_is_the_pd_011_pin() -> None:
 
 
 def test_the_corpus_stays_inside_the_cap_with_room_to_spare() -> None:
-    """T-W-SPEC §6.3's stated constraint, re-derived here: B ≥ max c(G) over the corpus.
+    """T-W-SPEC §6.3's stated constraint, re-derived here: B ≥ max c(G), DEC-16-scoped.
 
     "$B \\ge$ the maximum simple-cycle count across the fixture corpus, so the existing
     fixtures' expected ``cycles:`` lists remain valid" — an obligation on the *cap*, not on
-    any one fixture, so it is checked the way it is stated: every IR snapshot in the vendored
-    corpus is censused and none aborts. The maximum is PD-011 Finding 2's ``mixed/08`` at 3,
-    reproduced independently of that record's own networkx computation.
+    any one fixture. DEC-16 scopes it in terms: the constraint covers fixtures carrying full
+    expected ``cycles:`` lists, and "corpus-conformance lints derived from PD-011 MUST
+    exclude capped-census fixtures" — the overflow fixture expects the
+    ``cycle-census-capped`` marker instead, and *aborting* is its authorized behaviour, so
+    the exclusion is asserted in both directions: every excluded snapshot aborts, every
+    other snapshot completes. The completing maximum is PD-011 Finding 2's ``mixed/08`` at
+    3, reproduced independently of that record's own networkx computation.
     """
+    capped = {
+        # DEC-16 item 8 (TE-14, vault e6ea366): 5 strategy × 4 issue-class labels = 20 > B.
+        "termination-witness/positive-06-cycle-census-capped-overflow:ir",
+    }
     counts = {}
     for identity, ir in CORPUS:
         census = termination_witness._capped_census(
             build_graph_model(ir, carry_unresolved_references=True), CENSUS_CAP
         )
+        if identity in capped:
+            assert census is None, f"{identity} no longer overflows the cap it exists to pin"
+            continue
         assert census is not None, f"{identity} aborted: B is no longer ≥ max c(G)"
         counts[identity] = len(census.cycles)
 
@@ -1929,23 +1957,38 @@ def test_the_fail_path_notes_are_promoted_too_and_change_no_exit_code() -> None:
     assert [note.kind for note in report.failure.notes] == ["scc-covered-only-by-recursion-limit"]
 
 
-def test_nothing_is_promoted_wherever_no_blanket_alone_covers_a_cycle() -> None:
+def test_exactly_the_blanket_only_fixture_is_promoted_across_the_corpus() -> None:
     """The other side of §6.1's row: excluding $S_b$ matters only where $S_b$ was the cover.
 
-    Over every IR snapshot in the vendored corpus — including ``positive-02``, which *has* a
-    justified ``recursion_limit`` but whose element witnesses already cover its loop — the
-    strict path selects nothing and the gate keeps the record's own verdict. No corpus
-    fixture states a blanket-only SCC (§2.7's recorded gap; DEC-16 item 7 authorizes the
-    fixture that will, at **positive** polarity, and TE-14 owns authoring it).
+    Over every IR snapshot in the vendored corpus, the strict path selects nothing and the
+    gate keeps the record's own verdict — including ``positive-02``, which *has* a justified
+    ``recursion_limit`` but whose element witnesses already cover its loop — with exactly
+    one exception, asserted rather than allowed: the DEC-16 item-7 fixture
+    (``positive-05``, TE-14, vault ``e6ea366``) is the corpus's first blanket-only SCC, so
+    it selects exactly one promotion (the §6.1 identity, the ``blanket_only`` location) and
+    its strict gate is ``1`` while its record stays a pass. That closes §2.7's recorded gap
+    and gives the strict witness-note reach its first corpus subject — the residue TE-06 and
+    TE-07 both recorded as having none.
     """
+    blanket_only = "termination-witness/positive-05-recursion-limit-only-scc-note:ir"
     swept = 0
     for identity, ir in CORPUS:
         report = check_termination_witness(ir)
-        assert strict_promotions(report) == (), identity
-        assert _strict_gate(report)[0] == (1 if report.result == "fail" else 0), identity
+        promotions = strict_promotions(report)
+        if identity == blanket_only:
+            assert report.result == "pass", identity
+            (promotion,) = promotions
+            assert promotion.note_kind == "scc-covered-only-by-recursion-limit"
+            assert promotion.property_condition == CYCLE_WITHOUT_TERMINATION_WITNESS
+            assert promotion.location.nodes == ("research_specialist", "supervise")
+            assert promotion.location.blanket_only is True
+            assert _strict_gate(report) == (1, "fail")
+        else:
+            assert promotions == (), identity
+            assert _strict_gate(report)[0] == (1 if report.result == "fail" else 0), identity
         swept += 1
 
-    assert swept == 67
+    assert swept == 78
 
 
 def test_no_condition_id_but_the_pinned_one_appears_on_the_strict_path() -> None:
@@ -2424,11 +2467,12 @@ def _tripwire_script(probe: str = "") -> str:
         "        promoted += len(strict_promotions(report))\n"
         "        failed += report.result == 'fail'\n"
         "        seen += 1\n"
-        "assert (seen, failed, promoted) == (67, 22, 0), (seen, failed, promoted)\n"
-        # No corpus snapshot carries a P-02 note, so the sweep above walks the strict path
-        # without ever reaching its body. One blanket-only IR is built inside the guard so
-        # the promotable branch — the severity filter, the identity lookup, the §0.4
-        # resolution and the promotion itself — runs under the raisers too.
+        "assert (seen, failed, promoted) == (78, 23, 1), (seen, failed, promoted)\n"
+        # Since DEC-16, one corpus snapshot (positive-05) carries the blanket note, so the
+        # sweep above reaches the promotable branch on vendored bytes. The hand-built
+        # blanket-only IR below keeps that branch — the severity filter, the identity
+        # lookup, the §0.4 resolution and the promotion itself — under the raisers even
+        # if a future corpus change moved the vendored subject.
         "blanket = WorkflowIR.model_validate_json(json.dumps({\n"
         "    'ir_version': '1.0', 'entry': 'work', 'finish': 'wrap', 'state': {},\n"
         "    'runtime': {'recursion_limit': {'value': 25,\n"
@@ -2463,13 +2507,12 @@ def test_running_p02_over_the_corpus_creates_no_socket_and_resolves_no_name() ->
     silently stopped matching would fail the tripwire rather than pass it vacuously, and the
     sweep demonstrably exercises both result paths.
     The strict path runs inside the same guarded sweep, so §6.1's promotion lookup carries
-    its own tripwire rather than inheriting one — and it is exercised on a **live** promotion,
-    not only on the sweep. The corpus-wide count is zero (no fixture states a blanket note),
-    which is the fact
-    :func:`test_nothing_is_promoted_wherever_no_blanket_alone_covers_a_cycle` states but which
-    on its own would leave the lookup's body unreached and a stub returning ``()``
-    indistinguishable from the real thing; so the child also builds one blanket-only IR and
-    asserts the promotion it produces, condition ID and ``blanket_only`` included.
+    its own tripwire rather than inheriting one — and it is exercised on a **live** promotion
+    twice over. Since the DEC-16 extension the corpus-wide count is one (``positive-05``, the
+    fact :func:`test_exactly_the_blanket_only_fixture_is_promoted_across_the_corpus`
+    states), so the sweep itself reaches the lookup's body; the child still also builds one
+    blanket-only IR and asserts the promotion it produces, condition ID and ``blanket_only``
+    included, so the branch stays covered even against a corpus edit.
 
     One residual, named rather than left implicit, the same one VAL-03/VAL-05/VAL-06/VAL-09
     recorded: the package leg is a post-hoc ``sys.modules`` scan, not an import blocker.

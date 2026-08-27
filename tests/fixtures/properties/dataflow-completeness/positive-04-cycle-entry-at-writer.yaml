@@ -1,0 +1,108 @@
+# Fixture: dataflow-completeness / positive-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 4, authored under TE-14): the entry-at-writer
+# half of the §4.6 cycle-entry pair — pins the A8 T3 collapse boundary
+# together with negative-04-cycle-entry-at-reader.
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: positive
+description: >
+  A fare-refresh loop entered at the WRITER: every START-to-review_quote
+  path passes through fetch_fare_quote first, so the first arrival at the
+  reading node already carries the quote it reads. The cycle
+  fetch_fare_quote -> review_quote -> (refresh) -> fetch_fare_quote is the
+  entry-at-writer half of the §4.6 cycle-entry pair: first-arrival
+  semantics (IN[v] is the state BEFORE v runs) hold because the in-cycle
+  writer dominates the in-cycle reader from START. Its negative twin,
+  negative-04, is the SAME loop with the entry moved to the reader — the
+  pair pins the boundary at which SCC-collapsing analyses go wrong (A8
+  T3): a collapsed SCC with unioned writes cannot tell the two apart.
+
+ir:
+  ir_version: "1.0"
+  entry: prepare_search
+  finish: book_trip
+  state:
+    fare_query:
+      type: str
+      optional: true
+    search_plan: str
+    quote: str
+    quote_assessment: str
+    booking_ref: str
+    refresh_round:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: prepare_search
+      annotations:
+        pure: true
+        input: [fare_query]
+        output: [search_plan]
+    - id: fetch_fare_quote
+      annotations:
+        effect: [network]
+        idempotent: { key: search_plan }
+        input: [search_plan]
+        output: [quote, refresh_round]
+    - id: review_quote
+      annotations:
+        pure: true
+        input: [quote, refresh_round]
+        output: [quote_assessment]
+    - id: book_trip
+      annotations:
+        effect: [network]
+        idempotent: { key: quote }
+        input: [quote]
+        output: [booking_ref]
+  edges:
+    - from: prepare_search
+      to: fetch_fare_quote
+    - from: fetch_fare_quote
+      to: review_quote
+    - from: review_quote
+      kind: conditional
+      condition: "'refresh' if quote_assessment says wait and refresh_round < 3 else 'book'"
+      path_map:
+        refresh: fetch_fare_quote
+        book: book_trip
+
+expected:
+  result: pass
+  witness:
+    kind: dataflow
+    coverage:
+      - node: book_trip
+        key: quote
+        satisfied_by: [fetch_fare_quote]
+      - node: fetch_fare_quote
+        key: search_plan
+        satisfied_by: [prepare_search]
+      - node: prepare_search
+        key: fare_query
+        satisfied_by: [START]
+      - node: review_quote
+        key: quote
+        satisfied_by: [fetch_fare_quote]
+      - node: review_quote
+        key: refresh_round
+        satisfied_by: [fetch_fare_quote]
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the entry-at-writer half of the §4.6 corpus gap ("no cycle-entry pair
+  ... pinning the T3 collapse boundary"), with the polarity split
+  spec-determined (§4.6: entry-at-writer = positive). Witness shape
+  follows the ratified P-04 I/O contract (PROPERTY-CATALOG-SPEC §4.3;
+  walkthrough #2, 2026-07-18). The load-bearing rows are review_quote's:
+  quote and refresh_round are satisfied by the in-cycle writer that every
+  START-path visits first. Corpus discipline: only P-04 is exercised — the
+  refresh cycle carries a bounded-counter witness (refresh_round < 3, form
+  (a); P-02 holds), loop nodes are keyed-idempotent on declared reads or
+  pure (P-07), effects are [network] only, never irreversible/billable
+  (P-06), the path_map covers both declared labels (P-05), all keys are
+  Sigma members (P-03), and the branches are alternatives, not concurrent
+  (P-09). Counterpart negative: negative-04-cycle-entry-at-reader.yaml —
+  the same loop, entry moved one node later.

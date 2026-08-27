@@ -20,7 +20,7 @@ import yaml
 from tests.conftest import FIXTURES_DIR
 
 IR_BLOCK_KEYS = ("ir", "ir_before", "ir_after")
-MIN_FIXTURES = 60
+MIN_FIXTURES = 71
 
 
 def _fixture_files() -> list[Path]:

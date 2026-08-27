@@ -71,7 +71,13 @@ _NEGATIVE_01 = f"{_TW}negative-01-unwitnessed-reflection-loop.yaml"
 _NEGATIVE_02 = f"{_TW}negative-02-nested-scc-outer-only-witness.yaml"
 _NEGATIVE_03 = f"{_TW}negative-03-counter-guard-without-wired-exit.yaml"
 _NEGATIVE_04 = f"{_TW}negative-04-supervisor-delegation-scc-no-witness.yaml"
+_NEGATIVE_05 = f"{_TW}negative-05-unwitnessed-self-loop.yaml"
+_POSITIVE_05 = f"{_TW}positive-05-recursion-limit-only-scc-note.yaml"
+_POSITIVE_06 = f"{_TW}positive-06-cycle-census-capped-overflow.yaml"
 _MIXED_10 = "mixed/10-all-properties-pass-healthy-research-pipeline.yaml"
+_DC_POSITIVE_04 = "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml"
+_DC_NEGATIVE_04 = "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml"
+_ES_NEGATIVE_05 = "effect-safety/negative-05-dangling-compensation-hook.yaml"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────────────
@@ -157,33 +163,52 @@ _RECOGNIZED = [
 _CONJUNCT_COUNTS = {(_NEGATIVE_03, "throttle_check"): 1}
 
 #: The table's opaque half, with the L0 clause §3 lists *first* among those each violates.
+#: The last two rows are DEC-16 gap fixtures (TE-14, vault ``e6ea366``): both of
+#: ``positive-06``'s routers are plain prose with no ternary at all (the second also
+#: carries an ``or`` token, but the ``if``-count clause runs first).
 _OPAQUE = [
     (_POSITIVE_03, "check_worklist", "parenthesis and bracket"),
     (_NEGATIVE_01, "reflect", "exactly one `if` token"),
     (_NEGATIVE_02, "judge_fare", "exactly one `if` token"),
     (_NEGATIVE_03, "evaluate_rates", "only inside the two label-literal tokens"),
     (_NEGATIVE_04, "supervisor", "exactly one `if` token"),
+    (_POSITIVE_06, "revise_itinerary", "exactly one `if` token"),
+    (_POSITIVE_06, "audit_itinerary", "exactly one `if` token"),
+]
+
+#: The R1-opaque rows — DEC-16 gap fixtures whose guards DERIVE the §3 host ternary but
+#: carry no ``bounded-comparison`` conjunct, so they are opaque under R1/R5 rather than L0:
+#: the exit-edge-is-not-a-witness shape (``negative-01``'s rule) on the minimal grammar
+#: surface. Kept apart from :data:`_OPAQUE` because the classifier names a different gate.
+_OPAQUE_R1 = [
+    (_NEGATIVE_05, "compose_reply"),
+    (_POSITIVE_05, "research_specialist"),
 ]
 
 _RECOGNIZED_IDS = [f"{fixture.split('/')[1][:12]}:{source}" for fixture, source, *_ in _RECOGNIZED]
 _OPAQUE_IDS = [f"{fixture.split('/')[1][:12]}:{source}" for fixture, source, _ in _OPAQUE]
+_OPAQUE_R1_IDS = [f"{fixture.split('/')[1][:12]}:{source}" for fixture, source in _OPAQUE_R1]
 
 
 # ── The §3 fixture-validation table (acceptance box 1) ───────────────────────────────────
 
 
-def test_the_termination_witness_corpus_carries_exactly_the_eleven_guard_strings() -> None:
-    """§3 validates the grammar against "the full ``termination-witness/`` corpus" — 6 + 5.
+def test_the_termination_witness_corpus_carries_exactly_the_fifteen_guard_strings() -> None:
+    """§3's "full ``termination-witness/`` corpus" — its 6 + 5 — plus the DEC-16 four.
 
-    Pinned so the table below cannot quietly stop covering the corpus: a re-vendor that added
-    a twelfth router, or moved one, fails here rather than passing eleven stale rows.
+    §3's fixture-validation paragraph names eleven strings; the DEC-16 gap-fixture extension
+    (TE-14, vault ``e6ea366``) added four more routers to the directory, all deliberately
+    opaque (two L0-rejected, two R1-rejected — a class §3's own corpus never exercised).
+    Pinned so the tables below cannot quietly stop covering the corpus: a re-vendor that
+    added a sixteenth router, or moved one, fails here rather than passing stale rows.
     """
     declared = {(fixture, source) for fixture, source, *_ in _RECOGNIZED}
     declared |= {(fixture, source) for fixture, source, _ in _OPAQUE}
+    declared |= set(_OPAQUE_R1)
     found = {(row.fixture, row.source) for row in _corpus_guards() if row.fixture.startswith(_TW)}
 
     assert found == declared
-    assert len(found) == 11
+    assert len(found) == 15
 
 
 @pytest.mark.parametrize(
@@ -228,13 +253,14 @@ def test_the_six_recognized_guards_derive_guard_with_a_bounded_comparison(
 
 
 @pytest.mark.parametrize(("fixture", "source", "clause"), _OPAQUE, ids=_OPAQUE_IDS)
-def test_the_five_opaque_guards_fail_l0_or_r0(fixture: str, source: str, clause: str) -> None:
-    """The other half of box 1: "all fail L0 or R0".
+def test_the_seven_l0_opaque_guards_fail_l0(fixture: str, source: str, clause: str) -> None:
+    """Half of box 1's "all fail L0 or R0": §3's original five plus ``positive-06``'s two.
 
-    All five in fact fail **L0**, which is a stronger and more useful fact than the
-    disjunction §3 states, so the gate is asserted rather than left open — and the clause
-    each one trips is asserted with it, since "opaque" alone would pass for the wrong reason
-    (an implementation that rejected every string would satisfy the weaker claim).
+    All seven fail **L0**, which is a stronger and more useful fact than the disjunction §3
+    states, so the gate is asserted rather than left open — and the clause each one trips is
+    asserted with it, since "opaque" alone would pass for the wrong reason (an
+    implementation that rejected every string would satisfy the weaker claim). The two
+    R1-rejected DEC-16 guards are the test below.
     """
     found = classify_guard(_guard_string(fixture, source))
 
@@ -242,6 +268,27 @@ def test_the_five_opaque_guards_fail_l0_or_r0(fixture: str, source: str, clause:
     assert found.guard is None
     assert found.rejected_by == "L0"
     assert clause in found.reason
+
+
+@pytest.mark.parametrize(("fixture", "source"), _OPAQUE_R1, ids=_OPAQUE_R1_IDS)
+def test_the_two_r1_opaque_guards_derive_the_ternary_but_carry_no_comparison(
+    fixture: str, source: str
+) -> None:
+    """The DEC-16 additions exercise the gate §3's own eleven never reached: R1.
+
+    Both guards derive the host ternary under L0/R0 — one ``if``, one ``else``, quotes only
+    in the two label literals — but their ``test`` decomposes into opaque conjuncts alone,
+    so R1 finds no ``bounded-comparison`` and R5 makes the whole string opaque with no
+    partial credit and no diagnostic: an exit edge is not a witness (``negative-01``'s
+    rule), here on the minimal grammar surface. Pinned by gate so an implementation that
+    started granting partial credit for the derived ternary fails loudly.
+    """
+    found = classify_guard(_guard_string(fixture, source))
+
+    assert not found.recognized
+    assert found.guard is None
+    assert found.rejected_by == "R1"
+    assert "`bounded-comparison`" in found.reason
 
 
 @pytest.mark.parametrize(
@@ -873,17 +920,20 @@ def test_no_qualification_outcome_is_a_condition_id_or_a_note_kind() -> None:
 # ── The corpus, swept ────────────────────────────────────────────────────────────────────
 
 
-def test_the_recognizer_accepts_exactly_nine_of_the_forty_eight_corpus_guards() -> None:
+def test_the_recognizer_accepts_exactly_twelve_of_the_fifty_five_corpus_guards() -> None:
     """Over-recognition is the failure mode the §3 table cannot catch on its own.
 
-    The table fixes eleven strings in one directory; this sweeps every conditional edge in
-    all sixty fixtures, both snapshots of each evolution pair included, and pins the accepted
-    set exactly. Three guards outside ``termination-witness/`` are recognized, and all three
-    are right to be: ``mixed/08`` is the A7 E1 bypass fixture whose name ends "and-witnessed-
-    exit", ``mixed/09``'s retry router carries a declared counter its Σ types ``int``, and
-    ``mixed/10``'s publish-retry router joined the set when DEC-23 (PD-037 Q3) reworded its
-    guard to the prose-conjunct style — its declared ``attempts < 3`` bound is now inside
-    the grammar, which is exactly what that fixture's expected form-(a) witness needs.
+    The table fixes fifteen strings in one directory; this sweeps every conditional edge in
+    all seventy-one fixtures, both snapshots of each evolution pair included, and pins the
+    accepted set exactly. Six guards outside ``termination-witness/`` are recognized, and
+    all six are right to be: ``mixed/08`` is the A7 E1 bypass fixture whose name ends
+    "and-witnessed-exit", ``mixed/09``'s retry router carries a declared counter its Σ
+    types ``int``, ``mixed/10``'s publish-retry router joined the set when DEC-23 (PD-037
+    Q3) reworded its guard to the prose-conjunct style — its declared ``attempts < 3``
+    bound is now inside the grammar, which is exactly what that fixture's expected
+    form-(a) witness needs — and the three DEC-16 gap fixtures (TE-14, vault ``e6ea366``)
+    each carry the counter guard their own P-02 witness needs: the cycle-entry pair's
+    ``refresh_round < 3`` and the dangling-hook fixture's ``adjust_round < 2``.
     """
     accepted = {
         (row.fixture, row.source)
@@ -901,8 +951,11 @@ def test_the_recognizer_accepts_exactly_nine_of_the_forty_eight_corpus_guards() 
         ("mixed/08-express-path-skips-gate-writer-and-witnessed-exit.yaml", "quality_gate"),
         ("mixed/09-send-fanout-billable-no-idempotency-in-retry.yaml", "check_bookings"),
         (_MIXED_10, "verify_publish"),
+        (_DC_POSITIVE_04, "review_quote"),
+        (_DC_NEGATIVE_04, "fetch_fare_quote"),
+        (_ES_NEGATIVE_05, "review_hold"),
     }
-    assert len(_corpus_guards()) == 48
+    assert len(_corpus_guards()) == 55
 
 
 def test_every_corpus_guard_the_recognizer_accepts_also_qualifies_against_its_own_sigma() -> None:
@@ -911,7 +964,7 @@ def test_every_corpus_guard_the_recognizer_accepts_also_qualifies_against_its_ow
     corpus defect worth routing (WA-04), not a recognizer bug."""
     recognized = [row for row in _corpus_guards() if classify_guard(row.condition).recognized]
 
-    assert len(recognized) == 9  # not vacuous: the sweep really did find guards to qualify
+    assert len(recognized) == 12  # not vacuous: the sweep really did find guards to qualify
     for row in recognized:
         outcome = qualify_counter_guard(row.condition, row.state).outcome
         assert outcome == "qualified", (row.fixture, row.source, outcome)
@@ -1094,7 +1147,7 @@ def _tripwire_script(probe: str = "") -> str:
         "            found = qualify_counter_guard(edge.condition, ir.state)\n"
         "            qualified += found.outcome == 'qualified'\n"
         "            seen += 1\n"
-        "assert (seen, qualified) == (48, 9), (seen, qualified)\n"
+        "assert (seen, qualified) == (55, 12), (seen, qualified)\n"
         f"{probe}"
         f"print([m for m in sys.modules if m.split('.')[0] in {_FORBIDDEN}] + attempts)\n"
     )
@@ -1110,7 +1163,7 @@ def test_recognizing_every_corpus_guard_creates_no_socket_and_resolves_no_name()
     vendored corpus — every edge kind, not only the routers, since ``normal`` and ``send``
     edges admit an inert ``condition`` too; and a swallowed exception still fails the run,
     because every attempt is recorded before the raise and also announced on stderr. The
-    child asserts its own counts (48 conditions, 8 qualifying) so that a glob that silently
+    child asserts its own counts (55 conditions, 12 qualifying) so that a glob that silently
     stopped matching would fail the tripwire rather than pass it vacuously.
 
     One residual, named rather than left implicit, the same one VAL-03 and VAL-05 recorded:

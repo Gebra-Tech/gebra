@@ -1,0 +1,87 @@
+# Fixture: determinism-replay / positive-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): coherence of the determinism claim,
+# never a proof that the provider is deterministic.
+# Gap fixture (DEC-16 item 1, authored under TE-14): §8.7 case 1 — the
+# vacuous pass. No node claims determinism, so P-08 has nothing to check.
+
+property: determinism-replay
+polarity: positive
+description: >
+  A visa-requirements briefing pipeline in which NO node declares
+  @gebra.deterministic — including summarize_visa_rules, an LLM-backed node
+  (effects [network, external]) that simply makes no determinism claim.
+  P-08's obligation attaches to declared claims, not to LLM presence: with
+  no deterministic annotation anywhere the checker has nothing to test, and
+  the result is the vacuous pass of §8.7 case 1 — an EMPTY claims list and
+  NO caveat, because the mandatory provider caveat rides only on LLM-backed
+  claims and here there are none.
+
+ir:
+  ir_version: "1.0"
+  entry: collect_itinerary
+  finish: assemble_checklist
+  state:
+    trip_plan:
+      type: str
+      optional: true
+    itinerary_brief: str
+    rule_summary: str
+    visa_checklist: str
+  nodes:
+    - id: collect_itinerary
+      annotations:
+        pure: true
+        input: [trip_plan]
+        output: [itinerary_brief]
+    - id: summarize_visa_rules
+      annotations:
+        effect: [network, external]
+        idempotent: { key: itinerary_brief }
+        input: [itinerary_brief]
+        output: [rule_summary]
+    - id: assemble_checklist
+      annotations:
+        pure: true
+        input: [itinerary_brief, rule_summary]
+        output: [visa_checklist]
+  edges:
+    - from: collect_itinerary
+      to: summarize_visa_rules
+    - from: summarize_visa_rules
+      to: assemble_checklist
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  llm = init_chat_model("openai:gpt-4.1-mini")  # no determinism claim made
+
+  @gebra.contract(reads={"itinerary_brief"}, writes={"rule_summary"},
+                  effects={"network", "external"})
+  def summarize_visa_rules(state: TravelState) -> dict:
+      # No @gebra.deterministic anywhere in this workflow.
+      return {"rule_summary": llm.invoke(RULES_PROMPT.format(
+          brief=state["itinerary_brief"])).content}
+
+expected:
+  result: pass
+  witness:
+    kind: determinism
+    claims: []
+    claim_class: heuristic
+
+notes: >
+  Witness shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + §8.7 edge case 1; walkthrough #2,
+  2026-07-18). Authored under the DEC-16/PD-013 gap-fixture authorization
+  (TE-14): the vacuous pass had no fixture — claims is the EMPTY tuple and
+  the caveat is ABSENT, since §8.4 attaches the mandatory
+  provider-seed-reproducibility caveat only when some claim is llm_backed.
+  The deliberate pedagogical point is the LLM-backed node that makes no
+  claim: P-08 checks claim coherence, never LLM presence, so an unclaimed
+  LLM node creates no obligation and no caveat. Corpus isolation: acyclic
+  (P-02 vacuous), all reads written upstream or optional at START (P-04),
+  all keys declared (P-03), the network/external effect sits outside any
+  cycle or retry region and is keyed-idempotent on a declared read
+  (P-06/P-07), no fan-out (P-09). Counterparts: positive-01 (pinned LLM
+  claim), positive-02 (trivial non-LLM claim), negative-01/negative-02/
+  negative-03 (the three incoherent-claim shapes).

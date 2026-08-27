@@ -8,14 +8,16 @@ hook-level test and fail every user.
 
 **The targets, and why they are these.** The severity matrix needs one target per rung of
 PROPERTY-CATALOG-SPEC §0.2's ladder, isolated — a graph that is FATAL *and* WARNING says
-nothing about which rung moved the item. The vendored corpus has fixtures for three of them
-(``tests/plugin/test_plugin.py`` uses those), but not for the fourth: **no fixture in the
-corpus reaches a WARNING-grade witness note**, which is the record ``--gebra-strict``'s
-witness-note reach exists for. That was checked over all sixty rather than assumed, and it is
-the same shape of residue TE-06 recorded for advisories. So the matrix is built on the five
-minimal IR shapes ``tests/verify/test_run.py`` already established for the run-level gate —
-each the smallest graph that reaches exactly one rung — restated here as literal IR documents
-so an inner session can load one without importing another test module.
+nothing about which rung moved the item. When this module was built the vendored corpus had
+fixtures for three of the rungs but not the fourth — no fixture reached a WARNING-grade
+witness note (checked over all sixty rather than assumed, the same shape of residue TE-06
+recorded for advisories). The DEC-16 extension closed that residue:
+``termination-witness/positive-05`` (TE-14, vault ``e6ea366``) is now the corpus subject
+for ``--gebra-strict``'s witness-note reach. The matrix keeps the five minimal IR shapes
+``tests/verify/test_run.py`` established for the run-level gate — each the smallest graph
+that reaches exactly one rung, restated as literal IR documents so an inner session can
+load one without importing another test module — because self-containment, not corpus
+poverty, is what those targets are for.
 
 Using authored IR rather than seeded travel-booking variants is also what keeps this card
 inside its own boundary: what a seeded agent should emit is SD-09's acceptance box. The live
@@ -1073,16 +1075,18 @@ def test_the_note_walk_agrees_with_the_promotions_verify_derives() -> None:
     The two are derived independently: this module walks the reports, ``verify()`` walks its
     own records and applies each property's identity rule. A note carrier added to the
     envelope that this walk missed would move them apart, and a WARNING-grade note this walk
-    invented would too. Sixty-odd subjects, so the arithmetic is asserted as well as the
+    invented would too. Seventy-odd subjects, so the arithmetic is asserted as well as the
     agreement — a tripwire that silently compared two empty sets would be no tripwire.
 
     Compared as an ordered list of ``(kind, location)`` rather than as a set of kinds, so that
     multiplicity and anchor are in scope: two notes of one kind on different SCCs are two
     promotions, and a set of kinds would call that one. The equality also carries the other
     direction — a note carrying **no** severity must promote nothing, which is what keeps
-    ``cycle-census-capped`` from ever flipping a gate. That arm is asserted by construction
-    rather than observed: nothing in this corpus or in the five rungs reaches an ungraded note,
-    which is stated here rather than left as an unnoticed hole in the walk.
+    ``cycle-census-capped`` from ever flipping a gate. Since the DEC-16 extension both arms
+    run on vendored bytes: ``positive-05`` carries the corpus's first promotable
+    WARNING-grade note and ``positive-06`` its first ungraded note (the capped census), so
+    the walk observes a live instance of each rather than asserting the second by
+    construction alone.
     """
     subjects = _every_ir()
     assert len(subjects) > 30, "the corpus walk found almost nothing — check the loader"

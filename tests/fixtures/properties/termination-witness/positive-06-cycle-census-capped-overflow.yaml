@@ -1,0 +1,155 @@
+# Fixture: termination-witness / positive-06
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 8, authored under TE-14): the §6.3 census cap
+# overflow — more than B = 16 simple cycles, all witnessed, so the pass
+# omits the cycles list and carries the cycle-census-capped note instead.
+# Corpus-conformance lints derived from PD-011 MUST exclude capped-census
+# fixtures from the "B >= max corpus cycle count" constraint (DEC-16).
+
+property: termination-witness
+polarity: positive
+description: >
+  An itinerary-revision hub whose strategy fan-out and issue-class
+  fan-back multiply into TWENTY simple cycles — five revision strategies
+  out of revise_itinerary, each returning through audit_itinerary, whose
+  router re-enters the hub under four distinct issue-class labels (each
+  label is its own expanded edge, and cycles are edge sequences, so every
+  strategy x issue pair is a distinct simple cycle). Every cycle passes
+  through the hub, whose variant annotation (form (c): open_issues under a
+  declared strictly-decreasing measure) discharges them all at once — one
+  witness element, twenty cycles covered, residual acyclic, PASS. The
+  census (B = 16, DEC-11) aborts at circuit 17: the witness omits the
+  cycles list and carries the structured cycle-census-capped note instead.
+
+ir:
+  ir_version: "1.0"
+  entry: revise_itinerary
+  finish: publish_itinerary
+  state:
+    draft_itinerary:
+      type: str
+      optional: true
+    open_issues:
+      type: list
+      optional: true
+    revised_itinerary: str
+    strategy_notes: str
+    published_ref: str
+  nodes:
+    - id: revise_itinerary
+      annotations:
+        variant:
+          key: open_issues
+          measure: "len(open_issues) strictly decreases each revision lap"
+        idempotent: { key: draft_itinerary }
+        input: [draft_itinerary, open_issues]
+        output: [revised_itinerary]
+    - id: adjust_pricing
+      annotations:
+        pure: true
+        input: [revised_itinerary]
+        output: [strategy_notes]
+    - id: adjust_routing
+      annotations:
+        pure: true
+        input: [revised_itinerary]
+        output: [strategy_notes]
+    - id: adjust_hotels
+      annotations:
+        pure: true
+        input: [revised_itinerary]
+        output: [strategy_notes]
+    - id: adjust_carriers
+      annotations:
+        pure: true
+        input: [revised_itinerary]
+        output: [strategy_notes]
+    - id: adjust_stops
+      annotations:
+        pure: true
+        input: [revised_itinerary]
+        output: [strategy_notes]
+    - id: audit_itinerary
+      annotations:
+        pure: true
+        input: [revised_itinerary, strategy_notes]
+        output: [open_issues]
+    - id: publish_itinerary
+      annotations:
+        effect: [network]
+        idempotent: { key: revised_itinerary }
+        input: [revised_itinerary]
+        output: [published_ref]
+  edges:
+    - from: revise_itinerary
+      kind: conditional
+      condition: "router picks the revision strategy for the worst open issue"
+      path_map:
+        reprice: adjust_pricing
+        reroute: adjust_routing
+        rebook: adjust_hotels
+        recarrier: adjust_carriers
+        retrim: adjust_stops
+    - from: adjust_pricing
+      to: audit_itinerary
+    - from: adjust_routing
+      to: audit_itinerary
+    - from: adjust_hotels
+      to: audit_itinerary
+    - from: adjust_carriers
+      to: audit_itinerary
+    - from: adjust_stops
+      to: audit_itinerary
+    - from: audit_itinerary
+      kind: conditional
+      condition: "audit names the worst remaining issue class or approves"
+      path_map:
+        pricing_gap: revise_itinerary
+        routing_gap: revise_itinerary
+        availability_gap: revise_itinerary
+        preference_gap: revise_itinerary
+        approve: publish_itinerary
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: c
+        element: { kind: node, node: revise_itinerary }
+        source:
+          variant:
+            key: open_issues
+            measure: "len(open_issues) strictly decreases each revision lap"
+        discharges: all-simple-cycles-through-element
+    certificate: [START, adjust_carriers, adjust_hotels, adjust_pricing, adjust_routing, adjust_stops, audit_itinerary, publish_itinerary, END]
+    notes:
+      - kind: cycle-census-capped
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the census-cap overflow of §6.3, necessarily POSITIVE (the census is
+  computed on the pass path only; a fail returns before Step 6). The
+  arithmetic: 5 strategy labels x 4 re-entry labels = 20 distinct simple
+  cycles (each vertex-simple lap counts once per choice of parallel
+  expanded edge — cycles are edge sequences, TERMINATION-WITNESS-SPEC §1),
+  which exceeds B = 16, so enumeration aborts at circuit 17 and the
+  witness reports the census as capped: no cycles list, the structured
+  cycle-census-capped note in its place. DEC-16's scoping instruction is
+  recorded here on purpose: TWS §6.3's "B >= max corpus cycle count"
+  constraint scopes to fixtures carrying full expected cycles: lists —
+  this fixture expects the marker instead, and PD-011-derived corpus
+  lints MUST exclude capped-census fixtures from that constraint. The
+  witness is deliberately form (c) — the one witness form whose carrier
+  is a node, so a single variant annotation on the hub discharges all
+  twenty cycles (TE-11's hand-off also noted a variant-carried fixture is
+  the shape a live-graph author can actually declare). The certificate is
+  the topological order of the residual with the hub deleted (§6.2: node
+  deletion removes incident edges). Corpus discipline: only P-02 is
+  exercised — every cycle node is pure or keyed-idempotent on a declared
+  read (P-07), open_issues and draft_itinerary are optional graph inputs
+  written at START and every strategy path writes strategy_notes before
+  audit_itinerary reads it (P-04), no trigger effect tags (P-06), all
+  keys in Sigma (P-03), branches are alternatives, not concurrent
+  (P-09). Counterparts: positive-03 (form (c) on a worklist loop, census
+  retained), positive-04 (multi-witness SCC, census retained).

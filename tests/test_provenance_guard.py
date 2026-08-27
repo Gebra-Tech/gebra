@@ -100,7 +100,7 @@ def test_the_manifest_covers_the_whole_guarded_tree(manifest: Manifest) -> None:
     """No corner of a guarded tree is unlisted — coverage is what makes the guard total."""
     assert set(files_in_guarded_trees(REPO_ROOT, manifest)) <= manifest.paths
     assert manifest.guarded_trees == ("tests/fixtures/properties",)
-    assert len(manifest.entries) == 63
+    assert len(manifest.entries) == 74
 
 
 # ── What the guard rejects ──

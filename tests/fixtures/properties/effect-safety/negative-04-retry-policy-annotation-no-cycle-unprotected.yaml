@@ -1,0 +1,108 @@
+# Fixture: effect-safety / negative-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 10, authored under TE-14): the §6.7/DEC-13
+# retry_policy-only retry region — an unprotected trigger-tagged node
+# whose retry region exists with NO cycle anywhere, so the finding
+# carries no cycle anchor.
+
+property: effect-safety
+polarity: negative
+description: >
+  A payment-capture step hardened the quick way: capture_payment is
+  @gebra.effect("irreversible", "billable") and was given a node-local
+  LangGraph retry policy (retry_policy: max_attempts 3 on transient
+  gateway errors) — but no idempotency key and no compensation hook. The
+  graph is deliberately ACYCLIC: the retry region here is created by the
+  retry_policy annotation alone (§6.4 Phase 3, DEC-13: node-local retry is
+  re-entry as-is), so the node re-executes up to max_attempts times with
+  real money moving on each attempt and nothing declared to make the
+  re-execution safe. Under the DEC-13-ratified §6.4 rule a trigger-tagged
+  retry_policy node can never be none_required: P-06 reports
+  unprotected-effect-in-retry-region with NO cycle anchor — there is no
+  cycle to anchor on.
+
+ir:
+  ir_version: "1.0"
+  entry: prepare_invoice
+  finish: send_receipt
+  state:
+    booking_summary:
+      type: str
+      optional: true
+    invoice: str
+    payment_ref: str
+    receipt_id: str
+  nodes:
+    - id: prepare_invoice
+      annotations:
+        pure: true
+        input: [booking_summary]
+        output: [invoice]
+    - id: capture_payment
+      annotations:
+        effect: [irreversible, billable]
+        retry_policy:
+          max_attempts: 3
+          retry_on: [TimeoutError, ConnectionError]
+        input: [invoice]
+        output: [payment_ref]
+    - id: send_receipt
+      annotations:
+        effect: [network]
+        idempotent: { key: payment_ref }
+        input: [payment_ref]
+        output: [receipt_id]
+  edges:
+    - from: prepare_invoice
+      to: capture_payment
+    - from: capture_payment
+      to: send_receipt
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.types import RetryPolicy
+
+  builder.add_node(
+      "capture_payment", capture_payment,
+      retry=RetryPolicy(max_attempts=3,
+                        retry_on=(TimeoutError, ConnectionError)),
+      # ^ the node re-runs on transient errors — but the charge is
+      #   irreversible+billable with no idempotency key and no hook.
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-retry-region"
+    location:
+      kind: node
+      node: capture_payment
+      effect: [irreversible, billable]
+    severity: error
+    claim_class: defensible-a
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the retry_policy-only half of the DEC-13 carried-open gap-fixture item
+  (the §6.7 (v) fixture half; the handling half was confirmed by DEC-13
+  itself). Polarity corrected to NEGATIVE at PD-013 ratification: the
+  draft's positive reading (region retry, no obligation) is impossible
+  under the DEC-13-ratified §6.4 rule, since retry_region(n) is true
+  whenever the node carries retry_policy and a trigger-tagged node in a
+  retry region with no valid protection always raises the obligation —
+  this is the case §6.3's model comments anticipate, P06NodeLocation.cycle
+  "absent ... for retry_policy-only regions". The fixture is the first in
+  the corpus to declare the retry_policy annotation slot (schema v2.2,
+  required list per DEC-30), and its location deliberately contrasts with
+  negative-01's: same condition ID, but no cycle key, because the region
+  is annotation-made, not topology-made. Known coupling recorded per
+  corpus discipline: a node that re-enters via retry_policy and is
+  neither pure nor idempotent engages P-07's letter too
+  (reentrant-node-neither-pure-nor-idempotent, the mixed/01 interaction
+  class); the expected block records the P-06 verdict, and the P-06/P-07
+  interaction case belongs to mixed/. Other properties hold: the graph is
+  acyclic (P-02 vacuous), reads are written upstream or optional at START
+  (P-04), all keys in Sigma (P-03), no fan-out (P-09). Counterparts:
+  positive-02 (trigger node strictly acyclic WITHOUT retry_policy —
+  none_required), negative-01 (the same condition ID from structural
+  re-entry, cycle anchor present).

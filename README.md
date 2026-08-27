@@ -19,7 +19,7 @@ workflow.
 ## Status
 
 Early development (`0.0.1.dev0`). The package skeleton, CI baseline, the
-acceptance fixture corpus (`tests/fixtures/properties/`, 60 fixtures), the
+acceptance fixture corpus (`tests/fixtures/properties/`, 71 fixtures), the
 IR 1.0 models with their node-identity utilities, the canonical serialization +
 `graph_version` digest pipeline, and the YAML/JSON loaders (`gebra.ir`), and the
 result-envelope models the validators report in together with the frozen
@@ -263,7 +263,7 @@ edge kind
 shape changes to either route through a vault decision record plus an `ir_version`/API
 bump rather than a local edit.
 The hand-written fixture corpus is now held against the extractor and not only against the
-validators. Sixteen of the sixty fixtures have a matching mini LangGraph builder script in this
+validators. Sixteen of the seventy-one fixtures have a matching mini LangGraph builder script in this
 repository, and the suite builds each one live, extracts it, and requires the canonical bytes
 and the `graph_version` to match that fixture's own `ir:` block — except for three pairs held
 instead to a recorded difference, below — so a fixture and the extractor cannot drift apart

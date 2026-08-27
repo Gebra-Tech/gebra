@@ -12,7 +12,7 @@ Three obligations, and the module is tested against each:
   PROPERTY-CATALOG-SPEC §6.4 Phases 0/2 and §4.4 Step 3).
 
 The corpus is the primary evidence and it is a frozen contract surface (WA-04/WA-11):
-nothing here writes to it. Every one of the 60 vendored fixtures' IR blocks is built into a
+nothing here writes to it. Every one of the 71 vendored fixtures' IR blocks is built into a
 model and cross-checked against an independent naive oracle, and the topologies whose SCCs
 the specs and fixtures name by hand are pinned individually. Hand-authored IRs cover only
 the shapes the corpus does not carry — the ``"END"`` literals, unresolved ``entry``/``finish``
@@ -112,7 +112,7 @@ def _naive_components(model: GraphModel) -> set[frozenset[str]]:
 
 _CORPUS = load_corpus(FIXTURES_DIR)
 
-#: Every IR snapshot in the corpus, with the fixture id it came from — 60 fixtures, and the
+#: Every IR snapshot in the corpus, with the fixture id it came from — 71 fixtures, and the
 #: evolution pairs contribute both of their snapshots.
 _CORPUS_IRS: list[tuple[str, WorkflowIR]] = [
     (f"{fixture.fixture_id}#{index}", ir)
@@ -1082,7 +1082,7 @@ def test_building_models_over_the_corpus_creates_no_socket_and_resolves_no_name(
         "        for index in model.components.nontrivial:\n"
         "            model.anchor_cycle(model.components.members[index][0])\n"
         "        seen += 1\n"
-        "assert len(corpus) == 60, len(corpus)\n"
+        "assert len(corpus) == 71, len(corpus)\n"
         "assert seen >= len(corpus), seen\n"
         f"print([m for m in sys.modules if m.split('.')[0] in {forbidden}] + attempts)\n"
     )

@@ -1,0 +1,114 @@
+# Fixture: dataflow-completeness / negative-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 5, authored under TE-14): the entry-at-reader
+# half of the §4.6 cycle-entry pair — pins the A8 T3 collapse boundary
+# together with positive-04-cycle-entry-at-writer.
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  The same fare-refresh loop as positive-04 with the entry moved one node
+  later, onto the READER: a refactor re-pointed the loop entry at
+  review_quote ("assess first, fetch only when stale"), so the first
+  arrival at review_quote reads quote before fetch_fare_quote has ever
+  run. First-arrival semantics (IN[v] is the state BEFORE v runs) make the
+  violation real at runtime — iteration one of an entry-at-reader loop
+  sees the key unwritten — and the fixture pins the A8 T3 collapse
+  boundary: an SCC collapsed to a supernode with unioned writes would see
+  a quote writer somewhere in the component and wrongly pass exactly this
+  graph, which is why condensation supplies iteration order only and the
+  node-level equations are the semantics (§4.1 warning).
+
+ir:
+  ir_version: "1.0"
+  entry: prepare_search
+  finish: book_trip
+  state:
+    fare_query:
+      type: str
+      optional: true
+    search_plan: str
+    quote: str
+    quote_assessment: str
+    booking_ref: str
+    refresh_round:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: prepare_search
+      annotations:
+        pure: true
+        input: [fare_query]
+        output: [search_plan]
+    - id: review_quote
+      annotations:
+        pure: true
+        input: [quote]
+        output: [quote_assessment]
+    - id: fetch_fare_quote
+      annotations:
+        effect: [network]
+        idempotent: { key: quote_assessment }
+        input: [search_plan, quote_assessment]
+        output: [quote, refresh_round]
+    - id: book_trip
+      annotations:
+        effect: [network]
+        idempotent: { key: quote }
+        input: [quote]
+        output: [booking_ref]
+  edges:
+    - from: prepare_search
+      to: review_quote
+    - from: review_quote
+      to: fetch_fare_quote
+    - from: fetch_fare_quote
+      kind: conditional
+      condition: "'again' if quote still above target and refresh_round < 3 else 'book'"
+      path_map:
+        again: review_quote
+        book: book_trip
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_edge(START, "prepare_search")
+  builder.add_edge("prepare_search", "review_quote")   # BUG: the refactor
+  builder.add_edge("review_quote", "fetch_fare_quote") # enters the loop at
+  builder.add_conditional_edges(                        # the reader now
+      "fetch_fare_quote", should_refresh,
+      {"again": "review_quote", "book": "book_trip"},
+  )
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: review_quote
+      key: quote
+      path: [START, prepare_search, review_quote]
+    severity: fatal
+    claim_class: defensible-a
+    writers_on_other_paths: [fetch_fare_quote]
+    downstream_writers: [fetch_fare_quote]
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the entry-at-reader half of the §4.6 corpus gap, polarity
+  spec-determined (entry-at-reader = negative). The diagnostics tell the
+  loop story exactly: fetch_fare_quote appears in BOTH optional evidence
+  fields, as writers_on_other_paths (it is upstream of review_quote via
+  the back edge, covering every later lap) and as downstream_writers (it
+  is also wired after the reader) — both kept-as-optional per walkthrough
+  #2 (DEC-11), emitted only when non-empty, never verdict-bearing. The
+  offending path is the first lap: [START, prepare_search, review_quote].
+  Corpus discipline: only P-04 fails — the loop carries a bounded-counter
+  witness (refresh_round < 3, form (a); P-02 holds), loop nodes are pure
+  or keyed-idempotent on declared reads (P-07; fetch_fare_quote's key
+  quote_assessment is written by review_quote before every arrival),
+  effects are [network] only (P-06), the path_map covers both declared
+  labels (P-05), and all keys are Sigma members (P-03). Counterpart
+  positive: positive-04-cycle-entry-at-writer.yaml — byte-for-byte the
+  same loop domain with the entry one node earlier.

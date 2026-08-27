@@ -6,7 +6,7 @@ executing any Python" (``schema.yaml``), and the card that built the loader asks
 be *test-proven* rather than reviewed. It is proven the only way a transitive import can be:
 in a fresh interpreter where importing a substrate package raises and where creating a socket
 or resolving a name raises, the whole load path runs — import :mod:`gebra.testing`, load all
-sixty vendored fixtures, compose every ``expected:`` block that composes, run the corpus lint
+seventy-one vendored fixtures, compose every ``expected:`` block that composes, run the corpus lint
 end to end, and (since TE-02) run the golden harness, which **executes** every registered
 validator over every fixture inside the guard. That last leg is the qualitative change: the
 validators were already in the import closure, and are now run there.
@@ -457,8 +457,8 @@ def guarded() -> dict[str, Any]:
 def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     guarded: dict[str, Any],
 ) -> None:
-    """Load sixty fixtures, lint them, audit the reconciliation, run the harness, generate,
-    mutate — all guarded.
+    """Load seventy-one fixtures, lint them, audit the reconciliation, run the harness,
+    generate, mutate — all guarded.
 
     The substrate import, the socket and the name resolution each raise inside this child, so
     a green run is the claim: none of the eight legs reaches any of them. Five of them
@@ -485,13 +485,13 @@ def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     the set of causes it derived are asserted, so a leg that silently attributed nothing fails
     here rather than reporting a shorter list.
     """
-    assert guarded["loaded"] == 60
-    assert guarded["composed"] == 33
+    assert guarded["loaded"] == 71
+    assert guarded["composed"] == 44
     assert guarded["reconciliation_outstanding"] == 0
     assert guarded["reconciliation_verified"] == 14
-    assert guarded["harness_obligations"] == 78
-    assert guarded["harness_matched"] == 44
-    assert guarded["harness_rendered"] == 78
+    assert guarded["harness_obligations"] == 89
+    assert guarded["harness_matched"] == 55
+    assert guarded["harness_rendered"] == 89
     assert guarded["generated"] == 25
     assert guarded["generated_verdicts"] == ["pass"]
     assert guarded["mutated"] == 75

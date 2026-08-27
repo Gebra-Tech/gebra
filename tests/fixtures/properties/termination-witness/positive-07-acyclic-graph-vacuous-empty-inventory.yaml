@@ -1,0 +1,94 @@
+# Fixture: termination-witness / positive-07
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 9, authored under TE-14): the §2.7/§6.2
+# acyclic vacuous pass — a non-empty graph with no cycle and no witness,
+# whose witness is the empty-inventory shape.
+
+property: termination-witness
+polarity: positive
+description: >
+  A straight-through check-in pipeline — assemble the traveler's
+  documents, validate them, issue the boarding pass, notify the traveler —
+  with no cycle anywhere and, deliberately, no witness ingredient of any
+  kind: no counter guard, no recursion_limit, no variant annotation. P-02
+  passes vacuously (TERMINATION-WITNESS-SPEC §6.2): there are no simple
+  cycles to cover, the element residual equals the graph itself, the
+  inventory is EMPTY, the certificate is a topological order of the whole
+  sentinel-augmented graph, and the census is exhaustive with an empty
+  cycle list. The graph is acyclic but non-empty on purpose: a literal
+  empty node set would fail P-01 condition (iv) via an unresolvable entry,
+  so the vacuous-pass fixture must carry real nodes (PD-013 ratification
+  record fix).
+
+ir:
+  ir_version: "1.0"
+  entry: assemble_documents
+  finish: notify_traveler
+  state:
+    booking_record:
+      type: str
+      optional: true
+    document_bundle: str
+    validation_report: str
+    boarding_pass: str
+    notification_receipt: str
+  nodes:
+    - id: assemble_documents
+      annotations:
+        pure: true
+        input: [booking_record]
+        output: [document_bundle]
+    - id: validate_documents
+      annotations:
+        pure: true
+        input: [document_bundle]
+        output: [validation_report]
+    - id: issue_boarding_pass
+      annotations:
+        effect: [network]
+        idempotent: { key: validation_report }
+        input: [document_bundle, validation_report]
+        output: [boarding_pass]
+    - id: notify_traveler
+      annotations:
+        effect: [network]
+        idempotent: { key: boarding_pass }
+        input: [boarding_pass]
+        output: [notification_receipt]
+  edges:
+    - from: assemble_documents
+      to: validate_documents
+    - from: validate_documents
+      to: issue_boarding_pass
+    - from: issue_boarding_pass
+      to: notify_traveler
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory: []
+    certificate: [START, assemble_documents, validate_documents, issue_boarding_pass, notify_traveler, END]
+    cycles:
+      exhaustive: true
+      cycles: []
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the acyclic/empty-graph vacuous pass of §2.7, pinned at ratification as
+  ACYCLIC NON-EMPTY (a literal empty node set would fail P-01 (iv), so
+  the empty-inventory witness shape is exercised on a real pipeline).
+  Witness shape follows TERMINATION-WITNESS-SPEC §6.2's closing rule
+  verbatim: empty inventory, certificate = topological order of the graph
+  itself (the element residual equals G), and an exhaustive census whose
+  cycle list is empty — the empty-inventory shape downstream consumers
+  must accept without special-casing. This differs from every existing
+  P-02 positive, each of which carries at least one inventory entry; and
+  from P-08's positive-03 vacuous pass, where the empty collection is the
+  claims tuple. Corpus discipline: only P-02 is exercised — the graph is
+  a clean linear flow, reads are written upstream or optional at START
+  (P-04), all keys in Sigma (P-03), network effects sit outside any cycle
+  or retry region and are keyed-idempotent on declared reads (P-06/P-07),
+  no fan-out (P-09). Counterparts: the loop-shaped positives
+  (positive-01..positive-06), every one of which has a non-empty
+  inventory.

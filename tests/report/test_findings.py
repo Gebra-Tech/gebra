@@ -68,8 +68,8 @@ def test_the_walk_agrees_with_the_gate_over_the_whole_corpus() -> None:
         checked += 1
     # The seven the loop skips are the evolution pairs, which carry `ir_before`/`ir_after`
     # rather than one snapshot — P-12 is a two-snapshot property outside the wedge.
-    assert len(corpus) == 60
-    assert checked == len(single) == 53
+    assert len(corpus) == 71
+    assert checked == len(single) == 64
 
 
 def test_an_advisory_keeps_its_own_owner_and_its_host() -> None:

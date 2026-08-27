@@ -1,7 +1,7 @@
 """Every corpus fixture through the shipped ``verify`` verb — card CLI-07's breadth leg.
 
 The card's objective runs the integration suite "over corpus fixtures": here every IR block
-the vendored corpus carries (60 fixtures; the P-12 pairs contribute two each) is written
+the vendored corpus carries (71 fixtures; the P-12 pairs contribute two each) is written
 out as an IR document and driven through the CLI, and the CLI is held to CLI-SPEC §0.1's
 presentation-only boundary as an *equality*: the exit code is the library's own
 ``gate.exit_code`` and the ``--format json`` artifact parses back to the same gate, the
@@ -75,7 +75,7 @@ REPRESENTATIVES = _directory_representatives()
 
 
 def test_the_corpus_is_the_size_the_claim_needs() -> None:
-    """60 fixtures, every one contributing at least one IR, and every corpus directory
+    """71 fixtures, every one contributing at least one IR, and every corpus directory
     contributing a SARIF representative — the sweeps below are not quietly running over an
     empty parametrization."""
     assert len(CASES) >= 60

@@ -1,7 +1,7 @@
 """Metaproperty suite II — the contract and advisory validators under mutation (TE-10, D-10 W7/W10).
 
 A *metaproperty* is a claim about a **validator**, quantified over generated input, rather than
-a claim about one workflow. The corpus says what P-04, P-06 and P-08 answer on sixty authored
+a claim about one workflow. The corpus says what P-04, P-06 and P-08 answer on seventy-one authored
 documents; this suite says what they answer on documents nobody authored, and — through
 :mod:`gebra.testing.mutations` — on documents built to break exactly one of them at exactly one
 point.

@@ -63,27 +63,36 @@ from tests.conftest import FIXTURES_DIR
 #: Every corpus ``expected:`` block already in its ratified §P-nn.3 shape, by fixture path.
 #: Since DEC-17 (the single reconciliation pass, re-vendored from vault ``b2056e9``) that is
 #: **every single-property fixture in all five wedge directories**, on both polarities — the
-#: eight negatives the pass reconciled joined the fourteen that were already in shape.
+#: eight negatives the pass reconciled joined the fourteen that were already in shape, and
+#: the eleven DEC-16 gap fixtures (TE-14, vault ``e6ea366``) were authored directly against
+#: the ratified shapes, so they joined on arrival.
 RECONCILED: tuple[str, ...] = (
     "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
     "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+    "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
+    "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
+    "determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",
     "determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
     "determinism-replay/positive-02-pure-fare-normalizer.yaml",
+    "determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation.yaml",
     "effect-safety/negative-01-billable-in-unguarded-retry.yaml",
     "effect-safety/negative-02-irreversible-in-refinement-cycle.yaml",
     "effect-safety/negative-03-keyless-idempotent-on-irreversible.yaml",
+    "effect-safety/negative-04-retry-policy-annotation-no-cycle-unprotected.yaml",
+    "effect-safety/negative-05-dangling-compensation-hook.yaml",
     "effect-safety/positive-01-keyed-idempotent-billable-retry.yaml",
     "effect-safety/positive-02-irreversible-outside-cycle.yaml",
     "effect-safety/positive-03-compensated-billable-hold-loop.yaml",
     "graph-well-formed/negative-01-unreachable-escalation-node.yaml",
     "graph-well-formed/negative-02-dead-end-review-branch.yaml",
     "graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
+    "graph-well-formed/negative-04-unwired-orphan-node.yaml",
     "graph-well-formed/positive-01-linear-document-pipeline.yaml",
     "graph-well-formed/positive-02-support-triage-branching.yaml",
     "graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph.yaml",
@@ -91,10 +100,14 @@ RECONCILED: tuple[str, ...] = (
     "termination-witness/negative-02-nested-scc-outer-only-witness.yaml",
     "termination-witness/negative-03-counter-guard-without-wired-exit.yaml",
     "termination-witness/negative-04-supervisor-delegation-scc-no-witness.yaml",
+    "termination-witness/negative-05-unwitnessed-self-loop.yaml",
     "termination-witness/positive-01-counter-guarded-retry-loop.yaml",
     "termination-witness/positive-02-justified-recursion-limit-refinement-loop.yaml",
     "termination-witness/positive-03-shrinking-worklist-hotel-quotes.yaml",
     "termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
+    "termination-witness/positive-05-recursion-limit-only-scc-note.yaml",
+    "termination-witness/positive-06-cycle-census-capped-overflow.yaml",
+    "termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory.yaml",
 )
 
 #: The mixed fixtures whose ``expected:`` block is in ratified shape, with the property that

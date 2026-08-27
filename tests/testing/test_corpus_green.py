@@ -60,10 +60,10 @@ MATRIX = Path(__file__).resolve().parents[2] / "docs" / "governance" / "FIDELITY
 
 #: What the corpus is today, clause by clause. Each is a *fact about the vendored corpus*, so
 #: a re-vendor that moves one fails here by name rather than by a changed summary line.
-FIXTURE_COUNT = 60
-COMPOSING = 33
-R32_SCOPED = 41
-R32_MATCHED = 41
+FIXTURE_COUNT = 71
+COMPOSING = 44
+R32_SCOPED = 52
+R32_MATCHED = 52
 NON_WEDGE_OBLIGATIONS = 31
 
 #: How the 27 non-composing blocks divide. The sum is pinned separately, so a cause that

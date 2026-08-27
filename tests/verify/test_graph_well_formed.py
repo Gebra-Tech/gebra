@@ -73,7 +73,7 @@ from gebra.verify.properties.graph_well_formed import (
 )
 from tests.conftest import FIXTURES_DIR
 
-#: The six P-01 property fixtures (§1.6), by path.
+#: The seven P-01 property fixtures (§1.6's six + the DEC-16 orphan negative, TE-14), by path.
 FIXTURES: tuple[str, ...] = (
     "graph-well-formed/positive-01-linear-document-pipeline.yaml",
     "graph-well-formed/positive-02-support-triage-branching.yaml",
@@ -81,6 +81,7 @@ FIXTURES: tuple[str, ...] = (
     "graph-well-formed/negative-01-unreachable-escalation-node.yaml",
     "graph-well-formed/negative-02-dead-end-review-branch.yaml",
     "graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
+    "graph-well-formed/negative-04-unwired-orphan-node.yaml",
 )
 
 POSITIVES: tuple[str, ...] = FIXTURES[:3]

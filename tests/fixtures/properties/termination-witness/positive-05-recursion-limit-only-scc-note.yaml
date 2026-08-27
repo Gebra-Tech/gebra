@@ -1,0 +1,133 @@
+# Fixture: termination-witness / positive-05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 7, authored under TE-14): the §2.7 (b)-only
+# pass-with-note — a justified recursion_limit is the ONLY cover for a
+# residual cycle, so the pass carries the WARNING-grade
+# scc-covered-only-by-recursion-limit note (strict-promotable).
+
+property: termination-witness
+polarity: positive
+description: >
+  A supervisor-delegation research loop (supervise -> research_specialist
+  -> supervise) whose ONLY termination cover is the graph-level
+  recursion_limit with a written justification — witness form (b), and
+  nothing else: the router back to the supervisor is LLM-influenced with
+  no bounded counter, and no node carries a variant annotation. Under the
+  DEC-11 blanket ruling this is PASS with a WARNING-grade structured note:
+  the element residual still contains the delegation cycle, form (b)
+  covers it as a global step budget, and the note names the residual SCC
+  with blanket_only: true — promotable to a gate failure under
+  --gebra-strict=termination-witness with the record unchanged (the gate
+  changes, never the record).
+
+ir:
+  ir_version: "1.0"
+  entry: intake_request
+  finish: compile_briefing
+  runtime:
+    recursion_limit:
+      value: 24
+      justification: >-
+        One delegation lap = 2 supersteps (supervise + research); the
+        concierge desk allows at most 10 research laps per request, so 24
+        covers the lap budget plus intake and briefing.
+  state:
+    customer_request:
+      type: str
+      optional: true
+    request_brief: str
+    directive: str
+    findings_log:
+      type: list
+      reducer: "operator.add"
+      optional: true
+    client_briefing: str
+  nodes:
+    - id: intake_request
+      annotations:
+        pure: true
+        input: [customer_request]
+        output: [request_brief]
+    - id: supervise
+      annotations:
+        idempotent: { key: request_brief }
+        input: [request_brief, findings_log]
+        output: [directive]
+    - id: research_specialist
+      annotations:
+        idempotent: { key: directive }
+        input: [directive]
+        output: [findings_log]
+    - id: compile_briefing
+      annotations:
+        pure: true
+        input: [request_brief, findings_log]
+        output: [client_briefing]
+  edges:
+    - from: intake_request
+      to: supervise
+    - from: supervise
+      to: research_specialist
+    - from: research_specialist
+      kind: conditional
+      condition: "'delegate' if supervisor wants another research pass else 'wrap_up'"
+      path_map:
+        delegate: supervise
+        wrap_up: compile_briefing
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  graph = builder.compile()
+  # The ONLY termination cover is the justified platform step budget:
+  # one lap = 2 supersteps; the desk caps research at 10 laps, so 24.
+  app = graph.with_config({"recursion_limit": 24})
+
+expected:
+  result: pass
+  witness:
+    kind: termination
+    inventory:
+      - form: b
+        source:
+          recursion_limit:
+            value: 24
+            justification: >-
+              One delegation lap = 2 supersteps (supervise + research);
+              the concierge desk allows at most 10 research laps per
+              request, so 24 covers the lap budget plus intake and
+              briefing.
+        discharges: blanket
+    certificate: [START, intake_request, research_specialist, supervise, compile_briefing, END]
+    notes:
+      - kind: scc-covered-only-by-recursion-limit
+        severity: warning
+        locations:
+          - kind: scc
+            nodes: [research_specialist, supervise]
+            representative_cycle: [research_specialist, supervise]
+            exhaustive: false
+            blanket_only: true
+    cycles:
+      exhaustive: true
+      cycles:
+        - [research_specialist, supervise]
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the (b)-only pass-with-note of §2.7, necessarily POSITIVE (DEC-11 item
+  6: a justified blanket alone is pass with the WARNING-grade note, never
+  a failure; hard-failing it would punish a legitimate declared witness).
+  This is the shape positive-02 deliberately is NOT: there the
+  remaining_steps guard also qualifies as a form-(a) element, so its SCC
+  is not (b)-only covered and no note is owed; here the router is opaque
+  (R5) and the blanket is the only cover, so the note fires with the
+  residual SCC and blanket_only: true, and the certificate is a §6.2
+  certificate of G minus S with S including the blanket over E (recorded
+  in FIDELITY-MATRIX §5). Strict-gate promotion of exactly this note is
+  the D-12/plugin surface (--gebra-strict=termination-witness), which
+  changes the gate, never this record (§0.2). Corpus discipline: only
+  P-02 is exercised — loop nodes are keyed-idempotent on declared reads
+  (P-07), findings_log is an optional reducer key written at START
+  (P-04), no effect tags (P-06), all keys in Sigma (P-03), no fan-out
+  (P-09). Counterparts: positive-02 (form (b) beside a form-(a) element),
+  negative-01 (no witness at all on the same loop shape).

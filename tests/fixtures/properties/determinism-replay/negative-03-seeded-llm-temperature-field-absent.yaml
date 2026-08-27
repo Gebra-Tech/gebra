@@ -1,0 +1,97 @@
+# Fixture: determinism-replay / negative-03
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# P-08 is HEURISTIC / WARNING (D-013): the expected failure below is an
+# advisory diagnostic (severity: warning), not a blocking verdict.
+# Gap fixture (DEC-16 item 2, authored under TE-14): the tutorial-§7 exact
+# shape — {seed} object with the temperature FIELD absent, LLM-backed.
+
+property: determinism-replay
+polarity: negative
+description: >
+  An LLM-backed destination ranker (rank_destinations) declares
+  @gebra.deterministic(seed=11) and pins nothing else: the annotation is
+  the object form with seed present and the temperature field ABSENT — not
+  merely set hot, as in negative-02, but missing entirely. Under schema
+  v2.1 (DEC-05) temperature is an optional slot of the object form, so the
+  IR-decidable incoherence is a determinism claim whose declared
+  configuration is silent about sampling. P-08 warns (never blocks): the
+  claim is recorded and replay divergence must be logged, not silently
+  accepted.
+
+ir:
+  ir_version: "1.0"
+  entry: receive_query
+  finish: present_shortlist
+  state:
+    traveler_query: str
+    ranking: str
+    shortlist: str
+  nodes:
+    - id: receive_query
+      annotations:
+        pure: true
+        input: []
+        output: [traveler_query]
+    - id: rank_destinations
+      annotations:
+        deterministic: { seed: 11 }
+        effect: [network, external]
+        input: [traveler_query]
+        output: [ranking]
+    - id: present_shortlist
+      annotations:
+        input: [ranking]
+        output: [shortlist]
+  edges:
+    - from: receive_query
+      to: rank_destinations
+    - from: rank_destinations
+      to: present_shortlist
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  llm = init_chat_model("openai:gpt-4.1-mini", seed=11)
+  # ^ seed pinned; temperature never set — the provider default applies.
+
+  @gebra.deterministic(seed=11)  # no temperature argument at all
+  @gebra.contract(reads={"traveler_query"}, writes={"ranking"},
+                  effects={"network", "external"})
+  def rank_destinations(state: TravelState) -> dict:
+      return {"ranking": llm.invoke(RANK_PROMPT.format(
+          query=state["traveler_query"])).content}
+
+expected:
+  result: fail
+  failure:
+    property_condition: "deterministic-llm-temperature-unpinned"
+    severity: warning
+    claim_class: heuristic
+    location:
+      kind: node
+      node: rank_destinations
+      annotation: deterministic
+      seed: 11
+    remediation: >-
+      The claim is recorded. Replay divergence must be logged, never
+      silently accepted. Keep the annotation if you accept approximate
+      determinism; remove it if replay reproducibility should not be relied
+      on.
+
+notes: >
+  Failure shape follows the ratified P-08 I/O contract
+  (PROPERTY-CATALOG-SPEC §8.3 + Appendix B; walkthrough #2, 2026-07-18).
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14): §8.7
+  names the tutorial-§7 exact shape ({seed} object, temperature ABSENT,
+  LLM-backed) as a top-up candidate distinct from negative-02, whose
+  temperature is present but hot (0.7). The distinction is carried in the
+  location evidence: negative-02's location pins temperature: 0.7, while
+  this location omits the temperature key entirely — §8.3's
+  DeterminismNodeLocation documents "omitted when unset (tutorial §7
+  case)". Both shapes emit the same condition ID
+  (deterministic-llm-temperature-unpinned: object form with temperature
+  absent OR nonzero). Corpus isolation: acyclic (P-02 vacuous), reads
+  written upstream (P-04), keys declared (P-03), no effects inside a cycle
+  or retry region (P-06/P-07 hold), no fan-out (P-09). Counterparts:
+  negative-02-seeded-llm-extractor-hot-temperature.yaml (temperature
+  present but nonzero), positive-01-pinned-seed-zero-temp-classifier.yaml
+  (both halves pinned).

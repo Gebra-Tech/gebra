@@ -1,0 +1,109 @@
+# Fixture: graph-well-formed / negative-04
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 3, authored under TE-14): condition (iii) —
+# the orphan-node negative deferred until the orphan reading was fixed
+# (Reading A, DEC-11) and rerouted from the reconciliation pass (DEC-26).
+
+property: graph-well-formed
+polarity: negative
+description: >
+  A trip-planning agent whose hotel-search feature half-landed: the team
+  called add_node("search_hotels", ...) but wired no edge in or out and
+  never listed the node in entry or finish, so search_hotels participates
+  in no edge at all — an orphan under condition (iii), Reading A (DEC-11:
+  implicit sentinel wiring counts as participation, and this node has none
+  of that either). A zero-edge orphan is intrinsically also unreachable
+  from START (condition i) and a sink not wired to END (condition ii), so
+  the report carries the orphan as the root-cause primary with the two
+  cascades as same-property co-failures, in the §1.4 root-cause order
+  (iv) -> (iii) -> (i) -> (ii). LangGraph compiles this graph without
+  complaint; the dead node is silently never executed.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_trip
+  finish: book_trip
+  state:
+    trip_request:
+      type: str
+      optional: true
+    itinerary: str
+    hotel_options: str
+    booking_ref: str
+  nodes:
+    - id: plan_trip
+      annotations:
+        pure: true
+        input: [trip_request]
+        output: [itinerary]
+    - id: search_hotels
+      annotations:
+        effect: [network]
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [hotel_options]
+    - id: book_trip
+      annotations:
+        effect: [network]
+        idempotent: { key: itinerary }
+        input: [itinerary]
+        output: [booking_ref]
+  edges:
+    - from: plan_trip
+      to: book_trip
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  builder.add_node("plan_trip", plan_node)
+  builder.add_node("search_hotels", search_hotels_node)  # BUG: added ...
+  builder.add_node("book_trip", book_node)
+  builder.add_edge(START, "plan_trip")
+  builder.add_edge("plan_trip", "book_trip")   # ... but never wired: no
+  builder.add_edge("book_trip", END)           # edge touches search_hotels
+
+expected:
+  result: fail
+  failure:
+    property_condition: "orphan-node"
+    location:
+      kind: node
+      node: search_hotels
+    severity: fatal
+    claim_class: defensible
+    co_failures:
+      - property: graph-well-formed
+        property_condition: "node-unreachable-from-start"
+        location:
+          kind: node
+          node: search_hotels
+        severity: fatal
+        claim_class: defensible
+      - property: graph-well-formed
+        property_condition: "dead-end-node-not-wired-to-end"
+        location:
+          kind: node
+          node: search_hotels
+        severity: fatal
+        claim_class: defensible
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) — the
+  condition-(iii) negative that §1.6/§1.7 deferred until the orphan reading
+  was fixed (Reading A, ratified at walkthrough #2, DEC-11, which also
+  ratified the orphan-node registry entry) and that DEC-26 rerouted from
+  the DEC-17 reconciliation pass to this card. The cascade is intrinsic,
+  not incidental: under Reading A a node with zero edge participation and
+  no entry/finish membership necessarily also fails conditions (i) and
+  (ii), so the expected block records all three findings with the orphan
+  primary per the §1.4 root-cause ordering — this is what separates the
+  orphan from negative-01's stranded-but-wired handler (unreachable, NOT
+  an orphan: it participates in an outgoing edge) and from a finish-only
+  node (wired by the implicit finish->END edge; the DEC-11 splitter).
+  Corpus discipline: only P-01 fails — the live path is a clean linear
+  flow; search_hotels is unreachable, so it generates no P-04 obligation
+  (DEC-05 D2: P-01 owns unreachable code; P-04 quantifies over
+  START-paths); its declared keys are Sigma members (P-03); effects are
+  keyed-idempotent on declared reads and the graph is acyclic
+  (P-02/P-06/P-07 hold); no fan-out (P-09). Counterpart positives:
+  positive-01-linear-document-pipeline (the same clean linear shape,
+  orphan-free).

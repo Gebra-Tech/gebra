@@ -1038,7 +1038,7 @@ def test_every_vendored_corpus_payload_canonicalizes_reproducibly() -> None:
         assert canonical_bytes(reloaded) == blob, label
         assert verify_graph_version(reloaded, digest), label
         count += 1
-    assert count == 67
+    assert count == 78
 
 
 def test_authored_yaml_noise_never_reaches_the_digest() -> None:

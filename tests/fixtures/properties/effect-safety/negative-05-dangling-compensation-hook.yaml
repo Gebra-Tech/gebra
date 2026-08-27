@@ -1,0 +1,116 @@
+# Fixture: effect-safety / negative-05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Gap fixture (DEC-16 item 11, authored under TE-14): the §6.7/DEC-13
+# dangling compensation hook — a declared hook that names no node is NOT
+# protection; existing condition IDs, dangling_compensation_hook evidence
+# field, registry stays closed.
+
+property: effect-safety
+polarity: negative
+description: >
+  The date-negotiation loop of positive-03 after a careless refactor: the
+  release step was dropped from the graph, but place_hotel_hold still
+  declares compensation: {hook: release_hotel_hold} — a hook that names no
+  node in the workflow. DEC-05 D7's side condition (ratified; confirmed by
+  DEC-13) makes hook existence part of protection: a dangling hook is NOT
+  protection, so the billable hold inside the witnessed adjust cycle is
+  unprotected and P-06 reports unprotected-effect-in-cycle — the existing
+  condition ID, never a new one (the §0.4 registry stays closed) — with
+  the unbound name carried as the dangling_compensation_hook evidence
+  field on the location.
+
+ir:
+  ir_version: "1.0"
+  entry: propose_dates
+  finish: confirm_stay
+  state:
+    traveler_prefs:
+      type: str
+      optional: true
+    proposed_dates: str
+    hold_ref: str
+    hold_review: str
+    itinerary: str
+    adjust_round:
+      type: int
+      reducer: "operator.add"
+  nodes:
+    - id: propose_dates
+      annotations:
+        pure: true
+        input: [traveler_prefs]
+        output: [proposed_dates, adjust_round]
+    - id: place_hotel_hold
+      annotations:
+        effect: [billable]
+        compensation: { hook: release_hotel_hold }
+        input: [proposed_dates]
+        output: [hold_ref]
+    - id: review_hold
+      annotations:
+        pure: true
+        input: [hold_ref, proposed_dates, adjust_round]
+        output: [hold_review]
+    - id: confirm_stay
+      annotations:
+        input: [hold_ref]
+        output: [itinerary]
+  edges:
+    - from: propose_dates
+      to: place_hotel_hold
+    - from: place_hotel_hold
+      to: review_hold
+    - from: review_hold
+      kind: conditional
+      condition: "'adjust' if hold_review shows a date mismatch and adjust_round < 2 else 'accept'"
+      path_map:
+        adjust: propose_dates
+        accept: confirm_stay
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  @gebra.effect("billable")
+  @gebra.compensate("release_hotel_hold")  # BUG: the release node was
+  def place_hotel_hold(state: TravelState) -> dict:  # removed in a refactor;
+      return {"hold_ref": hotels.place_hold(         # the hook now names
+          state["proposed_dates"])}                  # nothing
+
+expected:
+  result: fail
+  failure:
+    property_condition: "unprotected-effect-in-cycle"
+    location:
+      kind: node
+      node: place_hotel_hold
+      cycle: [place_hotel_hold, review_hold, propose_dates]
+      effect: [billable]
+      dangling_compensation_hook: release_hotel_hold
+    severity: error
+    claim_class: defensible-a
+
+notes: >
+  Authored under the DEC-16/PD-013 gap-fixture authorization (TE-14) —
+  the dangling-hook half of the DEC-13 carried-open gap-fixture item. The
+  handling was already ratified (DEC-13: "a dangling compensation.hook is
+  confirmed NOT protection, reported via the existing
+  unprotected-effect-in-{retry-region,cycle} conditions with
+  P06NodeLocation.dangling_compensation_hook as evidence; no new
+  condition ID"); this fixture supplies the missing corpus exercise. The
+  deliberate contrast is positive-03, whose identical protection arm
+  binds: there the hook names release_hotel_hold and that node exists on
+  the loop-back path, so the effect is protected; here the same
+  annotation text points at nothing, and the evidence field carries the
+  unbound name so the report says WHY protection failed. The region is
+  cycle, not retry: the adjust label re-enters at propose_dates and the
+  lap passes through intermediate recomputation before reaching the
+  billable node (§6.4's send-closure rule — the negative-02 direction).
+  Corpus discipline: the adjust cycle carries a bounded-counter witness
+  (adjust_round < 2, form (a); P-02 holds), reads are written upstream in
+  cycle-arrival order or optional at START (P-04), all keys in Sigma
+  (P-03), no fan-out (P-09). Known coupling recorded per corpus
+  discipline (the positive-03 precedent): place_hotel_hold is
+  re-enterable and neither pure nor idempotent, so P-07's letter co-fails
+  on it; the expected block records the P-06 verdict, and the interaction
+  case belongs to mixed/. Counterparts: positive-03 (the bound hook),
+  negative-01 (unprotected in a RETRY region, cycle anchor present),
+  negative-04 (unprotected in a retry region with no cycle at all).

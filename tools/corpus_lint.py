@@ -165,21 +165,22 @@ class DirectoryMinimum:
 #: this table and the vendored README's still say the same thing.
 DIRECTORY_MINIMUMS: Mapping[str, DirectoryMinimum] = MappingProxyType(
     {
-        "graph-well-formed": DirectoryMinimum("graph-well-formed", 3, 3, 6),
-        "termination-witness": DirectoryMinimum("termination-witness", 4, 4, 8),
+        "graph-well-formed": DirectoryMinimum("graph-well-formed", 3, 4, 7),
+        "termination-witness": DirectoryMinimum("termination-witness", 7, 5, 12),
         "signature-soundness": DirectoryMinimum("signature-soundness", 3, 3, 6),
-        "dataflow-completeness": DirectoryMinimum("dataflow-completeness", 3, 3, 6),
-        "effect-safety": DirectoryMinimum("effect-safety", 3, 3, 6),
+        "dataflow-completeness": DirectoryMinimum("dataflow-completeness", 4, 4, 8),
+        "effect-safety": DirectoryMinimum("effect-safety", 3, 5, 8),
         "retry-coherence": DirectoryMinimum("retry-coherence", 2, 2, 4),
-        "determinism-replay": DirectoryMinimum("determinism-replay", 2, 2, 4),
+        "determinism-replay": DirectoryMinimum("determinism-replay", 3, 3, 6),
         "parallel-safety": DirectoryMinimum("parallel-safety", 2, 2, 4),
         "evolution-safety": DirectoryMinimum("evolution-safety", 3, 3, 6),
         "mixed": DirectoryMinimum(None, 0, 0, 10),
     }
 )
 
-#: The README's grand total: "including the cross-property `mixed/` corpus the floor is 60+".
-CORPUS_FLOOR: int = 60
+#: The README's grand total: "including the cross-property `mixed/` corpus, the grand-total
+#: floor is 71+" (the DEC-16 gap-fixture extension, re-vendored at vault ``e6ea366``).
+CORPUS_FLOOR: int = 71
 
 #: The one directory whose fixtures declare several properties (README *Layout*).
 MIXED_DIRECTORY: str = "mixed"

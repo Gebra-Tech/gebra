@@ -1,7 +1,7 @@
 """Metaproperty suite I — the structural validators under mutation (TE-09, D-10 W7/W10).
 
 A *metaproperty* is a claim about a **validator**, quantified over generated input, rather than
-a claim about one workflow. The corpus says what P-01 and P-02 answer on sixty authored
+a claim about one workflow. The corpus says what P-01 and P-02 answer on seventy-one authored
 documents; this suite says what they answer on documents nobody authored, and — through
 :mod:`gebra.testing.mutations` — on documents built to break the *topology* at exactly one
 point, or to carry a cycle whose only termination witness has just been taken away.

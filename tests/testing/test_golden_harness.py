@@ -8,7 +8,7 @@ projection rules, the comparison routing, the classification order, and a seeded
 proves the green run is not green by construction.
 
 **What green means here** is PD-006 R3, the owner-signed reading of SOW §2 criterion 2. Its
-three layers map onto the items below: all 60 fixtures load (``test_fixture_loads``); every
+three layers map onto the items below: all 71 fixtures load (``test_fixture_loads``); every
 wedge obligation is asserted by structural model equality or explained
 (``test_obligation``); every non-wedge component is a structured skip naming its property and
 citing SOW §8, counted and surfaced, never rendered as a pass
@@ -76,58 +76,72 @@ from gebra.verify import (
 )
 from tests.conftest import FIXTURES_DIR
 
-#: PD-006 R3's own arithmetic: 60 fixtures, 78 obligations over them.
-CORPUS_SIZE = 60
-OBLIGATION_COUNT = 78
+#: PD-006 R3's own arithmetic at the DEC-16 extension (vault ``e6ea366``): 71 fixtures,
+#: 89 obligations over them.
+CORPUS_SIZE = 71
+OBLIGATION_COUNT = 89
 
-#: The four P-08 fixtures acceptance box 2 names — green since VAL-04 landed.
+#: The six P-08 fixtures — acceptance box 2's four plus the DEC-16 3+3 top-up (TE-14);
+#: green since VAL-04 landed.
 P08_FIXTURES = (
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature",
+    "determinism-replay/negative-03-seeded-llm-temperature-field-absent",
     "determinism-replay/positive-01-pinned-seed-zero-temp-classifier",
     "determinism-replay/positive-02-pure-fare-normalizer",
+    "determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation",
 )
 
-#: The six P-01 property fixtures (§1.6), whose validator landed at VAL-05.
+#: The seven P-01 property fixtures (§1.6 + the DEC-16 orphan negative), validator VAL-05.
 P01_FIXTURES = (
     "graph-well-formed/negative-01-unreachable-escalation-node",
     "graph-well-formed/negative-02-dead-end-review-branch",
     "graph-well-formed/negative-03-path-map-typo-dangling-target",
+    "graph-well-formed/negative-04-unwired-orphan-node",
     "graph-well-formed/positive-01-linear-document-pipeline",
     "graph-well-formed/positive-02-support-triage-branching",
     "graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph",
 )
 
-#: The six P-04 property fixtures (§4.6), whose validator landed at VAL-09.
+#: The eight P-04 property fixtures (§4.6 + the DEC-16 cycle-entry pair), validator VAL-09.
 P04_FIXTURES = (
     "dataflow-completeness/negative-01-express-path-skips-writer",
     "dataflow-completeness/negative-02-writer-downstream-of-reader",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer",
+    "dataflow-completeness/negative-04-cycle-entry-at-reader",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline",
     "dataflow-completeness/positive-02-conditional-both-branches-write",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results",
+    "dataflow-completeness/positive-04-cycle-entry-at-writer",
 )
 
-#: The six P-06 property fixtures (§6.6), whose validator landed at VAL-10.
+#: The eight P-06 property fixtures (§6.6 + the DEC-16 retry_policy-only and dangling-hook
+#: negatives), validator VAL-10.
 P06_FIXTURES = (
     "effect-safety/negative-01-billable-in-unguarded-retry",
     "effect-safety/negative-02-irreversible-in-refinement-cycle",
     "effect-safety/negative-03-keyless-idempotent-on-irreversible",
+    "effect-safety/negative-04-retry-policy-annotation-no-cycle-unprotected",
+    "effect-safety/negative-05-dangling-compensation-hook",
     "effect-safety/positive-01-keyed-idempotent-billable-retry",
     "effect-safety/positive-02-irreversible-outside-cycle",
     "effect-safety/positive-03-compensated-billable-hold-loop",
 )
 
-#: The flagship 4+4 P-02 fixtures (§2.6), whose validator landed at VAL-07.
+#: The flagship 7+5 P-02 fixtures (§2.6's 4+4 + the DEC-16 quartet), validator VAL-07.
 P02_FIXTURES = (
     "termination-witness/negative-01-unwitnessed-reflection-loop",
     "termination-witness/negative-02-nested-scc-outer-only-witness",
     "termination-witness/negative-03-counter-guard-without-wired-exit",
     "termination-witness/negative-04-supervisor-delegation-scc-no-witness",
+    "termination-witness/negative-05-unwitnessed-self-loop",
     "termination-witness/positive-01-counter-guarded-retry-loop",
     "termination-witness/positive-02-justified-recursion-limit-refinement-loop",
     "termination-witness/positive-03-shrinking-worklist-hotel-quotes",
     "termination-witness/positive-04-nested-scc-dual-counter-witnesses",
+    "termination-witness/positive-05-recursion-limit-only-scc-note",
+    "termination-witness/positive-06-cycle-census-capped-overflow",
+    "termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory",
 )
 
 #: Every obligation the harness asserts green today, by id. Pinned rather than counted so

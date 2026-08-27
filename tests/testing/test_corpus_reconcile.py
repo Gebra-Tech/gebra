@@ -69,10 +69,14 @@ WEDGE_DIRECTORIES = frozenset(
     }
 )
 
-#: What the corpus lint reported before the pass landed, and what it reports now. Written out
-#: rather than derived so that a change to either number is a visible diff.
-COMPOSING_PRE_PASS = 25
-COMPOSING_NOW = 33
+#: What the corpus lint reports with the DEC-17 revisions reverted, and what it reports now.
+#: Written out rather than derived so that a change to either number is a visible diff. Both
+#: moved +11 when the DEC-16 gap-fixture extension landed (TE-14, vault ``e6ea366``): the
+#: reverted-corpus reconstruction keeps the eleven new fixtures (they were never part of the
+#: DEC-17 plan, and all of them compose), so 25 → 36 and 33 → 44 with the gained set — the
+#: pass's own eight — unchanged.
+COMPOSING_PRE_PASS = 36
+COMPOSING_NOW = 44
 
 
 @pytest.fixture(scope="module")
@@ -473,7 +477,7 @@ def test_emitting_from_the_reconciled_corpus_is_a_plain_copy(tmp_path: Path) -> 
 def test_the_vendored_corpus_is_lint_green() -> None:
     report = corpus_lint.check(FIXTURES_DIR, FIXTURES_DIR / "schema.yaml")
     assert report.ok, [violation.rendered() for violation in report.violations]
-    assert report.fixtures_checked == 60
+    assert report.fixtures_checked == 71
 
 
 def test_every_wedge_directory_fixture_composes_after_the_pass() -> None:
@@ -488,7 +492,7 @@ def test_every_wedge_directory_fixture_composes_after_the_pass() -> None:
             fixture.expected_report()
         except FixtureError as exc:
             failures.append(f"{fixture.fixture_id}: {exc}")
-    assert checked == 30
+    assert checked == 41
     assert failures == []
 
 
@@ -519,7 +523,7 @@ def test_the_reconciled_p08_fixtures_are_model_equal_to_the_shipped_validator() 
     the two is independent evidence that the reconciled bytes are the catalog's shape.
     """
     fixtures = sorted((FIXTURES_DIR / "determinism-replay").glob("*.yaml"))
-    assert len(fixtures) == 4
+    assert len(fixtures) == 6
     for path in fixtures:
         fixture = load_fixture(path)
         assert fixture.ir is not None

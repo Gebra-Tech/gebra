@@ -45,7 +45,7 @@ digests agree; at *model* level the fixture reads ``effect: None`` and the extra
 ``effect: ()``. ``test_round_trip.py`` compares the models too and requires every difference
 across the coherent set to be exactly that one, on exactly such a node.
 
-**Which fixtures are designated, and why not all sixty** — see :mod:`tests.drift.pairs`, which
+**Which fixtures are designated, and why not all seventy-one** — see :mod:`tests.drift.pairs`, which
 carries the reachability rule and the two constructs that put the rest of the corpus out of
 reach.
 

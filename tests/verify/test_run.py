@@ -1251,7 +1251,7 @@ def _tripwire_script(probe: str = "") -> str:
         "        to_json(report)\n"
         "        to_json(promoted)\n"
         "        seen += 1\n"
-        "assert seen == 67, seen\n"
+        "assert seen == 78, seen\n"
         "assert codes[2] == 0, codes\n"
         "assert codes[0] and codes[1], codes\n"
         f"{probe}"

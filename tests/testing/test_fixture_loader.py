@@ -40,8 +40,8 @@ from gebra.verify import PropertyReport, to_data, validate_report
 from tests.conftest import FIXTURES_DIR
 
 #: The corpus README's grand total, and the block count the seven evolution pairs imply.
-CORPUS_SIZE = 60
-IR_BLOCK_COUNT = 67
+CORPUS_SIZE = 71
+IR_BLOCK_COUNT = 78
 EVOLUTION_PAIRS = 7
 
 #: Every fixture whose ``expected:`` block composes into a §0.3 ``PropertyReport`` today.
@@ -55,27 +55,36 @@ EVOLUTION_PAIRS = 7
 #:
 #: It grew 25 → 33 when the corpus reconciliation pass landed (DEC-17, vault ``b2056e9``): the
 #: eight wedge negatives whose ``location`` blocks predated their §P-nn.3 subtypes now compose,
-#: which is what makes all thirty wedge-directory fixtures composable.
+#: which is what makes all thirty wedge-directory fixtures composable. It grew 33 → 44 when
+#: the DEC-16 gap-fixture extension landed (TE-14, vault ``e6ea366``): every one of the eleven
+#: new fixtures is wedge-directory and composes on arrival, so the wedge count is forty-one.
 COMPOSING = (
     "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
     "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
+    "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
+    "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
+    "determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",
     "determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
     "determinism-replay/positive-02-pure-fare-normalizer.yaml",
+    "determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation.yaml",
     "effect-safety/negative-01-billable-in-unguarded-retry.yaml",
     "effect-safety/negative-02-irreversible-in-refinement-cycle.yaml",
     "effect-safety/negative-03-keyless-idempotent-on-irreversible.yaml",
+    "effect-safety/negative-04-retry-policy-annotation-no-cycle-unprotected.yaml",
+    "effect-safety/negative-05-dangling-compensation-hook.yaml",
     "effect-safety/positive-01-keyed-idempotent-billable-retry.yaml",
     "effect-safety/positive-02-irreversible-outside-cycle.yaml",
     "effect-safety/positive-03-compensated-billable-hold-loop.yaml",
     "graph-well-formed/negative-01-unreachable-escalation-node.yaml",
     "graph-well-formed/negative-02-dead-end-review-branch.yaml",
     "graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
+    "graph-well-formed/negative-04-unwired-orphan-node.yaml",
     "graph-well-formed/positive-01-linear-document-pipeline.yaml",
     "graph-well-formed/positive-02-support-triage-branching.yaml",
     "graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph.yaml",
@@ -86,10 +95,14 @@ COMPOSING = (
     "termination-witness/negative-02-nested-scc-outer-only-witness.yaml",
     "termination-witness/negative-03-counter-guard-without-wired-exit.yaml",
     "termination-witness/negative-04-supervisor-delegation-scc-no-witness.yaml",
+    "termination-witness/negative-05-unwitnessed-self-loop.yaml",
     "termination-witness/positive-01-counter-guarded-retry-loop.yaml",
     "termination-witness/positive-02-justified-recursion-limit-refinement-loop.yaml",
     "termination-witness/positive-03-shrinking-worklist-hotel-quotes.yaml",
     "termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
+    "termination-witness/positive-05-recursion-limit-only-scc-note.yaml",
+    "termination-witness/positive-06-cycle-census-capped-overflow.yaml",
+    "termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory.yaml",
 )
 
 #: A well-formed single-node fixture — the smallest document that satisfies both contracts.
@@ -139,7 +152,7 @@ def _minimal(**overrides: Any) -> dict[str, Any]:
 
 
 def test_every_vendored_fixture_loads(corpus: tuple[PropertyFixture, ...]) -> None:
-    """All 60 fixtures become models — the card's first acceptance, on the IR side."""
+    """All 71 fixtures become models — the card's first acceptance, on the IR side."""
     assert len(corpus) == CORPUS_SIZE
     for fixture in corpus:
         assert fixture.irs, f"{fixture.fixture_id}: no IR block loaded"
@@ -149,7 +162,7 @@ def test_every_vendored_fixture_loads(corpus: tuple[PropertyFixture, ...]) -> No
 
 
 def test_the_corpus_carries_the_expected_block_count(corpus: tuple[PropertyFixture, ...]) -> None:
-    """60 fixtures, 67 IR blocks: 53 single-snapshot plus 7 evolution pairs."""
+    """71 fixtures, 78 IR blocks: 64 single-snapshot plus 7 evolution pairs."""
     assert sum(len(fixture.irs) for fixture in corpus) == IR_BLOCK_COUNT
     pairs = [fixture for fixture in corpus if fixture.is_pair]
     assert len(pairs) == EVOLUTION_PAIRS

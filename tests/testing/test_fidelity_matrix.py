@@ -174,12 +174,12 @@ def test_a_wrong_projection_rule_kind_fails_the_gate(tmp_path: Path) -> None:
 def test_a_wrong_property_count_fails_the_gate(tmp_path: Path) -> None:
     seeded = _seeded(
         tmp_path,
-        "| P-08 | `determinism-replay` | wedge | 6 | 6 |",
-        "| P-08 | `determinism-replay` | wedge | 7 | 6 |",
+        "| P-08 | `determinism-replay` | wedge | 8 | 8 |",
+        "| P-08 | `determinism-replay` | wedge | 9 | 8 |",
     )
     result = check(FIXTURES_DIR, seeded)
     assert not result.ok
-    assert any("records 7 obligation(s); the run has 6" in v for v in result.violations)
+    assert any("records 9 obligation(s); the run has 8" in v for v in result.violations)
 
 
 def test_a_missing_property_row_fails_the_gate(tmp_path: Path) -> None:
@@ -278,7 +278,7 @@ def test_a_matrix_without_a_required_table_is_an_error(tmp_path: Path) -> None:
 def test_the_gate_command_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--corpus", str(FIXTURES_DIR), "--matrix", str(MATRIX)]) == 0
     out = capsys.readouterr().out
-    assert "78 obligation(s) over 60 fixture(s)" in out
+    assert "89 obligation(s) over 71 fixture(s)" in out
     assert "FIDELITY-MATRIX.md: OK" in out
 
 
@@ -300,7 +300,7 @@ def test_the_gate_command_exits_one_on_an_unreadable_matrix(
 def test_the_report_lists_every_obligation(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--corpus", str(FIXTURES_DIR), "--matrix", str(MATRIX), "--report"]) == 0
     lines = capsys.readouterr().out.splitlines()
-    assert sum(1 for line in lines if "::" in line) == 78
+    assert sum(1 for line in lines if "::" in line) == 89
 
 
 def test_the_deviation_listing_carries_the_detail(capsys: pytest.CaptureFixture[str]) -> None:

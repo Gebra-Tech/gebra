@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Corpus populated 2026-07-17 — migrated to ir 1.0 on 2026-07-18.**
-> 60 fixtures across the nine allocated properties + `mixed/` — every counts-table target met. **R-05 lead sampling review complete 2026-07-17** (guided walkthrough, 100% of `mixed/` + ~30% per-property; eight decisions recorded in DEC-05 and applied). **ir 1.0 migration complete (2026-07-18, DEC-09)**: every fixture's `ir_version` is `"1.0"` (evolution pairs: both snapshots), and [schema.yaml](schema.yaml) carries the **v2.2 addendum** — the ir 1.0 optional slots (`args_schema`, `retry_policy`, `variant`, `compensation`, `prompt_digest`/`config_digest`, top-level `runtime`) plus shape pins. **Wedge-five witness shapes (P-01, P-02, P-04, P-06, P-08) are PINNED and normalized** (walkthrough #2, 2026-07-18, DEC-11) **and reconciled to the §P-nn.3 record contracts** (the DEC-11-mandated single corpus pass — 22 items across 12 fixtures: location discriminators, §0.4 grades, canonical cycle rotations, the `positive-01` region normalization, §B.3 remediation texts; DEC-17, 2026-07-31); the standing witness-shape-reconciliation item now applies **only to the 8 non-wedge properties**, whose shapes stay marked provisional in each fixture's `notes:` pending their PROPERTY-CATALOG-SPEC sections. The authoring-surfaced spec gaps (no `recursion_limit` IR slot, no `args_schema` annotation field, no `retry_policy` serialization, no compensation-hook annotation) are closed by the ir 1.0 freeze — the `args_schema` fixture (`signature-soundness/negative-03`) is un-skipped, its verdict now reproducible from the `ir` block; the missing temperature slot in `@deterministic` was closed earlier by the schema v2.1 addendum (DEC-05).
+> 71 fixtures across the nine allocated properties + `mixed/` — every counts-table target met. **R-05 lead sampling review complete 2026-07-17** (guided walkthrough, 100% of `mixed/` + ~30% per-property; eight decisions recorded in DEC-05 and applied). **ir 1.0 migration complete (2026-07-18, DEC-09)**: every fixture's `ir_version` is `"1.0"` (evolution pairs: both snapshots), and [schema.yaml](schema.yaml) carries the **v2.2 addendum** — the ir 1.0 optional slots (`args_schema`, `retry_policy`, `variant`, `compensation`, `prompt_digest`/`config_digest`, top-level `runtime`) plus shape pins. **Wedge-five witness shapes (P-01, P-02, P-04, P-06, P-08) are PINNED and normalized** (walkthrough #2, 2026-07-18, DEC-11) **and reconciled to the §P-nn.3 record contracts** (the DEC-11-mandated single corpus pass — 22 items across 12 fixtures: location discriminators, §0.4 grades, canonical cycle rotations, the `positive-01` region normalization, §B.3 remediation texts; DEC-17, 2026-07-31); the standing witness-shape-reconciliation item now applies **only to the 8 non-wedge properties**, whose shapes stay marked provisional in each fixture's `notes:` pending their PROPERTY-CATALOG-SPEC sections. The authoring-surfaced spec gaps (no `recursion_limit` IR slot, no `args_schema` annotation field, no `retry_policy` serialization, no compensation-hook annotation) are closed by the ir 1.0 freeze — the `args_schema` fixture (`signature-soundness/negative-03`) is un-skipped, its verdict now reproducible from the `ir` block; the missing temperature slot in `@deterministic` was closed earlier by the schema v2.1 addendum (DEC-05). **DEC-16 gap-fixture extension authored (TE-14)**: the 11 R-05-authorized gap fixtures land, corpus 60 → 71 — the P-08 top-up to 3+3, the P-01 orphan negative, the P-04 cycle-entry pair, the P-02 self-loop / (b)-only-note / census-cap / acyclic-vacuous quartet, and the P-06 `retry_policy`-only and dangling-compensation-hook negatives — closing the eleven wedge-five coverage gaps DEC-16 authorizes (each fixture cites its DEC-16 item in its header; two catalog-named cases remain recorded deferrals per DEC-16, not silently omitted: P-02's `recursion-limit-without-justification` note-only case and P-08's `deterministic: false` explicit disclaimer).
 
 The reference fixture corpus produced by R-05 and consumed by D-10 to build golden tests for the D-09 property validators. Schema spec: [schema.yaml](schema.yaml) (`$id: gebra-property-fixture-v2`). Decision driver: DEC-03-fixture-format (v2 addendum). Property catalog authority: Verification-Properties.
 
@@ -14,13 +14,13 @@ Fixtures carry **serialized Gebra IR**, never live LangGraph Python: stable acro
 fixtures/properties/
 ├── README.md                 # this file
 ├── schema.yaml               # fixture format spec (gebra-property-fixture-v2)
-├── graph-well-formed/        # P-01 — ≥3 positive + ≥3 negative
-├── termination-witness/      # P-02 — ≥4 positive + ≥4 negative (flagship)
+├── graph-well-formed/        # P-01 — ≥3 positive + ≥4 negative
+├── termination-witness/      # P-02 — ≥7 positive + ≥5 negative (flagship)
 ├── signature-soundness/      # P-03 — ≥3 positive + ≥3 negative
-├── dataflow-completeness/    # P-04 — ≥3 positive + ≥3 negative
-├── effect-safety/            # P-06 — ≥3 positive + ≥3 negative
+├── dataflow-completeness/    # P-04 — ≥4 positive + ≥4 negative
+├── effect-safety/            # P-06 — ≥3 positive + ≥5 negative
 ├── retry-coherence/          # P-07 — ≥2 positive + ≥2 negative
-├── determinism-replay/       # P-08 — ≥2 positive + ≥2 negative
+├── determinism-replay/       # P-08 — ≥3 positive + ≥3 negative
 ├── parallel-safety/          # P-09 — ≥2 positive + ≥2 negative
 ├── evolution-safety/         # P-12 — ≥3 positive + ≥3 negative (ir_before/ir_after pairs)
 └── mixed/                    # ≥10 cross-property fixtures
@@ -43,20 +43,20 @@ Directories for P-05 `guard-exhaustiveness`, P-10 `subgraph-consistency`, P-11 `
 
 | Property | Positive | Negative | Subtotal |
 |---|---|---|---|
-| P-01 `graph-well-formed` | 3+ | 3+ | 6+ |
-| P-02 `termination-witness` (flagship) | 4+ | 4+ | 8+ |
+| P-01 `graph-well-formed` | 3+ | 4+ | 7+ |
+| P-02 `termination-witness` (flagship) | 7+ | 5+ | 12+ |
 | P-03 `signature-soundness` | 3+ | 3+ | 6+ |
-| P-04 `dataflow-completeness` | 3+ | 3+ | 6+ |
-| P-06 `effect-safety` | 3+ | 3+ | 6+ |
+| P-04 `dataflow-completeness` | 4+ | 4+ | 8+ |
+| P-06 `effect-safety` | 3+ | 5+ | 8+ |
 | P-07 `retry-coherence` | 2+ | 2+ | 4+ |
-| P-08 `determinism-replay` | 2+ | 2+ | 4+ |
+| P-08 `determinism-replay` | 3+ | 3+ | 6+ |
 | P-09 `parallel-safety` | 2+ | 2+ | 4+ |
 | P-12 `evolution-safety` | 3+ | 3+ | 6+ |
 | Mixed (cross-property) | varies | varies | 10+ |
-| **Grand total** |   |   | **60+** |
+| **Grand total** |   |   | **71+** |
 
 > [!NOTE]
-> The "50+ fixtures" target cited in D-10-Test-Engine-and-Pytest-Plugin and Status-Report-2026-07-09 is the single-property floor (subtotals above excluding `mixed/`); including the cross-property `mixed/` corpus the floor is 60+.
+> The "50+ fixtures" target cited in D-10-Test-Engine-and-Pytest-Plugin and Status-Report-2026-07-09 is the original single-property floor (the pre-extension per-directory subtotals, excluding `mixed/`); with the DEC-16 gap-fixture extension the single-property floor is 61+ and, including the cross-property `mixed/` corpus, the grand-total floor is 71+.
 
 P-02 is the flagship: termination-witness is the biggest formal-model change of the reframe (D-016 — cycles admitted with witnesses) and the property most in need of edge-case coverage (counter guards, `recursion_limit`, loop bounds, nested cycles, witness removed by evolution).
 

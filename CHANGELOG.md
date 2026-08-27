@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The DEC-16 gap-fixture extension: the vendored corpus grows 60 → 71** (card TE-14;
+  DEC-16/PD-013 authorization; vault `Gebra-Tech/initial-documents@e6ea366`, re-vendored
+  with the provenance manifest and PROVENANCE rows in the same landing). Eleven
+  R-05-authorized fixtures close the wedge-five coverage gaps the frozen catalog names in
+  its own words, each matching its registered validator by §0.3 model equality on arrival:
+  the P-08 top-up to the ≥3 pass + ≥3 fail house minimum (the §8.7 vacuous pass with empty
+  `claims` and no caveat; the tutorial-§7 `{seed}`-object-with-`temperature`-absent shape),
+  the P-01 condition-(iii) orphan negative under DEC-11's Reading A (primary plus its two
+  intrinsic same-property cascades), the P-04 cycle-entry pair pinning the A8 T3
+  SCC-collapse boundary (entry-at-writer passes, entry-at-reader fails with both
+  DEC-11-kept diagnostics naming the in-cycle writer), the P-02 quartet (the unwitnessed
+  self-loop exercising the surviving-self-loop SCC branch; the (b)-only pass whose
+  WARNING-grade `scc-covered-only-by-recursion-limit` note, `blanket_only: true` location
+  and blanket-path certificate the fidelity matrix had recorded as predictions — now the
+  strict witness-note promotion's first corpus subject; the 20-cycle census-cap overflow
+  carrying the corpus's first `variant` declaration and the bare `cycle-census-capped`
+  note; the acyclic empty-inventory vacuous pass), and the two P-06 negatives DEC-13 left
+  open (the corpus's first `retry_policy` declaration — a retry region with no cycle and
+  no anchor — and the dangling compensation hook recorded through the
+  `dangling_compensation_hook` evidence field, registry unchanged). Corpus counts, floors
+  (`CORPUS_FLOOR` 71, per-directory `DIRECTORY_MINIMUMS`, `MIN_FIXTURES`), the fidelity
+  matrix §5 cells and prose, the DEC-17 audit's V-10/V-13 verifications, the §3
+  guard-recognizer tables (55 corpus guards, 12 recognized, the first R1-rejected
+  ternaries) and every corpus-count pin across the suite move with it. Two catalog-named
+  cases remain the recorded DEC-16 deferrals, not silently omitted: P-02's
+  `recursion-limit-without-justification` note-only case and P-08's `deterministic: false`
+  explicit disclaimer.
+
 - **The CLI integration suite, and the render sign-off it records** (card CLI-07;
   CLI-SPEC §7; brief D-12's "subprocess tests against the fixture corpus" row). The five
   verbs are now exercised at the process boundary: `tests/cli/test_integration_flow.py`

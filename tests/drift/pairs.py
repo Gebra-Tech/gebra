@@ -32,19 +32,26 @@ exactly the shape the corpus's send fixtures declare, so
 other send fixture, ``mixed/09``, also carries a conditional edge and is excluded by the rule
 above, not by its send edge.
 
-So the reachable pool is the fixtures whose every edge is ``normal`` or ``send`` — **twenty-one**
-of the sixty. Sixteen are designated here. The five left out —
-``determinism-replay/negative-02``, ``evolution-safety/negative-01``, ``mixed/03``,
-``parallel-safety/positive-02`` and ``signature-soundness/negative-02`` — each repeat a shape a
-designated pair already holds (a second seeded/unseeded determinism claim, a second evolution
-pair, a second parallel fan-in, a second undeclared-write negative), so they would add pairs
-without adding coverage. Nothing about them is unreachable: any of the five could be built the
-same way if the floor needed raising.
+So the reachable pool is the fixtures whose every edge is ``normal`` or ``send`` —
+**twenty-six** of the seventy-one since the DEC-16 gap-fixture extension (TE-14, vault
+``e6ea366``) added five normal-edge-only fixtures to the original twenty-one. Sixteen are
+designated here. The ten left out — the original five, ``determinism-replay/negative-02``,
+``evolution-safety/negative-01``, ``mixed/03``, ``parallel-safety/positive-02`` and
+``signature-soundness/negative-02``, each repeating a shape a designated pair already holds
+(a second seeded/unseeded determinism claim, a second evolution pair, a second parallel
+fan-in, a second undeclared-write negative) — plus the five DEC-16 arrivals,
+``determinism-replay/positive-03`` and ``negative-03``, ``graph-well-formed/negative-04``,
+``effect-safety/negative-04`` and ``termination-witness/positive-07``, designating any of
+which is a deliberate future decision rather than TE-14's (the floor is met; see the
+hand-off note below). Nothing about the ten is unreachable: any could be built the same way
+if the floor needed raising.
 
 What the ``condition`` rule costs in coverage is stated rather than papered over:
-**``termination-witness`` and ``retry-coherence`` have no pair**, because every fixture in both
-directories is conditional. That is a real gap in this suite and it is recorded on the TE-11
-card, not hidden by picking a different denominator.
+**``termination-witness`` and ``retry-coherence`` have no designated pair**. Since DEC-16,
+``termination-witness/positive-07`` (acyclic, all-normal edges, the empty-inventory vacuous
+pass) is the directory's first *reachable* fixture and therefore P-02's first drift-pair
+candidate — recorded here as the standing candidate, not designated by TE-14; every other
+fixture in both directories remains conditional.
 
 **One divergence was found, and it is recorded rather than selected away.** Three of the
 seventeen pairs — every pair whose Σ carries a reducer — differ from their fixture in exactly one
@@ -63,12 +70,14 @@ annotation slot the designated fixtures carry — ``pure``, ``effect`` (includin
 declaration), ``idempotent`` bare and keyed, ``deterministic`` bare and with
 ``seed``/``temperature``, ``input``/``output`` including the empty forms, and ``args_schema``.
 
-**Three declarable slots are not covered, and the reason is the ``condition`` rule again**:
-``variant`` (``@gebra.variant``), ``compensation`` (``@gebra.compensation``) and the
-builder-level ``retry_policy``. The corpus fixtures that carry the first two —
-``termination-witness/positive-03`` and ``effect-safety/positive-03`` — are both conditional, so
-neither is in the reachable pool; no fixture in the corpus declares a ``retry_policy`` at all.
-Named here rather than left to be discovered from the absence.
+**Three declarable slots are not covered by any designated pair**: ``variant``
+(``@gebra.variant``), ``compensation`` (``@gebra.compensation``) and the builder-level
+``retry_policy``. Every corpus fixture carrying ``variant`` or ``compensation``
+(``termination-witness/positive-03`` and ``positive-06``; ``effect-safety/positive-03`` and
+``negative-05``) is conditional, so none is in the reachable pool. ``retry_policy`` gained
+its first corpus declaration at DEC-16 (``effect-safety/negative-04``, normal-edge-only, so
+it IS in the pool) — covering that slot is a designation away, recorded with the candidate
+above rather than taken here. Named rather than left to be discovered from the absence.
 """
 
 from __future__ import annotations

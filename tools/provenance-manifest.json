@@ -10,9 +10,9 @@
   "entries": [
     {
       "path": "tests/fixtures/properties/README.md",
-      "sha256": "a34461caf503ea2567e0ac9f11426a138e2cc6184837d671bf489b69e7b356a7",
+      "sha256": "fd26a7c069707188318ec46873ceea981a7f2a5914703e7ecac6ad76c160ea00",
       "vault_source": "09-RnD-Docs/fixtures/properties/README.md",
-      "vault_commit": "dda57d0"
+      "vault_commit": "e6ea366"
     },
     {
       "path": "tests/fixtures/properties/Review-Checklist.md",
@@ -39,6 +39,12 @@
       "vault_commit": "b2056e9"
     },
     {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
+      "sha256": "c1b4e7207e770b64e3c95d3baa5b94c06d8606b0931e0b3d345df28f9c59e862",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
       "path": "tests/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
       "sha256": "32f61aa6012edbd5a14f13f7d990c384b5769366926cb228e0185a4dbf52a765",
       "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
@@ -57,6 +63,12 @@
       "vault_commit": "ec34169"
     },
     {
+      "path": "tests/fixtures/properties/dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
+      "sha256": "9507f846ab3efae1f996477dfb1e8bf6d42885164c93aa27458e0105f73e6286",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
       "path": "tests/fixtures/properties/determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
       "sha256": "10a00960165c73ae13d4e70d76404b693cc858fc218e7ab54e67f9fee7568582",
       "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
@@ -69,6 +81,12 @@
       "vault_commit": "b2056e9"
     },
     {
+      "path": "tests/fixtures/properties/determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",
+      "sha256": "e852ec29104c486fbb36461d23329d0ee71448b3e68b87720f87e4ddd28c68e3",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
       "path": "tests/fixtures/properties/determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
       "sha256": "ffa14d1e9d506c0b489d5626eac07ad93f5f9ba78872d5c091527a76a59c3684",
       "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/positive-01-pinned-seed-zero-temp-classifier.yaml",
@@ -79,6 +97,12 @@
       "sha256": "d6bdb37652294ec75a64e1ad274ed2b4160f628fce08f014e166095a2f477af7",
       "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/positive-02-pure-fare-normalizer.yaml",
       "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation.yaml",
+      "sha256": "c1c4f4d9fe348ac86991885f5a0a181baffd929c9717dadb4edf3e6f68110c1e",
+      "vault_source": "09-RnD-Docs/fixtures/properties/determinism-replay/positive-03-vacuous-pass-no-deterministic-annotation.yaml",
+      "vault_commit": "e6ea366"
     },
     {
       "path": "tests/fixtures/properties/effect-safety/negative-01-billable-in-unguarded-retry.yaml",
@@ -97,6 +121,18 @@
       "sha256": "2c3c59dd8e89cef816d8c7e399f89420aba87268ef1bcc1e915f38e596439937",
       "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-03-keyless-idempotent-on-irreversible.yaml",
       "vault_commit": "b2056e9"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/negative-04-retry-policy-annotation-no-cycle-unprotected.yaml",
+      "sha256": "d4e3386d876ae2f18a369eb7f251dee7d7fefd75131bd65bb4b62df0cca87bc6",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-04-retry-policy-annotation-no-cycle-unprotected.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
+      "path": "tests/fixtures/properties/effect-safety/negative-05-dangling-compensation-hook.yaml",
+      "sha256": "9ed43ced9aae1007d3a41bb0e1620aa9f57c3ca817da0104086efffc12231ae5",
+      "vault_source": "09-RnD-Docs/fixtures/properties/effect-safety/negative-05-dangling-compensation-hook.yaml",
+      "vault_commit": "e6ea366"
     },
     {
       "path": "tests/fixtures/properties/effect-safety/positive-01-keyed-idempotent-billable-retry.yaml",
@@ -169,6 +205,12 @@
       "sha256": "9bb0df68ec1e4080d73dd2019fbb56837bb758ad3808106359cdb2c6add0c65d",
       "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/negative-03-path-map-typo-dangling-target.yaml",
       "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/graph-well-formed/negative-04-unwired-orphan-node.yaml",
+      "sha256": "a2f147c02f3e6ec7f2bd43d2eca65c081c9406077b99e7fce3caba4835565f0a",
+      "vault_source": "09-RnD-Docs/fixtures/properties/graph-well-formed/negative-04-unwired-orphan-node.yaml",
+      "vault_commit": "e6ea366"
     },
     {
       "path": "tests/fixtures/properties/graph-well-formed/positive-01-linear-document-pipeline.yaml",
@@ -363,6 +405,12 @@
       "vault_commit": "ec34169"
     },
     {
+      "path": "tests/fixtures/properties/termination-witness/negative-05-unwitnessed-self-loop.yaml",
+      "sha256": "72c169e37accc88cf0b69973cd993743163cc4ed1dbd31ed9c878f3834fedb27",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/negative-05-unwitnessed-self-loop.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
       "path": "tests/fixtures/properties/termination-witness/positive-01-counter-guarded-retry-loop.yaml",
       "sha256": "726b9789445e078a130b58cb783dcf15e445f957dc7cbe02fdf3d7b5bdb46066",
       "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-01-counter-guarded-retry-loop.yaml",
@@ -385,6 +433,24 @@
       "sha256": "ee81d911f9aaed07ee2d886cd1cef94f690b735db4d7cf8216f9c7a79e539f9e",
       "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-04-nested-scc-dual-counter-witnesses.yaml",
       "vault_commit": "ec34169"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-05-recursion-limit-only-scc-note.yaml",
+      "sha256": "bda9ea3381a09d55e75cf5dfa0dc1125cb0be3e985e2cd3e9053babf8886e09a",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-05-recursion-limit-only-scc-note.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-06-cycle-census-capped-overflow.yaml",
+      "sha256": "28fca9a90ad53c007ea5783ad0cfc462c0ab2d43f1a96e576f1aba44c7ed1300",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-06-cycle-census-capped-overflow.yaml",
+      "vault_commit": "e6ea366"
+    },
+    {
+      "path": "tests/fixtures/properties/termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory.yaml",
+      "sha256": "8a534c3590a1c7560b16524fa3fa3d0e92bd27d5fb32654b1d8519dbf2d56d6a",
+      "vault_source": "09-RnD-Docs/fixtures/properties/termination-witness/positive-07-acyclic-graph-vacuous-empty-inventory.yaml",
+      "vault_commit": "e6ea366"
     }
   ]
 }

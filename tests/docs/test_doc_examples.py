@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 import yaml
 
+from tests.sample_workflows import travel_booking, travel_booking_defects
 from tools.docs_examples import (
     DEFAULT_INCLUDE,
     INHERITED_ENV,
@@ -354,6 +355,16 @@ def test_an_attempt_a_try_block_swallowed_still_fails_the_example() -> None:
             "travel_booking:travel-booking.classify_request",
             id="travel-booking",
         ),
+        # The seeded-defect variants, which the concepts page imports. Their bodies record
+        # into the v1 family ledger, which this module re-exports under its own name; the
+        # control is here to prove the sweep reads *this* module rather than only reaching
+        # the same list by its other name.
+        pytest.param(
+            "travel_booking_defects",
+            "classify_request_temperature_unpinned({})",
+            "travel_booking_defects:travel-booking-defects.classify_request_temperature_unpinned",
+            id="travel-booking-defects",
+        ),
     ],
 )
 def test_a_sample_workflow_body_that_ran_is_reported_by_its_ledger(
@@ -376,6 +387,17 @@ def test_a_sample_workflow_body_that_ran_is_reported_by_its_ledger(
     assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
     assert not result.ok
     assert any(expected in problem for problem in result.problems)
+
+
+def test_the_defect_variants_ledger_is_the_family_ledger_itself() -> None:
+    """The re-export is a second *name* for one list, never a second list.
+
+    ``travel_booking_defects`` records into the v1 family ledger and re-exports it so the
+    fail-closed sweep finds a ledger under this module's own name too. Identity is the whole
+    point: a rebinding (rather than an in-place clear) would leave the sweep reading an empty
+    list that nothing writes to, which is the silent-vacuity case the sweep exists to refuse.
+    """
+    assert travel_booking_defects.TRIPPED is travel_booking.TRIPPED
 
 
 @requires_an_example

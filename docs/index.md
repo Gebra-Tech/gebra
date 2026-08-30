@@ -32,6 +32,8 @@ it is replaced.
 Written so far:
 
 - this page;
+- [What gebra checks](concepts/what-gebra-checks.md) — claim classes, the severity ladder,
+  exit codes and strict mode, and what a finding does and does not claim;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

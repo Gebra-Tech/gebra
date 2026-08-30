@@ -68,22 +68,53 @@ PAGES_BY_CARD: dict[str, tuple[str, ...]] = {
     "DOC-19": ("contributing/index.md",),
 }
 
-#: The two pages this card writes rather than reserves.
+#: The two pages DOC-01 writes rather than reserves.
 WRITTEN_PAGES = ("index.md", "contributing/executable-examples.md")
+
+#: Reserved pages whose card has since written them. A page moves into this set in the same
+#: change that drops its placeholder marker, and the two directions below hold it there: a
+#: page in this set that still carries the marker fails, and a page outside it that has
+#: dropped one fails. Landing a page is therefore an explicit edit here, never a silent one.
+LANDED_PAGES = frozenset({"concepts/what-gebra-checks.md"})
 
 #: Cards whose output is not a page on this site: DOC-01 is the toolchain and the harness,
 #: and DOC-04 is the repository README.
 CARDS_WITHOUT_A_SITE_PAGE = frozenset({"DOC-01", "DOC-04"})
+
+#: The tables `concepts/what-gebra-checks.md` transcribes from the property catalog rather
+#: than paraphrases, keyed by their header line. Card DOC-02's acceptance is that they match
+#: the specification exactly; the reconciliation below is that requirement made mechanical.
+TRANSCRIBED_TABLES = (
+    "| Claim class | Serialized value | Meaning |",
+    "| Severity | Serialized value | Design-time meaning | Gate effect |",
+    "| Exit code | Condition |",
+)
+
+#: The one cell the page deliberately does not carry verbatim, and why. The catalog's exit-`1`
+#: row ends in a pointer to a vault note that is published nowhere a reader of this site can
+#: follow, so the page keeps the rule and drops the pointer — the rule itself is already on the
+#: page, in the severity table's FATAL row. Keyed by (table header, first cell, column index);
+#: the value is the text the page omits from the end of the spec's cell. Nothing else may
+#: differ, and a second entry here is a decision someone has to make on purpose.
+DECLARED_OMISSIONS: dict[tuple[str, str, int], str] = {
+    ("| Exit code | Condition |", "`1`", 1): " per Verification-Properties §1.2.",
+}
 
 # The development-process repository: present in a working checkout, absent in the library
 # repository's own CI. Cross-repository assertions are skipped there rather than faked —
 # the pattern tests/test_provenance_guard.py established.
 COMPANION = REPO_ROOT.parent / "gebra-dev-doc"
 DOC_BOARD = COMPANION / "docs" / "plan" / "boards" / "docs-tutorials.md"
+PROPERTY_CATALOG = COMPANION / "docs" / "specs" / "PROPERTY-CATALOG-SPEC.md"
 
 requires_companion = pytest.mark.skipif(
     not DOC_BOARD.is_file(),
     reason="the development-process repository is not checked out beside this one",
+)
+
+requires_the_catalog = pytest.mark.skipif(
+    not PROPERTY_CATALOG.is_file(),
+    reason="the vendored property catalog is not checked out beside this repository",
 )
 
 
@@ -185,21 +216,35 @@ def test_every_reserved_page_declares_itself_a_placeholder() -> None:
     """A reservation must never read as documentation (WA-12)."""
     for card, pages in sorted(PAGES_BY_CARD.items()):
         for page in pages:
+            if page in LANDED_PAGES:
+                continue
             text = (DOCS / page).read_text(encoding="utf-8")
             assert text.startswith(PLACEHOLDER_MARKER), f"{card}: {page} lacks the marker"
             assert "placeholder" in text.lower()
             assert "Reserved for:" in text
 
 
-def test_the_pages_this_card_writes_are_not_placeholders() -> None:
-    for page in WRITTEN_PAGES:
-        assert PLACEHOLDER_MARKER not in (DOCS / page).read_text(encoding="utf-8")
+def test_the_written_pages_are_not_placeholders() -> None:
+    """The other direction: a page declared written may not still be a reservation."""
+    for page in (*WRITTEN_PAGES, *sorted(LANDED_PAGES)):
+        text = (DOCS / page).read_text(encoding="utf-8")
+        assert PLACEHOLDER_MARKER not in text
+        assert "Reserved for:" not in text
+
+
+def test_every_landed_page_is_one_a_card_reserved() -> None:
+    """`LANDED_PAGES` names pages out of the manifest — never one the site does not plan."""
+    reserved = {page for pages in PAGES_BY_CARD.values() for page in pages}
+
+    assert LANDED_PAGES <= reserved
 
 
 def test_a_placeholder_shows_no_code() -> None:
     """Nothing executable hides in a page that documents nothing yet."""
     for pages in PAGES_BY_CARD.values():
         for page in pages:
+            if page in LANDED_PAGES:
+                continue
             assert "```" not in (DOCS / page).read_text(encoding="utf-8")
 
 
@@ -226,6 +271,66 @@ def test_the_site_publishes_no_specification_page(config: dict[str, Any]) -> Non
 
 
 # ── The manifest against the board that owns it ──────────────────────────────────────────
+
+
+def _table_rows(text: str, header: str) -> list[list[str]]:
+    """The body cells of the first pipe table whose header line is `header`, row by row."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() != header:
+            continue
+        body = []
+        for candidate in lines[index + 2 :]:  # +2 skips the alignment row
+            if not candidate.startswith("|"):
+                break
+            body.append([cell.strip() for cell in candidate.strip("|").split("|")])
+        return body
+    raise AssertionError(f"no table with header {header!r}")
+
+
+def _without_wiki_links(cell: str) -> str:
+    """Drop the vault's `[[target|label]]` notation, which published prose cannot carry."""
+    cell = re.sub(r"\[\[[^\]|]*\|([^\]]*)\]\]", r"\1", cell)
+    return re.sub(r"\[\[([^\]]*)\]\]", r"\1", cell).strip()
+
+
+@requires_the_catalog
+def test_the_transcribed_tables_match_the_property_catalog_cell_for_cell() -> None:
+    """DOC-02's central claim: those tables are the specification, not a reading of it.
+
+    Cell equality, not a similarity check — a paraphrase that softened "no proof claim" or
+    dropped a gate effect is exactly what this is here to catch. The only tolerated
+    differences are the vault's own wiki-link notation and the omissions declared above.
+    """
+    spec = PROPERTY_CATALOG.read_text(encoding="utf-8")
+    page = (DOCS / "concepts" / "what-gebra-checks.md").read_text(encoding="utf-8")
+
+    for header in TRANSCRIBED_TABLES:
+        spec_rows = _table_rows(spec, header)
+        page_rows = _table_rows(page, header)
+        assert len(page_rows) == len(spec_rows), f"{header}: row count differs"
+        for spec_row, page_row in zip(spec_rows, page_rows, strict=True):
+            for column, (spec_cell, page_cell) in enumerate(zip(spec_row, page_row, strict=True)):
+                expected = _without_wiki_links(spec_cell)
+                omitted = DECLARED_OMISSIONS.get((header, page_row[0], column))
+                if omitted is not None:
+                    assert expected.endswith(omitted), (
+                        f"{header} {page_row[0]} col {column}: the declared omission "
+                        f"{omitted!r} is no longer what the specification says"
+                    )
+                    expected = expected[: -len(omitted)] + "."
+                assert page_cell == expected, f"{header} {page_row[0]} col {column}"
+
+
+@requires_the_catalog
+def test_every_declared_omission_names_a_cell_that_exists() -> None:
+    """A stale entry would silently license a real divergence, so it must not survive."""
+    spec = PROPERTY_CATALOG.read_text(encoding="utf-8")
+
+    for header, first_cell, column in DECLARED_OMISSIONS:
+        rows = [row for row in _table_rows(spec, header) if row[0] == first_cell]
+        assert len(rows) == 1, f"{header}: no unique row {first_cell!r}"
+        assert column < len(rows[0]), f"{header} {first_cell}: no column {column}"
 
 
 @requires_companion

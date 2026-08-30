@@ -96,6 +96,7 @@ from tests.sample_workflows import travel_booking as tb
 
 __all__ = [
     "DEFECTS",
+    "TRIPPED",
     "DefectVariant",
     "book_flight_unprotected",
     "book_leg",
@@ -109,6 +110,15 @@ __all__ = [
     "replan_unwitnessed",
     "route_legs",
 ]
+
+
+#: The shared family ledger under this module's own name — the *same list object* as
+#: :data:`tests.sample_workflows.travel_booking.TRIPPED`, not a second one, because
+#: :func:`_trip` records into that list. It is bound here because a sweep that asks each
+#: imported sample workflow for its own ``TRIPPED`` (the documentation harness's fail-closed
+#: sweep, ``tools/docs_examples.py``) otherwise reads this module as keeping no ledger and
+#: refuses it — correctly, since it cannot tell "records elsewhere" from "records nowhere".
+TRIPPED: Final[list[str]] = tb.TRIPPED
 
 
 def _trip(label: str) -> Any:

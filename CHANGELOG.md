@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The concept page "What gebra checks"** (card DOC-02; PROPERTY-CATALOG-SPEC §0.1/§0.2,
+  SOW §6). `docs/concepts/what-gebra-checks.md` is the first written page of the Concepts
+  section: what the object under test is, the three claim classes, the severity ladder and
+  what each grade does to the gate, the exit codes `0`/`1`/`2`, strict mode in both its bare
+  and per-property forms, the five properties this release implements, and — the section the
+  page exists for — what a finding does *and does not* claim. It is labelled **spec-derived**
+  at the top: the claim-class, severity and exit-code tables are transcribed from the frozen
+  specification rather than paraphrased, every statement names the section it came from, and
+  the page says plainly that the specification set is an internal contract document that is
+  not published with this site, so a reader knows what the section numbers are for.
+
+  Two of its claims are not transcribed but executed. `severity-and-the-gate` verifies the
+  five seeded-defect variants of the travel-booking agent and prints, for each, the finding's
+  condition ID, severity and claim class beside the gate that follows from it — all three
+  severities and all three claim classes in one transcript, with the two FATAL rows leaving
+  the run ineligible for a snapshot, the two ERROR rows failing the gate while staying
+  eligible for one, and the WARNING row passing with notes at exit `0`.
+  `strict-changes-the-gate` runs that WARNING case twice, default and
+  `--gebra-strict=determinism-replay`, to show the exit code moving from `0` to `1` while the
+  record stays `severity: warning`, `claim_class: heuristic` — promotion changes the gate,
+  never the record. Both run under the DOC-01 harness, so the transcripts are what the code
+  printed rather than what the prose asserts.
+
+  Two of the tables are held to the specification by machine rather than by review.
+  `tests/docs/test_docs_site.py` reconciles the claim-class, severity and exit-code tables
+  against the vendored property catalog **cell for cell** where the specification repository
+  is checked out beside this one, with the single divergence — a pointer to a vault note no
+  reader of this site can follow — declared as a named omission whose text is itself asserted
+  against the spec, so a stale exemption cannot quietly license a real drift. A paraphrase
+  that softened "Advisory lint; no proof claim." to "Advisory lint." fails the check.
+
+  The page's examples import the seeded-defect module, so `tests/sample_workflows/
+  travel_booking_defects.py` now binds `TRIPPED` under its own name — the *same list object*
+  its bodies already record into, not a second ledger. Without it the harness's fail-closed
+  sweep reads that module as keeping no ledger and refuses the example, which is the correct
+  refusal: a sweep cannot tell "records elsewhere" from "records nowhere". A third
+  parametrised control fires a defect twin's body inside a real example run and asserts the
+  sweep reports it under this module's name, so the new leg is a tripwire that has been
+  tripped rather than one that has only been added, and a second test pins the re-export to
+  the *identity* of the family ledger — a rebinding rather than an in-place clear would leave
+  the sweep reading a list nothing writes to, which is the silent vacuity it exists to
+  refuse. `tests/docs/test_docs_site.py` also gained the landed-page bookkeeping the skeleton
+  needs as pages get written: a page moves out of the placeholder set in the same change that
+  drops its marker, checked in both directions.
+
 - **The documentation site and the executable-examples harness** (card DOC-01; SOW §7,
   WA-07/WA-12). `mkdocs.yml` builds the user documentation from `docs/`, and a new `docs`
   CI job runs `mkdocs build --strict` — nav omissions, links resolving to nothing and

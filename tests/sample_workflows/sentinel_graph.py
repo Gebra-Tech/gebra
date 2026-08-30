@@ -25,11 +25,28 @@ if TYPE_CHECKING:  # imported for typing only — never at runtime
     from langgraph.graph.state import CompiledStateGraph
 
 
+#: Every sentinel in this family that fired, newest last. Recorded by the exception below
+#: rather than by each raise site, so the ledger covers every sentinel in this module *and*
+#: in every module that reuses :class:`SentinelExecutedError` — ``sentinel_routing``,
+#: ``sentinel_state``, ``sentinel_lcel``, ``sentinel_compiled``, ``sentinel_routing_futures``.
+TRIPPED: list[str] = []
+
+
 class SentinelExecutedError(RuntimeError):
     """Raised by any sentinel node or router that gets invoked.
 
     Extraction must never cause this: a raise here means user code ran.
+
+    Constructing one appends its message to :data:`TRIPPED` **before** it is raised, so a
+    sentinel that a ``try`` block swallowed still shows up — the record-before-raise
+    discipline ``travel_booking`` and ``sentinel_lcel`` keep at each raise site, kept here
+    once instead. A caller that only wants to *check* the ledger is unaffected: nothing but
+    constructing this exception writes to it.
     """
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+        TRIPPED.append(str(args[0]) if args else type(self).__name__)
 
 
 class SentinelState(TypedDict):

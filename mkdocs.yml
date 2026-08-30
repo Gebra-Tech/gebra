@@ -1,0 +1,87 @@
+# The user documentation site (card DOC-01; toolchain ruled by PD-051).
+#
+# MkDocs over the Markdown already in this repository, with the stock theme and no plugins:
+# the pages are the source, `mkdocs build --strict` is the gate, and the dependency is one
+# pure-Python distribution pinned in `docs/requirements.txt` rather than in the package's own
+# extras — a docs generator is not part of what `gebra` needs to run, and keeping it out of
+# `pyproject.toml` keeps it out of `uv.lock` and out of all thirteen compatibility cells.
+#
+# `docs_dir` is the whole `docs/` tree because that is where a package's users look, and the
+# repository-internal contract documents that also live there are excluded **by name** below.
+# That exclusion is the "no collision with the spec tree" requirement made mechanical: the CLI
+# and report-format specifications, the governance records and the CI notes are written for the
+# build, are not user documentation, and are neither published nor shadowed by this site.
+site_name: gebra
+site_description: Design-time verification and versioning for LangGraph agent workflows
+site_url: https://gebra-tech.github.io/gebra/
+repo_url: https://github.com/Gebra-Tech/gebra
+repo_name: Gebra-Tech/gebra
+edit_uri: blob/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+# Warnings are failures. `mkdocs build --strict` is what CI runs; this line makes a local
+# build behave identically rather than reporting a problem CI would refuse.
+strict: true
+
+theme:
+  name: mkdocs
+  locale: en
+
+markdown_extensions:
+  # MkDocs' own defaults, re-declared because naming this key replaces them, plus admonition.
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
+  - admonition
+
+# Repository-internal documents: written for the build, not for users.
+exclude_docs: |
+  ci/
+  governance/
+  specs/
+  requirements.txt
+
+# A page that exists but is in no section, a link that resolves to nothing, and an anchor
+# that is not there are each a build failure under `strict`. This is what makes "the skeleton
+# has a page for everything planned" a checked statement rather than an intention.
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Concepts:
+      - What gebra checks: concepts/what-gebra-checks.md
+      - The IR, node identity and graph_version: concepts/ir-and-graph-version.md
+  - Tutorials:
+      - Extract your first IR: tutorials/extract-your-first-ir.md
+      - Contracts and annotations: tutorials/contracts-and-annotations.md
+      - Verify and interpret: tutorials/verify-and-interpret.md
+      - Travel booking, end to end: tutorials/travel-booking-end-to-end.md
+  - Validators:
+      - P-01 graph-well-formed: validators/p01-graph-well-formed.md
+      - P-02 termination-witness: validators/p02-termination-witness.md
+      - P-04 dataflow-completeness: validators/p04-dataflow-completeness.md
+      - P-06 effect-safety: validators/p06-effect-safety.md
+      - P-08 determinism-replay: validators/p08-determinism-replay.md
+  - Guides:
+      - The pytest plugin and CI gating: guides/pytest-plugin-and-ci-gating.md
+      - Snapshot, diff and evolution: guides/snapshot-diff-and-evolution.md
+      - Install and compatibility: guides/install-and-compatibility.md
+  - Reference:
+      - CLI reference: reference/cli.md
+      - API reference: reference/api.md
+      - Architecture overview: reference/architecture.md
+  - Contributing:
+      - Contributor guide: contributing/index.md
+      - Executable examples: contributing/executable-examples.md

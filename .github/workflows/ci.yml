@@ -139,6 +139,37 @@ jobs:
       - name: Criterion 2 — corpus green with nothing unaccounted
         run: uv run --no-sync python tools/corpus_green.py --strict
 
+  # ── WA-12: the documentation site builds, and its examples are the code that ran ──
+  #
+  # Two gates in one job, because they are two halves of one claim (DOC-01). `mkdocs build
+  # --strict` turns every warning into a failure, so a page missing from the navigation, a
+  # link resolving to nothing, or an anchor that is not there stops the build — which is what
+  # makes "the skeleton has a page for everything planned" checkable rather than intended.
+  # Then `tools/docs_examples.py --report` executes every marked example verbatim under the
+  # WA-07 guard and holds its printed output to what its page shows.
+  #
+  # The docs toolchain installs from `docs/requirements.txt`, not from a project extra: a site
+  # generator is not part of what the package needs, and keeping it out of `pyproject.toml`
+  # keeps it out of `uv.lock` and out of all thirteen compatibility cells. The package itself
+  # is installed with pip, like the `pip-editable` and `dod` jobs, because the examples import
+  # it. The per-example pytest items in `tests/docs/` run in every cell besides; this job is
+  # the counted run report, the same posture as `golden-harness`.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install the package and the documentation toolchain
+        run: |
+          pip install -e ".[dev]"
+          pip install -r docs/requirements.txt
+      - name: The documentation site builds with warnings as errors
+        run: mkdocs build --strict
+      - name: Every documented example runs, verbatim, and prints what its page shows
+        run: python tools/docs_examples.py --report
+
   # ── Types: bare `mypy`; every strictness knob lives in pyproject.toml ──
   typecheck:
     runs-on: ubuntu-latest

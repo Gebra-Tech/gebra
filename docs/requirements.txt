@@ -1,0 +1,10 @@
+# The documentation toolchain (card DOC-01; ruled by PD-051).
+#
+# Deliberately not an entry in `pyproject.toml`'s optional dependencies. A site generator is
+# not part of what `gebra` needs to run, to be typed, or to be tested; putting it in the
+# project's extras would put it in `uv.lock` and in the resolution of every compatibility
+# cell, for a tool exactly one CI job runs. The `docs` job installs this file directly.
+#
+# Pinned, not ranged: a docs build is only a gate if the thing doing the building is the same
+# from run to run. Raising the pin is an ordinary dependency change with its own commit.
+mkdocs==1.6.1

@@ -190,6 +190,11 @@ include = [
     "/tests",
     # The test suite imports the provenance guard, so the sdist stays self-testable.
     "/tools",
+    # Same reason, for the documentation gates (DOC-01): `tests/docs/` reads `mkdocs.yml`
+    # and the pages under `docs/` to check the site skeleton and to run the examples the
+    # pages carry, so an sdist without them would collect tests it cannot answer.
+    "/docs",
+    "/mkdocs.yml",
     "/CHANGELOG.md",
     "/CONTRIBUTING.md",
     "/NOTICE",

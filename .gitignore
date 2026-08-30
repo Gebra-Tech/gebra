@@ -14,6 +14,9 @@ dist/
 *.egg-info/
 *.egg
 
+# The rendered documentation site (mkdocs.yml's site_dir); built in CI, never committed
+site/
+
 # Tooling caches
 .pytest_cache/
 .ruff_cache/

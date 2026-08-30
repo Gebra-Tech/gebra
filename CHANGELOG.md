@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The documentation site and the executable-examples harness** (card DOC-01; SOW §7,
+  WA-07/WA-12). `mkdocs.yml` builds the user documentation from `docs/`, and a new `docs`
+  CI job runs `mkdocs build --strict` — nav omissions, links resolving to nothing and
+  missing anchors are failures, so the skeleton cannot rot quietly. The site is the six
+  sections a reader navigates (Concepts, Tutorials, Validators, Guides, Reference,
+  Contributing) with a page reserved for every planned one; all but two are **placeholders**
+  that say so, describe no behaviour, and carry a machine-readable marker. The
+  repository-internal contract documents that share the `docs/` tree — `docs/specs/`,
+  `docs/governance/`, `docs/ci/` — are excluded from the site by name and are neither
+  published nor shadowed by it; `tests/docs/test_docs_site.py` holds the exclusion list
+  equal to the trees on disk in both directions. The toolchain is one pinned distribution in
+  `docs/requirements.txt` rather than a project extra, so it stays out of `uv.lock` and out
+  of all thirteen compatibility cells.
+
+  The second half is `tools/docs_examples.py`, through which every later page's examples
+  execute: a page marks a fenced block with `<!-- gebra:example id=… -->` (and, optionally,
+  `<!-- gebra:output id=… -->`), and the harness runs *those bytes* in a child interpreter
+  and holds the printed output to what the page shows. There is no second copy of the code
+  to drift from the prose, and no "runs without error" mode — an example declaring no output
+  must print nothing, so every example's stdout is pinned. Malformed markup is an error
+  rather than a skip, because a typo that silently removed an example from CI would leave
+  "examples executed verbatim" enforcing nothing. WA-07 is per example and has no
+  per-page opt-out: name resolution and connecting raise from the child's first line,
+  `StateGraph.compile` and every `Runnable.invoke`/`stream`/`batch` in the class tree raise
+  before the page's code runs (compiling is not the only route to running something), socket
+  construction raises once the page's own code begins, and the sample graphs' node bodies
+  record the call in their module ledger before raising, so a swallowed sentinel still
+  fails. That sweep is fail-closed — a sample workflow keeping no ledger is reported as
+  unledgered and fails the example, because "nothing was recorded" must not read the same as
+  "nothing ran"; `tests/sample_workflows/sentinel_graph.py` gained the ledger its family had
+  been missing, recorded by `SentinelExecutedError` itself so every raise site in it and in
+  the five modules reusing that class is covered at once. The child inherits an environment
+  allowlist rather than the parent's, so a provider key or a tracing switch never reaches an
+  example, and it reports its attempt list, ledger and unledgered set — any of the three
+  non-empty fails the example. Every raiser is fired by a control
+  probe inside the run that made the claim. Examples run from a temporary working directory,
+  so one that writes a `.gebra/` store leaves the tree untouched. Both surfaces are wired:
+  each discovered example is its own pytest item (so they run in every cell), and the `docs`
+  job runs `python tools/docs_examples.py --report` as the counted report. The demonstration
+  is `docs/contributing/executable-examples.md` — extract → verify → snapshot over the
+  sentinel graph, executed and output-pinned like any other example.
+
 - **The coverage gate** (card TE-12; briefs D-09 Deliverable 6 / D-10 Deliverable 8,
   SOW §2's supporting acceptance facts). `tools/coverage_gate.py` holds three surfaces
   — `gebra.verify`, `gebra.testing` and the pytest plugin — each **strictly above 80%**,

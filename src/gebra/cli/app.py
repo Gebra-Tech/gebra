@@ -35,8 +35,16 @@ from functools import cache
 from typing import Annotated, Final
 
 import typer
+from typer import Exit
 from typer._click.core import Command, Context
-from typer._click.exceptions import Exit, NoSuchOption, UsageError
+
+# NoSuchOption/UsageError have no public home on the click-free typer line (0.27.x):
+# typer 0.27.2 grew a public typer.exceptions but moved only Exit into it, which is
+# exactly how the private import of Exit broke on freshly-resolving matrix cells while
+# the locked jobs stayed green (CLI-10 — an ecosystem-drift event of the class the
+# drift suite exists to catch). Exit comes from the public namespace, present on every
+# 0.27.x; these two stay on the private module, the only spelling both ends carry.
+from typer._click.exceptions import NoSuchOption, UsageError
 from typer.core import TyperGroup
 from typer.main import get_command
 

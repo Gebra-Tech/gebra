@@ -459,6 +459,22 @@ construction and `StateGraph.compile` armed. It adds **no extraction path** — 
 reaches has its own row in §1 above — so §1's machine check owes it nothing; the arming is a guard
 over the substrate six later cards build on, not a replacement for those rows.
 
+The **CI-gate action suite** (`tests/action/`, card TE-13) drives the composite action's driver
+(`.github/actions/gebra-gate/gate.py`) — the step that wraps one pytest invocation as a CI gate.
+The driver is standard library only, held to that by an AST sweep over its imports
+(`test_the_driver_imports_stdlib_only`), so importing it reaches neither gebra nor the substrate,
+and its only subprocess is the pytest child it exists to run — the suite's end-to-end tests point
+that child at files they wrote themselves in tmp directories. Every child but one collects plain
+assert-style files that mark nothing and build nothing. The one child that exercises the plugin
+gate proper (`test_the_plugin_gate_runs_through_the_driver_on_the_live_agent`) marks the shared
+sentinel-guarded travel-booking agent — the same target the DoD suite marks, with the same arming:
+its node bodies record and raise `BaseException`-grade sentinels, so a child in which anything was
+invoked exits non-zero and the test goes red; the depth guard over that agent remains
+`tests/testing/test_travel_booking.py`'s child, above. The suite adds **no extraction path** — the
+one extraction it reaches is the plugin's own `gebra.extract()` call over the armed agent, and
+every path that call reaches carries its own guarded child in §1 — so §1's machine check owes it
+nothing, and nothing in the driver or its tests opens a network connection.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

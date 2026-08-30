@@ -227,6 +227,14 @@ jobs:
   # guesswork. Scope note per the R5 amendment, guard 1: this clock is the DoD demo
   # job's acceptance budget, not a product latency target — none exists in the frozen
   # package.
+  #
+  # Since TE-13 the job's one pytest invocation is issued through the repository's own
+  # reusable CI-gate action (`.github/actions/gebra-gate`, default `gate` mode) — this
+  # job is the action's executed reference consumer, and the effective command is
+  # unchanged: `python -m pytest tests/dod tests/evolution -q`. The R2 defect-3 strict
+  # leg lives inside the suite (an inner pytest session), so the outer gate stays on
+  # the default severity policy. Install stays a job step on purpose: the action owns
+  # no environment (docs/ci/github-action.md).
   dod:
     name: "DoD scenario (py3.13 / cell 3)"
     runs-on: ubuntu-latest
@@ -240,8 +248,11 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install the package with the designated cell's frozen substrate pins
         run: pip install -e ".[dev,compat-cell-3]"
-      - name: Run the DoD scenario (five seeded defects + the evolution sequence)
-        run: pytest tests/dod tests/evolution -q
+      - name: Run the DoD scenario through the repository's own CI-gate action
+        uses: ./.github/actions/gebra-gate
+        with:
+          tests: tests/dod tests/evolution
+          pytest-args: "-q"
 
   # ── The 12 blocking cells: Python {3.10..3.13} x the three frozen §1 pair cells ──
   #

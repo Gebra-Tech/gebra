@@ -10,7 +10,10 @@ does and what artifacts a scenario run leaves behind.
 
 ## What the job runs
 
-One pytest invocation — `pytest tests/dod tests/evolution` — on a standard GitHub-hosted
+One pytest invocation — `python -m pytest tests/dod tests/evolution -q`, issued through
+the repository's own reusable CI-gate action (`.github/actions/gebra-gate`, default
+`gate` mode; this job is the action's executed reference consumer — see
+[docs/ci/github-action.md](../ci/github-action.md)) — on a standard GitHub-hosted
 `ubuntu-latest` runner, on the designated blocking matrix cell **py3.13 / cell 3** (Python
 3.13 with the `compat-cell-3` frozen substrate pins). The scenario's six legs, in order:
 

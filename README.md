@@ -252,6 +252,15 @@ snapshot your `.gebra/` store currently holds — the message names the store, b
 which of S/F/E moved, and the call that records it. It is a check on the store rather than a
 fourteenth property: it runs no validator, it writes nothing, and it says the content moved,
 never whether the change is safe.
+The plugin is also packaged as a reusable GitHub Action, `.github/actions/gebra-gate`,
+that runs it as a CI gate: one pytest run built from typed inputs, a
+`report-only` → `gate` → `strict` rollout switch, the closing `gebra` report appended
+to the step summary, and the exit code translated into the step verdict — with the
+asymmetry that matters for a gate: report-only forgives test failures and nothing
+else, so an interrupted, erroring, or empty run is red under every mode. This
+repository's own DoD scenario job issues its pytest invocation through the action on
+every push; the interface and the recommended rollout are documented in
+[docs/ci/github-action.md](docs/ci/github-action.md).
 The `verify()` aggregation over the five validators is in place, and with it
 strict mode, which is a gate policy: `gebra.verify.verify(ir, policy)` records what a
 strict run promoted and leaves every report exactly as its validator wrote it. The

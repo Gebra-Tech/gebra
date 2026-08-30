@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The CI-gate GitHub Action** (card TE-13; brief D-10 In-Scope 6/W12). A reusable
+  composite action, `.github/actions/gebra-gate`, wraps the pytest plugin as a CI
+  gate: one pytest invocation built from typed inputs (`tests`, `select`, `skip`,
+  `pytest-args`), the `report-only` → `gate` → `strict` rollout ladder as a one-word
+  `mode` switch (strict in both its bare and per-property forms via
+  `strict-properties`), the run's closing `gebra` section appended to the step
+  summary, one workflow annotation per run, and two step outputs (`exit-code`,
+  `outcome`). The exit translation is deliberately asymmetric: `report-only` forgives
+  test failures and nothing else — an interrupted, erroring, or empty run is red under
+  every mode, so a gate that checked nothing can never pass. The composite is fully
+  local (no `uses:` steps; a stdlib-only typed driver, `gate.py`, receives inputs as
+  environment variables, so no input value is ever spliced into shell text — both
+  posture points test-pinned), and the plugin stays the single authority over
+  property-slug vocabulary: an unknown slug is the plugin's own configure-time
+  refusal, surfaced as `outcome: error`. The repository's own DoD scenario job now
+  issues its one pytest invocation through the action in default `gate` mode — the
+  executed reference consumer, with the effective command unchanged. Rollout guidance
+  for adopters is `docs/ci/github-action.md`, pinned to the action's manifest and to
+  the workflow's own step by `tests/action/`.
+
 - **The DEC-16 gap-fixture extension: the vendored corpus grows 60 → 71** (card TE-14;
   DEC-16/PD-013 authorization; vault `Gebra-Tech/initial-documents@e6ea366`, re-vendored
   with the provenance manifest and PROVENANCE rows in the same landing). Eleven

@@ -1,0 +1,92 @@
+# The reusable CI gate over the gebra pytest plugin (card TE-13; brief D-10 In-Scope 6).
+#
+# Composite and fully local on purpose: no `uses:` steps — one bash step that hands the
+# typed inputs to `gate.py` as environment variables. That keeps the whole action
+# executable outside a GitHub runner (the PD-008 observation discipline runs it locally,
+# step for step), and it keeps workflow-expression text out of the `run:` body: inputs
+# reach the script through `env:` only, so no input value is ever spliced into shell
+# syntax. `tests/action/` holds the action to all of this.
+#
+# The action installs nothing. Run it in a job that has already set up Python and
+# installed the project's test environment with gebra in it — this repository's own
+# `dod` job is the executed reference consumer, and docs/ci/github-action.md documents
+# the interface contract and the recommended report-only → gate → strict rollout.
+name: gebra verification gate
+description: >-
+  Gate CI on gebra's design-time verification of workflow definitions: one pytest run
+  with the gebra plugin, a one-word report-only/gate/strict rollout switch, the closing
+  gebra report appended to the step summary, and the exit code translated into the step
+  verdict. The plugin extracts and verifies workflow definitions and never executes
+  them.
+inputs:
+  tests:
+    description: >-
+      pytest targets for the gated run (paths or node ids, shell-style tokens, e.g.
+      "tests/agents"). Empty means pytest's own collection from the working directory.
+    required: false
+    default: ""
+  mode:
+    description: >-
+      The rollout rung: "report-only" (test failures leave the step green), "gate"
+      (failures fail the step), or "strict" (gate plus --gebra-strict promotion of
+      WARNING-grade records, WARNING-graded witness notes included). Interrupted,
+      erroring, or empty runs fail the step under every mode.
+    required: false
+    default: gate
+  strict-properties:
+    description: >-
+      Comma-separated property slugs to promote under "strict" (e.g.
+      "determinism-replay"); empty promotes every WARNING in the run. Only meaningful
+      with mode "strict" — refused otherwise.
+    required: false
+    default: ""
+  select:
+    description: Comma-separated property slugs, passed to pytest as --gebra-select.
+    required: false
+    default: ""
+  skip:
+    description: Comma-separated property slugs, passed to pytest as --gebra-skip.
+    required: false
+    default: ""
+  pytest-args:
+    description: >-
+      Extra pytest arguments (shell-style tokens, e.g. "-q"). Gebra flags are refused
+      here — gate policy is declared once, through the inputs above.
+    required: false
+    default: ""
+  python:
+    description: >-
+      The interpreter that drives the gate; the gated run is that interpreter's own
+      "-m pytest", so this single value picks the environment being gated.
+    required: false
+    default: python
+  working-directory:
+    description: Where the gated run happens.
+    required: false
+    default: "."
+outputs:
+  exit-code:
+    description: >-
+      The gated pytest run's raw exit code; empty when the request was refused before
+      pytest ran.
+    value: ${{ steps.gate.outputs.exit-code }}
+  outcome:
+    description: "One of: pass, failures, empty, error, refused."
+    value: ${{ steps.gate.outputs.outcome }}
+runs:
+  using: composite
+  steps:
+    - id: gate
+      name: Run the gebra verification gate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GEBRA_GATE_TESTS: ${{ inputs.tests }}
+        GEBRA_GATE_MODE: ${{ inputs.mode }}
+        GEBRA_GATE_STRICT_PROPERTIES: ${{ inputs.strict-properties }}
+        GEBRA_GATE_SELECT: ${{ inputs.select }}
+        GEBRA_GATE_SKIP: ${{ inputs.skip }}
+        GEBRA_GATE_PYTEST_ARGS: ${{ inputs.pytest-args }}
+        GEBRA_GATE_PYTHON: ${{ inputs.python }}
+      run: |
+        "$GEBRA_GATE_PYTHON" "$GITHUB_ACTION_PATH/gate.py"

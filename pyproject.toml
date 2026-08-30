@@ -240,8 +240,17 @@ ignore_missing_imports = true
 module = ["networkx"]
 ignore_missing_imports = true
 
-# ── Coverage (coverage.py via pytest-cov; GOV-02 configures, TE-12 gates) ──
-# No `fail_under` here on purpose: the ≥80% coverage gate is TE-12's card at G6.
+# ── Coverage (coverage.py; GOV-02 configures, TE-12 gates) ──
+# Still no `fail_under` here, now for a reason rather than a pending card: the gate the
+# briefs ask for is *per surface* — `gebra.verify`, `gebra.testing` and the pytest plugin
+# each strictly above 80% (D-09 Deliverable 6, D-10 Deliverable 8, SOW §2) — and
+# `fail_under` is one number over everything measured, compared with `>=`. A project total
+# can sit well above the floor while one named surface rots underneath it, which is the
+# regression TE-12 exists to block. `tools/coverage_gate.py` is the threshold's home; CI
+# runs it in the `test-locked` job, which measures with `coverage run -m pytest` (see that
+# job's comment for why the mode matters to the plugin scope). `exclude_also` below is the
+# only place a structural exclusion is declared; per-line `# pragma: no cover` inside a
+# gated scope must carry its reason, and the gate checks that.
 [tool.coverage.run]
 source_pkgs = ["gebra"]
 branch = true

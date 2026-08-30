@@ -1,7 +1,9 @@
 # CI — on the GOV-D1-ruled build system (PD-005: hatchling backend, uv-managed,
 # `uv.lock` committed) carrying the GOV-02 quality gates: `ruff check`,
 # `ruff format --check`, `mypy --strict` (knobs in `pyproject.toml`, so the gate is
-# bare `mypy`), and `pytest` — with coverage measured on the locked test job.
+# bare `mypy`), and `pytest` — with coverage measured *and gated* on the locked test
+# job (TE-12: >80% on `gebra.verify`, `gebra.testing` and the pytest plugin, each on
+# its own).
 #
 # Two axes, deliberately different environments. The jobs above `test-matrix` run in
 # the *ruled default* environment: uv-managed, resolved from the committed lock, one
@@ -163,15 +165,37 @@ jobs:
         run: uv lock --check
       - name: Sync the locked development environment
         run: uv sync --extra dev --frozen
-      # Coverage settings come from [tool.coverage.*]; no threshold is enforced
-      # yet — the >=80% gate is TE-12's card at G6.
+      # Coverage settings come from [tool.coverage.*]. The measurement is `coverage run -m
+      # pytest`, not `pytest --cov`, and the difference is load-bearing (TE-12):
+      # `gebra.pytest_plugin` is a pytest11 entry point, so pytest imports it while loading
+      # plugins — before pytest-cov starts measuring. Under `--cov` its 161 module-level
+      # statements read as never executed and the plugin scope loses 18.9 points to a
+      # measurement artifact. Starting coverage before pytest is what makes that scope's
+      # number a fact about the tests; the gate below refuses a report measured the other
+      # way rather than reporting the artifact as a regression.
       - name: Test with coverage
-        run: uv run --no-sync pytest -q --cov --cov-report=term-missing --cov-report=xml
+        run: uv run --no-sync coverage run -m pytest -q
+      # `if: always()` so a red suite still leaves the artifact behind — the reports were
+      # written inline by `--cov-report` before; now they are their own step.
+      - name: Write the coverage reports
+        if: always()
+        run: |
+          uv run --no-sync coverage report
+          uv run --no-sync coverage xml
+          uv run --no-sync coverage json
+      # TE-12: the briefs' >80% floor on gebra.verify, gebra.testing and the plugin, each
+      # measured on its own. Exit 1 = a scope at or below the floor (or an exemption with
+      # no stated reason); exit 2 = no verdict (missing, unreadable or mis-measured
+      # report), which is never a pass. There is no bypass flag.
+      - name: Coverage gate — >80% on gebra.verify, gebra.testing and the plugin
+        run: uv run --no-sync python tools/coverage_gate.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-xml
-          path: coverage.xml
+          name: coverage-reports
+          path: |
+            coverage.xml
+            coverage.json
 
   # ── The distribution artifacts, built by the ruled backend ──
   build:

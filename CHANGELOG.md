@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The coverage gate** (card TE-12; briefs D-09 Deliverable 6 / D-10 Deliverable 8,
+  SOW §2's supporting acceptance facts). `tools/coverage_gate.py` holds three surfaces
+  — `gebra.verify`, `gebra.testing` and the pytest plugin — each **strictly above 80%**,
+  aggregated per scope rather than as one project total, so a thin surface can no longer
+  hide behind a healthy package average. CI runs it in the `test-locked` job after the
+  suite; a scope at or below the floor exits 1 naming the scope and its mandate, and a
+  report the gate cannot score honestly (missing, unreadable, measured without branch
+  coverage, or matching no file for a scope) exits 2 rather than passing vacuously. There
+  is no threshold flag and no bypass. The measurement mode changed with it, and the change
+  is load-bearing: the job now measures with `coverage run -m pytest` instead of `pytest
+  --cov`, because the plugin is a `pytest11` entry point whose module body runs during
+  plugin loading — before pytest-cov starts — which recorded 161 module-level statements
+  as never executed and cost the plugin scope 18.9 points of purely artificial miss.
+  The gate detects a report measured the old way and refuses it instead of reporting the
+  artifact as a regression. Exemptions are now policy rather than convention: structural
+  exclusions stay in `[tool.coverage.report] exclude_also`, and a per-line `# pragma: no
+  cover` inside a gated scope must carry its reason on the same line or the gate rejects
+  it — the discipline the honest-claims lint already applies to its allow-pragma. The
+  pragma is recognised by coverage.py's own default pattern rather than by one spelling, so
+  every form coverage.py honours (`# pragma:no cover`, `# PRAGMA: NO COVER`) needs a reason
+  too, and a machine directive trailing the pragma (`# noqa: …`) does not count as one. The
+  policy, the local reproduction recipe and the honest boundary ("a floor under the test
+  suite's reach, not a statement about the code's behaviour") are in
+  `docs/governance/coverage-gate.md`, with CONTRIBUTING pointing at it. The job's coverage
+  artifact is now `coverage-reports` (both `coverage.xml` and the `coverage.json` the gate
+  reads); no dependency was added — `coverage` already came with the `dev` extra.
+
 - **The CI-gate GitHub Action** (card TE-13; brief D-10 In-Scope 6/W12). A reusable
   composite action, `.github/actions/gebra-gate`, wraps the pytest plugin as a CI
   gate: one pytest invocation built from typed inputs (`tests`, `select`, `skip`,

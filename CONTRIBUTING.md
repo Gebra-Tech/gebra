@@ -104,10 +104,20 @@ uv run pytest                  # test suite
   everywhere; the package ships a `py.typed` marker. A per-module relaxation in
   `[[tool.mypy.overrides]]` needs a comment saying why it is a fact about the
   environment rather than an exemption.
-- Coverage is measured with [coverage.py](https://coverage.readthedocs.io/) via
-  `pytest-cov`; settings live in `[tool.coverage.*]`. Run it with
-  `uv run pytest --cov`. No minimum is enforced yet — the coverage threshold
-  lands with the harness work.
+- Coverage is measured with [coverage.py](https://coverage.readthedocs.io/);
+  settings live in `[tool.coverage.*]`. CI holds `gebra.verify`, `gebra.testing`
+  and the pytest plugin each **strictly above 80%**, and a scope below the floor
+  fails the build. Run the gate yourself:
+
+  ```bash
+  uv run coverage run -m pytest -q   # not `pytest --cov` — see the doc for why
+  uv run coverage json
+  python tools/coverage_gate.py
+  ```
+
+  What the gate measures, why the measurement mode matters to the plugin scope,
+  and the exemption policy for `# pragma: no cover` are in
+  [docs/governance/coverage-gate.md](docs/governance/coverage-gate.md).
 - `.editorconfig` carries the whitespace conventions (UTF-8, LF, final newline,
   4-space Python at 100 columns) and deliberately leaves the vendored fixture
   corpus untouched.

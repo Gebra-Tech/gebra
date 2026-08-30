@@ -21,6 +21,8 @@ import pytest
 import yaml
 from coverage import Coverage
 
+from tools import coverage_gate
+
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover - exercised on the 3.10 matrix cells
@@ -101,13 +103,20 @@ def test_coverage_configuration_is_loadable(pyproject: dict[str, Any]) -> None:
     assert config.source_pkgs == ["gebra"]
 
 
-def test_coverage_threshold_is_not_armed_here(pyproject: dict[str, Any]) -> None:
-    """GOV-02 configures the coverage tooling; TE-12 arms the ≥80% gate at G6.
+def test_the_coverage_threshold_lives_in_the_gate_not_in_fail_under(
+    pyproject: dict[str, Any],
+) -> None:
+    """GOV-02 configured the coverage tooling; TE-12 armed the >80% gate — elsewhere.
 
-    Pinning the absence keeps the two cards' scopes honest: when TE-12 lands, this
-    test is replaced by its threshold assertion.
+    This replaces the earlier "threshold is not armed here" pin, and asserts the same
+    absence for the opposite reason. ``fail_under`` is one number over everything measured,
+    compared with ``>=``; the briefs ask for three named surfaces each strictly above 80%
+    (D-09 Deliverable 6, D-10 Deliverable 8, SOW §2). A project total can sit well above the
+    floor while one of those surfaces rots underneath it, so the threshold lives in
+    ``tools/coverage_gate.py`` — which is where a reader must find one number, not two.
     """
     assert "fail_under" not in pyproject["tool"]["coverage"].get("report", {})
+    assert coverage_gate.THRESHOLD == 80.0
 
 
 # ── .editorconfig (SOW §5 repo conventions) ──
@@ -168,4 +177,23 @@ def test_ci_workflow_runs_the_gate(gate: str) -> None:
 
 def test_ci_workflow_measures_coverage() -> None:
     """The coverage configuration is exercised by a CI job, not merely present."""
-    assert any("--cov" in step for step in _workflow_run_steps())
+    assert any("coverage run -m pytest" in step for step in _workflow_run_steps())
+
+
+def test_ci_measures_coverage_before_pytest_starts() -> None:
+    """The measurement mode is load-bearing for the plugin scope, so it is pinned (TE-12).
+
+    ``gebra.pytest_plugin`` is a ``pytest11`` entry point: pytest imports it while loading
+    plugins, before ``pytest-cov`` would start measuring. Under ``pytest --cov`` its
+    module-level statements are recorded as never executed and the scope reads 18.9 points
+    low. Switching the job back to ``--cov`` fails here — and would anyway be refused by the
+    gate itself, which detects the mis-measurement rather than scoring it.
+    """
+    measuring = [step for step in _workflow_run_steps() if "coverage run" in step]
+    assert measuring, "no CI step measures coverage with `coverage run`"
+    assert not any("--cov" in step for step in _workflow_run_steps())
+
+
+def test_ci_runs_the_coverage_gate() -> None:
+    """SOW §2's supporting fact is enforced by a step, not by looking at the report."""
+    assert any("tools/coverage_gate.py" in step for step in _workflow_run_steps())

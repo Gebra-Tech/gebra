@@ -475,6 +475,19 @@ one extraction it reaches is the plugin's own `gebra.extract()` call over the ar
 every path that call reaches carries its own guarded child in §1 — so §1's machine check owes it
 nothing, and nothing in the driver or its tests opens a network connection.
 
+The **coverage gate** (`tools/coverage_gate.py`, card TE-12) adds no execution surface of its own
+— it reads a coverage.py JSON report and the gated `.py` files as text, holds no write-mode file
+handle and spawns no process, and is standard library only under the same AST sweep the action's
+driver carries (`test_the_gate_imports_stdlib_only`). It is recorded here for a second reason: the
+card changed the command **every tripwire in this repository now runs under**, from `pytest -q
+--cov …` to `coverage run -m pytest -q` in CI's `test-locked` job. That change is measurement-only
+and was checked leg by leg at pre-review: plugin discovery is unchanged (the same `pytest11`
+loading, only with the tracer already armed); guarded *child* processes stay unmeasured under both
+modes, because neither `pytest-cov` nor `coverage run` sets `COVERAGE_PROCESS_START` and
+`[tool.coverage.run]` enables no subprocess patching, so every sentinel-armed child in §§1–4 runs
+exactly as before; and the one new inherited variable, `COVERAGE_RUN`, is read nowhere in the
+repository. No tripwire, sentinel, or hermeticity child was weakened, skipped, or re-scoped by it.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

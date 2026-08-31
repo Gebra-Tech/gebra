@@ -9,6 +9,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Brief D-12 is promoted from outline to a full in-repo contract, and its two contract
+  specifications are stamped final** (card CLI-08; the F3 trigger is master plan §3's). The
+  brief's own status note made promotion conditional on the D-08 IR models and the D-09
+  result types freezing; both freezes were recorded on 2026-08-13 (IR-06, VAL-12), so the
+  promotion has been eligible since and this change executes it. The record is
+  `docs/governance/D-12-PROMOTION.md`, beside the two freeze records it cites.
+
+  **Nothing in `src/` changes.** Promotion is a documentation and governance event: the five
+  verbs, the report format, the diagram emitter and the exit codes are exactly what CLI-03…
+  CLI-07 merged. What changes is that the documents describing them stop being amendable by
+  Phase-0 cards. The record scopes that before claiming it — the vendored brief is not edited
+  (WA-03/WA-11) and still reads OUTLINE; what "promoted" means here is the reading the plan
+  itself fixed (a promotion record citing F3), and the record says so in as many words.
+
+  **`CLI-SPEC.md`, `REPORT-FORMAT-SPEC.md` and `DIAGRAM-STYLE-GUIDE.md` are now FINAL**, each
+  status block carrying the stamp, the date, the card and what final means: no Phase-0 card
+  amends the contract further, and a later change needs its own card plus the document's own
+  route — §1.6's bump table for the report format, a §7/§9 landing note for the other two.
+  Editorial corrections and landing records are explicitly not amendments. **`report_format`
+  is `1.1`, final** — the literal every producer and consumer in this repository already reads
+  first.
+
+  **Every open item in both Appendix Bs is closed or re-routed**, which is the obligation
+  CLI-SPEC §7 wrote for this card, and each disposition lands in the item's own row as well as
+  in the record, so the two cannot drift. Four are closed by the promotion (the two "stamped
+  final at the promotion" items; CLI-SPEC's audit-export exposure, closed as a decision —
+  the export is native JSON at `report_format` `1.1`, so a consumer reads it with no
+  gebra-specific tooling and a sixth verb would widen the five-verb surface the brief fixes;
+  and the `--call` UX question CLI-04 left for this card to weigh, **weighed and declined**,
+  because any route that called a zero-argument attribute *because it looks like a factory*
+  would make executing user code implicit — the one thing `--call`'s opt-in exists to
+  prevent). `display`'s missing live-target mode is closed as a Phase-0 decision with the
+  capability re-routed, on the structural ground that it would pull CLI-SPEC §0.5's tripwire
+  obligation with it. The rest are re-routed to Phase-1 with their owners named, and the
+  already-closed items are reaffirmed rather than reopened.
+
+  **REPORT-FORMAT-SPEC §1.6 gained the bump rows open item OI-7 commissioned** for this card.
+  The unrowed class — a documented member's *value rule* changing while the model is untouched
+  — is split by direction: widening, or the same value coming to mean something else, is
+  **MINOR** (the model parses either way, so the break is a misreading rather than a parse
+  error); narrowing, or merely being made precise, is **none**, with the 2026-08-05
+  `subject.source` correction recorded as the worked example. A value-rule change that also
+  moves exit-code derivation, the finding set or strict reach stays MAJOR by the row that
+  already existed. Adding the rows is not itself a bump: they classify future changes without
+  making one.
+
+  **`docs/specs/EXTENSION-SPEC.md` is the brief's last artifact-table row**, at the outline
+  depth the brief asks for and no deeper: the rulings that already bind an eventual thin VS
+  Code lens (D-028 clause (ii), DEC-26's thin-client-over-CLI wording, read-only, Apache-2.0,
+  P2/Phase-1), the five constraints that make it thin, the six CLI surfaces it would wrap —
+  all of which exist and are now contract-fixed — and eight questions a Phase-1 contract must
+  settle, named and deliberately not answered. **No extension is built, designed or scheduled
+  in Phase-0**, and the document opens by saying so; it lives in the repository-internal
+  `docs/specs/` tree that `mkdocs.yml` excludes from the user documentation site, so no site
+  reader meets a page describing an editor that does not exist (WA-12).
+
+  Both new documents are pinned by tests rather than trusted as prose: `tests/docs/test_d12_promotion.py`
+  checks that every repository path the record cites exists, that the two freeze records still
+  name this card back, that each document the artifact table calls final actually carries a
+  final stamp naming CLI-08, that the `1.1` the record stamps is the `1.1` the spec fixes, and
+  that **every** Appendix B item is dispositioned **in both directions** — an item the specs
+  carry and the record forgets is a dropped obligation, and one the record invents is a
+  disposition of nothing. `tests/docs/test_extension_spec.py` holds the outline to being an
+  outline: the opening denial, the P2/Phase-1 status, the absence of any extension source
+  tree, the site exclusion (an edit that un-excluded `docs/specs/` turns the outline into a
+  published promise and fails here), and that §3 names only verbs CLI-SPEC actually fixes.
+
 - **The README is a working front page: an honest status table, install instructions, and a
   quickstart CI executes against the shipped wheel** (card DOC-04; SOW §1/§5/§6, D-028 via
   `docs/LICENSING.md`). The page now opens with what gebra is and the boundary it keeps,

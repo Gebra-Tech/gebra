@@ -22,7 +22,12 @@
 > graph-algorithm consumer, and never labels a workflow safe, correct, or verified. Every
 > painted finding carries its claim class (WA-06; PD-034).
 >
-> **Status:** ratified as CLI-06's artifact. Stamped final at the D-12 promotion (CLI-08).
+> **Status: FINAL.** Ratified as CLI-06's artifact, and **stamped final at the D-12 promotion
+> on 2026-08-31** (card CLI-08; the record is
+> [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md)). Final means no
+> Phase-0 card amends this contract further; a later change needs its own card and a landing
+> note in §9. The guide's two deferrals move with it and are not reopened by the promotion:
+> PlantUML stays out of Phase-0 (§8) and large-graph folding stays a Phase-1 possibility (§6).
 
 ---
 
@@ -363,3 +368,11 @@ sentence describes a decision, not a capability).
   subset of Mermaid's documented flowchart grammar; it is not the Mermaid renderer, and
   rendering in external viewers is exercised where D-12's Definition of Done places it
   (the executed-examples harness and the flagship tutorial, DOC track).
+- **CLI-08 (D-12 promotion), landed 2026-08-31.** This guide is stamped final with CLI-SPEC and
+  REPORT-FORMAT-SPEC; the record is
+  [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md), which carries the
+  artifact table the stamp completes. Nothing above changed: no rule, no palette value, no
+  escape, no emitter behavior. The one forward reference this guide already made — that a later
+  lens over the same diagram should draw one picture rather than several — now has its
+  addressee in [EXTENSION-SPEC.md](EXTENSION-SPEC.md) §4.2, which binds a Phase-1 extension to
+  §4's encoding rather than letting it invent one.

@@ -18,7 +18,13 @@
 > INTROSPECTION-SPEC, ANNOTATION-API-SPEC, …) live in the delivery repository and are
 > read-only; this file restates them where it must and redefines nothing.
 >
-> **Status:** ratified as CLI-02's artifact. Stamped final at the D-12 promotion (CLI-08).
+> **Status: FINAL.** Ratified as CLI-02's artifact (2026-08-05) and **stamped final at the
+> D-12 promotion on 2026-08-31** (card CLI-08; the record is
+> [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md), which also
+> dispositions every item in Appendix B). Final means no Phase-0 card amends this contract
+> further: the verb set is five, the exit codes are §3's, and a later change needs its own
+> card and a landing note in §7 recording what moved and why. Editorial corrections and
+> landing records are not amendments.
 
 ---
 
@@ -1016,7 +1022,16 @@ examples executed in CI (WA-12). This document is a contract for implementers; i
 reference and must not be published as one.
 
 **CLI-08 (D-12 promotion)** — stamps this document final alongside REPORT-FORMAT-SPEC, and
-closes or re-routes every open item below.
+closes or re-routes every open item below. **Landed 2026-08-31.** Both obligations are
+discharged in [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md): the
+status block above carries the stamp and says what final means, and every Appendix B item
+now records its disposition in its own row — OI-8 and OI-10 closed by the promotion (the
+second weighed and declined: a route that called a zero-argument attribute *because it looks
+like a factory* would make executing user code implicit, which is what §0.5's opt-in exists
+to prevent), OI-4 and OI-5 closed as Phase-0 decisions with the capability re-routed, OI-1,
+OI-2, OI-3 and OI-6 re-routed to Phase-1 cards, and OI-7 and OI-9 reaffirmed as already
+closed. No `src/` change rides this card: promotion is a documentation and governance event,
+and the surface it stamps is exactly what CLI-04…CLI-07 merged.
 
 ---
 
@@ -1057,13 +1072,13 @@ Two absences are deliberate and stated so an implementer does not read them as o
 
 | Id | Item | Owner / route |
 |---|---|---|
-| OI-1 | No source anchors exist in IR 1.0, so diagnostics anchor structurally and SARIF results carry no `physicalLocation` (§5.7). Pairs with REPORT-FORMAT-SPEC OI-1. | Extraction-side capability (EX track), or a D-12 promotion decision (CLI-08). Not a Phase-0 blocker. |
-| OI-2 | Extraction warnings have no machine-format home: they render to stderr, and the run report defines no warning field (§5.2). | An amendment to REPORT-FORMAT-SPEC (a new optional member, MINOR per its §1.6) on evidence of a consumer that needs them structured. |
-| OI-3 | `snapshot` and `diff` have no `--format json`: neither engine ships a stable JSON projection, and inventing one here would be a new schema no card owns. `--quiet` covers the scripting case for `snapshot`. | A future card owning the projection, plus an amendment here. |
-| OI-4 | SD-07's audit export (`.gebra/reports/<version>.report.json`, REPORT-FORMAT-SPEC §6) is exposed by no verb: no Phase-0 card wires it to the CLI. | SD-07 and CLI-08. |
-| OI-5 | `display` has no live-target (import-reference) input mode (§4.4), per PD-034 finding 2 and CLI-06's prereq set. | CLI-08, or a Phase-1 card that owns the added extraction scope. |
-| OI-6 | No configuration file and no `GEBRA_*` environment variables (§6). | An amendment here plus a card, on evidence of a need the command line cannot meet. |
+| OI-1 | No source anchors exist in IR 1.0, so diagnostics anchor structurally and SARIF results carry no `physicalLocation` (§5.7). Pairs with REPORT-FORMAT-SPEC OI-1. | **Re-routed to Phase-1 at the D-12 promotion (CLI-08, 2026-08-31): IR/EX tracks.** Not closable by a presentation decision — IR 1.0 carries no source spans, IR-SPEC is frozen, and adding them is an `ir_version` question. §5.7 declares the absence rather than fabricating an anchor, and that stays the Phase-0 answer. Not a Phase-0 blocker. |
+| OI-2 | Extraction warnings have no machine-format home: they render to stderr, and the run report defines no warning field (§5.2). | An amendment to REPORT-FORMAT-SPEC (a new optional member, MINOR per its §1.6) on evidence of a consumer that needs them structured. **Re-routed unchanged at CLI-08 (2026-08-31)**, now under the post-final route: a Phase-1 card carries the amendment. No such consumer has appeared. |
+| OI-3 | `snapshot` and `diff` have no `--format json`: neither engine ships a stable JSON projection, and inventing one here would be a new schema no card owns. `--quiet` covers the scripting case for `snapshot`. | A future card owning the projection, plus an amendment here. **Re-routed to Phase-1 at CLI-08 (2026-08-31)**, unchanged in substance; §0.1 rule 3 is why the projection cannot be invented at this layer. |
+| OI-4 | SD-07's audit export (`.gebra/reports/<version>.report.json`, REPORT-FORMAT-SPEC §6) is exposed by no verb: no Phase-0 card wires it to the CLI. | **Closed as a decision at CLI-08 (2026-08-31).** SD-07 landed (`gebra.audit`, 2026-08-12) and writes the export through the store; **no verb produces, discovers or is wired to it**, and none is added. Not "no verb touches it", which would be false: the file is native JSON at `report_format` `1.1` — the same document `gebra verify --format json` emits — so `display --report` (§4.4) already reads it like any other run report, digest check and all, and that is the disposition's own point. A consumer needs no gebra-specific tooling and the export needs no verb, while a sixth verb would widen the five-verb §1.1 surface brief D-12 fixes. Exposing it later is a Phase-1 card plus an amendment here. |
+| OI-5 | `display` has no live-target (import-reference) input mode (§4.4), per PD-034 finding 2 and CLI-06's prereq set. | **Closed as a Phase-0 decision at CLI-08 (2026-08-31); the capability is re-routed to Phase-1.** Not added, for a structural reason rather than a budgetary one: an import reference makes `display` a live-target path and pulls §0.5 item 3's tripwire obligation with it (§7's `display` paragraph says exactly this). A Phase-1 card that wants it owns the added extraction scope *and* the tripwire; the specified refusal is stable meanwhile. |
+| OI-6 | No configuration file and no `GEBRA_*` environment variables (§6). | An amendment here plus a card, on evidence of a need the command line cannot meet. **Re-routed unchanged at CLI-08 (2026-08-31)**: §6.1's argument — a file that could set `gate.strict` moves a gate outcome out of the invocation and into something a reviewer may not read — is the reason it is not reopened at the promotion. |
 | OI-7 | ~~`typer` ships `--install-completion`/`--show-completion` by default. Shell completion is not part of this contract; CLI-04 either disables the pair or documents it as outside the specified surface.~~ **Closed at CLI-04, 2026-08-21: disabled.** The application is built with the pair off (`add_completion=False`), so the options do not exist on any verb; `tests/cli/test_app.py::test_the_completion_pair_is_not_part_of_the_surface` holds it there. Re-adding completion is a CLI-08 (or later-card) amendment to this contract, not a default drifting back in. | Closed. |
-| OI-8 | This document is ratified as CLI-02's artifact and stamped final at the D-12 promotion. | CLI-08. |
+| OI-8 | ~~This document is ratified as CLI-02's artifact and stamped final at the D-12 promotion.~~ **Closed at CLI-08, 2026-08-31: stamped.** The status block at the top of this document carries the stamp and states what final means; [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md) is the record. | Closed. |
 | OI-9 | ~~PROPERTY-CATALOG-SPEC §0.3 defines P-02/P-04/P-06 results **only over P-01-clean topology** ("best-effort diagnostics, not contract-bearing verdicts" otherwise), but no rendering obligation says so.~~ **Closed at CLI-03, 2026-08-08.** The amendment this item asked for landed at VAL-11 as `report_format` `1.1`: `RunReport.best_effort` carries the qualification into the artifact (REPORT-FORMAT-SPEC §1.3), §4.2 gives it two rendering rows, §4.6 rule 9 forbids showing a best-effort report as a plain verdict, and §5.1 rule 7 requires the human surface to state it *where those reports are*, not only in the summary. | Closed. CLI-03's `gebra.report.human` implements §5.1 rule 7 and `tests/report/test_human.py::test_best_effort_is_stated_where_its_reports_are` holds it there; a SARIF log carries no such qualification by design (§4.2: "SARIF has no place to qualify a result's weight"). |
-| OI-10 | `--call` (§2.4) is the CLI's only path that executes user code, and it is opt-in. Whether the common `build_graph()` layout deserves a smoother route than "write `graph = build_graph()` in your module, or pass `--call`" is a UX question Phase-0 answers conservatively. *CLI-04 implementation note (2026-08-21): the conservative shape cost nothing to build and reads well in the refusal message — the refusal names the found type and both remedies in one sentence, and the tripwire suite pins that no probe softens it. No smoother route was added; whether one is wanted is evidence for CLI-08 to weigh, not a gap this card found.* | CLI-08. |
+| OI-10 | `--call` (§2.4) is the CLI's only path that executes user code, and it is opt-in. Whether the common `build_graph()` layout deserves a smoother route than "write `graph = build_graph()` in your module, or pass `--call`" is a UX question Phase-0 answers conservatively. *CLI-04 implementation note (2026-08-21): the conservative shape cost nothing to build and reads well in the refusal message — the refusal names the found type and both remedies in one sentence, and the tripwire suite pins that no probe softens it. No smoother route was added; whether one is wanted is evidence for CLI-08 to weigh, not a gap this card found.* **Closed at CLI-08, 2026-08-31: weighed and declined.** Three cards of evidence later — the refusal's wording, the tripwire suites that pin no probe softens it, and CLI-07's process-level matrix — no smoother route survives the boundary that decides it: any route that calls a zero-argument attribute *because it looks like a factory* makes executing user code implicit, which is precisely what `--call`'s opt-in exists to prevent (§0.5). Phase-1 inherits the argument, not an open question. | Closed. |

@@ -12,9 +12,14 @@
 > (PROPERTY-CATALOG-SPEC, IR-SPEC, TERMINATION-WITNESS-SPEC, …) live in the delivery
 > repository and are read-only; this file restates them where it must and redefines nothing.
 >
-> **Status:** ratified as CLI-01's artifact. `report_format` `1.1` is fixed here and is
-> stamped final at the D-12 promotion (CLI-08). `1.0` was this document's shape before
-> VAL-11 built it; the one MINOR amendment since is recorded in §1.6.
+> **Status: FINAL.** Ratified as CLI-01's artifact, and **stamped final at the D-12 promotion
+> on 2026-08-31** (card CLI-08; the record is
+> [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md), which also
+> dispositions every item in Appendix B). **`report_format` is `1.1`, final.** `1.0` was this
+> document's shape before VAL-11 built it and was never emitted; the one MINOR amendment since
+> is recorded in §1.6, whose bump table — including the value-rule row added at the promotion
+> — is the route any later change travels. Final means no Phase-0 card amends this contract
+> further; editorial corrections and landing records are not amendments.
 
 ---
 
@@ -401,10 +406,18 @@ of the package version. The pairing a consumer cares about rides the document it
 |---|---|
 | A new optional member; a new member joining a discriminated union (a witness `kind`, a location subtype, a condition ID ratified into §0.4) | MINOR |
 | A new `NotImplementedStatus`, a new `Promotion.origin`, a new `input_mode` | MINOR |
-| An existing optional member's present-iff rule widens, so a document carries it where `1.x` did not | MINOR — the documents are a superset, and a strict consumer built against the narrower rule may refuse one (added at `1.1`, VAL-11; the row OI-7 asked for, on the class the `1.1` amendment itself is) |
+| An existing optional member's present-iff rule widens, so a document carries it where `1.x` did not | MINOR — the documents are a superset, and a strict consumer built against the narrower rule may refuse one (added at `1.1`, VAL-11; the **present-iff half** of the class OI-7 flagged as unrowed, which is the class the `1.1` amendment itself is) |
+| A documented member's **value rule** widens, or the same value comes to mean something else, while the model is untouched | MINOR — the model parses either way, so the break is not a parse error but a misreading: a consumer built against the narrower rule may refuse a value it was never told to expect, or, worse, accept one and read it wrong (added at the D-12 promotion, CLI-08 — the **value-rule half** of OI-7's class). **This row reaches only members whose value rules this document owns**; values fixed by PROPERTY-CATALOG-SPEC — condition IDs (§0.4, string-identical across analyses by SARIF contract), claim classes (§0.1), severities and exit codes (§0.2) — change only by catalog addendum under WA-03, never by a bump here |
+| A documented member's **value rule** narrows or is merely made precise, admitting nothing a consumer was not already told to expect | none — every conforming document a consumer will meet is one it could already read, and its reading of it does not change. The 2026-08-05 `subject.source` correction (§1.3) is the worked example: the field always held the invocation's own reference, and the pointer beside the example was what was wrong |
 | Removing a member, retyping one, making an optional member required, renaming anything | MAJOR |
 | Any change to exit-code derivation (§2), to the finding set (§2.1), or to strict-mode reach (§2.3) | MAJOR |
 | Editorial change, clarified prose, a new illustrative example | none |
+
+**Where two rows apply, the more severe class governs.** The table is read as a whole, not
+top to bottom: a value-rule change that also moves exit-code derivation, the finding set or
+strict-mode reach is MAJOR by that row, whatever the value-rule rows would say on their own.
+Stated because the value-rule rows are the two most likely to be classified from the table
+alone.
 
 Because every model is `extra="forbid"`, a strict consumer built against `1.0` will reject a
 `1.1` document that uses a new member. That is the intended failure: **read `report_format`
@@ -412,9 +425,14 @@ first**. A consumer MUST refuse a MAJOR it does not know, and MAY refuse a highe
 a consumer that wants tolerance reads the fields it knows off the parsed JSON rather than
 loosening the models.
 
-`report_format` is fixed by this document and stamped final when D-12 is promoted to a full
-contract (CLI-08). Until then, an amendment lands here, as an edit to this file with the bump
-recorded in the CHANGELOG.
+`report_format` is fixed by this document and was **stamped final at the D-12 promotion on
+2026-08-31** (CLI-08; [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md)).
+It is `1.1`, and no Phase-0 card moves it: before the stamp an amendment was an ordinary edit
+to this file by whichever card found the need — that is how `1.1` landed at VAL-11 — and after
+it, a bump needs its own card, its own row in the amendment log, and the CHANGELOG entry that
+always went with one. The two value-rule rows above were added by the promotion itself and are
+not a bump: they classify future changes without making one, on this table's own
+"editorial change, clarified prose" row.
 
 **Amendment log.**
 
@@ -1039,6 +1057,15 @@ CLI (D-12's shared-formatting requirement).
 **CLI-07 (integration suite)** — golden the run reports byte-for-byte; `tool.version` is the only
 field a golden normalizes (§1.3).
 
+**CLI-08 (D-12 promotion)** — stamp this document final alongside CLI-SPEC, fix `report_format`,
+and close or re-route every open item in Appendix B. **Landed 2026-08-31**, recorded in
+[docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md): `report_format` is `1.1`,
+final; §1.6 gained the two value-rule rows OI-7 commissioned (and says why adding them is not
+itself a bump); OI-4 and OI-7 are closed by the promotion, OI-1, OI-2 and OI-5 are re-routed to
+Phase-1 cards, and OI-3, OI-6 and OI-8 are reaffirmed as already closed. No producer or consumer
+changes: the format the promotion stamps is exactly the one VAL-11 built and CLI-03, SD-07 and
+TE-07 read.
+
 **Notes for consumers.** (1) Read `report_format` before anything else (§1.6). (2) Branch on
 structured fields only; prose fields are display-only (§4.6 rule 7). (3) A marker is not a
 verdict — handle the third member of `PropertyOutcome` explicitly. (4) `gate.counts` and
@@ -1227,11 +1254,11 @@ needs it.
 
 | Id | Item | Owner / route |
 |---|---|---|
-| OI-1 | No source anchors exist in IR 1.0, so SARIF results carry no `physicalLocation` (A.5) and GitHub code-scanning annotations may not surface. | Needs an extraction-side capability (EX track) or a D-12 promotion decision (CLI-08). Not a Phase-0 blocker: the log is spec-valid and every other consumer reads it fully. |
-| OI-2 | The `sarif-full` profile is deferred (A.8). | Amendment here on evidence of a consumer that needs it. |
+| OI-1 | No source anchors exist in IR 1.0, so SARIF results carry no `physicalLocation` (A.5) and GitHub code-scanning annotations may not surface. | **Re-routed to Phase-1 at the D-12 promotion (CLI-08, 2026-08-31): IR/EX tracks.** The promotion could not close it — the gap needs an extraction-side capability behind an `ir_version` change, which no presentation decision supplies. A.5 declares it. Not a Phase-0 blocker: the log is spec-valid and every other consumer reads it fully. Pairs with CLI-SPEC OI-1, the same gap from the diagnostics side. |
+| OI-2 | The `sarif-full` profile is deferred (A.8). | Amendment here on evidence of a consumer that needs it. **Re-routed unchanged at CLI-08 (2026-08-31)**: A.8's argument stands, and reopening it is now a MINOR amendment owned by a Phase-1 card. |
 | OI-3 | ~~Fidelity-matrix entries `FM-004` and `FM-007` stay open.~~ **Closed at TE-04, 2026-08-06.** Both were waiting on §3.2 rule 3 and §3.3, and this item read them as unreachable by the harness. That was wrong in one respect, recorded rather than smoothed: the harness's own `PR-3` and `PR-1` obligations *are* projections of the kind those rules govern, so applying rule 3's anchor reduction and §3.3's no-normative-merged-order to the harness's two projection rules closed both rows without a §P-09 merge and without a corpus edit. | Closed. The question this item was right about survives it: which host report a WARNING-grade finding rides is still §P-09's, and `verify()` therefore still assembles no advisories. |
-| OI-4 | `report_format` `1.1` is fixed here and stamped final at the D-12 promotion. | CLI-08. |
-| OI-5 | The witness and location unions grow as property sections merge; each new member is a MINOR bump and a new row in §4. | Whichever card merges the section. |
+| OI-4 | ~~`report_format` `1.1` is fixed here and stamped final at the D-12 promotion.~~ **Closed at CLI-08, 2026-08-31: stamped.** `report_format` is `1.1`, final; the status block and §1.6 carry the stamp and the post-final route, and [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md) is the record. | Closed. |
+| OI-5 | The witness and location unions grow as property sections merge; each new member is a MINOR bump and a new row in §4. | Whichever card merges the section. **Re-routed to Phase-1 at CLI-08 (2026-08-31)**, unchanged: Phase-0 merges no further sections, so nothing is owed here now, and the first Phase-1 card that merges one carries the bump and the §4 row with it. |
 | OI-6 | The `--format` default (whether `json` must be spelled explicitly) and the full flag table are CLI-SPEC's. | Closed by CLI-SPEC §4.1 (CLI-02, 2026-08-05): `--format {human,json,sarif}` with `human` as the no-flag default, so `json` is spelled explicitly. |
-| OI-7 | §1.6's bump table has no row for "a documented field's *value rule* changes while the model does not" — the shape of the §1.3 `subject.source` amendment above. It was judged "clarified prose" (no bump) on the grounds that nothing has shipped and no producer exists; the next one should not be judged ad hoc. | An added §1.6 row at CLI-08, when `report_format` `1.0` is stamped final. |
-| OI-8 | **CLOSED (DEC-25, 2026-08-09; PD-040 Option A ratified).** Appendix C's `StateKeyLocation` row now reads `state:<key>` — the former `<SchemaName>` slot was a pre-freeze placeholder no conforming producer could fill (IR 1.0's `state` is a nameless mapping; no envelope or Subject field carries a Σ identity). The projection's `state:<key>` is the amended cell's own spelling; carrying a Σ identity remains an `ir_version` question. Raised at CLI-03, when the exporter was built. | Appendix C is frozen and wins where the two differ (A.1), so the route is WA-03. **Filed at CLI-03 as PD-040** (the development-process repository's decision log), issue-ready, rather than deferred to CLI-08: the FQN feeds `gebraConditionHash/v1` (A.6), so a later spelling change moves fingerprints that consumers have baselined, and nothing has shipped yet. CLI-08 closes this item on the ruling. Not a Phase-0 blocker: the FQN is deterministic, derived only from the record, and SARIF-valid either way. Pairs with OI-1, which is the same shape of gap on the physical anchor. |
+| OI-7 | ~~§1.6's bump table has no row for "a documented field's *value rule* changes while the model does not" — the shape of the §1.3 `subject.source` amendment above. It was judged "clarified prose" (no bump) on the grounds that nothing has shipped and no producer exists; the next one should not be judged ad hoc.~~ **Closed at CLI-08, 2026-08-31: the rows are added**, exactly as this item routed it. §1.6 now splits the class by direction — a value rule that **widens, or changes what the same value means**, is MINOR (the model parses either way, so the break is a misreading rather than a parse error); one that **narrows or is merely made precise** is none. A value-rule change that also moves exit-code derivation, the finding set or strict reach is MAJOR by the row that already existed. The `subject.source` amendment is recorded as the worked example of the second row, so the judgement that was made ad hoc is now the table's. | Closed. |
+| OI-8 | **CLOSED (DEC-25, 2026-08-09; PD-040 Option A ratified).** Appendix C's `StateKeyLocation` row now reads `state:<key>` — the former `<SchemaName>` slot was a pre-freeze placeholder no conforming producer could fill (IR 1.0's `state` is a nameless mapping; no envelope or Subject field carries a Σ identity). The projection's `state:<key>` is the amended cell's own spelling; carrying a Σ identity remains an `ir_version` question. Raised at CLI-03, when the exporter was built. | Appendix C is frozen and wins where the two differ (A.1), so the route is WA-03. **Filed at CLI-03 as PD-040** (the development-process repository's decision log), issue-ready, rather than deferred to CLI-08: the FQN feeds `gebraConditionHash/v1` (A.6), so a later spelling change moves fingerprints that consumers have baselined, and nothing has shipped yet. CLI-08 closes this item on the ruling. **Done at CLI-08, 2026-08-31: reaffirmed closed on DEC-25**, which is the whole of what this item asked the promotion to do — the vault ruling is the authority and the promotion adds nothing to it. Not a Phase-0 blocker: the FQN is deterministic, derived only from the record, and SARIF-valid either way. Pairs with OI-1, which is the same shape of gap on the physical anchor. |

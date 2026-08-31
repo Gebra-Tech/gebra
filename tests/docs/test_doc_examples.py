@@ -340,9 +340,10 @@ def test_an_attempt_a_try_block_swallowed_still_fails_the_example() -> None:
 @pytest.mark.parametrize(
     ("module", "call", "expected"),
     [
-        # The module the examples on this site actually import. A control on some *other*
-        # fixture would prove the sweep works where it is not used and could not fail where
-        # it is — which is the shape of a tripwire that reports nothing.
+        # A sample workflow the pages on this site import. A control on some *other* fixture
+        # would prove the sweep works where it is not used and could not fail where it is —
+        # which is the shape of a tripwire that reports nothing. (The carrier example is
+        # whichever one sorts first; the probe imports its own fixture either way.)
         pytest.param(
             "sentinel_graph",
             "plan_step({'query': 'x'})",
@@ -387,6 +388,52 @@ def test_a_sample_workflow_body_that_ran_is_reported_by_its_ledger(
     assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
     assert not result.ok
     assert any(expected in problem for problem in result.problems)
+
+
+#: Examples that build their own graph rather than importing a sample workflow. Extraction
+#: unwraps a node to the bare callable, so the armed `invoke` family never sees a call on one
+#: of these bodies — the body has to arm itself, and the trailer sweeps `__main__` for it.
+SELF_DEFINED_MARKERS = ("add_node(", "add_conditional_edges(")
+
+
+def test_an_example_that_builds_its_own_graph_arms_its_own_node_bodies() -> None:
+    """The page-level half of the sweep's fail-closed rule, which the trailer cannot guess.
+
+    `__main__` is exempt from the *unledgered* leg, because most examples define no body and
+    a ledger they never write to is noise. What decides which pages owe one is this: a page
+    that registers a node it defined must keep a `TRIPPED` list and record into it.
+    """
+    owing = [
+        example
+        for example in EXAMPLES
+        if any(marker in example.code for marker in SELF_DEFINED_MARKERS)
+    ]
+
+    for example in owing:
+        assert "TRIPPED" in example.code, f"{example.name} builds a graph and keeps no ledger"
+        assert "TRIPPED.append(" in example.code, f"{example.name} keeps a ledger nothing writes"
+
+
+@requires_an_example
+def test_a_body_an_example_defined_itself_is_reported_by_the_ledger() -> None:
+    """The other half of that rule, fired: `__main__`'s ledger is swept, and swallowing fails.
+
+    Named rather than taken from `EXAMPLES[0]`, because this control is about a specific
+    page's own body — the sample-workflow controls above are the ones that must stay alive
+    as the carrier changes.
+    """
+    example = next((item for item in EXAMPLES if item.name == "README.md::readme-library"), None)
+    assert example is not None, "the README's library example is gone — re-point this control"
+
+    result = run_example(
+        example,
+        root=REPO_ROOT,
+        probe="try:\n    plan({'query': 'x'})\nexcept BaseException:\n    pass\n",
+    )
+
+    assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
+    assert not result.ok
+    assert any("WA07-LEDGER ['__main__:plan']" in problem for problem in result.problems)
 
 
 def test_the_defect_variants_ledger_is_the_family_ledger_itself() -> None:

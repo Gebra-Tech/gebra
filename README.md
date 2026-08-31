@@ -1,312 +1,314 @@
-# gebra — verify and version LangGraph agent workflows
+# gebra
 
-## What it is
+**Design-time verification and versioning for LangGraph agent workflows.**
 
-`gebra.extract()` introspects an existing LangGraph `StateGraph`,
-`CompiledStateGraph`, or LCEL `Runnable` — without ever invoking user code —
-and emits the frozen Gebra IR (`ir_version` 1.0, or 1.1 for a workflow whose
-router targets are decided at runtime). Five property validators
-(P-01 `graph-well-formed`, P-02 `termination-witness`, P-04
-`dataflow-completeness`, P-06 `effect-safety`, P-08 `determinism-replay`)
-verify that IR and return structured witnesses or failures, and a pytest
-plugin makes verification run on every commit. A snapshot store and structural
-diff (V.S.F.E versioning plus the `graph_version` content hash) record and
-classify how workflow definitions evolve, behind a
-`gebra verify | snapshot | diff | display | history` CLI. Gebra verifies
-definitions; LangGraph runs them — nothing in this repository executes a
-workflow.
+[![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml/badge.svg)](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue.svg)](#install)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-pre--release%200.0.1.dev0-orange.svg)](#status)
+
+`gebra` reads a LangGraph workflow **definition** and answers questions about it before
+anything runs. It imports and inspects a `StateGraph` builder, a compiled graph or an LCEL
+`Runnable` — it never invokes one: no node function, router, tool or model is called, and no
+connection is opened — then emits a hermetic intermediate representation (the Gebra IR), runs
+property validators over that IR, and records content-addressed snapshots so a definition's
+evolution can be diffed. gebra verifies definitions; LangGraph runs them.
+
+```text
+extract  →  verify  →  snapshot  →  diff  →  report
+```
+
+**The boundary this project keeps.** Every validator answers about the document it was given.
+A passing result carries a **witness** — structured evidence, never prose — plus any
+structured notes that qualify it, and a failing one carries a structured failure with the
+location it was found at. Neither is a statement about what the workflow does at run time:
+witness *presence* is what a P-02 result reports, and semantic termination is never claimed.
+Every finding carries its claim class — DEFENSIBLE, DEFENSIBLE-A or HEURISTIC — so a reader
+can tell what was decided over the document alone from what rests on a trusted declaration,
+and both from an advisory lint. Three of the five properties read the topology and are defined
+only over a graph P-01 has already passed; where P-01 fails, their reports are best-effort
+diagnostics rather than verdicts.
+[What gebra checks](docs/concepts/what-gebra-checks.md) is the long form.
 
 ## Status
 
-Early development (`0.0.1.dev0`). The package skeleton, CI baseline, the
-acceptance fixture corpus (`tests/fixtures/properties/`, 71 fixtures), the
-IR 1.0 models with their node-identity utilities, the canonical serialization +
-`graph_version` digest pipeline, and the YAML/JSON loaders (`gebra.ir`), and the
-result-envelope models the validators report in together with the frozen
-condition-ID and property registries that drive dispatch and emission
-(`gebra.verify`), the shared graph pre-analysis the topology-facing validators
-build on, the P-02 counter-guard recognizer that reads declared router
-conditions for a bounded loop counter, and all five wedge
-validators — P-08 `determinism-replay`, P-01 `graph-well-formed`, P-04
-`dataflow-completeness`, P-06 `effect-safety` and P-02 `termination-witness`,
-each checked against its corpus
-fixtures — are in place, together with the run-level aggregation
-`gebra.verify.verify(ir)` that runs them as one gate: all thirteen catalog
-properties in catalog order (the eight outside the Phase-0 wedge answer with
-structured not-implemented markers, never silent passes), the exit codes 0/1/2
-of the severity ladder, strict mode in both its bare and per-property forms —
-which changes the gate and never a record — and the FATAL-suppresses-the-snapshot
-signal. The `gebra` command now carries its first verb: `gebra verify` runs that
-same gate from the shell — over a serialized IR document, a stored snapshot
-version, or an import path like `gebra verify travel_booking:graph`, where
-`--call` is the one explicit way to have the CLI call a zero-argument factory you
-name — and returns the report's own exit code, rendered as terminal output, JSON,
-or SARIF (`--format`). The other four verbs are still under development. The
-extraction entry point `gebra.extract()` is in as a library call too
-(`gebra.extraction`) — object-family dispatch, the typed `ExtractionError`, and the
-provenance envelope with its structured warning taxonomy, all of it behind a
-tripwire that fails if anything handed to it is invoked or compiled.
-All three per-family paths are in place. An uncompiled `StateGraph` extracts to
-IR — nodes, edges, routers with their declared `path_map`, entry/finish wiring,
-the per-node retry policy the builder declares, the state schema, and the
-resolved node contracts — read from the builder alone, with `compile()` never
-called.
-Router edges carry a kind, decided by what the router *declares* and never by
-what its body does. A routing callable annotated `-> list[Send]` (or `Send`,
-`Sequence[Send]`, or a union or `Command` form admitting one) makes its edges
-`kind: send` — one per declared target, a fan-out template about which gebra
-says nothing at all as to how many instances run. Every other declaration is
-`kind: conditional`: a `Literal[...]` hint, a plain `str`, the
-`Command[Literal[...]]` idiom, or no annotation. The default direction is the
-conservative one, so a hint gebra cannot read leaves the edge conditional
-rather than upgrading it, and the reason is on the envelope. And a router that
-declares no targets at all — the map-reduce shape where the `Send`s are built
-inside the callable — now extracts instead of being refused: it becomes
-`kind: dynamic`, an edge that records the router and its guard and claims
-nothing about where it goes, with a warning saying the targets are decided at
-runtime. That kind is what makes such a document `ir_version` 1.1; a workflow
-without one is still stamped 1.0, and no document that already existed changed
-a byte. Declaring targets is still worth doing, and this is why: only a
-declared target set can be checked. **`gebra verify` does not read a 1.1
-document yet** — it stops with "no verdict was reached" rather than reporting
-one, because a `dynamic` edge is absent from the graph the topology properties
-are computed over, and answering under the 1.0 rules would call nodes
-unreachable that the router reaches. The validator semantics are their own card.
-A router annotated with a `Literal[...]` codomain *wider* than its declared
-`path_map` has that codomain recorded on the envelope rather than merged into
-the map, since the IR has no field for it — reading a declared return type is
-also the one place extraction evaluates anything, and it does so only for
-routing declarations, only where the annotation is a string, and never in a way
-that reaches the router's body.
-The state schema comes across as the IR's `state` block: one entry per key, with
-the declared type, the `Annotated[T, reducer]` merge function where there is one,
-and the graph-input/defaulted keys flagged `optional`. `TypedDict`, pydantic and
-dataclass schemas are all read, and no type hint is resolved on the way — the
-annotations are already on the builder by the time `extract()` sees it. Which
-keys are flagged `optional` follows what the graph declares: with no
-`input_schema=` every key is a graph input, so every key is flagged; declaring
-`StateGraph(State, input_schema=Input)` is what tells gebra which keys arrive
-from outside, and dataflow analysis is only as sharp as that declaration.
-A key whose type or reducer has no spelling gebra will invent keeps its place in
-the schema and carries a warning saying so, rather than disappearing from it.
-All three of the annotation surface's contract sources are in place. The
-`@gebra.contract` decorator family (`gebra.annotations`) attaches a declared node
-contract and returns the decorated function unchanged — no wrapper, no
-invocation — over a closed set of nine slots, with the contradictions a single
-decorator stack can contain raised as `GebraContractError` when the module is
-imported. The `gebra.toml` sidecar carries the same nine slots for nodes whose
-source cannot be decorated: an explicit `gebra.extract(workflow, sidecar=...)`
-wins, otherwise the nearest `gebra.toml` from the current directory up to the
-repository root, exactly one file and never merged; entries are keyed by node id
-in its escaped form; and everything a sidecar can get wrong degrades to a
-warning, so a malformed file never breaks an extraction. The absolute path of
-the file used is recorded on the envelope. And where nothing was declared at
-all, shallow inference reads a node's own source — a closed list of five
-patterns over `input` and `output` only, never evaluating an annotation and
-never following an import — falling back to the conservative `effect: ["write"]`
-/ `pure` defaults, with every inferred or defaulted slot carrying a structured
-warning that says which pattern licensed it or why none did. Inference never
-yields `idempotent`, `deterministic`, `variant` or `compensation`.
-The precedence chain that resolves the sources against each other is in place, so
-a node's contract now reaches the IR. Resolution is per slot and strict —
-decorator, then a LangChain tool's own `args_schema`, then the sidecar, then
-inference — and a lower source fills gaps rather than overriding: a differing
-value is kept out and reported as an `annotation-conflict`, while two sources
-that canonicalize to the same bytes are not a disagreement at all. Every node's
-*resolved* contract is then checked against the same rules a single decorator
-stack is held to, warning-grade, dropping the lower-precedence half rather than
-failing the extraction. Contracts are located through `functools.wraps` chains
-and the substrate's own wrappers, so extracting a workflow before and after
-`.compile()` yields identical contracts.
-The compiled path is in place, so a `CompiledStateGraph` — or any other Pregel
-object — extracts as well. The builder backreference defines the graph, so
-topology, state and contracts are exactly what the uncompiled builder gives; what
-compiling adds is the `runtime` block, with the interrupt gates each side of a
-node (a `"*"` gate expanded to the full node list) and whether a checkpointer is
-attached, recorded either way because at that level it is a known fact. At builder
-level the slot stays absent rather than guessed, so a compiled workflow and the
-same workflow before compiling carry different `graph_version` digests. One other
-difference is LangGraph's own: `compile()` writes `set_node_defaults` into the
-builder's node specs, so a graph-level `retry_policy` reaches the IR from the moment
-you compile, at either level — the envelope records which nodes inherited it. gebra also
-cross-checks the builder's topology against the compiled graph's own drawing and,
-where they differ, keeps the builder's reading and reports a
-`builder-compiled-divergence` warning carrying both. Producing that drawing is the
-one call gebra makes into the substrate, and it is gated: the walk reaches custom
-channels, checkpointers, cache key functions and write mappers, so gebra takes a
-drawing only from a real LangGraph `Pregel` whose surfaces all come from LangGraph
-itself, and otherwise skips the cross-check with the reason recorded on the
-envelope. Facts the IR has no field for ride in provenance instead of being dropped:
-which nodes carry a discovered subgraph, which node-spec members `set_node_defaults`
-filled in, and the error-handler map. A discovered subgraph comes across as the node
-that holds it — children are not expanded, and that is IR 1.0's complete form rather
-than a partial one, so a workflow with subgraphs stays warning-free; expanding them
-is the next version's first feature, and a subgraph compiled with
-`checkpointer=False` is invisible to LangGraph's own discovery, so the recorded list
-is a lower bound. A Pregel object with no builder extracts from the compiled
-level alone with one `compiled-only-extraction` warning, its state block absent
-rather than guessed — and where the drawing is the only surface and the gate refuses
-it, so does extraction, `RemoteGraph`'s HTTP-backed getter included.
-The LCEL path completes the three object families: a bare `Runnable` extracts as a
-fragment, keyed by structural position rather than by name — `%seq[0]`,
-`%map[docs]`, `%lambda[1]`, over the seven composition kinds IR 1.0 fixes — with a
-nested chain hanging off its parent's id. LangChain's own drawing ids are fresh
-UUIDs per call and are never used: gebra reads the composition off the objects and
-never draws. Re-extracting an unchanged chain gives byte-identical ids and the same
-`graph_version`, across processes as well as within one, which needs gebra to derive
-a lambda's captured-runnable order from the function's compiled form rather than
-take LangChain's, whose order can differ between runs. A stitched lambda body is opaque,
-so an unannotated one takes the conservative `effect: ["write"]` default and reports
-it with an `opaque-lambda` warning naming the id you can attach a contract to.
-Where gebra will not read a composition it reports that rather than guessing — a
-subclass of a composition type, a lambda whose captured runnables sit behind one of your own
-objects' attributes, a self-referential composition, one nested past 32 levels.
-A `Runnable` that is none of the seven kinds and composes nothing has no id under
-this version's vocabulary and is refused rather than given an invented one; inside a
-chain the same object extracts normally, since its position names it. A chain bound
-as a `StateGraph` node is still extracted as that one node.
-A node bound to a prompt template or to a chat model also carries a `prompt_digest`
-or a `config_digest`, so **editing prompt text moves `graph_version` the way editing
-an edge does** — while the prompt itself never enters the IR, which is the point:
-what is recorded is a fingerprint, so an extracted document stays safe to commit and
-publish. The fingerprint is over a projection gebra fixes, not over whatever a
-library happens to serialize: a string template's exact UTF-8 bytes, untrimmed and
-unnormalized; a chat template's messages in the order you wrote them; a model's class
-identity, declared fields and `.bind()` kwargs, with secret-typed fields left out.
-Nothing time-, address- or environment-dependent reaches those bytes, so two runs on
-two machines agree — a value gebra cannot represent in JSON is recorded by its class
-name rather than by `repr()`, and a `set`-valued parameter is ordered by content
-rather than by Python's per-process hash order. Two insensitivities are deliberate
-and worth knowing: `template_format` and `input_variables` are not digested, and
-neither is anything passed through `with_config`. One sensitivity is worth knowing
-too: LangChain stamps its own version into a chat model's metadata at construction,
-and that is part of what gets digested, so upgrading `langchain-core` moves
-`config_digest`. A model behind `.bind(...)` is read through the wrapper — including
-the wrapper `model.bind(tools=[...])` returns — so a tool-bound model carries a
-`config_digest` and editing the tool schemas you bound moves `graph_version`; a tool
-passed as a `BaseTool` object rather than as a schema dict is recorded by its class
-name, so swapping one such tool for another does not move it. Where a digest cannot
-be computed — a prompt-template class outside the recognised set, or a model behind a
-wrapper class gebra does not recognise and so keeps opaque — the slot is absent and a
-warning names what it was.
-The `.gebra/` snapshot store now writes and reads: `gebra.store` persists an IR
-under the `version` / `extracted_from` / `graph_version` envelope, one committable
-YAML file per version plus an append-only index, with atomic writes and byte-stable
-output. Version assignment and the structural diff are in as libraries too:
-`gebra.versioning` parses, compares and bumps V.S.F.E labels, and `gebra.diff`
-reports what moved between two snapshots or IRs — topology over networkx, node
-contracts, the state schema — and derives the bump class from those deltas. Nothing
-in the diff classifies a change as safe or breaking: P-12 `evolution-safety` is out
-of Phase-0 scope, and every diff carries the structured marker that says so.
-`gebra.lineage` lists a store's version history — every version, its digest, when it
-landed, and which V.S.F.E counters moved between each neighbouring pair — reading the
-index and no snapshot file, and projects it to byte-stable JSON. Those pieces are now
-joined up: `gebra.snapshot.snapshot(workflow, store=store)` extracts a live workflow,
-wraps the IR in the envelope, assigns the V.S.F.E label the diff engine's bump class
-lands on, and writes it — and re-snapshotting a definition that has not changed writes
-nothing and reports the version the store already holds. `gebra.audit` closes the loop:
-`export_store(store)` writes one JSON property report per stored version to
-`.gebra/reports/<version>.report.json` — the same run report a verification produces, in
-its snapshot profile, with no second schema and no timestamp, so re-exporting an unchanged
-version rewrites identical bytes — and `freshness(ir, store=store)` answers whether the
-store's current snapshot is still the definition in front of you. Of the five CLI
-verbs, `verify` exists today; `gebra snapshot`, `diff`, `display` and `history` are
-still under active development, and the library calls above are their surface until then.
-The **pytest plugin** is in, and pytest loads it itself: installing the package registers a
-`pytest11` entry point, so nothing needs adding to a `conftest.py` to switch it on. Put
-`@pytest.mark.gebra` on a function that returns your `StateGraph` — or your compiled graph,
-your LCEL runnable, or an IR you already have — and pytest collects one item per checked
-property, named for the target and the property
-(`test_gebra[travel_agent-termination-witness]`), each one extracting the graph and running
-`verify()` over it. If you would rather write your own assertions, define a `gebra_workflow`
-fixture in your `conftest.py` and take `gebra_graph` (the extracted IR) or `gebra_verification`
-(the whole run) as a fixture instead. Items are generated for the properties this build can
-answer — the wedge five; the eight Phase-0 defers get no item rather than a green one, and
-`gebra_verification` is where their not-implemented markers are visible. What fails an item is
-severity, not verdict: a FATAL or ERROR finding *owned by that property* fails its item and
-a WARNING-grade one is reported on it as advisory — so a P-08 finding, which is WARNING-grade,
-is shown and does not turn CI red — unless you ask for it. `--gebra-strict` promotes
-WARNING-grade records to gate failures, either bare (everything in the run) or
-`--gebra-strict=determinism-replay` for one property at a time; it also reaches the structured
-witness notes a passing report can carry, which is what turns P-02's justified-recursion-limit
-note into a red item. A promoted record is unchanged in the report — still `severity: warning`,
-still its own claim class — because strictness is a CI policy and not a re-grading.
-`--gebra-select` and `--gebra-skip` choose which properties get an item; neither narrows the
-run, so a skipped property is un-itemized and still carried in `gebra_verification`. The run
-closes with a `gebra` section: one block per target, every property with its claim class and
-either a witness summary or its findings, the eight Phase-0 defers shown as not checked, the
-extraction warnings under their own taxonomy codes, and the exit code with the policy that
-produced it. That section is assembled in the process that ran the items, so a plugin that
-distributes them to workers — `pytest-xdist` — is not expected to show it on the controller;
-that combination is untested here, and the per-item detail travels with the report either way.
-gebra runs nothing on that path: it calls the function you marked — your code,
-called the way pytest calls any test — and hands what it returns to `gebra.extract()`, which
-imports and inspects only. An explicit `gebra.toml` is declarable, with
-`@pytest.mark.gebra(sidecar=...)` or a `gebra_sidecar` fixture; without one, discovery walks
-up from wherever pytest was started, and sidecar annotations change verdicts as well as the
-digest. Which level you hand it is your declaration too: a builder and the same graph compiled
-are different documents with different `graph_version`s.
-A second marker, `@pytest.mark.gebra_freshness`, is the snapshot-freshness gate: mark a
-function that returns your workflow and the item fails when what it returns is not the
-snapshot your `.gebra/` store currently holds — the message names the store, both digests,
-which of S/F/E moved, and the call that records it. It is a check on the store rather than a
-fourteenth property: it runs no validator, it writes nothing, and it says the content moved,
-never whether the change is safe.
-The plugin is also packaged as a reusable GitHub Action, `.github/actions/gebra-gate`,
-that runs it as a CI gate: one pytest run built from typed inputs, a
-`report-only` → `gate` → `strict` rollout switch, the closing `gebra` report appended
-to the step summary, and the exit code translated into the step verdict — with the
-asymmetry that matters for a gate: report-only forgives test failures and nothing
-else, so an interrupted, erroring, or empty run is red under every mode. This
-repository's own DoD scenario job issues its pytest invocation through the action on
-every push; the interface and the recommended rollout are documented in
-[docs/ci/github-action.md](docs/ci/github-action.md).
-The `verify()` aggregation over the five validators is in place, and with it
-strict mode, which is a gate policy: `gebra.verify.verify(ir, policy)` records what a
-strict run promoted and leaves every report exactly as its validator wrote it. The
-`gebra.verify` result-envelope and registry surface is now frozen
-([docs/governance/VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md)),
-and so is the `gebra.ir` model/serialization surface, covering the ir 1.1 `dynamic`
-edge kind
-([docs/governance/IR-MODELS-FREEZE.md](docs/governance/IR-MODELS-FREEZE.md)) — further
-shape changes to either route through a vault decision record plus an `ir_version`/API
-bump rather than a local edit.
-The hand-written fixture corpus is now held against the extractor and not only against the
-validators. Sixteen of the seventy-one fixtures have a matching mini LangGraph builder script in this
-repository, and the suite builds each one live, extracts it, and requires the canonical bytes
-and the `graph_version` to match that fixture's own `ir:` block — except for three pairs held
-instead to a recorded difference, below — so a fixture and the extractor cannot drift apart
-without a test going red. The designated set is the fixtures whose IR extraction can actually
-emit: a conditional edge's `condition` carries the *declared branch name*, and the corpus writes
-guard expressions and English sentences there, so no conditional fixture has a pair —
-`termination-witness` and `retry-coherence` are not covered. The one difference the set found is
-recorded rather than smoothed over: the corpus spells a state reducer `operator.add` and
-extraction spells it `_operator.add`, which is the module Python itself reports for that
-function. No verdict in the corpus turns on it — no validator reads a reducer's name — but the
-two digests differ, and so does a `gebra.diff` across the two spellings.
-User documentation and tutorials will land in `docs/` as
-the corresponding features ship.
+`0.0.1.dev0` — pre-release. The table is what is merged in this repository, and nothing else;
+a row is `available` only where the capability is in the package and covered by its tests.
 
-## Quickstart
+| Capability | Status | Notes |
+|---|---|---|
+| `gebra.extract()` over a `StateGraph`, a compiled graph or an LCEL `Runnable` | available | `ir_version` 1.0; a router whose targets are decided at run time makes the document 1.1, which this build extracts but does not yet verify, snapshot or diff — exit `2`, no verdict |
+| The IR models, canonical serialization and the `graph_version` digest | available | surface frozen — [IR-MODELS-FREEZE.md](docs/governance/IR-MODELS-FREEZE.md) |
+| Node contracts: `@gebra.contract`, the `gebra.toml` sidecar, inference and their precedence | available | every inferred or defaulted slot carries a warning saying so |
+| The five property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()` | available | surface frozen — [VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md) |
+| The other eight catalog properties (P-03, P-05, P-07, P-09…P-13) | out of scope for this phase | answered in every run by a structured not-implemented marker, never a silent pass |
+| pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the action's guide](docs/ci/github-action.md) |
+| Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here |
+| The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached |
+| Published documentation site | in development | three pages are written; the rest of the site is a reserved skeleton this README does not link to |
+| Installation from a package index | in development | nothing is published yet — [install from a checkout](#install) |
+| VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
+| Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
 
-The project is built with [hatchling](https://hatch.pypa.io/latest/) and managed
-with [uv](https://docs.astral.sh/uv/); `uv.lock` pins the development
-environment.
+## Install
+
+gebra is **not on a package index yet**: the first published release and the repository's
+public launch are one step, and neither has happened. Until then it installs from a checkout,
+which is how every contributor already runs it.
 
 ```bash
 git clone https://github.com/Gebra-Tech/gebra.git
 cd gebra
+pip install .
+```
+
+Python 3.10–3.13, against `langgraph` 1.x and `langchain-core` 1.x. Those ranges are the
+installability envelope; the compatibility *promise* is the tested pair matrix inside them,
+pinned by the `compat-cell-1|2|3` extras in [pyproject.toml](pyproject.toml) and run as twelve
+CI cells. Importing gebra never fails on version grounds, and never checks either — the first
+`gebra.extract()` call is what compares what you have against that matrix. A pairing inside the
+declared ranges but outside a tested cell (including a Python newer than 3.13) runs, and warns
+once with a `GebraVersionWarning`: "extraction unverified against this pair". A substrate
+outside the ranges runs best-effort and carries the version fact as an `unsupported-construct`
+warning in the extraction envelope, which the report renders.
+
+For a development environment, the repository is managed with [uv](https://docs.astral.sh/uv/)
+and `uv.lock` pins it:
+
+```bash
 uv sync --extra dev     # creates .venv from the committed lockfile
 uv run pytest
 ```
 
-Without uv, the standard pip path works too:
+[CONTRIBUTING.md](CONTRIBUTING.md) has the rest — the CLA, commit conventions and the review
+path.
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pytest
+## Quickstart
+
+Ten minutes, from an installed package to a verification report. Every command below is run
+verbatim by CI against the built wheel, in a fresh environment holding only the package and
+what it depends on, and the transcript is that run's own output — trimmed where a `...` line
+appears, exact everywhere it does not.
+
+### 1. A workflow to check
+
+Two nodes and a retry loop. Save it as `booking.py`:
+
+<!-- gebra-quickstart:file path=booking.py -->
+```python
+from typing import TypedDict
+
+from langgraph.graph import END, START, StateGraph
+
+import gebra
+
+
+class BookingState(TypedDict):
+    query: str
+    options: list[str]
+    confirmation: str
+
+
+@gebra.contract(reads=["query"], writes=["options"], pure=True)
+def search_flights(state: BookingState) -> dict:
+    return {"options": ["AA100", "BA200"]}
+
+
+@gebra.contract(reads=["options"], writes=["confirmation"], effects=["billable", "irreversible"])
+def book_flight(state: BookingState) -> dict:
+    return {"confirmation": "PNR-1"}
+
+
+def book_again(state: BookingState) -> str:
+    return "done" if state["confirmation"] else "retry"
+
+
+workflow = StateGraph(BookingState)
+workflow.add_node("search_flights", search_flights)
+workflow.add_node("book_flight", book_flight)
+workflow.add_edge(START, "search_flights")
+workflow.add_edge("search_flights", "book_flight")
+workflow.add_conditional_edges("book_flight", book_again, {"retry": "book_flight", "done": END})
 ```
+
+The two `@gebra.contract` decorators declare what each node reads, writes and does. They
+attach a declaration and return the function unchanged — no wrapper, nothing called. Without
+them gebra still works: it infers what it can from the node's own signature and body — never
+from what a helper the node calls does — and falls back to conservative defaults, and every
+slot it had to guess arrives with a warning naming the node and the slot.
+
+### 2. Verify it
+
+<!-- gebra-quickstart:console id=verify exit=1 -->
+```console
+$ PYTHONPATH=. gebra verify booking:workflow
+gebra 0.0.1.dev0 — booking:workflow (extracted)
+...
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 2 nodes reachable from START | 1 terminal node | no
+orphan nodes | no unresolved targets
+...
+P-02 termination-witness — fail  (1 finding: 1 fatal)
+  fatal: cycle-without-termination-witness  [P-02 termination-witness |
+DEFENSIBLE]
+    component               book_flight
+    representative          book_flight -> book_flight
+    cycle list              not exhaustive — a re-run after a fix may surface
+another
+    finding                 Simple cycle carries no declared termination witness
+...
+P-06 effect-safety — fail  (1 finding: 1 error)
+  error: unprotected-effect-in-retry-region  [P-06 effect-safety | DEFENSIBLE-A]
+    node                    book_flight
+    declared effects        billable, irreversible
+    anchor cycle            book_flight -> book_flight
+    finding                 Effect-carrying node in a retry region without
+binding protection
+...
+summary
+  findings                1 fatal | 1 error | 0 warning
+  notes                   0 carried (0 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  off
+  exit                    1 — a FATAL or ERROR finding is present, or a strict
+policy promoted a warning
+  snapshot                not recorded for this run: a FATAL finding is present
+(PROPERTY-CATALOG-SPEC §0.2)
+```
+
+`PYTHONPATH=.` is Python's, not gebra's: the CLI imports the module you name the way any
+Python program would and inserts no import path of its own. The `workflow` it reads is the
+uncompiled builder; handing it `.compile()`'s result works too, and is a different document
+with its own `graph_version` — a compiled graph also records compile-time facts, checkpointer
+presence and interrupt gates among them, which a builder cannot know.
+
+### 3. What the report says
+
+Two findings — the same two conditions this repository's own acceptance scenario seeds into a
+travel-booking agent as its first two defects ([`tests/dod/`](tests/dod)):
+
+- **P-02 `termination-witness`, FATAL, DEFENSIBLE.** `book_flight` can route back to itself,
+  and nothing in the definition declares a bound on that loop — no loop-variant annotation, no
+  justified recursion limit, no counter guard on the router's declared condition. The finding
+  says a cycle carries no declared termination witness. It does not say the workflow fails to
+  terminate; that is not a question reading the definition can answer.
+- **P-06 `effect-safety`, ERROR, DEFENSIBLE-A.** The same node declares `billable` and
+  `irreversible` effects and sits inside that retry region with no binding protection — the
+  shape that risks charging a card twice on a retry. DEFENSIBLE-A because it rests on the
+  effect tags the decorator declared: gebra checks that the declaration is unprotected, never
+  that the node really does what it says.
+
+The exit code is `1`, so a CI gate fails on it. `0` means pass, `1` means a FATAL or ERROR
+finding was present (or strict mode promoted a warning), and `2` means no verdict was reached
+— a broken input, never a verification failure. A run carrying a FATAL finding is also
+ineligible to be snapshotted, which is why the summary says the snapshot was not recorded.
+
+Each finding has its own fix, and the gate clears only once both are addressed — and each has
+to be declared where gebra reads it. **P-02** takes a loop-variant annotation on the looping
+node, `@gebra.variant(key=…, measure=…)`: `key` names a state key (it must be one
+`BookingState` declares) and `measure` describes the well-founded measure you are attesting
+decreases on every execution of that node — an attestation gebra records and trusts, never
+checks. Its other witness form, a bounded counter, is read off a router's *declared*
+condition, and extraction fills that slot with the branch name rather than the router's body,
+so a counter written inside `book_again` is not visible here. **P-06** takes a keyed
+idempotency declaration whose key is among the node's declared reads, a compensation hook
+naming an existing node, or moving the booking call out of the retry region — but never a bare
+`idempotent=True` on an `irreversible` node, which is a forbidden combination and turns the
+ERROR into a FATAL of its own.
+
+`gebra verify --format json` writes the same run report as the lossless JSON record, and
+`--format sarif` as the findings-only projection a code-scanning UI reads.
+
+## From Python
+
+The CLI is a face on a library. This example is executed in CI too, and prints what it shows.
+Its one node body raises if anything calls it — which is how the run proves that extracting
+and verifying the graph did not: the example is checked for that as well as for its output.
+
+<!-- gebra:example id=readme-library -->
+```python
+from typing import TypedDict
+
+from langgraph.graph import END, START, StateGraph
+
+import gebra
+from gebra.verify import verify
+
+
+class State(TypedDict):
+    query: str
+    answer: str
+
+
+TRIPPED: list[str] = []
+
+
+def plan(state: State) -> dict:
+    # This body is never called. It says so out loud, so that CI can hold the claim:
+    # anything that ran it would land in TRIPPED, and the example would fail.
+    TRIPPED.append("plan")
+    raise AssertionError("gebra does not run nodes")
+
+
+workflow = StateGraph(State)
+workflow.add_node("plan", plan)
+workflow.add_edge(START, "plan")
+workflow.add_edge("plan", END)
+
+extracted = gebra.extract(workflow)
+report = verify(extracted.ir)
+
+print("ir", extracted.ir.ir_version, "|", len(extracted.ir.nodes), "node(s)")
+print("gate", report.gate.outcome, "| exit", report.gate.exit_code)
+```
+
+<!-- gebra:output id=readme-library -->
+```text
+ir 1.0 | 1 node(s)
+gate pass | exit 0
+```
+
+`gebra.extract()` returns an extraction envelope: the IR plus the provenance and the warnings
+that explain how it was read. `verify()` runs the registered validators over that IR and
+returns one run report — the same record the CLI renders.
+
+In a test suite, the pytest plugin does this for you. Install the package and pytest loads it
+through its own entry point; mark a function that returns your graph with
+`@pytest.mark.gebra` and you get one test item per checked property.
+
+## Documentation
+
+The documentation site is still being written — three of its pages are done. Those, and the
+repository documents worth reading beside them:
+
+- [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
+  exit codes, strict mode, and what a finding does and does not claim.
+- [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
+  site are marked, run and checked in CI.
+- [The CI-gate GitHub Action](docs/ci/github-action.md) — inputs, the
+  report-only → gate → strict rollout, and what each mode forgives. (A repository document,
+  not a site page.)
+- [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md)
+
+Everything else in the site's navigation is a reserved placeholder that documents nothing.
+Read the source and the test suite until the page it names is written.
+
+## Open core
+
+**This repository is the open core, and stays that way.** Everything in it — the CLI, the
+extractor, the IR models, the validators, the pytest plugin, the snapshot and diff engine, and
+the VS Code extension when it is built — is licensed **Apache-2.0, forever**. Nothing here is
+ever re-licensed. The repository carries that license from its first commit; making it public
+at launch changes nothing about it.
+
+**The commercial product is a separate, closed repository.** The paid surface is the hosted
+control plane — the workflow registry, trace-to-version telemetry binding, governance and
+RBAC, and the stochastic and optimization tiers. It lives elsewhere under a proprietary
+license and consumes this package as a dependency. None of it is in this repository, and none
+of this repository is in it.
+
+**Contributions require a signed Contributor License Agreement** with Gebra Tech, Inc. — see
+[CLA.md](CLA.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contact & questions
 
@@ -315,8 +317,4 @@ gebra.dev@gmail.com.
 
 ## License
 
-Apache-2.0 (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). The `gebra` package
-is open core: this library is and stays Apache-2.0; any hosted commercial
-products are separate and out of this repository's scope. All contributions
-require a signed CLA with Gebra Tech, Inc. — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).

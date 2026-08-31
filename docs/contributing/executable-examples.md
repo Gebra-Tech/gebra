@@ -62,9 +62,14 @@ LCEL `Runnable` compiles nothing — so the harness admits builder-path, LCEL an
 document-path examples. Extending it to a compiled graph is a change to the harness, with
 its own controls, and never something an individual page opts out of.
 
-The armed surface is `tests/sample_workflows/`. An example that defines its own node body
-and calls it is running its author's code, which nothing here can see. **Write examples
-against the sample workflows; do not define and call workflow bodies of your own.**
+The armed surface is `tests/sample_workflows/` **and the example's own module**. A body a
+page defines is its author's code, and the armed `invoke` family does not reach it —
+extraction unwraps a node to the bare callable, so a call on that reference goes past every
+raiser above. **A page that defines the graph it shows therefore arms its own node bodies:
+record into a module-level `TRIPPED` list, then raise.** The trailer sweeps the example's
+`__main__` alongside the sample workflows, so a call a `try` block swallowed is still
+reported. A page that needs a ready-made graph builds against the sample workflows instead
+and inherits their ledger.
 
 The guard lives inside one interpreter. A subprocess an example spawns inherits none of it,
 and the underscore-prefixed interpreter internals behind the guarded modules are not patched.

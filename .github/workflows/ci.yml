@@ -211,6 +211,50 @@ jobs:
       - name: Every documented example runs, verbatim, and prints what its page shows
         run: python tools/docs_examples.py --report
 
+  # ── WA-12, the shell half: the README quickstart, run against the shipped package ──
+  #
+  # A quickstart is a promise about what happens to someone who has just installed the
+  # package, so this job makes the environment that person would have and nothing else: the
+  # wheel `uv build` produces — the same artifact the release workflow ships — installed into
+  # an empty virtual environment, with no development extras, no editable checkout on the
+  # path and no lockfile. Then `tools/readme_quickstart.py` writes the README's files, runs
+  # its commands verbatim, and holds each one's terminal transcript and exit status to what
+  # the page shows, under the WA-07 guard the harness generates into that environment.
+  #
+  # The install pair is the `build` job's clean-environment step, deliberately unchanged: a
+  # quickstart that only worked because the repository was on `sys.path` is exactly the
+  # failure this job exists to catch. The harness itself runs on the *runner's* interpreter
+  # and imports nothing outside the standard library, so it stays outside the environment it
+  # is judging.
+  #
+  # The substrate resolves fresh here — no `-c tools/matrix-constraints.txt` — for the same
+  # reason the `build` job's wheel smoke does: this is the install a reader performs, and the
+  # constraints would not pin langgraph anyway (the cells pin it divergently, so GOV-08's
+  # agreement gate leaves it unconstrained). The consequence is recorded rather than hidden:
+  # a substrate release that changes what the README's command prints — a new extraction
+  # warning, a reworded finding — turns this job red, which is the correct place to learn
+  # that the published quickstart no longer matches what a new user sees. The transcript
+  # elides the identity line, so a `graph_version` is not what moves it.
+  readme-quickstart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Build the distribution the release workflow ships
+        run: uv build --out-dir dist
+      - name: Install the built wheel into a fresh environment
+        run: |
+          python -m venv /tmp/readme-quickstart
+          /tmp/readme-quickstart/bin/pip install --no-cache-dir dist/*.whl
+      - name: The README quickstart runs verbatim against the shipped package
+        run: python tools/readme_quickstart.py --report --python /tmp/readme-quickstart/bin/python
+
   # ── Types: bare `mypy`; every strictness knob lives in pyproject.toml ──
   typecheck:
     runs-on: ubuntu-latest

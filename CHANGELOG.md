@@ -9,6 +9,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The README is a working front page: an honest status table, install instructions, and a
+  quickstart CI executes against the shipped wheel** (card DOC-04; SOW §1/§5/§6, D-028 via
+  `docs/LICENSING.md`). The page now opens with what gebra is and the boundary it keeps,
+  then a **status table** whose twelve rows each carry one of four states — `available`,
+  `in development`, `out of scope for this phase`, `not in this repository` — and nothing
+  claims `available` that this repository cannot answer for: `tests/docs/test_readme.py`
+  gives every row a probe (the extractor's object families, the IR digest pipeline over a
+  real document, the annotation surface, five implemented validators *and* eight
+  not-implemented markers, the `pytest11` entry point beside the CI-gate action, the store
+  and diff modules, the five registered CLI verbs) and, where the development-process
+  repository is checked out beside this one, reconciles each row against the plan cards
+  that produce it **in both directions** — a row may not claim more than the boards have
+  delivered, nor stay behind them once they have.
+
+  **Install instructions do not predate the wheel path.** Nothing is published, so the page
+  says so and installs from a checkout; a test derives that premise from the declared
+  version rather than asserting it, and refuses any index install while the version is a
+  pre-release — so the day a final version is declared, the test's premise fails first and
+  the install section is what has to be revisited. The **open-core statement** (D-028
+  clauses (i), (iii), (v)) is present, and its wording is reconciled against
+  `docs/LICENSING.md` where that record is available. Every relative link is checked to
+  resolve, and no link may point at a page still carrying the DOC-01 placeholder marker
+  (WA-12); the two badges that carry facts — the declared version and the tested Python
+  range — are checked against `pyproject.toml`.
+
+  **The quickstart is executed, not illustrated.** `tools/readme_quickstart.py` is a second
+  documentation harness, disjoint from DOC-01's: the README marks its steps with
+  `<!-- gebra-quickstart:file path=… -->` and `<!-- gebra-quickstart:console id=… exit=N -->`,
+  and the harness writes the files, runs each command — split with `shlex`, leading
+  `NAME=value` assignments applied, anything a shell would interpret refused rather than
+  approximated — and holds its merged terminal output and exit status to the transcript the
+  page shows, with a lone `...` line marking omitted output and every shown run required to
+  appear contiguously and in order. The new `readme-quickstart` CI job runs it against **a
+  fresh virtual environment holding only the wheel `uv build` produced** — no editable
+  checkout, no dev extra, no lockfile — so a quickstart that only worked inside the
+  repository fails there. Under WA-07 the harness generates a `sitecustomize.py` into that
+  environment's `PYTHONPATH`, arming twelve socket entry points — connecting *and* the
+  connectionless send/resolve routes a UDP query or a telemetry emitter would take —
+  `StateGraph.compile`, and the whole `Runnable` invoke/stream/batch family (`BaseChatModel`
+  included, so a stubbed model is unrunnable on its own account), recording each attempt
+  before raising. The sweep is fail-closed in both directions: *every* command must leave the
+  complete armed manifest behind unless its directive says `python=no`, and a family the
+  guard could not arm is reported as a hole rather than passed over. A command may not set
+  `PATH` (it would leave the environment under test) and a step may not write
+  `sitecustomize.py` (it would take the guard's own slot); the guard directory goes first on
+  `PYTHONPATH` so it cannot be shadowed either way.
+
+  **The documentation harness now sweeps an example's own module.** A page may build the
+  graph it shows rather than import a sample workflow — the README does, because a README a
+  reader cannot reproduce is not one — and extraction unwraps a node to the bare callable, so
+  the armed `invoke` family never sees a call on such a body. Pages that define a graph
+  therefore arm their own node bodies (record into `TRIPPED`, then raise), and
+  `tools/docs_examples.py`'s trailer sweeps `__main__` beside `tests/sample_workflows/` so a
+  call a `try` block swallowed is still reported. Two tests hold the rule: one refuses an
+  example that registers a node it defined without keeping a ledger, and one fires the
+  README example's own body inside a swallowing `try` and requires the sweep to name it.
+
 - **The compatibility posture is finalized — the tested matrix is frozen (F2)** (card
   GOV-08; VERSION-COMPAT §1/§4/§5, gate G7). The `compat-cell-{1,2,3}`/`compat-test`
   extras' substrate pins are frozen citing green drift-suite CI run 33336160085 — the

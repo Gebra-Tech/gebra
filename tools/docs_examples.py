@@ -45,9 +45,12 @@ Three boundaries, stated rather than implied. Arming ``StateGraph.compile`` excl
 compiled path and only that one — extracting an LCEL ``Runnable`` compiles nothing — so this
 harness admits builder-path, LCEL and document-path examples; an example needing a compiled
 graph needs the guard extended, deliberately a change to this file with its own controls and
-never a per-example opt-out. The armed surface is the sample workflows: an example that
-defines its own node body and calls it is executing its author's code, which nothing here
-can see, so pages build against ``tests/sample_workflows/`` instead. And the guard lives in
+never a per-example opt-out. The armed surface is the sample workflows **and the example's
+own ``__main__``**: a body a page defines is its author's code, which the invoke family does
+not reach — extraction unwraps to the bare callable — so a page that defines the graph it
+shows arms its own bodies, recording into a module-level ``TRIPPED`` before raising, exactly
+as a sample workflow does. Pages that need a ready-made graph build against
+``tests/sample_workflows/`` instead. And the guard lives in
 one interpreter — a subprocess an example spawns inherits none of it, and the private
 interpreter internals behind the guarded modules are not patched. This catches a page that
 innocently reaches out; it is not built against a page written to get around it.
@@ -86,12 +89,25 @@ EXAMPLE_DIRECTIVE: Final = "example"
 OUTPUT_DIRECTIVE: Final = "output"
 KNOWN_DIRECTIVES: Final[frozenset[str]] = frozenset({EXAMPLE_DIRECTIVE, OUTPUT_DIRECTIVE})
 
-_DIRECTIVE_RE: Final = re.compile(
-    r"^<!--\s*gebra:(?P<kind>[a-z][a-z-]*)\s*(?P<attrs>[^>]*?)-->\s*$"
-)
+
+def directive_pattern(namespace: str) -> re.Pattern[str]:
+    """The directive regex for one comment namespace — ``<!-- <namespace>:<kind> … -->``.
+
+    Parameterised because a second harness marks its own blocks in the same pages under its
+    own namespace (``gebra-quickstart:``, :mod:`tools.readme_quickstart`). Keeping the two
+    vocabularies disjoint is deliberate: an unknown ``gebra:`` directive is an error here, so
+    a namespace that overlapped would make each harness refuse the other's markup.
+    """
+    return re.compile(
+        rf"^<!--\s*{re.escape(namespace)}:"
+        r"(?P<kind>[a-z][a-z-]*)\s*(?P<attrs>[^>]*?)-->\s*$"
+    )
+
+
+_DIRECTIVE_RE: Final = directive_pattern("gebra")
 _ATTR_RE: Final = re.compile(r"(?P<key>[a-z][a-z-]*)=(?P<value>[^\s]+)")
-_FENCE_RE: Final = re.compile(r"^(?P<fence>`{3,}|~{3,})\s*(?P<info>.*?)\s*$")
-_ID_RE: Final = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+FENCE_RE: Final = re.compile(r"^(?P<fence>`{3,}|~{3,})\s*(?P<info>.*?)\s*$")
+ID_RE: Final = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 #: What the child prints on stderr once the example has finished — the guard's own verdict.
 ATTEMPTS_MARK: Final = "WA07-ATTEMPTS"
@@ -181,7 +197,7 @@ class ExampleResult:
 # ── Discovery: read Markdown, match text, execute nothing ────────────────────────────────
 
 
-def _parse_attrs(attrs: str, *, path: str, line_no: int) -> dict[str, str]:
+def parse_attrs(attrs: str, *, path: str, line_no: int) -> dict[str, str]:
     """Parse ``key=value`` directive attributes, refusing anything that is not one."""
     parsed: dict[str, str] = {}
     for match in _ATTR_RE.finditer(attrs):
@@ -192,7 +208,7 @@ def _parse_attrs(attrs: str, *, path: str, line_no: int) -> dict[str, str]:
     return parsed
 
 
-def _closing_fence(lines: list[str], opening_index: int, fence: str) -> int:
+def closing_fence(lines: list[str], opening_index: int, fence: str) -> int:
     """The index of the line closing the fence opened at ``opening_index``, or ``len(lines)``.
 
     A closing fence is a run of the opening character at least as long as the opening one and
@@ -206,8 +222,19 @@ def _closing_fence(lines: list[str], opening_index: int, fence: str) -> int:
     return len(lines)
 
 
-def _read_fence(lines: list[str], start: int, *, path: str, directive: str) -> tuple[str, int, int]:
+def read_fence(
+    lines: list[str], start: int, *, path: str, directive: str, namespace: str = "gebra"
+) -> tuple[str, int, int]:
     """Read the fenced block that must follow a directive at ``start`` (0-based).
+
+    Args:
+        lines: The page, split into lines.
+        start: The 0-based index of the directive line.
+        path: The page's path, for the message.
+        directive: The directive's kind, for the message.
+        namespace: The directive's comment namespace, for the message — the second harness
+            marks its blocks under its own (:mod:`tools.readme_quickstart`), and a message
+            naming the wrong one sends a reader to the wrong vocabulary.
 
     Returns:
         The block body, the 1-based line of its opening fence, and the 0-based index of the
@@ -220,16 +247,18 @@ def _read_fence(lines: list[str], start: int, *, path: str, directive: str) -> t
     while index < len(lines) and not lines[index].strip():
         index += 1
     if index >= len(lines):
-        raise DocExampleError(f"{path}:{start + 1}: gebra:{directive} directive ends the file")
-    opening = _FENCE_RE.match(lines[index])
+        raise DocExampleError(
+            f"{path}:{start + 1}: {namespace}:{directive} directive ends the file"
+        )
+    opening = FENCE_RE.match(lines[index])
     if opening is None:
         raise DocExampleError(
-            f"{path}:{index + 1}: gebra:{directive} must be followed by a fenced code block, "
-            f"found {lines[index].strip()!r}"
+            f"{path}:{index + 1}: {namespace}:{directive} must be followed by a fenced code "
+            f"block, found {lines[index].strip()!r}"
         )
     fence = opening.group("fence")
     body_start = index + 1
-    closing = _closing_fence(lines, index, fence)
+    closing = closing_fence(lines, index, fence)
     if closing >= len(lines):
         raise DocExampleError(f"{path}:{index + 1}: unclosed fenced code block")
     body = "".join(f"{line}\n" for line in lines[body_start:closing])
@@ -256,9 +285,9 @@ def parse_markdown(text: str, *, path: str) -> list[DocExample]:
     while index < len(lines):
         directive = _DIRECTIVE_RE.match(lines[index])
         if directive is None:
-            fence = _FENCE_RE.match(lines[index])
+            fence = FENCE_RE.match(lines[index])
             if fence is not None and lines[index].startswith(fence.group("fence")):
-                index = _closing_fence(lines, index, fence.group("fence")) + 1
+                index = closing_fence(lines, index, fence.group("fence")) + 1
                 continue
             index += 1
             continue
@@ -269,17 +298,17 @@ def parse_markdown(text: str, *, path: str) -> list[DocExample]:
                 f"{path}:{line_no}: unknown directive gebra:{kind} — "
                 f"expected one of {', '.join(sorted(KNOWN_DIRECTIVES))}"
             )
-        attrs = _parse_attrs(directive.group("attrs"), path=path, line_no=line_no)
+        attrs = parse_attrs(directive.group("attrs"), path=path, line_no=line_no)
         example_id = attrs.pop("id", "")
         if attrs:
             raise DocExampleError(
                 f"{path}:{line_no}: gebra:{kind} takes only id=, got {sorted(attrs)}"
             )
-        if not _ID_RE.match(example_id):
+        if not ID_RE.match(example_id):
             raise DocExampleError(
                 f"{path}:{line_no}: gebra:{kind} needs id=<lowercase-slug>, got {example_id!r}"
             )
-        body, fence_line, index = _read_fence(lines, index, path=path, directive=kind)
+        body, fence_line, index = read_fence(lines, index, path=path, directive=kind)
         if kind == EXAMPLE_DIRECTIVE:
             if example_id in codes:
                 raise DocExampleError(f"{path}:{line_no}: duplicate example id {example_id!r}")
@@ -430,15 +459,24 @@ GUARD_EPILOGUE: Final = """
 # reported as unledgered rather than read as clean: its bodies raise, but a raise a ``try``
 # block swallowed would leave nothing behind, and "nothing behind" must not be the same
 # answer as "nothing ran".
+#
+# ``__main__`` — the example's own code — is swept too, because a page may define the graph
+# it shows rather than import one (the README does, and a README a reader cannot reproduce
+# would fail WA-12). Its bodies then have to arm themselves the way a sample workflow does.
+# It is exempt from the *unledgered* leg alone: most examples define no body at all, and a
+# ledger they would never write to is noise. Which pages owe one is a page-level rule with
+# its own test (``tests/docs/test_doc_examples.py``), not a guess made here.
 _gebra_ledger = []
 _gebra_unledgered = []
 for _gebra_name, _gebra_module in sorted(_gebra_sys.modules.items()):
-    if not _gebra_name.startswith("tests.sample_workflows.") or _gebra_module is None:
+    _gebra_swept = _gebra_name.startswith("tests.sample_workflows.") or _gebra_name == "__main__"
+    if not _gebra_swept or _gebra_module is None:
         continue
     _gebra_short = _gebra_name.rpartition(".")[2]
     _gebra_tripped = getattr(_gebra_module, "TRIPPED", None)
     if _gebra_tripped is None:
-        _gebra_unledgered.append(_gebra_short)
+        if _gebra_name != "__main__":
+            _gebra_unledgered.append(_gebra_short)
         continue
     for _gebra_label in _gebra_tripped:
         _gebra_ledger.append(_gebra_short + ":" + str(_gebra_label))

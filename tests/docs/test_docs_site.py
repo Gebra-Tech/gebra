@@ -82,6 +82,7 @@ LANDED_PAGES = frozenset(
         "tutorials/extract-your-first-ir.md",
         "tutorials/contracts-and-annotations.md",
         "tutorials/verify-and-interpret.md",
+        "validators/p01-graph-well-formed.md",
     }
 )
 

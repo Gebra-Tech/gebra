@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The validator explainer "P-01 graph-well-formed"** (card DOC-08; PROPERTY-CATALOG-SPEC §1
+  and §0; the DEC-11 and DEC-12 shape pins). `docs/validators/p01-graph-well-formed.md` is the
+  first of the five per-validator pages, written for someone holding a report rather than for
+  someone learning the tool: what the validator checks, what every field of its witness and its
+  failure record means, and where the claim stops.
+
+  Six examples run under the DOC-01 harness, and none of them builds a graph: five read the
+  **vendored property-fixture corpus** — a fixture is data, so the page's transcripts are runs
+  over the frozen examples the validator is already held to in CI — and the sixth writes a
+  one-node IR document by hand. `a-pass-and-its-witness` prints the serialized
+  five-key witness (DEC-11's pin) off a corpus positive and re-checks the whole report against the
+  fixture's own `expected:` block through §0.3's comparison; `a-failure-and-its-record` does the
+  same for the catalog's canonical dangling-`path_map` typo, showing P-01's edge location with
+  `source`, `label` and `undefined_target` — and the anchor's `target` deliberately absent, per
+  §0.3's dangling-reference rule — beside the unreachable-node cascade riding `co_failures`.
+
+  `four-conditions` runs all seven P-01 fixtures at once, so each condition appears with the
+  fixture that pins it and the three distinctions a reader actually needs are read off a
+  transcript: unreachable is not orphaned, orphaned is all three at once, and a dead end is about
+  outgoing edges rather than about reaching the end of a workflow. `sentinel-wiring` makes DEC-11's
+  orphan reading visible on the case that separates it from the rejected one — one node, no edges,
+  passing when it is named in `entry`/`finish` and failing as an orphan with two cascades when it
+  is not. `topology-only` strips the state schema, every node annotation and the router expression
+  out of a passing fixture's document and shows the report is the same value, which is §1.3's
+  "not read" list checked rather than believed. `well-formed-is-not-well-behaved` runs P-01 and
+  P-02 over an unwitnessed reflection loop, so "well-formedness says nothing about cycles" is a
+  transcript rather than a sentence.
+
+  The closing section states the limits with the same discipline: condition (ii) is catalog-literal
+  and a trap component is therefore not a P-01 finding (a recorded specification open item, not
+  closed quietly here); a mounted subgraph is one opaque node whose interior is P-10's, which this
+  release does not implement; and when P-01 fails, P-02, P-04 and P-06 become best-effort
+  diagnostics on that run. The site index and the README's documentation list gained the page, and
+  `tests/docs/test_docs_site.py`'s `LANDED_PAGES` is what drops it out of the placeholder
+  assertions.
+
 - **The tutorial "Verify and interpret"** (card DOC-07; PROPERTY-CATALOG-SPEC §0; SOW §6).
   `docs/tutorials/verify-and-interpret.md` runs the wedge five over the travel-booking agent —
   the same definition the acceptance scenario uses, imported rather than copied — and then reads

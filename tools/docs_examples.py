@@ -421,6 +421,7 @@ import gebra.lineage
 import gebra.report
 import gebra.snapshot
 import gebra.store
+import gebra.testing
 import gebra.verify
 import gebra.versioning
 import langchain_core.runnables

@@ -46,6 +46,9 @@ Written so far:
 - [Verify and interpret](tutorials/verify-and-interpret.md) — running the five validators over a
   real agent and reading what comes back: witnesses, failure records, claim classes, strict mode,
   and what a finding does not claim;
+- [P-01 graph-well-formed](validators/p01-graph-well-formed.md) — the first per-validator page:
+  the four conditions, the five keys of the pass witness, what a failure record names, and where
+  the claim stops;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

@@ -201,7 +201,10 @@ def test_the_drift_issues_job_needs_no_environment_sync(workflow: dict[str, Any]
 
 
 def test_the_drill_can_only_be_dispatched_by_hand(drill: dict[str, Any]) -> None:
-    """A workflow that opens real issues never rides push, pull_request or a schedule.
+    """The drill tampers a real golden in its checkout, so it never rides an automatic
+    trigger — dispatch-only, by hand. (ci.yml's `drift-issues` job also opens real
+    issues and *does* ride push and, since GOV-08, the weekly schedule: that is the
+    designed watch, not a violation of this rule — the rule is about the tamper.)
     (PyYAML reads the bare `on:` key as boolean True.)"""
     keys: dict[Any, Any] = drill
     triggers = keys.get("on", keys.get(True))

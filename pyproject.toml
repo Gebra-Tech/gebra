@@ -1,5 +1,11 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+# The backend is PINNED, not floored: isolated builds resolve it fresh, and a
+# hatchling release that bumps Metadata-Version ahead of the validators turns the
+# release gate red (GOV-03's first strict twine run caught exactly that — fresh
+# hatchling emitting Metadata-Version 2.5, twine 6.1.0 and 6.2.0 both rejecting
+# it). Reproducible release builds are GOV-08's doctrine; bump deliberately,
+# together with the twine pin, when the ecosystem catches up.
+requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -91,7 +97,7 @@ dev = [
 # `compat-test` extra to record — "including the transitively resolved pydantic" — so that a
 # CI cell and a local reproduction install the same substrate:
 #
-#     pip install -e ".[dev,compat-cell-1]"     # cell 1, exactly what CI installs
+#     pip install -e ".[dev,compat-cell-1]" -c tools/matrix-constraints.txt   # = a CI cell
 #
 # **One extra per cell, because one extra cannot hold three cells.** The cells pin the same
 # distributions to different versions, so a single requirement set carrying all three
@@ -101,12 +107,17 @@ dev = [
 # requirement, since `gebra` is published to no index and a self-reference invites the
 # resolver to look for it on one. `tests/test_compat_matrix.py` holds the two lists equal.
 #
-# **CANDIDATE pins, not frozen.** The values below are the §3 resolution rule's output on
-# 2026-08-04, recorded by GOV-D3 in PD-030 §C3 and consumed here per its decision item 7.
-# They re-resolve at the GOV-08 freeze (F2, gate G7) and at each §4 ceiling extension; GOV-08
-# removes this marker and cites the green drift-suite run. Yanked releases (langgraph 1.1.7,
-# 1.2.3) are excluded by these pins, not by the metadata range — a range cannot exclude a
-# point version.
+# **FROZEN pins — the F2 tested-matrix freeze (GOV-08, gate G7, 2026-08-31).** The values
+# below are the §3 resolution rule's output recorded by GOV-D3 in PD-030 §C3 (2026-08-04),
+# proven green as a full 13-cell matrix — drift suite included — in CI run 33336160085
+# (Gebra-Tech/gebra, commit ae0b9a2, 2026-08-30; the run the G6 sign-off verified leg by
+# leg). The living document (VERSION-COMPAT.md §1) records the same freeze with the same
+# citation. From here these pins change only through a §4 ceiling extension or cap — one
+# commit citing its own drift-suite run, per docs/governance/VERSION-COMPAT-RUNBOOK.md —
+# and the non-substrate half of every cell's resolution is locked by
+# tools/matrix-constraints.txt (regenerated from uv.lock; GOV-08). Yanked releases
+# (langgraph 1.1.7, 1.2.3) are excluded by these pins, not by the metadata range — a range
+# cannot exclude a point version.
 #
 # Every version except one is what the resolver produced from the cell's named pair. The
 # exception is cell 1's `langgraph-checkpoint==4.0.3`, a Gebra-chosen bound (PD-030 Q1,

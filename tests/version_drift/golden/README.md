@@ -63,8 +63,10 @@ A golden here changes **only** in a commit carrying its justification. WA-05 (ma
 Regenerate with `python tools/drift_goldens.py --write` (it takes every case twice, in two
 orders, and refuses to write an unstable extraction or drawing) and commit the diff
 together with the justification. An unjustified golden diff is drift by definition and
-blocks. Interim enforcement is review-only (IR-spec pre-review) until the CI guard lands
-with GOV-08.
+blocks — and fails CI: the `golden-guard` job (GOV-08, ending the review-only interim)
+refuses a diff under this tree whose commit carries no well-formed
+`Golden-Justification:` trailer — `drift-run=<run id> …` or `DEC-<n> ir_version=<x.y> …`
+(forms and a local pre-push check in CONTRIBUTING.md).
 
 **Provenance of the current set** — the tests-1–6 goldens taken 2026-08-21 under GOV-05
 and the tests-7–12 goldens taken 2026-08-21 under GOV-06 (initial creations, not

@@ -84,6 +84,39 @@ re-vendor updates the bytes *and* regenerates the manifest in one commit. The
 procedure — and what to do when the guard fails on your branch — is
 [docs/governance/re-vendoring.md](docs/governance/re-vendoring.md).
 
+## Golden files and their justification (WA-05)
+
+Three trees pin extracted IR bytes and digests as goldens: the extractor-conformance
+set (`tests/extraction/golden/`), the drift-suite set (`tests/version_drift/golden/`)
+and the IR golden vector + round-trip set (`tests/ir/golden/`). A golden there changes
+only in a commit that carries its justification, and there are exactly two accepted
+kinds (working agreement WA-05): a green-path matrix extension citing its drift-suite
+run, or a ratified IR change with the `ir_version` bump and its decision record.
+
+CI enforces this per commit (the `golden-guard` job): a commit whose diff touches one
+of those trees must carry a `Golden-Justification:` trailer, in one of the two forms —
+
+```
+Golden-Justification: drift-run=<Actions run id> <substrate pair>
+Golden-Justification: DEC-<n> ir_version=<x.y> <what changed>
+```
+
+A justified commit never covers an unjustified one in the same push, and there is no
+bypass flag. The guard checks that the justification is present and well-formed;
+whether the citation actually justifies the diff stays with review. Check a pending
+change before pushing:
+
+```bash
+python tools/golden_guard.py --files <changed paths...> --message "<the commit message>"
+```
+
+The CLI, report and lineage goldens (`tests/cli/goldens/`, `tests/report/goldens/`,
+`tests/lineage/golden/`) pin rendering rather than extracted IR and change under
+ordinary review — no trailer needed. So does documentation *inside* a golden tree (a
+`README.md`): the guard classifies only non-Markdown files, because WA-05 enumerates
+golden files and no `.md` can become one. One squash-merge note: the squashed commit
+message is what the guard judges on the main-branch push — keep the trailer in it.
+
 ## Code style and quality gates
 
 Four gates run in CI on every push and pull request. Run them locally before
@@ -137,10 +170,10 @@ exact pins — including transitively resolved ones such as pydantic — live in
 extra, so a CI cell and a local reproduction install the same substrate:
 
 ```bash
-pip install -e ".[dev,compat-cell-1]"   # langgraph 1.0.x line
-pip install -e ".[dev,compat-cell-2]"   # langgraph 1.1.x line
-pip install -e ".[dev,compat-cell-3]"   # langgraph 1.2.x line
-pip install -e ".[dev,compat-test]"     # the same pins as compat-cell-3
+pip install -e ".[dev,compat-cell-1]" -c tools/matrix-constraints.txt   # langgraph 1.0.x line
+pip install -e ".[dev,compat-cell-2]" -c tools/matrix-constraints.txt   # langgraph 1.1.x line
+pip install -e ".[dev,compat-cell-3]" -c tools/matrix-constraints.txt   # langgraph 1.2.x line
+pip install -e ".[dev,compat-test]" -c tools/matrix-constraints.txt     # = compat-cell-3
 ```
 
 Then run the four gates as usual. The CI job takes the cell *number* and nothing
@@ -153,13 +186,31 @@ A few things about these pins are deliberate and easy to undo by accident:
   API that cell 1's core does not have, and `import langgraph.graph` then fails
   outright. No resolver prevents this: the declared metadata of every package
   involved is satisfied by the broken combination.
-- **The `--pre` cell is unpinned and uncached on purpose.** It installs
-  `--pre langgraph langchain-core` fresh on every run, which is the point: it
-  reports what tomorrow's substrate would do. It never blocks a run — a failure
-  is annotated and summarized instead, and opens a supported-range review.
-- **The pins are candidate values, not frozen ones.** They re-resolve when the
-  tested matrix is frozen and at each ceiling extension; `pyproject.toml` says so
-  at the extras themselves.
+- **The `--pre` cell's substrate is unpinned and uncached on purpose.** It
+  installs `--pre langgraph langchain-core` fresh on every run, which is the
+  point: it reports what tomorrow's substrate would do. It never blocks a run — a
+  failure is annotated and summarized instead, and opens a supported-range
+  review. Its dev toolchain installs under the constraints below, so a red there
+  attributes to the substrate.
+- **The pins are frozen (F2, GOV-08, 2026-08-31).** The tested matrix froze
+  citing green drift-suite run 33336160085; `pyproject.toml` says so at the
+  extras themselves. From here the pins change only through a ceiling extension
+  or cap — one commit citing its own drift-suite run. The procedure, the red
+  path, and the 2.0 watch live in
+  [docs/governance/VERSION-COMPAT-RUNBOOK.md](docs/governance/VERSION-COMPAT-RUNBOOK.md).
+- **The rest of a cell's resolution comes from the lock.**
+  `tools/matrix-constraints.txt` — generated from `uv.lock` by
+  `python tools/matrix_constraints.py --write`, verified by `--check` in every
+  cell — pins the dev toolchain for every pip-installing CI job, so a cell's
+  greenness cannot drift with the day's index between substrate changes. It is
+  agreement-gated: distributions the cells pin divergently are never constrained
+  (the extras stay the substrate's single source of truth); family members every
+  cell pins identically ride along at the agreed version. Refresh it in the same
+  commit as any `uv.lock` change.
+
+CI also runs on a weekly schedule and by `workflow_dispatch` (the VERSION-COMPAT
+§4 watch): the matrix re-proves itself and the `--pre` cell reads that day's
+index with the drift-issue automation live, whether or not anyone pushed.
 
 `tests/test_compat_matrix.py` holds the workflow and the extras to each other —
 the cell count, the pin values, and which gates each cell runs.

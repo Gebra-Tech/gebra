@@ -52,14 +52,18 @@ def lockfile() -> dict[str, Any]:
 
 
 def test_build_backend_is_hatchling(pyproject: dict[str, Any]) -> None:
-    """PD-005 item 1: hatchling is the PEP 517 backend, floor ``hatchling>=1.27``.
+    """PD-005 item 1's backend, pinned exactly under GOV-08's freeze doctrine.
 
-    The floor is the PEP 639 floor — the project declares ``license = "Apache-2.0"``
-    plus ``license-files``, which hatchling only understands from 1.27 on.
+    1.27 remains the PEP 639 floor (``license = "Apache-2.0"`` + ``license-files``
+    need it), but the requirement is now ``==``, not ``>=``: isolated builds resolve
+    the backend fresh, and a hatchling release bumping Metadata-Version ahead of the
+    twine validators turned GOV-03's release gate red on its first run (fresh
+    hatchling emitted 2.5; twine 6.1.0 and 6.2.0 both reject it). Reproducible
+    release builds pin the backend; bumps are deliberate, paired with the twine pin.
     """
     build_system = pyproject["build-system"]
     assert build_system["build-backend"] == "hatchling.build"
-    assert build_system["requires"] == ["hatchling>=1.27"]
+    assert build_system["requires"] == ["hatchling==1.27.0"]
     assert pyproject["project"]["license"] == "Apache-2.0"
     assert pyproject["project"]["license-files"] == ["LICENSE", "NOTICE"]
 

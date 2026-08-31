@@ -488,6 +488,23 @@ modes, because neither `pytest-cov` nor `coverage run` sets `COVERAGE_PROCESS_ST
 exactly as before; and the one new inherited variable, `COVERAGE_RUN`, is read nowhere in the
 repository. No tripwire, sentinel, or hermeticity child was weakened, skipped, or re-scoped by it.
 
+The **freeze-time pin lock and the golden-lifecycle guard** (`tools/matrix_constraints.py` +
+`tools/matrix-constraints.txt`, `tools/golden_guard.py`; card GOV-08) add no execution surface of
+their own: the constraints tool reads two TOML files and writes one text file; the golden guard
+matches text and — only in its CI range mode — shells `git` plumbing (`rev-list`, `diff-tree`,
+`log`). Its test suite replaces that boundary wholesale (a behavioural `FakeGit` that also pins
+the load-bearing `diff-tree` flags), and one armed test runs the judgement half with
+`subprocess.run` disabled outright, so plain `pytest -q` spawns nothing through either tool.
+Neither is an extraction path — nothing under `src/gebra/extraction/` references them, so §1's
+machine check owes them no row; they are recorded here for the coverage-gate reason: GOV-08
+changed the resolution every matrix cell's interpreter installs (the dev toolchain now resolves
+under `pip install -c` at the `uv.lock` versions). That change is environment-pinning only,
+checked leg by leg at pre-review: the divergent substrate family is excluded from constraint by
+construction and by test, so each cell's sentinel suites see the same substrate bytes as before;
+the two constrained family members (pydantic, langchain-protocol) are held to exactly the version
+every cell extra already pins; and the `--pre` cell's substrate resolve stays unconstrained. No
+tripwire, sentinel, or hermeticity child was weakened, skipped, or re-scoped by it.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

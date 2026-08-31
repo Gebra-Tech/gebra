@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The compatibility posture is finalized — the tested matrix is frozen (F2)** (card
+  GOV-08; VERSION-COMPAT §1/§4/§5, gate G7). The `compat-cell-{1,2,3}`/`compat-test`
+  extras' substrate pins are frozen citing green drift-suite CI run 33336160085 — the
+  CANDIDATE marker they carried since GOV-04 is gone — and the freeze-time pin lock
+  closes the fresh-resolution exposure the G6 sign-off recorded: every pip-installing CI
+  job (the 12 matrix cells, the DoD job, `pip-editable`, `docs`, and the `--pre` cell's
+  dev half) now resolves under the new `tools/matrix-constraints.txt`, generated from
+  the committed `uv.lock` by `tools/matrix_constraints.py` (`--check` runs as a test in
+  every cell and refuses a lock/constraints skew; `--write` regenerates). The
+  constraints are agreement-gated: distributions the cells pin divergently are never
+  constrained — the extras remain the substrate's single source of truth — while family
+  members every cell pins identically (pydantic, langchain-protocol today) are held to
+  exactly that agreed version. The `--pre` cell's substrate resolve still reads the
+  day's index (that early warning is the point of the cell, and its red now attributes
+  to the substrate rather than to a dev tool — at the recorded cost that a prerelease
+  *transitive* under stable named packages, the PD-030 §C4 arrival mode, now reaches
+  the cell only via a named-package upgrade), and the build job's clean-venv wheel
+  smoke stays a user-shaped fresh install by design.
+
+  **The WA-05 golden-lifecycle guard is CI-enforced**, ending the review-only interim:
+  the new `golden-guard` job (`tools/golden_guard.py`, stdlib-only, no bypass flag)
+  fails any commit whose diff touches `tests/extraction/golden/`,
+  `tests/version_drift/golden/` or `tests/ir/golden/` without a well-formed
+  `Golden-Justification:` trailer carrying one of WA-05's two justification kinds
+  (`drift-run=<run id>` or `DEC-<n> ir_version=<x.y>`) — judged per commit, with merge
+  commits held to their combined diff so a merge resolution cannot smuggle a golden
+  change past the constituent commits' trailers.
+
+  **The post-phase watch is wired**: CI now also runs weekly (`schedule`) and on demand
+  (`workflow_dispatch`), so the matrix, the `--pre` early-warning cell and the
+  drift-issue automation keep observing the index when pushes stop arriving. The
+  operating procedures — triage, ceiling extension, cap, the 2.0 watch, pin-lock
+  maintenance — are the new `docs/governance/VERSION-COMPAT-RUNBOOK.md`.
+
 - **The tag-triggered release workflow** (card GOV-03; SOW §5, the PD-036/GOV-D4
   destination ruling). Pushing a `v*` tag now produces built and validated distributions
   with no manual assembly: `.github/workflows/release.yml` gates the tag through the new

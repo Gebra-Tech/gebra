@@ -6,7 +6,8 @@ pair cells), §3 ("The matrix, exactly": Python {3.10, 3.11, 3.12, 3.13} x three
 ``xfail(strict=False)``), §4 (the per-cell pins, "including the transitively resolved
 pydantic", are recorded in the ``gebra[compat-test]`` extra) and SOW §4 (every cell runs
 ``ruff check`` + ``ruff format --check`` + ``mypy --strict`` + ``pytest``). The pin *values*
-are GOV-D3's, recorded in PD-030 §C3 and **CANDIDATE until the GOV-08 freeze**.
+are GOV-D3's, recorded in PD-030 §C3 and **FROZEN at the GOV-08 F2 freeze** (gate G7,
+2026-08-31, citing green drift-suite run 33336160085).
 
 The point of holding both halves here is that they can only drift together: the workflow
 names a cell number and nothing else, so the pins it installs are the ones in
@@ -45,11 +46,11 @@ FROZEN_CELLS = ("1", "2", "3")
 BLOCKING_CELL_COUNT = len(TESTED_PYTHONS) * len(FROZEN_CELLS)
 TOTAL_CELL_COUNT = BLOCKING_CELL_COUNT + 1
 
-#: PD-030 §C3's candidate pin table — the substrate axis of each frozen cell. The full pin
-#: set per cell lives in ``pyproject.toml``; these are the values a reviewer checks against
-#: the PD, and the three the §3 rule and §4's "including the transitively resolved pydantic"
-#: name directly.
-CANDIDATE_PINS: dict[str, dict[str, str]] = {
+#: PD-030 §C3's pin table, frozen at F2 (GOV-08) — the substrate axis of each frozen cell.
+#: The full pin set per cell lives in ``pyproject.toml``; these are the values a reviewer
+#: checks against the PD and the freeze record, and the three the §3 rule and §4's
+#: "including the transitively resolved pydantic" name directly.
+FROZEN_PINS: dict[str, dict[str, str]] = {
     "1": {"langgraph": "1.0.10", "langchain-core": "1.1.3", "pydantic": "2.13.4"},
     "2": {"langgraph": "1.1.10", "langchain-core": "1.3.3", "pydantic": "2.13.4"},
     "3": {"langgraph": "1.2.10", "langchain-core": "1.5.3", "pydantic": "2.13.4"},
@@ -130,8 +131,8 @@ def test_every_frozen_cell_has_its_own_pin_extra(extras: dict[str, list[str]], c
 
 
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
-def test_each_cell_pins_the_candidate_substrate(extras: dict[str, list[str]], cell: str) -> None:
-    """The pin values are PD-030 §C3's, including the transitively resolved pydantic (§4).
+def test_each_cell_pins_the_frozen_substrate(extras: dict[str, list[str]], cell: str) -> None:
+    """The pin values are PD-030 §C3's, frozen at F2, incl. the transitive pydantic (§4).
 
     pydantic is pinned *per cell* rather than once for the matrix even though all three
     resolve to the same version today: PD-030 §C3 records that as "a property of today's
@@ -139,9 +140,10 @@ def test_each_cell_pins_the_candidate_substrate(extras: dict[str, list[str]], ce
     pydantic, and drift test 7's soft full-dict assertion reads exactly this axis.
     """
     pinned = _pins(extras[f"compat-cell-{cell}"])
-    for distribution, version in CANDIDATE_PINS[cell].items():
+    for distribution, version in FROZEN_PINS[cell].items():
         assert pinned.get(distribution) == version, (
-            f"cell {cell} must pin {distribution}=={version} (PD-030 §C3, candidate until GOV-08)"
+            f"cell {cell} must pin {distribution}=={version} (PD-030 §C3, frozen at GOV-08/F2 — "
+            "changing it is a §4 ceiling extension with its own drift-suite run citation)"
         )
 
 
@@ -248,14 +250,17 @@ def test_the_three_cells_are_distinct_pairings(extras: dict[str, list[str]]) -> 
     assert len(pairs) == len(FROZEN_CELLS)
 
 
-def test_the_pins_are_marked_candidate_until_the_freeze() -> None:
-    """PD-030 decision item 7: the extra carries the candidate marker GOV-08 removes.
+def test_the_pins_are_marked_frozen_with_the_freeze_citation() -> None:
+    """PD-030 decision item 7, second half: GOV-08 removed the candidate marker and the
+    frozen marker cites the green drift-suite run (F2, gate G7).
 
     Read as text on purpose — the marker is a comment, and a comment is exactly where
-    someone about to mistake a candidate pin for a frozen one is looking.
+    someone about to mistake the nature of these pins is looking.
     """
     text = PYPROJECT.read_text(encoding="utf-8")
-    assert "CANDIDATE pins, not frozen" in text
+    assert "CANDIDATE pins, not frozen" not in text
+    assert "FROZEN pins" in text
+    assert "33336160085" in text, "the freeze must cite its green drift-suite run"
     assert "PD-030" in text and "GOV-08" in text
 
 
@@ -287,8 +292,9 @@ def test_the_matrix_installs_the_cells_pins_from_the_extra(workflow: dict[str, A
     """The workflow names a cell number; the pins stay in ``pyproject.toml``.
 
     This is what makes the two halves of this file inseparable: there is nowhere else for a
-    CI cell's substrate to come from, so re-resolving at the GOV-08 freeze is a
-    ``pyproject.toml`` edit and nothing else.
+    CI cell's substrate to come from, so a §4 ceiling extension re-resolves in a
+    ``pyproject.toml`` edit and nothing else (plus its drift-suite run citation, per the
+    F2 freeze discipline).
     """
     steps = _job_run_steps(workflow["jobs"]["test-matrix"])
     assert any("compat-cell-${{ matrix.cell }}" in step for step in steps)
@@ -332,7 +338,10 @@ def test_no_blocking_cell_is_allowed_to_fail(workflow: dict[str, Any]) -> None:
 def test_the_pre_cell_resolves_prereleases_and_pins_nothing(workflow: dict[str, Any]) -> None:
     """§3: ``pip install --pre`` of both named packages; PD-030 §C4: never pinned.
 
-    Pinning this cell would delete the early warning it exists to give.
+    Pinning this cell's *substrate* would delete the early warning it exists to give. (Its
+    dev toolchain resolves under the freeze-time constraints since GOV-08 — asserted in
+    ``tests/test_matrix_constraints.py`` — which pins no substrate-family member the cells
+    diverge on.)
     """
     steps = _job_run_steps(workflow["jobs"]["test-matrix-pre"])
     assert any(
@@ -398,3 +407,28 @@ def test_every_pre_cell_gate_reports_its_own_outcome(workflow: dict[str, Any]) -
         assert f"steps.{step['id']}.outcome" in reported, (
             f"the --pre report never reads the outcome of step {step['id']!r}"
         )
+
+
+# ── The watch: post-phase runs keep arriving without pushes (GOV-08; VERSION-COMPAT §4) ──
+
+
+def test_the_watch_runs_weekly_and_on_dispatch(workflow: dict[str, Any]) -> None:
+    """§4's ceiling-extension cadence and 2.0 watch need the matrix — and the `--pre`
+    early-warning cell, and the drift-issue automation — to run when pushes no longer
+    arrive: a weekly schedule, plus `workflow_dispatch` as the immediate run §4 names for
+    the day a 2.0 alpha appears. (PyYAML reads the bare `on:` key as boolean True.)
+    """
+    keys: dict[Any, Any] = workflow
+    triggers = keys.get("on", keys.get(True))
+    assert triggers is not None
+    assert "push" in triggers
+    assert "pull_request" in triggers
+    assert "workflow_dispatch" in triggers
+    [cron] = triggers["schedule"]
+    fields = str(cron["cron"]).split()
+    assert len(fields) == 5
+    minute, _hour, day_of_month, month, day_of_week = fields
+    assert day_of_month == "*" and month == "*" and day_of_week != "*", (
+        "the watch is weekly: a fixed day of week, every week"
+    )
+    assert minute != "0", "off-the-hour minute — scheduled-load etiquette"

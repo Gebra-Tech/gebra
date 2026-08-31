@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The validator explainer "P-02 termination-witness"** (card DOC-09; PROPERTY-CATALOG-SPEC §2
+  and §0, TERMINATION-WITNESS-SPEC, the DEC-11 shape pins and the DEC-23 amendments).
+  `docs/validators/p02-termination-witness.md` is the second per-validator page, and it answers
+  the question a reader of a failing build has: what does "this loop declares no bound" mean,
+  and what would satisfy it? The three witness forms, the inventory-and-certificate pass
+  witness, both failure records field by field, the closed note vocabulary, the guard grammar,
+  and the honest boundary — witness presence, never semantic termination.
+
+  Nine examples run under the DOC-01 harness, and none of them builds a graph. Six read the
+  **vendored property-fixture corpus**, so the page's transcripts are runs over the frozen
+  examples the validator is already held to in CI; two write a small IR document by hand; one
+  reads no document at all. `a-pass-and-its-witness` prints the serialized witness off the
+  canonical counter-guarded retry loop and walks every member — `form`, `element`, `source` and
+  `discharges` per inventory entry, the acyclicity `certificate` a consumer re-checks without
+  trusting the checker, and the abort-capped `cycles` census. `three-forms` runs all twelve
+  P-02 fixtures at once, so each form arrives with the fixture that pins it and each finding
+  with the shape of region it anchors on, self-loop and multi-cycle component included.
+  `a-failure-and-its-record` reads the residual-SCC record: the sorted `nodes` beside the
+  canonically-rotated `representative_cycle`, and what `exhaustive: false` does and does not
+  say.
+
+  Four examples exist for the ways P-02 surprises people. `outer-bound-does-not-bound-inner`
+  runs the DEC-05 D1 flagship pair, so "a bound on the outer loop does not bound the inner one"
+  is a transcript rather than a warning. `counter-guard-without-exit-edge` shows the second
+  condition ID on the fixture that pins it — the `cycle` anchor with `counter_key` and
+  `guard_edge`, and the D2 subsumption that keeps one root cause to one finding.
+  `which-guards-are-recognized` asks the public recognizer about seven condition strings and
+  prints its verdicts, which turns "why is my guard not a witness?" into something a reader can
+  run against their own string — and `recognized-is-not-discharged` follows it with the trap
+  that costs the most time: an **exit-on-truth** router, where the comparison gates the branch
+  that leaves the loop, is recognized, discharges nothing, and fails with no note to read. Both
+  wirings of one graph are run, so the repair is visible rather than described.
+  `two-regions-and-a-near-miss` builds a small document by hand to
+  show a record with everything filled in: a second region riding `co_failures` under the pinned
+  ordering, and a `counter-key-not-qualified` note naming the misspelled `identifier` — a
+  misspelled key never silently shrinks coverage.
+
+  `blanket-limit-and-strict-mode` is the case the tutorial named but could not show: a report
+  where **nothing failed** gates `1` under `--gebra-strict=termination-witness`, with the
+  property still passing, the note still `severity: warning` and `blanket_only` doing the work
+  — the gate moving and the record not.
+
+  `tests/docs/test_validator_pages.py` gained two reconciliations that bind this page and the
+  three explainers still to come: every field of the property's own evidence models (location
+  subtypes, inventory entries, notes, the census) must be named on its page, and every member
+  of a closed `Literal` vocabulary the page lists — P-02's five note kinds — must be there in
+  full. The site index and the README's documentation list gained the page.
+
 - **The validator explainer "P-01 graph-well-formed"** (card DOC-08; PROPERTY-CATALOG-SPEC §1
   and §0; the DEC-11 and DEC-12 shape pins). `docs/validators/p01-graph-well-formed.md` is the
   first of the five per-validator pages, written for someone holding a report rather than for

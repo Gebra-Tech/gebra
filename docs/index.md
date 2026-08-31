@@ -49,6 +49,9 @@ Written so far:
 - [P-01 graph-well-formed](validators/p01-graph-well-formed.md) — the first per-validator page:
   the four conditions, the five keys of the pass witness, what a failure record names, and where
   the claim stops;
+- [P-02 termination-witness](validators/p02-termination-witness.md) — the three ways to declare
+  a loop bound, what the pass witness and the two failure records hold, which guard strings the
+  recognizer accepts, and what witness presence does and does not claim;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

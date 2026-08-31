@@ -83,6 +83,7 @@ LANDED_PAGES = frozenset(
         "tutorials/contracts-and-annotations.md",
         "tutorials/verify-and-interpret.md",
         "validators/p01-graph-well-formed.md",
+        "validators/p02-termination-witness.md",
     }
 )
 

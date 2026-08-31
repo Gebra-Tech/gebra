@@ -742,8 +742,10 @@ blocks are what those runs printed. If any of it stops behaving this way the bui
 than the page misleading a reader — [Executable examples](../contributing/executable-examples.md)
 explains the mechanism.
 
-The per-validator pages in this site's navigation are still placeholders. Until they are written,
-the frozen contract for each property — what it reads and what its records contain — is
-PROPERTY-CATALOG-SPEC §P-01, §P-02, §P-04, §P-06 and §P-08, with TERMINATION-WITNESS-SPEC for
-P-02's semantics. The validator modules under `gebra.verify.properties` and their tests are where
-that contract is implemented and pinned, and are the closest description of it in this repository.
+Two of the per-validator pages are written and go further on their own property than this page
+does: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md) and
+[P-02 `termination-witness`](../validators/p02-termination-witness.md). The other three are
+still placeholders, and until they are written the frozen contract for those properties — what
+each reads and what its records contain — is PROPERTY-CATALOG-SPEC §P-04, §P-06 and §P-08. The
+validator modules under `gebra.verify.properties` and their tests are where that contract is
+implemented and pinned, and are the closest description of it in this repository.

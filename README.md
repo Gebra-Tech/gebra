@@ -278,7 +278,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-The documentation site is still being written — eight of its pages are done. Those, and the
+The documentation site is still being written — nine of its pages are done. Those, and the
 repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
@@ -298,6 +298,9 @@ repository documents worth reading beside them:
 - [P-01 graph-well-formed](docs/validators/p01-graph-well-formed.md) — the first per-validator
   explainer: the four conditions, the five keys of the pass witness, the fields of a failure
   record, and what a P-01 pass does not claim.
+- [P-02 termination-witness](docs/validators/p02-termination-witness.md) — the three ways to
+  declare a loop bound, the inventory-and-certificate witness, the two findings and their
+  anchors, which guard strings the recognizer accepts, and the boundary of the claim.
 - [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
   site are marked, run and checked in CI.
 - [The CI-gate GitHub Action](docs/ci/github-action.md) — inputs, the

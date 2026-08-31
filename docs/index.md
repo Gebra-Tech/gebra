@@ -37,6 +37,9 @@ Written so far:
 - [The IR, node identity and graph_version](concepts/ir-and-graph-version.md) — what the
   extracted document holds and why it is hermetic, how nodes are named, and what a
   `graph_version` is derived from, worked through the pinned golden vector;
+- [Extract your first IR](tutorials/extract-your-first-ir.md) — a `StateGraph` through
+  `gebra.extract()` to IR YAML, how to read the extraction warnings, and what extraction can
+  and cannot know about a definition;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

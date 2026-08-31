@@ -9,6 +9,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The tutorial "Extract your first IR"** (card DOC-05; INTROSPECTION-SPEC §0–§3, §4.1).
+  `docs/tutorials/extract-your-first-ir.md` is the first written page of the Tutorials
+  section: a small LangGraph `StateGraph` taken through `gebra.extract()` to IR YAML, read
+  field by field, followed by the other half of what extraction hands back — the warnings
+  that say how a value got into the document — and then the boundary of what reading a
+  definition can know at all.
+
+  Two examples run under the DOC-01 harness, and both **write their agent to a module and
+  import it back** rather than defining it inline. That is not decoration: extraction locates
+  a node's source the way any Python tool does, so a graph defined in a string-compiled
+  `__main__` falls to the conservative defaults on every slot, and a transcript produced that
+  way would not be the one a reader saving the same file gets. Writing the file makes the page
+  reproducible in the strict sense — the bytes shown are the bytes extracted, and the
+  inference the page teaches is the inference a reader sees.
+
+  That shape needed the WA-07 sweep extended, and it is extended here rather than worked
+  around on the page. `tools/docs_examples.py`'s trailer swept `__main__` and
+  `tests/sample_workflows/` by name; a module an example writes at run time is called neither,
+  so its ledger would have failed **open**. The sweep now also reaches any module whose
+  `__file__` resolves inside the child's own working directory — the class "a module this
+  example wrote", identified by where it is rather than by what the page calls it — and applies
+  the unledgered leg to it too, so a written module keeping no ledger fails the example instead
+  of reading as clean. No page cooperation is required and no page can evade it by how it
+  spells the write. A mutation check confirms the clause is load-bearing: removed, a swallowed
+  node call in the tutorial comes back clean.
+
+  `your-first-ir` prints the whole document plus its six warnings and one record in full, so
+  that `contract-inferred` is legible as a structured record — which pattern licensed which
+  key (`state-access` for a literal read, `return-annotation-keys` for a `TypedDict` return),
+  and the `claims_not_upgraded` list naming the slots inference never reaches.
+  `knowability-classes` takes the same agent grown a little — a triage router that declares no
+  targets, two searches that join, one node carrying a `@gebra.contract` — and demonstrates
+  each of the four INTROSPECTION §0 classes from one extraction, with `barrier-flattened` and
+  `unsupported-construct` beside them and the consequence a reader needs: a document carrying
+  a `dynamic` edge stamps itself `ir_version: 1.1` and reaches **no verdict** from `verify` —
+  gate `tool-error`, exit `2`, which is "no verdict", never "the workflow failed".
+
+  The `checkpointer=False` blind spot (INTROSPECTION §4.1) is documented as an admonition
+  rather than a footnote, because it is the one limitation on the page that a reader cannot
+  detect for themselves: a subgraph compiled that way is invisible to subgraph discovery, so
+  the recorded set of subgraph-bearing nodes is a **lower bound** and **no warning is possible
+  for what was missed** — extraction cannot warn about what it cannot see, so the paragraph is
+  the warning. It is separated from the unrelated scope line beside it: ir 1.0/1.1 carry a
+  discovered subgraph as its parent node only, for every subgraph, visible or not.
+
+  Four controls in `tests/docs/test_doc_examples.py` hold the new shape rather than trusting
+  it: a fired ledger control per tutorial example (a node body called inside the real run, the
+  raise swallowed, the sweep still reporting it); the same call made with an **empty state**,
+  which is the accidental-invocation shape that finds a body arming itself too late — every
+  body on the page therefore records on its first line, before a missing key can raise from a
+  subscript; the fail-closed leg for a written module keeping no ledger; and a floor assertion
+  that every example writing a module appears in the fired-control list, so the next page of
+  this shape cannot land without one.
+
 - **The concept page "The IR, node identity and graph_version"** (card DOC-03; IR-SPEC,
   DEC-10). `docs/concepts/ir-and-graph-version.md` is the second written page of the Concepts
   section, and the one a reader needs before a snapshot or a diff means anything: what the

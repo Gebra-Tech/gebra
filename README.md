@@ -278,7 +278,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-The documentation site is still being written — four of its pages are done. Those, and the
+The documentation site is still being written — five of its pages are done. Those, and the
 repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
@@ -286,6 +286,9 @@ repository documents worth reading beside them:
 - [The IR, node identity and graph_version](docs/concepts/ir-and-graph-version.md) — what the
   extracted document holds and why it is hermetic, how nodes are named, and what a
   `graph_version` is a digest of, worked through the specification's pinned golden vector.
+- [Extract your first IR](docs/tutorials/extract-your-first-ir.md) — a worked tutorial from a
+  `StateGraph` to IR YAML: reading the document, reading the extraction warnings, and the four
+  knowability classes that say what extraction can and cannot know.
 - [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
   site are marked, run and checked in CI.
 - [The CI-gate GitHub Action](docs/ci/github-action.md) — inputs, the

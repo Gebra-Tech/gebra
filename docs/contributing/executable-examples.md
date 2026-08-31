@@ -52,6 +52,10 @@ them:
 - that sweep is fail-closed. A sample workflow keeping no ledger is reported as unledgered
   and fails the example, rather than being read as clean — "nothing was recorded" must not
   give the same answer as "nothing ran";
+- and it reaches a third kind of module: one the example **wrote into its working directory
+  and imported**, found by its `__file__` rather than by its name. That shape exists because
+  what the extractor can read off a node body depends on the body being in a file, so a page
+  whose subject is inference has to put its graph in one;
 - the child reports its attempt list, the ledger and the unledgered set when it finishes,
   and any of the three coming back non-empty fails the example.
 
@@ -62,13 +66,15 @@ LCEL `Runnable` compiles nothing — so the harness admits builder-path, LCEL an
 document-path examples. Extending it to a compiled graph is a change to the harness, with
 its own controls, and never something an individual page opts out of.
 
-The armed surface is `tests/sample_workflows/` **and the example's own module**. A body a
-page defines is its author's code, and the armed `invoke` family does not reach it —
-extraction unwraps a node to the bare callable, so a call on that reference goes past every
-raiser above. **A page that defines the graph it shows therefore arms its own node bodies:
-record into a module-level `TRIPPED` list, then raise.** The trailer sweeps the example's
-`__main__` alongside the sample workflows, so a call a `try` block swallowed is still
-reported. A page that needs a ready-made graph builds against the sample workflows instead
+The armed surface is `tests/sample_workflows/` **and any module the example itself defines or
+writes**. A body a page defines is its author's code, and the armed `invoke` family does not
+reach it — extraction unwraps a node to the bare callable, so a call on that reference goes
+past every raiser above. **A page that defines the graph it shows therefore arms its own node
+bodies: record into a module-level `TRIPPED` list on the body's first line, then raise.** The
+first line matters. A body that reads its state before arming itself can be entered with a
+state that lacks the key, and then the read raises, the ledger is never written, and a caller
+that swallowed the exception leaves nothing behind — which is exactly the accidental shape the
+ledger is for. A page that needs a ready-made graph builds against the sample workflows instead
 and inherits their ledger.
 
 The guard lives inside one interpreter. A subprocess an example spawns inherits none of it,

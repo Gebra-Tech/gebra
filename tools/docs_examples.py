@@ -35,7 +35,10 @@ The sample graphs the examples are written against arm the other half: every nod
 router in ``tests/sample_workflows/`` raises if it is called, and records the call in the
 module's ``TRIPPED`` ledger before raising, so a sentinel a ``try`` block swallowed still
 fails the run. That sweep is **fail-closed** — a sample-workflow module keeping no ledger is
-reported as unledgered and fails the example, rather than reading as clean. The child
+reported as unledgered and fails the example, rather than reading as clean. It covers three
+kinds of module: ``tests/sample_workflows/``, the example's own ``__main__``, and any module
+the example **wrote into the child's working directory and imported**, which a page needs when
+what the extractor reads off a node body depends on that body living in a file. The child
 reports the attempt list, the ledger and the unledgered set on stderr; a non-empty any of
 the three is a failure, as is importing langgraph's network client.
 :mod:`tests.docs.test_doc_examples` fires a control probe at every raiser, because a guard
@@ -364,7 +367,7 @@ def discover(
 #: The gebra surface an example may use is imported here so that the example's own imports
 #: reach modules already in ``sys.modules`` rather than the armed socket.
 GUARD_PROLOGUE: Final = """\
-import socket as _gebra_socket, sys as _gebra_sys
+import os as _gebra_os, socket as _gebra_socket, sys as _gebra_sys
 
 _gebra_attempts = []
 _gebra_built = []
@@ -466,11 +469,42 @@ GUARD_EPILOGUE: Final = """
 # It is exempt from the *unledgered* leg alone: most examples define no body at all, and a
 # ledger they would never write to is noise. Which pages owe one is a page-level rule with
 # its own test (``tests/docs/test_doc_examples.py``), not a guess made here.
+#
+# And so is any module the example **wrote and imported**, identified by its ``__file__``
+# resolving inside the child's own working directory — a fresh temporary tree nothing else
+# can reach. A page may need its graph in a real module rather than in ``__main__``, because
+# what the extractor can read off a node body depends on the body being in a file (a tutorial
+# whose transcript came from a string-compiled ``__main__`` would not be the transcript its
+# reader gets). Such a module is named neither ``__main__`` nor ``tests.sample_workflows.*``,
+# so without this clause it would be swept by nothing and its ledger would fail *open*. It
+# takes the unledgered leg as well: a written module keeping no ``TRIPPED`` is reported,
+# exactly as a sample workflow is, so the fail-closed property holds without asking the page
+# to cooperate.
 _gebra_ledger = []
 _gebra_unledgered = []
+_gebra_here = _gebra_os.path.realpath(_gebra_os.getcwd()) + _gebra_os.sep
+
+
+def _gebra_written_here(module):
+    \"\"\"Whether this module's source file is one the example itself put in the child's cwd.\"\"\"
+    _path = getattr(module, "__file__", None)
+    if not _path:
+        return False
+    try:
+        return _gebra_os.path.realpath(_path).startswith(_gebra_here)
+    except OSError:
+        return False
+
+
 for _gebra_name, _gebra_module in sorted(_gebra_sys.modules.items()):
-    _gebra_swept = _gebra_name.startswith("tests.sample_workflows.") or _gebra_name == "__main__"
-    if not _gebra_swept or _gebra_module is None:
+    if _gebra_module is None:
+        continue
+    _gebra_swept = (
+        _gebra_name.startswith("tests.sample_workflows.")
+        or _gebra_name == "__main__"
+        or _gebra_written_here(_gebra_module)
+    )
+    if not _gebra_swept:
         continue
     _gebra_short = _gebra_name.rpartition(".")[2]
     _gebra_tripped = getattr(_gebra_module, "TRIPPED", None)

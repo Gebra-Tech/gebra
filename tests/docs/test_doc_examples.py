@@ -15,6 +15,7 @@ node, calls no model and opens no connection, and neither does anything it start
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -434,6 +435,118 @@ def test_a_body_an_example_defined_itself_is_reported_by_the_ledger() -> None:
     assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
     assert not result.ok
     assert any("WA07-LEDGER ['__main__:plan']" in problem for problem in result.problems)
+
+
+#: An example that writes a module and imports it back — ``Path("name.py").write_text(…)``.
+#: Not the mechanism that covers such a module (the trailer sweeps it by ``__file__``, needing
+#: no cooperation from the page); this is how the controls below find the pages that owe one.
+WRITES_A_MODULE = re.compile(r"""Path\(["'](?P<module>[a-z_][a-z0-9_]*)\.py["']\)\.write_text\(""")
+
+
+#: The examples that build their graph in a module they wrote, each with one node of that
+#: module. Named rather than derived, because the claim each makes is about a specific page —
+#: and held to the discovered set by the test below, so a new page of this shape cannot land
+#: without one.
+WRITTEN_MODULE_LEDGER_CONTROLS = (
+    ("docs/tutorials/extract-your-first-ir.md::your-first-ir", "research_agent", "plan"),
+    ("docs/tutorials/extract-your-first-ir.md::knowability-classes", "research_agent", "triage"),
+)
+
+
+def test_every_example_that_writes_a_module_carries_a_fired_ledger_control() -> None:
+    """WA-07's same-change rule, made mechanical for the next page rather than the last one.
+
+    A page that writes its own module is the one shape whose ledger the trailer covers by
+    inspecting ``__file__`` rather than by name, so the coverage is easy to assume and hard to
+    see. Every such example must appear below, where a control fires one of its node bodies.
+    """
+    owing = {
+        example.name for example in EXAMPLES if WRITES_A_MODULE.search(example.code) is not None
+    }
+    controlled = {name for name, _module, _node in WRITTEN_MODULE_LEDGER_CONTROLS}
+
+    assert owing <= controlled, f"no fired ledger control for {sorted(owing - controlled)}"
+
+
+@pytest.mark.parametrize(("name", "module", "node"), WRITTEN_MODULE_LEDGER_CONTROLS)
+def test_a_body_in_a_module_an_example_wrote_is_reported_by_the_ledger(
+    name: str, module: str, node: str
+) -> None:
+    """The sweep's third kind of module, fired: swallowing a body call still fails the example.
+
+    A module an example writes at run time is named neither ``__main__`` nor
+    ``tests.sample_workflows.*``. Without the trailer's ``__file__`` clause this leg is dead —
+    the body records and raises, a ``try`` block swallows it, and the trailer reports an empty
+    ledger because it never looked at the module the raise came from.
+    """
+    example = next((item for item in EXAMPLES if item.name == name), None)
+    assert example is not None, f"{name} is gone — re-point this control"
+
+    result = run_example(
+        example,
+        root=REPO_ROOT,
+        probe=(
+            "try:\n"
+            f"    {module}.{node}"
+            "({'question': 'q', 'notes': [], 'answer': ''})\n"
+            "except BaseException:\n"
+            "    pass\n"
+        ),
+    )
+
+    assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
+    assert not result.ok
+    assert any(f"WA07-LEDGER ['{module}:{node}']" in problem for problem in result.problems)
+
+
+@pytest.mark.parametrize(("name", "module", "node"), WRITTEN_MODULE_LEDGER_CONTROLS)
+def test_a_node_called_with_a_state_it_cannot_read_is_still_recorded(
+    name: str, module: str, node: str
+) -> None:
+    """Why every body records on its *first* line, fired at the shape that finds out.
+
+    ``node({})`` is the likeliest accidental invocation — a caller probing a callable to see
+    what it returns has no real state to hand it. A body that read its state before arming
+    itself would raise ``KeyError`` from the subscript, never reach the ledger, and leave
+    nothing behind for a caller that swallowed the exception. Recording first is what makes
+    this case indistinguishable from any other call, and this is that claim fired.
+    """
+    example = next((item for item in EXAMPLES if item.name == name), None)
+    assert example is not None, f"{name} is gone — re-point this control"
+
+    result = run_example(
+        example,
+        root=REPO_ROOT,
+        probe=f"try:\n    {module}.{node}({{}})\nexcept BaseException:\n    pass\n",
+    )
+
+    assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
+    assert not result.ok
+    assert any(f"WA07-LEDGER ['{module}:{node}']" in problem for problem in result.problems)
+
+
+@requires_an_example
+def test_a_written_module_with_no_ledger_fails_rather_than_reads_clean() -> None:
+    """The fail-closed leg, extended to the module kind this change introduced.
+
+    A written module keeping no ``TRIPPED`` must be reported unledgered exactly as a sample
+    workflow is: "nothing was recorded" must not give the same answer as "nothing ran".
+    """
+    assert CONTROL_EXAMPLE is not None
+    result = run_example(
+        CONTROL_EXAMPLE,
+        root=REPO_ROOT,
+        probe=(
+            "from pathlib import Path as _ProbePath\n"
+            '_ProbePath("ledgerless.py").write_text("VALUE = 1\\n")\n'
+            "import ledgerless\n"
+        ),
+    )
+
+    assert result.returncode == 0
+    assert not result.ok
+    assert any("WA07-UNLEDGERED ['ledgerless']" in problem for problem in result.problems)
+    assert any("keeps no TRIPPED ledger" in problem for problem in result.problems)
 
 
 def test_the_defect_variants_ledger_is_the_family_ledger_itself() -> None:

@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The concept page "The IR, node identity and graph_version"** (card DOC-03; IR-SPEC,
+  DEC-10). `docs/concepts/ir-and-graph-version.md` is the second written page of the Concepts
+  section, and the one a reader needs before a snapshot or a diff means anything: what the
+  extracted document holds field by field, why `START`/`END` are not rows in `nodes[]` and a
+  conditional edge is one edge per label, why the IR is hermetic and what that costs, how a
+  node id is built and why a rename is a new identity rather than a moved one, and what a
+  `graph_version` is a digest *of*. Labelled **spec-derived** at the top, in the form DOC-02
+  established: the field set, the identity grammar, the canonicalization pipeline and the
+  hash scope come from the frozen specification, every statement names the section it came
+  from, and the page says plainly that those documents are internal contract documents not
+  published with this site.
+
+  The canonicalization detail is split by audience rather than averaged: the `graph_version`
+  section gives a user the three facts that follow from the hash scope, and a subsection
+  marked as contributor depth carries the pipeline a second implementation would have to
+  reproduce byte for byte — the two normalizations, the array-sort rules, and why surface
+  bytes are never hashed.
+
+  Three examples run under the DOC-01 harness. `golden-vector-001` is the worked example the
+  card asks for: **golden vector 001** itself — the specification's own pinned document —
+  loaded, canonicalized and digested, printing the 537 canonical bytes, the digest, and the
+  recompute-and-compare against the pinned value, with a walkthrough naming which rule
+  produced each difference between the authored YAML and those bytes.
+  `what-moves-a-graph-version` answers the question from the other side in one transcript:
+  the same content authored with different habits and two snapshots taken months apart share
+  one digest, while an extra effect tag and a prompt fingerprint each move it.
+  `node-identity` shows the grammar working — path ids, `%2F` escaping, a synthetic LCEL
+  segment beside the escaped `%25` form of a user who wrote that name literally, and the
+  OpenInference attributes of IR-SPEC §5.4.
+
+  Two of the acceptance boxes are held by machine rather than by review, in
+  `tests/docs/test_ir_concept_page.py`. The worked example **is** the golden vector: its
+  document literal is reconciled byte for byte against the committed
+  `vector-001.authored.yaml`, the digest it checks itself against against
+  `vector-001.digest`, and the canonical form and byte count in its transcript against
+  `vector-001.canonical.json` — all three under `tests/ir/golden/`, so a
+  golden-file event that skipped this page fails the build instead of leaving a stale
+  transcript in the documentation. And where the specification set is checked out beside this
+  repository, the hash-scope table is reconciled against DEC-10 **field for field in both
+  directions**, so a field dropped, invented, or moved across the include/exclude line is
+  caught; a companion check holds DEC-10 and its normative home in IR-SPEC §6.4 to each other,
+  since the page cites both.
+
 - **Brief D-12 is promoted from outline to a full in-repo contract, and its two contract
   specifications are stamped final** (card CLI-08; the F3 trigger is master plan §3's). The
   brief's own status note made promotion conditional on the D-08 IR models and the D-09

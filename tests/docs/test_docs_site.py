@@ -75,7 +75,7 @@ WRITTEN_PAGES = ("index.md", "contributing/executable-examples.md")
 #: change that drops its placeholder marker, and the two directions below hold it there: a
 #: page in this set that still carries the marker fails, and a page outside it that has
 #: dropped one fails. Landing a page is therefore an explicit edit here, never a silent one.
-LANDED_PAGES = frozenset({"concepts/what-gebra-checks.md"})
+LANDED_PAGES = frozenset({"concepts/what-gebra-checks.md", "concepts/ir-and-graph-version.md"})
 
 #: Cards whose output is not a page on this site: DOC-01 is the toolchain and the harness,
 #: and DOC-04 is the repository README.

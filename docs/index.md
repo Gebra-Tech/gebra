@@ -34,6 +34,9 @@ Written so far:
 - this page;
 - [What gebra checks](concepts/what-gebra-checks.md) — claim classes, the severity ladder,
   exit codes and strict mode, and what a finding does and does not claim;
+- [The IR, node identity and graph_version](concepts/ir-and-graph-version.md) — what the
+  extracted document holds and why it is hermetic, how nodes are named, and what a
+  `graph_version` is derived from, worked through the pinned golden vector;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

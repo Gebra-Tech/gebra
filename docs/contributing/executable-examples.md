@@ -43,8 +43,10 @@ them:
   socket raises from the moment the example's own code begins;
 - `StateGraph.compile` raises from before `gebra` is imported, and so does every
   `Runnable.invoke` / `stream` / `batch` in the class tree — compiling is not the only route
-  to running something. Compiled graphs and chat models are both in that tree, so a model
-  call trips on its own account rather than only because it would have needed the network;
+  to running something. Compiled graphs, chat models and tools are all in that tree, and the
+  guard imports the last two by name so that they are there before the sweep runs: a model or
+  tool call then trips on its own account rather than only because it would have needed the
+  network;
 - the sample graphs the examples are written against arm the rest: every node body and
   router in `tests/sample_workflows/` raises if it is called, and records the call in the
   module's ledger *before* raising, so a sentinel that a `try` block swallowed still fails

@@ -312,8 +312,8 @@ warning ever names them and the rule says nothing about them.
 
 Which is how you would clear these six: declare the contracts, with the `@gebra.contract`
 decorator or a `gebra.toml` sidecar, and the warnings that named those slots stop being
-emitted. That is the annotation surface, and this page does not cover it — see the closing
-section for where it is written down today.
+emitted. That is the annotation surface, and it has its own tutorial —
+[Contracts and annotations](contracts-and-annotations.md).
 
 The full vocabulary is ten codes, fixed jointly by INTROSPECTION-SPEC §8 and
 ANNOTATION-API-SPEC §4, which states the relationship outright: its annotation-surface rows
@@ -643,15 +643,14 @@ where the absence itself cannot be detected, the specification text is the discl
 - [The IR, node identity and `graph_version`](../concepts/ir-and-graph-version.md) — the
   document format in depth: the hash scope, the id grammar, and what does and does not move a
   version.
+- [Contracts and annotations](contracts-and-annotations.md) — declaring the contracts those
+  warnings are about: the decorator family, the `gebra.toml` sidecar, the precedence chain
+  between them, and what inference will never fill in for you.
 - [What gebra checks](../concepts/what-gebra-checks.md) — claim classes, severity, exit codes,
   and what a finding does and does not claim, which is what you need before reading a report
   over the document you just extracted.
 - The repository `README.md` quickstart runs `gebra verify` over a workflow module from the
   command line, end to end, if you would rather meet the CLI first than the library.
-
-The annotation surface — declaring the contracts those warnings are about — has a page
-reserved in this section that has not been written yet. Until it is, the decorator's own
-docstrings and the test suite are the authority on it.
 
 ## Where this page is checked
 

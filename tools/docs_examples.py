@@ -26,8 +26,9 @@ output must print nothing. Every example's stdout is pinned either way.
 **The WA-07 guard.** Documentation examples read workflow definitions; they never run them.
 Each example executes in a child interpreter where name resolution and connection opening
 raise from the first line, ``StateGraph.compile`` raises from before ``gebra`` is imported,
-every ``Runnable.invoke``/``stream``/``batch`` override loaded at that point raises, and
-constructing a socket raises once the example's own code begins. Connecting raises
+every ``Runnable.invoke``/``stream``/``batch`` override loaded at that point raises — the
+model and tool base classes are imported by name so that "loaded at that point" includes
+them — and constructing a socket raises once the example's own code begins. Connecting raises
 throughout — only socket *construction* is tolerated during the guard's own imports, for
 the reason ``tests/extraction/test_dispatch.py`` records.
 
@@ -427,6 +428,14 @@ import langchain_core.runnables
 # `BaseLLM` in the tree, so a model call is armed on its own account. Without it, only a
 # model that reached the network would trip anything, and a local or stubbed one would not.
 import langchain_core.language_models
+
+# The same reasoning, for the class a page reaches when it shows a tool as a node: `BaseTool`
+# defines its own `invoke`/`ainvoke`, which would shadow the armed base if the class were
+# first loaded *after* the sweep. It is in the tree today only because `gebra.extraction`
+# imports it to read the tool-carried `args_schema` tier — a library import this file must
+# not depend on, since making it lazy would silently disarm tool invocation here. Named
+# explicitly, and fired by a control in `tests/docs/test_doc_examples.py`.
+import langchain_core.tools
 
 # INTROSPECTION-SPEC §1 rule 1 names `Runnable.invoke/stream/batch` beside node functions
 # and routers, and arming `StateGraph.compile` does not reach them: an LCEL chain is invoked

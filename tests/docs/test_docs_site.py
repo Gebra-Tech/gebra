@@ -80,6 +80,7 @@ LANDED_PAGES = frozenset(
         "concepts/what-gebra-checks.md",
         "concepts/ir-and-graph-version.md",
         "tutorials/extract-your-first-ir.md",
+        "tutorials/contracts-and-annotations.md",
     }
 )
 

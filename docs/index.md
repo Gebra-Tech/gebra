@@ -40,6 +40,9 @@ Written so far:
 - [Extract your first IR](tutorials/extract-your-first-ir.md) — a `StateGraph` through
   `gebra.extract()` to IR YAML, how to read the extraction warnings, and what extraction can
   and cannot know about a definition;
+- [Contracts and annotations](tutorials/contracts-and-annotations.md) — declaring what a node
+  reads, writes and does, in code or in a `gebra.toml` sidecar; which surface wins when two
+  disagree, and the line inference will not cross;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

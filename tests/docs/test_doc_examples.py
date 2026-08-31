@@ -305,6 +305,22 @@ def test_a_documented_example_runs_and_prints_what_its_page_shows(example: DocEx
             "BaseChatModel.invoke was reached from a documentation example",
             id="model-invoke",
         ),
+        # And a tool call, for the same reason and with one more: `BaseTool` overrides
+        # `invoke`, so it would shadow the armed base if it entered the tree after the sweep.
+        # A page showing a tool as a node (the annotation tutorial's tool-carried tier) is
+        # exactly when that matters, which is why the guard names the module rather than
+        # relying on the extractor having imported it first.
+        pytest.param(
+            "from langchain_core.tools import StructuredTool\n"
+            "StructuredTool(\n"
+            "    name='t',\n"
+            "    description='never invoked',\n"
+            "    args_schema={'type': 'object'},\n"
+            "    func=lambda: '',\n"
+            ").invoke({})\n",
+            "BaseTool.invoke was reached from a documentation example",
+            id="tool-invoke",
+        ),
     ],
 )
 def test_each_raiser_the_guard_rests_on_is_armed(probe: str, expected: str) -> None:
@@ -437,6 +453,31 @@ def test_a_body_an_example_defined_itself_is_reported_by_the_ledger() -> None:
     assert any("WA07-LEDGER ['__main__:plan']" in problem for problem in result.problems)
 
 
+def test_a_callable_an_example_only_annotates_is_armed_too() -> None:
+    """The shape neither floor test finds: a page that decorates callables but builds no graph.
+
+    `docs/tutorials/contracts-and-annotations.md`'s decoration-time example registers nothing
+    and writes no module, so `SELF_DEFINED_MARKERS` and `WRITES_A_MODULE` both pass it by — yet
+    its whole subject is applying decorators to callables, and §1's "returns the function
+    unchanged, never invokes it" is exactly the claim a reader takes from it. The example
+    therefore arms its own targets, and this fires one: a decorator that called what it was
+    handed would leave a ledger entry and fail the page rather than printing a clean transcript.
+    """
+    name = "docs/tutorials/contracts-and-annotations.md::decoration-time-rules"
+    example = next((item for item in EXAMPLES if item.name == name), None)
+    assert example is not None, f"{name} is gone — re-point this control"
+
+    result = run_example(
+        example,
+        root=REPO_ROOT,
+        probe="try:\n    VendoredStep()({})\nexcept BaseException:\n    pass\n",
+    )
+
+    assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
+    assert not result.ok
+    assert any("WA07-LEDGER ['__main__:VendoredStep']" in problem for problem in result.problems)
+
+
 #: An example that writes a module and imports it back — ``Path("name.py").write_text(…)``.
 #: Not the mechanism that covers such a module (the trailer sweeps it by ``__file__``, needing
 #: no cooperation from the page); this is how the controls below find the pages that owe one.
@@ -444,12 +485,59 @@ WRITES_A_MODULE = re.compile(r"""Path\(["'](?P<module>[a-z_][a-z0-9_]*)\.py["']\
 
 
 #: The examples that build their graph in a module they wrote, each with one node of that
-#: module. Named rather than derived, because the claim each makes is about a specific page —
-#: and held to the discovered set by the test below, so a new page of this shape cannot land
-#: without one.
+#: module and the state a caller would plausibly hand it. Named rather than derived, because
+#: the claim each makes is about a specific page — and held to the discovered set by the test
+#: below, so a new page of this shape cannot land without one. The state differs per page
+#: because the graphs do; it is carried here rather than shared so that each control calls its
+#: node the way that page's workflow would, and never a shape only this file knows about.
 WRITTEN_MODULE_LEDGER_CONTROLS = (
-    ("docs/tutorials/extract-your-first-ir.md::your-first-ir", "research_agent", "plan"),
-    ("docs/tutorials/extract-your-first-ir.md::knowability-classes", "research_agent", "triage"),
+    (
+        "docs/tutorials/extract-your-first-ir.md::your-first-ir",
+        "research_agent",
+        "plan",
+        "{'question': 'q', 'notes': [], 'answer': ''}",
+    ),
+    (
+        "docs/tutorials/extract-your-first-ir.md::knowability-classes",
+        "research_agent",
+        "triage",
+        "{'question': 'q', 'notes': [], 'answer': ''}",
+    ),
+    (
+        "docs/tutorials/contracts-and-annotations.md::declaring-contracts",
+        "research_agent",
+        "search",
+        "{'question': 'q', 'notes': [], 'answer': ''}",
+    ),
+    (
+        "docs/tutorials/contracts-and-annotations.md::wrapped-declarations",
+        "wrapped_agent",
+        "lost",
+        "{'query': 'q', 'hits': ''}",
+    ),
+    (
+        "docs/tutorials/contracts-and-annotations.md::the-sidecar",
+        "trip_agent",
+        "book_flight",
+        "{'itinerary': 'i', 'budget': 1, 'booking_ref': '', 'notes': ''}",
+    ),
+    (
+        "docs/tutorials/contracts-and-annotations.md::precedence",
+        "booking_agent",
+        "price_flight",
+        "{'itinerary': 'i', 'budget': 1, 'booking_ref': '', 'notes': ''}",
+    ),
+    (
+        "docs/tutorials/contracts-and-annotations.md::never-silent-upgrade",
+        "cache_agent",
+        "lookup",
+        "{'query': 'weather', 'hits': ''}",
+    ),
+)
+
+#: The same controls for the probe that hands a node no state at all, which needs no state.
+WRITTEN_MODULE_NODES = tuple(
+    (name, module, node) for name, module, node, _state in WRITTEN_MODULE_LEDGER_CONTROLS
 )
 
 
@@ -463,14 +551,14 @@ def test_every_example_that_writes_a_module_carries_a_fired_ledger_control() -> 
     owing = {
         example.name for example in EXAMPLES if WRITES_A_MODULE.search(example.code) is not None
     }
-    controlled = {name for name, _module, _node in WRITTEN_MODULE_LEDGER_CONTROLS}
+    controlled = {name for name, _module, _node in WRITTEN_MODULE_NODES}
 
     assert owing <= controlled, f"no fired ledger control for {sorted(owing - controlled)}"
 
 
-@pytest.mark.parametrize(("name", "module", "node"), WRITTEN_MODULE_LEDGER_CONTROLS)
+@pytest.mark.parametrize(("name", "module", "node", "state"), WRITTEN_MODULE_LEDGER_CONTROLS)
 def test_a_body_in_a_module_an_example_wrote_is_reported_by_the_ledger(
-    name: str, module: str, node: str
+    name: str, module: str, node: str, state: str
 ) -> None:
     """The sweep's third kind of module, fired: swallowing a body call still fails the example.
 
@@ -485,13 +573,7 @@ def test_a_body_in_a_module_an_example_wrote_is_reported_by_the_ledger(
     result = run_example(
         example,
         root=REPO_ROOT,
-        probe=(
-            "try:\n"
-            f"    {module}.{node}"
-            "({'question': 'q', 'notes': [], 'answer': ''})\n"
-            "except BaseException:\n"
-            "    pass\n"
-        ),
+        probe=f"try:\n    {module}.{node}({state})\nexcept BaseException:\n    pass\n",
     )
 
     assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
@@ -499,7 +581,7 @@ def test_a_body_in_a_module_an_example_wrote_is_reported_by_the_ledger(
     assert any(f"WA07-LEDGER ['{module}:{node}']" in problem for problem in result.problems)
 
 
-@pytest.mark.parametrize(("name", "module", "node"), WRITTEN_MODULE_LEDGER_CONTROLS)
+@pytest.mark.parametrize(("name", "module", "node"), WRITTEN_MODULE_NODES)
 def test_a_node_called_with_a_state_it_cannot_read_is_still_recorded(
     name: str, module: str, node: str
 ) -> None:
@@ -523,6 +605,40 @@ def test_a_node_called_with_a_state_it_cannot_read_is_still_recorded(
     assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
     assert not result.ok
     assert any(f"WA07-LEDGER ['{module}:{node}']" in problem for problem in result.problems)
+
+
+def test_the_tool_a_page_shows_as_a_node_is_armed_like_any_other_body() -> None:
+    """The other kind of body a page can register: a tool, whose implementation is not a node
+    function and is therefore reached by a different route.
+
+    `docs/tutorials/contracts-and-annotations.md` shows a `StructuredTool` as a node, because
+    the tool-carried `args_schema` tier is what it is for, and says on the page that the tool
+    "is read for its schema and never invoked". Extraction reads the schema off the class and
+    never touches `func`, so the empty ledger on the real run is what holds that sentence —
+    and this is the control that keeps the ledger from being vacuous. `run()` is deliberately
+    the route: it is *not* in the armed invoke family, so it reaches the implementation, and
+    the implementation's own first statement is what reports the call.
+    """
+    name = "docs/tutorials/contracts-and-annotations.md::precedence"
+    example = next((item for item in EXAMPLES if item.name == name), None)
+    assert example is not None, f"{name} is gone — re-point this control"
+
+    result = run_example(
+        example,
+        root=REPO_ROOT,
+        probe=(
+            "try:\n"
+            "    booking_agent.find_hotels.run({'destination': 'x', 'nights': 1})\n"
+            "except BaseException:\n"
+            "    pass\n"
+        ),
+    )
+
+    assert result.returncode == 0, "the probe swallowed the raise, so the child finished"
+    assert not result.ok
+    assert any(
+        "WA07-LEDGER ['booking_agent:find_hotels.impl']" in problem for problem in result.problems
+    )
 
 
 @requires_an_example

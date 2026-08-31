@@ -9,6 +9,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The tutorial "Contracts and annotations"** (card DOC-06; ANNOTATION-API-SPEC §1–§6).
+  `docs/tutorials/contracts-and-annotations.md` picks up exactly where "Extract your first IR"
+  left off — six warnings and one sentence about clearing them — and works that sentence out:
+  `@gebra.contract` and the six decorators beside it, the `gebra.toml` sidecar, the per-slot
+  precedence chain between them, and the line inference will not cross. The page is
+  organised around one question a reader can actually use: for any slot on any node, which
+  surface set it, and how would you know.
+
+  Six examples run under the DOC-01 harness, and the progression is deliberate — declare, then
+  the rules that refuse a declaration, then a declaration that never arrives, then the second
+  surface, then the whole chain in one transcript, then inference's ceiling.
+  `declaring-contracts` re-declares the previous tutorial's research assistant and extracts it
+  to **zero warnings**, which is the practical payoff stated as a transcript rather than as a
+  promise. `decoration-time-rules` fires all four §1 consistency rules plus the
+  attachment-impossible refusal, each printed with its stable `reason` code — including the
+  duplicate-slot rule firing on two *identical* values, which is stricter than the cross-surface
+  rule further down the page and is meant to be.
+
+  `wrapped-declarations` documents a failure mode that is easy to hit and hard to diagnose:
+  a decorator of the reader's own that forgets `functools.wraps` breaks the walk
+  §6 relies on, so a well-formed declaration is invisible and the node reads as never annotated.
+  The transcript makes the cost concrete — the node carrying `effects=["network"]` resolves to
+  `pure: true`, the opposite claim, at defaulted grade — and the page states plainly that the
+  failure is silent by construction, because nothing distinguishes "declared nothing" from
+  "declared something a wrapper hid".
+
+  `precedence` is the centrepiece: one graph with all four tiers live, printing every resolved
+  slot with its ANNOTATION §5 grade beside it, then every warning, then two records in full.
+  It shows the DEC-07 conflict (decorator kept, sidecar discarded, both values named) beside
+  the non-conflict on another slot of the same node where the two surfaces agree; the
+  tool-carried tier winning over a sidecar `args_schema`; `pure=False` occupying its slot and
+  blocking the tier below, because "set" means not-`None`; the sidecar filling a vendored
+  node's contract at declared grade; and a resolved contract no single surface authored —
+  decorator `pure` plus sidecar `effects` — repaired by discarding the lower tier with an
+  `annotation-invalid` naming both surfaces. `the-sidecar` covers the file itself: the schema
+  line, node-id keys and their quoting, the stale-key warning, and why discovery-by-CWD makes
+  a `graph_version` depend on where the command ran.
+
+  `never-silent-upgrade` fires the §4 rule at the shape that tests it — a node that is as
+  idempotent and as deterministic as code gets, whose extraction declares neither — and prints
+  `claims_not_upgraded` from the inference record itself. Its second half is the §5 grade
+  lookup made visual: two nodes resolve to the *same* contract, `{'pure': True, 'input':
+  ('hits',)}` on both, and only the envelope tells them apart. The page states the corollary
+  honestly rather than aspirationally: a declared `pure` may feed the idempotence implication
+  and a heuristic one may not, and in this release nothing exercises it, because no implemented
+  property validator reads `pure` at all (P-06 delisted it per DEC-13; P-07 is not in the
+  wedge). The page is equally careful about what clearing the warnings buys: extraction
+  warnings are not findings and never move an exit code, so what declaring changes is the
+  *grade* of a value, not the gate — `docs/specs/CLI-SPEC.md` §3.5 is the line it keeps.
+
+  Control coverage lands with the page. `WRITTEN_MODULE_LEDGER_CONTROLS` in
+  `tests/docs/test_doc_examples.py` gains an entry for each of the five module-writing
+  examples, and now carries the probe state per page rather than sharing one graph's state
+  across all of them, so each control calls its node the way that page's workflow would. The
+  floor assertion that no example of this shape can land uncontrolled is what makes the
+  addition mechanical rather than remembered.
+
+  Two shapes this page introduced needed controls the floor tests cannot find, and both are
+  fired rather than argued. A **tool as a node** has an implementation reached by a route that
+  is not a node call: the control drives `find_hotels.run(...)`, which is deliberately outside
+  the armed invoke family, and the ledger entry it produces is what keeps the page's "read for
+  its schema and never invoked" from resting on an empty list nobody could have filled. And an
+  example that **decorates callables without building a graph** is matched by neither
+  `SELF_DEFINED_MARKERS` nor `WRITES_A_MODULE`, so the decoration-time example arms its own
+  targets and a control fires one — a decorator that called what it was handed now fails that
+  page instead of printing a clean transcript.
+
+- **The examples guard arms tool invocation by name** (card DOC-06; WA-07).
+  `tools/docs_examples.py` now imports `langchain_core.tools` in its guard prologue, beside
+  the `language_models` import that is there for the same reason. `BaseTool` overrides
+  `invoke`/`ainvoke`, so a class entering the `Runnable` tree *after* the sweep would shadow
+  the armed base and silently disarm tool invocation for every documentation example. It was
+  in the tree before this change only because `gebra.extraction` imports it to read the
+  tool-carried `args_schema` tier — a library import the guard must not depend on, since
+  making that import lazy would have broken the leg with no test failing. The raiser controls
+  gain a `tool-invoke` case, so the leg is now fired in the same run that claims it.
+
 - **The tutorial "Extract your first IR"** (card DOC-05; INTROSPECTION-SPEC §0–§3, §4.1).
   `docs/tutorials/extract-your-first-ir.md` is the first written page of the Tutorials
   section: a small LangGraph `StateGraph` taken through `gebra.extract()` to IR YAML, read

@@ -232,8 +232,8 @@ pretty = true
 [[tool.mypy.overrides]]
 # `tomli` is installed only under the `python_version < '3.11'` marker, so it is
 # absent from the default (3.13) development environment the typecheck job syncs.
-# Every import of it is version-guarded — `src/gebra/annotations/sidecar.py` and
-# `tests/test_packaging.py`.
+# Every import of it is version-guarded — `src/gebra/annotations/sidecar.py`,
+# `tests/test_packaging.py` and `tools/release_gate.py`.
 module = ["tomli"]
 ignore_missing_imports = true
 

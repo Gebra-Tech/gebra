@@ -242,6 +242,16 @@ jobs:
           enable-cache: true
       - name: Build wheel + sdist (hatchling)
         run: uv build --out-dir dist
+      # GOV-03: every push checks the tree stays release-ready — the same gate and the same
+      # metadata validation the tag-triggered release workflow runs, here in dry-run mode
+      # (no tag; publish stays false by construction). The declared version must parse
+      # inside the Phase-0 tag grammar, the changelog must carry its `## [Unreleased]`
+      # section, and the built artifacts must be exactly one wheel + one sdist named for
+      # that version.
+      - name: Release gate (dry run) — the tree stays release-ready
+        run: python tools/release_gate.py --dry-run --verify-dist dist
+      - name: Validate distribution metadata (twine, strict)
+        run: uvx twine@6.1.0 check --strict dist/*
       - name: Check the wheel carries the typing marker
         run: |
           python -m zipfile -l dist/*.whl

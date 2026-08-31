@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The tag-triggered release workflow** (card GOV-03; SOW §5, the PD-036/GOV-D4
+  destination ruling). Pushing a `v*` tag now produces built and validated distributions
+  with no manual assembly: `.github/workflows/release.yml` gates the tag through the new
+  `tools/release_gate.py` (stdlib-only, tested), builds wheel + sdist from the tagged
+  commit (`uv build`), validates metadata (`twine check --strict`), verifies the artifacts
+  are exactly one wheel + one sdist named for exactly the gated version, re-checks
+  `py.typed`, installs the wheel into a clean environment against the gated version, and
+  uploads the artifacts and extracted release notes to the run (90-day retention).
+
+  The gate is the release policy held mechanically: tags parse inside a three-shape
+  grammar — `vX.Y.Z.devN` dev cuts, `vX.Y.ZaN`/`vX.Y.ZbN`/`vX.Y.ZrcN` candidates, bare
+  `vX.Y.Z` final — and must equal `v` + `[project].version` byte for byte; a final tag
+  additionally requires its dated changelog section, whose body ships as the run's notes
+  (dev/rc cuts ship `## [Unreleased]`). The publish leg (`publish-pypi`) targets PyPI via
+  trusted publishing — OIDC under the `pypi` deployment environment with `id-token: write`
+  and no stored credential of any kind, a fact `tests/test_release_wiring.py` pins along
+  with the rest of the wiring — and is triple-gated to the launch: the gate emits
+  `publish=true` only for the final form (which no Phase-0 tag carries), the ref must be a
+  tag, and the event must be the tag push itself, so during Phase-0 every run stops at
+  built-and-validated artifacts (PD-036) and a `workflow_dispatch` rehearsal can never
+  publish, whatever ref it is issued on. CI's `build` job now runs the gate in
+  dry-run mode plus the same pinned `twine check --strict` on every push, so the tree
+  stays release-ready between cuts. Procedure documented in CONTRIBUTING.md ("Releases").
+
 - **The concept page "What gebra checks"** (card DOC-02; PROPERTY-CATALOG-SPEC §0.1/§0.2,
   SOW §6). `docs/concepts/what-gebra-checks.md` is the first written page of the Concepts
   section: what the object under test is, the three claim classes, the severity ladder and

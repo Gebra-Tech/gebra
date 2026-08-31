@@ -1,0 +1,154 @@
+# Release — the tag-triggered workflow SOW §5 mandates, scoped by PD-036 (GOV-D4 ruling;
+# card GOV-03).
+#
+# Trigger: pushing a `v*` tag. Tagging is the whole procedure — the workflow builds a
+# versioned wheel + sdist from the tagged commit with no manual assembly, validates them,
+# and uploads them to the run. `workflow_dispatch` runs the same build + validate legs
+# as a rehearsal; a dispatch run can never publish, whatever ref it is issued on — the
+# publish leg requires the triggering event to be the tag push itself (see gate 3).
+#
+# The publish leg targets PyPI via trusted publishing (OIDC) and is triple-gated:
+#   1. `tools/release_gate.py` emits publish=true ONLY for a bare final `vX.Y.Z` tag.
+#      Every Phase-0 tag is a `v0.0.1.devN` / `v0.0.1rcN` form, so during Phase-0 the
+#      job is skipped on every run — PD-036: "the first tag whose publish leg delivers
+#      to PyPI is the launch release itself."
+#   2. The job requires the `pypi` deployment environment, which the owner configures
+#      together with the PyPI trusted publisher (repository Gebra-Tech/gebra, THIS
+#      workflow file, environment `pypi`) at the launch step — MANUAL-STEPS M14.
+#   3. The job runs only when the event is the tag push (`github.event_name == 'push'`),
+#      so a `workflow_dispatch` issued on a tag ref stays a build-and-validate run.
+# No API token or stored credential exists anywhere in this workflow — trusted
+# publishing verifies the workflow's identity per run instead — and
+# `tests/test_release_wiring.py` holds this file to zero secret references.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The uv release that produced the committed `uv.lock` (kept in lockstep with ci.yml
+  # by tests/test_release_wiring.py).
+  UV_VERSION: "0.12.0"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.gate.outputs.version }}
+      kind: ${{ steps.gate.outputs.kind }}
+      publish: ${{ steps.gate.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      # Stdlib-only, so it runs before any environment sync: the tag must equal
+      # `v` + pyproject.toml's [project].version inside the Phase-0 tag grammar, and
+      # the changelog must carry the section the tag's kind requires (a dated
+      # `## [X.Y.Z] - YYYY-MM-DD` for a final tag, `## [Unreleased]` for a dev/rc
+      # cut or a dry run) — that section becomes the run's release notes.
+      - name: Release gate — tag ↔ version ↔ changelog
+        id: gate
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            python tools/release_gate.py --ref "$GITHUB_REF" \
+              --notes-out release-notes.md --github-output "$GITHUB_OUTPUT"
+          else
+            python tools/release_gate.py --dry-run \
+              --notes-out release-notes.md --github-output "$GITHUB_OUTPUT"
+          fi
+      - name: Build wheel + sdist (hatchling)
+        run: uv build --out-dir dist
+      - name: Validate distribution metadata (twine, strict)
+        run: uvx twine@6.1.0 check --strict dist/*
+      # Exactly one wheel + one sdist, both named for exactly the gated version — the
+      # "versioned wheel … without manual assembly" clause held mechanically.
+      - name: The artifacts carry exactly the gated version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            python tools/release_gate.py --ref "$GITHUB_REF" --verify-dist dist
+          else
+            python tools/release_gate.py --dry-run --verify-dist dist
+          fi
+      - name: Check the wheel carries the typing marker
+        run: |
+          python -m zipfile -l dist/*.whl
+          python -m zipfile -l dist/*.whl | grep -q 'gebra/py.typed'
+      - name: Install the built wheel into a clean environment
+        env:
+          GATE_VERSION: ${{ steps.gate.outputs.version }}
+        run: |
+          python -m venv /tmp/wheelcheck
+          /tmp/wheelcheck/bin/pip install --no-cache-dir dist/*.whl
+          installed="$(/tmp/wheelcheck/bin/python -c 'import gebra; print(gebra.__version__)')"
+          echo "installed gebra $installed"
+          test "$installed" = "$GATE_VERSION"
+      - name: Release summary
+        env:
+          VERSION: ${{ steps.gate.outputs.version }}
+          KIND: ${{ steps.gate.outputs.kind }}
+          PUBLISH: ${{ steps.gate.outputs.publish }}
+        run: |
+          {
+            echo "### gebra $VERSION — $KIND tag, publish=$PUBLISH"
+            echo ''
+            echo '```'
+            ls -l dist/
+            echo '```'
+            echo ''
+            echo '#### Release notes (from CHANGELOG.md)'
+            echo ''
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Run artifacts are working copies with the platform-maximum retention; the
+      # durable release surface is PyPI, at launch (PD-036 ruled Option C's
+      # run-artifact-only delivery insufficient — and rejected any private channel).
+      - name: Upload the distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gebra-dist-${{ steps.gate.outputs.version }}
+          path: dist/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Upload the release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-${{ steps.gate.outputs.version }}
+          path: release-notes.md
+          retention-days: 90
+          if-no-files-found: error
+
+  # ── The publish leg: PyPI via trusted publishing, at the launch step only ──
+  #
+  # Skipped by the gate on every Phase-0 run (no dev/rc tag is the final form). At
+  # launch (M14) the owner configures the PyPI trusted publisher naming this file and
+  # the `pypi` environment, then pushes the final tag — same workflow, this job live.
+  # `id-token: write` is the OIDC exchange; nothing else is granted here.
+  publish-pypi:
+    needs: build
+    if: github.event_name == 'push' && needs.build.outputs.publish == 'true' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/gebra/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: gebra-dist-${{ needs.build.outputs.version }}
+          path: dist
+      - name: Publish to PyPI (trusted publishing, OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

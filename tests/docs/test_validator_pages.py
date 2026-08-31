@@ -28,11 +28,13 @@ import pytest
 
 from gebra.verify import (
     ConditionId,
+    DataflowLocation,
     Failure,
     GuardEdgeLabels,
     P01EdgeLocation,
     P02CycleLocation,
     P02SccLocation,
+    P04Failure,
     PropertySlug,
     ReportModel,
     Witness,
@@ -41,6 +43,8 @@ from gebra.verify import (
 from gebra.verify.witnesses import (
     CounterGuardSource,
     CycleCensus,
+    DataflowCoverage,
+    DataflowWitness,
     GuardEdgeRef,
     RecursionLimitDecl,
     RecursionLimitSource,
@@ -60,6 +64,7 @@ DOCS = Path(__file__).resolve().parents[2] / "docs"
 VALIDATOR_PAGES: dict[PropertySlug, str] = {
     "graph-well-formed": "validators/p01-graph-well-formed.md",
     "termination-witness": "validators/p02-termination-witness.md",
+    "dataflow-completeness": "validators/p04-dataflow-completeness.md",
 }
 
 #: The witness model each landed page explains — the concrete member of the §0.3 witness union
@@ -67,6 +72,17 @@ VALIDATOR_PAGES: dict[PropertySlug, str] = {
 WITNESS_MODELS: dict[PropertySlug, type[Witness]] = {
     "graph-well-formed": WellFormednessWitness,
     "termination-witness": TerminationWitness,
+    "dataflow-completeness": DataflowWitness,
+}
+
+#: The failure model each landed page explains. Usually the base :class:`Failure`, but a property
+#: whose findings carry extra members emits a **subtype** — P-04's ``P04Failure`` adds the two
+#: DEC-11 diagnostics — and it is exactly those extras a reader has nowhere else to look up. The
+#: base's own members are inherited into ``model_fields``, so one row covers both.
+FAILURE_MODELS: dict[PropertySlug, type[Failure]] = {
+    "graph-well-formed": Failure,
+    "termination-witness": Failure,
+    "dataflow-completeness": P04Failure,
 }
 
 #: The evidence models *beyond* the pass witness that a page has to explain: the property's own
@@ -89,6 +105,7 @@ EVIDENCE_MODELS: dict[PropertySlug, tuple[type[ReportModel], ...]] = {
         P02CycleLocation,
         GuardEdgeLabels,
     ),
+    "dataflow-completeness": (DataflowCoverage, DataflowLocation),
 }
 
 #: Closed string vocabularies a page must name in full: report content pinned as a ``Literal``,
@@ -97,6 +114,7 @@ EVIDENCE_MODELS: dict[PropertySlug, tuple[type[ReportModel], ...]] = {
 CLOSED_VOCABULARIES: dict[PropertySlug, tuple[str, ...]] = {
     "graph-well-formed": (),
     "termination-witness": get_args(WitnessNoteKind),
+    "dataflow-completeness": (),
 }
 
 #: The header of the condition table every explainer carries.
@@ -189,10 +207,12 @@ def test_every_field_of_the_failure_record_is_named(slug: PropertySlug) -> None:
 
     The optional ones matter most: `remediation`, `advisories`, `subsumed_by` and `notes` are
     dropped from a serialized record that does not set them, so a reader who met them for the
-    first time in a report would have no page to read them off.
+    first time in a report would have no page to read them off. A property emitting a failure
+    *subtype* is held to the subtype's own members too — P-04's two diagnostics reach a reader
+    the same way and are documented nowhere else.
     """
     page = _page(slug)
-    missing = [name for name in Failure.model_fields if f"`{name}`" not in page]
+    missing = [name for name in FAILURE_MODELS[slug].model_fields if f"`{name}`" not in page]
 
     assert missing == [], f"{VALIDATOR_PAGES[slug]} names no {missing}"
 

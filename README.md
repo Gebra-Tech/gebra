@@ -45,7 +45,7 @@ a row is `available` only where the capability is in the package and covered by 
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the action's guide](docs/ci/github-action.md) |
 | Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached |
-| Published documentation site | in development | eight pages are written; the rest of the site is a reserved skeleton this README does not link to |
+| Published documentation site | in development | ten pages are written; the rest of the site is a reserved skeleton this README does not link to |
 | Installation from a package index | in development | nothing is published yet — [install from a checkout](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -278,7 +278,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-The documentation site is still being written — nine of its pages are done. Those, and the
+The documentation site is still being written — ten of its pages are done. Those, and the
 repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
@@ -301,6 +301,9 @@ repository documents worth reading beside them:
 - [P-02 termination-witness](docs/validators/p02-termination-witness.md) — the three ways to
   declare a loop bound, the inventory-and-certificate witness, the two findings and their
   anchors, which guard strings the recognizer accepts, and the boundary of the claim.
+- [P-04 dataflow-completeness](docs/validators/p04-dataflow-completeness.md) — the every-path
+  write-before-read rule, the coverage-map witness, the offending path and the two optional
+  diagnostics, and what a declared write is and is not evidence of.
 - [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
   site are marked, run and checked in CI.
 - [The CI-gate GitHub Action](docs/ci/github-action.md) — inputs, the

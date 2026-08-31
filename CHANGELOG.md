@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The validator explainer "P-04 dataflow-completeness"** (card DOC-10; PROPERTY-CATALOG-SPEC §4
+  and §0; the DEC-11 shape pins, the DEC-05 D2 scope rule and the DEC-26 phantom-leak rule).
+  `docs/validators/p04-dataflow-completeness.md` is the third per-validator page, and it answers
+  the question a reader of a `read-key-never-written-on-path` finding has: which route arrives
+  without the key, and what has to change. The every-path write-before-read rule and the four
+  interpretation rules it rests on, the coverage-map pass witness field by field, the failure
+  record with its offending path, both optional diagnostics, and the boundary of a
+  declaration-reading check.
+
+  Eight examples run under the DOC-01 harness, and none of them builds a graph. Six read the
+  **vendored property-fixture corpus**, so the page's transcripts are runs over the frozen
+  examples the validator is already held to in CI; two write a small IR document by hand.
+  `a-pass-and-its-coverage-map` prints the serialized witness off a conditional split/merge and
+  walks every member — one row per *(reachable reader, read key)* obligation, `satisfied_by` as
+  a set of alternative covers rather than a single writer, and the `START` sentinel standing for
+  the graph-input rule. `a-failure-and-its-record` reads the catalog's own express-path example:
+  the state-key anchor with P-04's required `node` and its `path`, and `writers_on_other_paths`
+  answering "but I do write that key". `every-obligation-in-the-corpus` runs all eight fixtures
+  at once, so the four ways a path can arrive without a key — a branch that skips ahead, a
+  branch that writes the wrong keys, a writer wired after its reader, and a loop entered at its
+  reader — each arrive with the fixture that pins them and with the diagnostic that tells you
+  which repair to make.
+
+  Four examples exist for the ways P-04 surprises people.
+  `a-loop-is-decided-at-its-first-arrival` runs the cycle-entry pair — the same four-node
+  fare-refresh loop with the entry moved one node — so first-arrival semantics, and the reason
+  a strongly connected component is never collapsed, are read off opposite verdicts rather than
+  asserted. `two-findings-one-record` builds a document by hand that violates two obligations,
+  showing §0.3's same-property packaging, the identifier order that fixes the primary, and that
+  a co-failure record has no field for the two diagnostics. `an-unreachable-reader-is-p-01s`
+  runs the DEC-05 D2 scope rule from both sides: an unreachable reader raises no obligation at
+  all, and one added edge turns the same read into a FATAL finding. `best-effort-on-a-broken-graph`
+  is the caveat that pairs with it — a run that fails P-01 lists P-04 among its best-effort
+  diagnostics and hands back a path containing a step the document does not author, because
+  P-04's degradation convention carries the missing vertex and DEC-26 then keeps it out of the
+  record. `what-p04-reads` rewrites every declared type, reducer, effect, idempotency key and
+  router condition in a fixture and gets the same report value back.
+
+  `tests/docs/test_validator_pages.py` gained a `FAILURE_MODELS` map, so a property that emits a
+  failure **subtype** is now held to the subtype's own members too — P-04's two DEC-11
+  diagnostics reach a reader as record keys and are documented nowhere else. The site index, the
+  README's documentation list and the two pages that named the written explainers gained this
+  one.
+
 - **The validator explainer "P-02 termination-witness"** (card DOC-09; PROPERTY-CATALOG-SPEC §2
   and §0, TERMINATION-WITNESS-SPEC, the DEC-11 shape pins and the DEC-23 amendments).
   `docs/validators/p02-termination-witness.md` is the second per-validator page, and it answers

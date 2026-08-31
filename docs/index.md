@@ -52,6 +52,9 @@ Written so far:
 - [P-02 termination-witness](validators/p02-termination-witness.md) — the three ways to declare
   a loop bound, what the pass witness and the two failure records hold, which guard strings the
   recognizer accepts, and what witness presence does and does not claim;
+- [P-04 dataflow-completeness](validators/p04-dataflow-completeness.md) — the every-path
+  write-before-read rule, how to read a coverage map and an offending path, what the two failure
+  diagnostics tell you to change, and where P-01 owns the finding instead;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

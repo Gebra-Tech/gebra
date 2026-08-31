@@ -418,6 +418,7 @@ import gebra.diff
 import gebra.extraction
 import gebra.ir
 import gebra.lineage
+import gebra.report
 import gebra.snapshot
 import gebra.store
 import gebra.verify

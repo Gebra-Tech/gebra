@@ -353,38 +353,90 @@ def test_an_attempt_a_try_block_swallowed_still_fails_the_example() -> None:
     assert any("WA07-ATTEMPTS ['getaddrinfo']" in problem for problem in result.problems)
 
 
-@requires_an_example
-@pytest.mark.parametrize(
-    ("module", "call", "expected"),
-    [
-        # A sample workflow the pages on this site import. A control on some *other* fixture
-        # would prove the sweep works where it is not used and could not fail where it is —
-        # which is the shape of a tripwire that reports nothing. (The carrier example is
-        # whichever one sorts first; the probe imports its own fixture either way.)
-        pytest.param(
-            "sentinel_graph",
-            "plan_step({'query': 'x'})",
-            "sentinel_graph:node 'plan_step' was invoked",
-            id="sentinel-graph",
-        ),
-        pytest.param(
-            "travel_booking",
-            "classify_request({})",
-            "travel_booking:travel-booking.classify_request",
-            id="travel-booking",
-        ),
-        # The seeded-defect variants, which the concepts page imports. Their bodies record
-        # into the v1 family ledger, which this module re-exports under its own name; the
-        # control is here to prove the sweep reads *this* module rather than only reaching
-        # the same list by its other name.
-        pytest.param(
-            "travel_booking_defects",
-            "classify_request_temperature_unpinned({})",
-            "travel_booking_defects:travel-booking-defects.classify_request_temperature_unpinned",
-            id="travel-booking-defects",
-        ),
-    ],
+#: How an example names a sample workflow. Three forms, because a page that used a fourth must
+#: fail loudly rather than be read as importing none — which is what
+#: `test_every_example_importing_a_sample_workflow_is_controlled` holds by asserting that a page
+#: mentioning the package yields at least one module here.
+SAMPLE_WORKFLOW_IMPORTS = (
+    re.compile(r"^from tests\.sample_workflows\.(?P<module>\w+) import", re.MULTILINE),
+    re.compile(r"^import tests\.sample_workflows\.(?P<module>\w+)", re.MULTILINE),
+    re.compile(r"^from tests\.sample_workflows import (?P<names>[^\n(]+)", re.MULTILINE),
 )
+
+
+def _sample_workflows_in(code: str) -> set[str]:
+    """Every `tests/sample_workflows/` module `code` imports, by any of the three forms."""
+    found: set[str] = set()
+    for pattern in SAMPLE_WORKFLOW_IMPORTS:
+        for match in pattern.finditer(code):
+            if "module" in match.groupdict():
+                found.add(match.group("module"))
+                continue
+            for name in match.group("names").split(","):
+                bare = name.strip().split()[0] if name.strip() else ""
+                if bare:
+                    found.add(bare)
+    return found
+
+
+#: One fired control per sample workflow the pages build against: the module, a body of it, and
+#: the ledger entry that body leaves. Named rather than derived, because the point of a control is
+#: that someone chose a body and a call the page's own workflow would plausibly make — and held to
+#: the *discovered* set by the test below, so a page importing a fourth fixture cannot land with a
+#: ledger leg nobody has ever fired.
+SAMPLE_WORKFLOW_LEDGER_CONTROLS = (
+    # A sample workflow the pages on this site import. A control on some *other* fixture
+    # would prove the sweep works where it is not used and could not fail where it is —
+    # which is the shape of a tripwire that reports nothing. (The carrier example is
+    # whichever one sorts first; the probe imports its own fixture either way.)
+    pytest.param(
+        "sentinel_graph",
+        "plan_step({'query': 'x'})",
+        "sentinel_graph:node 'plan_step' was invoked",
+        id="sentinel-graph",
+    ),
+    pytest.param(
+        "travel_booking",
+        "classify_request({})",
+        "travel_booking:travel-booking.classify_request",
+        id="travel-booking",
+    ),
+    # The seeded-defect variants, which the concepts page and the verify tutorial import. Their
+    # bodies record into the v1 family ledger, which this module re-exports under its own name;
+    # the control is here to prove the sweep reads *this* module rather than only reaching the
+    # same list by its other name.
+    pytest.param(
+        "travel_booking_defects",
+        "classify_request_temperature_unpinned({})",
+        "travel_booking_defects:travel-booking-defects.classify_request_temperature_unpinned",
+        id="travel-booking-defects",
+    ),
+)
+
+
+def test_every_example_importing_a_sample_workflow_carries_a_fired_ledger_control() -> None:
+    """WA-07's same-change rule for the third ledger-bearing shape, made mechanical.
+
+    A page that builds against `tests/sample_workflows/` inherits that module's ledger, and the
+    trailer sweeps it by name. Whether that leg is *live* rather than vacuous depends on a control
+    having fired one of the module's bodies inside a real guarded run — and which modules those
+    were was a hand-maintained table beside a growing set of pages. The two analogous rules already
+    derive their obligation from `EXAMPLES` (`SELF_DEFINED_MARKERS`, `WRITES_A_MODULE`); this is the
+    third, and it is fail-closed in both directions: an import form this file cannot parse fails
+    rather than reading as importing nothing.
+    """
+    controlled = {control.values[0] for control in SAMPLE_WORKFLOW_LEDGER_CONTROLS}
+
+    for example in EXAMPLES:
+        imported = _sample_workflows_in(example.code)
+        if "tests.sample_workflows" in example.code:
+            assert imported, f"{example.name} names the sample workflows in a form unknown here"
+        uncontrolled = sorted(imported - controlled)
+        assert not uncontrolled, f"{example.name}: no fired ledger control for {uncontrolled}"
+
+
+@requires_an_example
+@pytest.mark.parametrize(("module", "call", "expected"), SAMPLE_WORKFLOW_LEDGER_CONTROLS)
 def test_a_sample_workflow_body_that_ran_is_reported_by_its_ledger(
     module: str, call: str, expected: str
 ) -> None:

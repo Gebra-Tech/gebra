@@ -9,6 +9,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The tutorial "Verify and interpret"** (card DOC-07; PROPERTY-CATALOG-SPEC §0; SOW §6).
+  `docs/tutorials/verify-and-interpret.md` runs the wedge five over the travel-booking agent —
+  the same definition the acceptance scenario uses, imported rather than copied — and then reads
+  what came back. It is organised around one question: for any line in a verify report, what
+  exactly is being claimed, and on what evidence?
+
+  Seven examples run under the DOC-01 harness, in the order a reader meets the material.
+  `one-run-report` shows the shape of a run: thirteen outcomes of which five are verdicts and
+  eight are structured not-implemented markers, a subject whose label is the caller's while its
+  digest is computed, and a gate derived from the outcomes rather than decided per property.
+  `five-witnesses` is the half no other page covers — what a **pass** actually contains: P-01's
+  two deliberately empty lists (evaluated, not skipped), P-02's inventory entry and re-checkable
+  acyclicity certificate, P-04's eighteen `(reader, key)` coverage rows including one satisfied
+  at the `START` boundary, P-06's two records showing both protection kinds on one graph, and
+  P-08's in-band `claim_class` beside its mandatory provider caveat.
+
+  `reading-a-failure` walks the five seeded-defect variants and reads the failure record field by
+  field, with the **locus** as the lesson: defect 1 anchors on an SCC because no single node is
+  at fault, defect 4 on a state key with the offending `START`-rooted path, defects 2 and 5 on a
+  node — the latter carrying `fanout: send` — and P-04's own `writers_on_other_paths` names the
+  node that does write the key, just not on that path. `claim-classes` prints the two frozen
+  tables a grade is read off: the property table a pass is displayed under, and the condition
+  registry each finding's severity and class come from, with the emittable count computed rather
+  than asserted. All three claim classes appear in executed transcripts on the page.
+
+  `strict-mode` runs defect 3 under four policies and makes the record-versus-gate split
+  mechanical: the exit code moves twice, and the four runs produce exactly **one** distinct
+  `(condition, severity, claim class, warning tally)` tuple between them — printed as a set, so
+  the invariance is shown rather than claimed. A per-property flag naming a different property is
+  included as the useful negative. `p01-precondition` edits the extracted IR *document* — one
+  node dropped from the wired-to-`END` set — to reach a FATAL P-01 finding, and shows
+  `best_effort` naming the three topology properties whose passes on that run are diagnostics
+  rather than contract-bearing verdicts. `the-rendered-report` prints slices of the real
+  `render_human` output, the same rendering `gebra verify` writes, so the page's account of how
+  a claim class rides every verdict line is a quotation rather than a description.
+
+  The closing section is the honest boundary, stated as four claims the transcripts above already
+  show: witness presence rather than semantic termination, with both P-02 transcripts as the
+  evidence; a DEFENSIBLE-A pass as a statement about declarations; vacuous passes distinguished
+  by the witness inventory rather than by the verdict word; and a pinned seed as a claim about
+  the definition, which is why P-08 is HEURISTIC and carries its caveat.
+
+- **The examples guard pre-imports `gebra.report`** (card DOC-07; WA-07).
+  `tools/docs_examples.py` imports the gebra surface an example may use inside its prologue, so
+  that a page's own imports reach modules already in `sys.modules` rather than the armed socket
+  and the `Runnable` sweep sees every class that will be loaded. `gebra.report` was the first
+  module a page imported that the prologue did not name — the verify tutorial's rendered-report
+  example reaches it, and with it `rich`, whose import would otherwise have happened after socket
+  construction stops being counted and starts raising. Nothing was unarmed by the omission, but
+  the list exists so that this need not be checked by hand.
+
+- **The sample-workflow ledger rule is mechanical** (card DOC-07; WA-07).
+  A documentation example that builds against `tests/sample_workflows/` inherits that module's
+  `TRIPPED` ledger, and whether the leg is live rather than vacuous depends on a control having
+  fired one of its bodies inside a real guarded run. Which modules had such a control was a
+  hand-maintained table beside a growing set of pages; it is now the source
+  `test_every_example_importing_a_sample_workflow_carries_a_fired_ledger_control` reconciles
+  against the modules actually imported by the discovered examples — the third rule of this shape,
+  after `SELF_DEFINED_MARKERS` and `WRITES_A_MODULE`. It is fail-closed in both directions: an
+  import form the parser does not recognise fails rather than reading as importing nothing.
+
 - **The tutorial "Contracts and annotations"** (card DOC-06; ANNOTATION-API-SPEC §1–§6).
   `docs/tutorials/contracts-and-annotations.md` picks up exactly where "Extract your first IR"
   left off — six warnings and one sentence about clearing them — and works that sentence out:

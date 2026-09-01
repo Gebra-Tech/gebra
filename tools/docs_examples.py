@@ -424,6 +424,7 @@ import gebra.annotations
 import gebra.audit
 import gebra.cli
 import gebra.diff
+import gebra.display
 import gebra.extraction
 import gebra.ir
 import gebra.lineage

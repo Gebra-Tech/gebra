@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The API reference and the architecture overview** (card DOC-17; the IR-06, VAL-12 and
+  EX-15 freeze records as the frozen surfaces, and EX-15 §2 as the 1.x backlog appendix).
+  `docs/reference/api.md` and `docs/reference/architecture.md` replace the documentation
+  skeleton's last two reference placeholders.
+
+  The API reference is **generated from the docstrings** of the five frozen surfaces — `gebra`
+  (10 names), `gebra.ir` (68), `gebra.verify` (162), `gebra.extraction` (72) and
+  `gebra.annotations` (55), 367 in all — by the new `tools/api_reference.py`. Each entry carries
+  the definition as the source spells it (an annotated call signature, a class header with its
+  fields or enum members, or an assignment with its annotation) and the defining docstring's own
+  summary paragraph, plus its `Args:`/`Returns:`/`Raises:`/`Attributes:` sections where it
+  declares them. The generator is static — `ast` over `src/`, importing nothing — so the
+  reference renders without the execution substrate installed, and the page is a fixed point of
+  `ruff format`, which also has an opinion about the Python inside a Markdown fence. Names
+  exported by two surfaces are marked as such, and the three that are *different objects* of the
+  same name (`NodeId`, `to_data`, `to_json`) say so.
+
+  The architecture overview is the as-built map: the sixteen public packages and what each owns,
+  the six stages from a live agent to a diff report with `graph_version` as the joint, the
+  import-closure layering — exactly two of the sixteen pull `langgraph`/`langchain-core`, and a
+  bare `import gebra` pulls neither — the five frozen surfaces with what changing each costs,
+  the never-invokes boundary with all three of the places code that is not gebra's runs, and an
+  appendix reproducing EX-15's nineteen-row 1.x design-tracked backlog verbatim, every row still
+  needing a future decision record.
+
+  Three examples run under the DOC-01 harness: the package census, the whole pipeline in one
+  process (extract → identity → verify → two snapshots → diff, ending with an empty node-body
+  ledger), and — on the reference itself, generated alongside its own expected output — the
+  import of every name the page lists. Two CI steps join the `docs` job:
+  `python tools/api_reference.py --undocumented` fails if any public symbol on a frozen surface
+  has neither a docstring nor a `#:` block, and `--check` fails if the committed page is not
+  what a fresh render produces. `tests/docs/test_api_reference.py` and
+  `tests/docs/test_architecture_overview.py` hold both pages to the live packages — export sets
+  in both directions, every signature's declared parameters, the import closure measured per
+  package in a fresh interpreter, and the backlog appendix compared line for line with the
+  freeze record.
+
 - **The flagship tutorial "Travel booking, end to end"** (card DOC-16; the SOW §1/§2 DoD
   scenario and brief D-11's pipeline as the narrative spine).
   `docs/tutorials/travel-booking-end-to-end.md` replaces the documentation skeleton's placeholder

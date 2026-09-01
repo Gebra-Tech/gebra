@@ -706,6 +706,76 @@ the family ledger empty before and after **every** test (the TE-05 autouse idiom
 which a node had executed could not have produced any of it. Its stores live under pytest tmp
 paths; nothing in the module opens a network connection or writes into the repository.
 
+### DOC-17 — the API reference and the architecture overview, and a generator that imports nothing
+
+Two pages and one new tool, and the tool is the part with a WA-07 story. `tools/api_reference.py`
+renders `docs/reference/api.md` from the docstrings of the five frozen surfaces, and it reads
+them **statically**: `ast.parse` over the files under `src/`, `__all__` resolved by following
+`ImportFrom` nodes to the defining module. It imports no gebra package, imports the substrate
+neither directly nor transitively, and executes nothing it reads — the strongest form of the
+invariant available to a documentation generator, and the reason the reference renders in an
+environment where `langgraph` is not installed at all. Its only evaluator is
+`ast.literal_eval` over `__all__`'s own list elements, which cannot run code. Its one subprocess
+is `ruff format` over a temporary copy of the rendered page, a formatter over Markdown that
+reaches no workflow. The generator writes exactly one path **in the repository**,
+`docs/reference/api.md`; the only other file it writes is that scratch copy, inside a
+`tempfile.TemporaryDirectory()` — on the `--check` route as well as on `--write`.
+
+Three examples run under the DOC-01 harness. `the-public-packages` (architecture) imports the
+sixteen public packages and prints `len(__all__)` for each — no workflow object is constructed on
+that route at all. `every-name-on-this-page` (the API reference, generated together with its own
+expected output) imports the five frozen surfaces and resolves each exported name through
+`hasattr`. Only the top-level module has anything to resolve: `src/gebra/__init__.py` is the sole
+module-level `__getattr__` in the package, so `hasattr` on the other four is a plain module-dict
+lookup. That `__getattr__`'s whole vocabulary is two literal `import` statements — one taken per
+access, never `importlib` — and no user code is on either branch.
+`the-pipeline-in-one-run` (architecture) is the ordinary extract → verify → snapshot →
+`gebra.lineage.compare` route over `tests.sample_workflows.travel_booking` and two stages of
+`travel_booking_evolution`, both of which already re-export the one family ledger and carry fired
+controls in `SAMPLE_WORKFLOW_LEDGER_CONTROLS`, so the trailer's fail-closed sweep reads them and
+this card owes it nothing new. That example prints the ledger as its last line
+(`node bodies run: []`), DOC-14's `a-first-snapshot` idiom, so a fired body fails it on stdout as
+well as on `WA07-LEDGER`. No example passes `--call`, none reaches `resolve_import_reference`, and
+none drives the CLI; the store the pipeline example writes lands in the child's temporary working
+directory. `SELF_DEFINED_MARKERS` and `WRITES_A_MODULE` owe nothing — no example on either page
+constructs a graph or writes a module.
+
+**`GUARD_PROLOGUE` gains one line, and the reason is worth recording.** `the-public-packages` is
+the first example to reach a gebra package the prologue did not name: `gebra.display`. It was
+loaded ahead of the arming sweep anyway, because `import gebra.cli` — which the prologue does name
+— pulls it at module level (`gebra.cli.app` → `gebra.cli.display` → `gebra.display`). But that is
+a *transitive* guarantee, and `gebra.cli` keeps two of its own imports lazy on purpose, so the day
+`gebra.display` joined them the sweep would first have seen it **after** arming. `gebra.display`
+imports nothing from the substrate today, so no `Runnable` subclass lands behind the sweep either
+way; `import gebra.display` is now in `GUARD_PROLOGUE`, which makes the guarantee direct rather
+than inherited — the same move DOC-13 made for `gebra.pytest_plugin` and DOC-14 for `gebra.cli`.
+
+`tests/docs/test_architecture_overview.py` spawns child interpreters — the first *bare*
+`python -c` children in `tests/docs/`, whose other children are `pytest` and harness invocations —
+and that is the point of the test: it runs `import <package>` in a fresh interpreter per public
+package and reads the resulting `sys.modules` to check the page's import-closure table in both
+directions. Those children import library packages only, construct no workflow object, and assert
+on module names; the printed list is read back with `ast.literal_eval`, never `eval`, because this
+suite arms `eval` and `compile` as raisers elsewhere. They inherit no guard and need none.
+Measured rather than argued, by the WA-07 reviewer: with `StateGraph.compile` and the whole
+`Runnable.invoke`/`ainvoke`/`stream`/`astream`/`batch`/`abatch` family armed **before** the
+import, importing each of the sixteen trips nothing; no connection is opened (the two substrate
+importers construct one socket each — the urllib3 IPv6 capability probe every guarded child in
+this index already counts) and `langgraph.pregel.remote` never enters `sys.modules`. Like every
+other child in `tests/docs/`, they inherit the parent's environment rather than the DOC-01
+harness's allowlist; the measurement above holds with tracing switches and provider keys exported.
+
+One test in that module reaches a **live workflow object**:
+`test_the_pipeline_examples_digest_is_the_one_the_agent_has` builds the sentinel-guarded
+travel-booking agent and hands it to `gebra.extract()` in process, to re-derive the digest the
+pipeline example prints. `build_travel_booking_agent` returns the uncompiled builder, so nothing
+on that route compiles. The module carries the TE-05 autouse fixture asserting the family ledger
+empty on entry to and exit from **every** test, so the ledger claim is the module's rather than
+that one test's. It adds no extraction path — it calls `gebra.extract()` and nothing else — so
+§1's machine check owes it nothing. `tests/docs/test_api_reference.py` imports the five frozen
+packages and reads Markdown; its one subprocess is `ruff format --check` over the committed page.
+Neither module writes into the repository or opens a connection.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

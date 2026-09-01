@@ -189,6 +189,14 @@ jobs:
   # Then `tools/docs_examples.py --report` executes every marked example verbatim under the
   # WA-07 guard and holds its printed output to what its page shows.
   #
+  # Two more gates joined them with the API reference (DOC-17), and they are named separately
+  # because they answer separate questions. `--undocumented` fails if any public symbol on the
+  # five frozen surfaces has neither a docstring nor a `#:` block — a hole in the reference,
+  # caught at the source rather than as a gap in the page. `--check` fails if the committed
+  # page is not what a fresh render of those docstrings produces, which is what makes "built
+  # from the docstrings" a checked statement rather than an origin story. Both run before the
+  # site build, so a stale page is reported as a stale page rather than as a build warning.
+  #
   # The docs toolchain installs from `docs/requirements.txt`, not from a project extra: a site
   # generator is not part of what the package needs, and keeping it out of `pyproject.toml`
   # keeps it out of `uv.lock` and out of all thirteen compatibility cells. The package itself
@@ -206,6 +214,10 @@ jobs:
         run: |
           pip install -e ".[dev]" -c tools/matrix-constraints.txt
           pip install -r docs/requirements.txt -c tools/matrix-constraints.txt
+      - name: No public symbol on a frozen surface is undocumented
+        run: python tools/api_reference.py --undocumented
+      - name: The API reference is what the frozen surfaces' docstrings render to
+        run: python tools/api_reference.py --check
       - name: The documentation site builds with warnings as errors
         run: mkdocs build --strict
       - name: Every documented example runs, verbatim, and prints what its page shows

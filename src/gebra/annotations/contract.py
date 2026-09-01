@@ -571,7 +571,12 @@ def _attach(fn: F, declared: Mapping[str, object], *, surface: str) -> F:
         setattr(fn, CONTRACT_ATTRIBUTE, declaration)
     except (AttributeError, TypeError) as exc:
         raise GebraContractError(
-            f"{surface} cannot attach {CONTRACT_ATTRIBUTE} to a {type_identity(fn)} ({exc}); "
+            # The raw exception text is interpreter-dependent (CPython 3.13 enriched the
+            # slotted-object AttributeError message), and this diagnostic is stable
+            # user-facing copy that documented examples print verbatim (DOC-20) — so it
+            # names the exception TYPE and chains the original rather than quoting it.
+            f"{surface} cannot attach {CONTRACT_ATTRIBUTE} to a {type_identity(fn)} "
+            f"(the write raised {type(exc).__name__}; the original is chained); "
             "for a target that cannot carry attributes — a slotted or frozen object, a bound "
             "method of one, a remote tool — the gebra.toml sidecar is the designated fallback "
             "(ANNOTATION-API-SPEC §6)",

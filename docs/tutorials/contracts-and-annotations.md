@@ -283,7 +283,7 @@ one slot set twice in a stack
 a target that cannot carry the attribute
   reason: attachment-impossible
   slot:   None
-  @gebra.effect cannot attach __gebra_contract__ to a __main__:VendoredStep ('VendoredStep' object has no attribute '__gebra_contract__' and no __dict__ for setting new attributes); for a target that cannot carry attributes — a slotted or frozen object, a bound method of one, a remote tool — the gebra.toml sidecar is the designated fallback (ANNOTATION-API-SPEC §6)
+  @gebra.effect cannot attach __gebra_contract__ to a __main__:VendoredStep (the write raised AttributeError; the original is chained); for a target that cannot carry attributes — a slotted or frozen object, a bound method of one, a remote tool — the gebra.toml sidecar is the designated fallback (ANNOTATION-API-SPEC §6)
 ```
 
 The first four are §1's consistency rules. The duplicate is worth a second look: the two values

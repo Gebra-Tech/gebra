@@ -91,6 +91,8 @@ LANDED_PAGES = frozenset(
         "guides/snapshot-diff-and-evolution.md",
         "reference/cli.md",
         "tutorials/travel-booking-end-to-end.md",
+        "reference/api.md",
+        "reference/architecture.md",
     }
 )
 

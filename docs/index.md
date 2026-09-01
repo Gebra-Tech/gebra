@@ -77,6 +77,13 @@ Written so far:
 - [CLI reference](reference/cli.md) — the five verbs and every flag they take, how an invocation
   names its subject, what each exit code means for each verb, and the surfaces `verify`,
   `display` and `history` write;
+- [API reference](reference/api.md) — the public Python surface: every name the five frozen
+  packages export, its signature or fields, and what its own docstring says it is, generated
+  from those docstrings and checked against them in CI;
+- [Architecture overview](reference/architecture.md) — how the pieces fit: the sixteen public
+  packages, the six stages from a live agent to a diff report, which two packages import the
+  execution substrate and which fourteen do not, what each freeze record costs to change, and
+  the 1.x backlog appendix;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

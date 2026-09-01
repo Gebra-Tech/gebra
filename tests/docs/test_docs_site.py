@@ -88,6 +88,7 @@ LANDED_PAGES = frozenset(
         "validators/p06-effect-safety.md",
         "validators/p08-determinism-replay.md",
         "guides/pytest-plugin-and-ci-gating.md",
+        "guides/snapshot-diff-and-evolution.md",
     }
 )
 

@@ -65,6 +65,9 @@ Written so far:
   marker, the `gebra_graph` and `gebra_verification` fixtures, which findings fail which item, what
   `--gebra-strict` moves and what it leaves alone, and the report-only → gate → strict rollout with
   the workflow that runs it;
+- [Snapshot, diff and evolution](guides/snapshot-diff-and-evolution.md) — the `.gebra/` store, what
+  the four V.S.F.E counters count, reading a diff report line by line over eight versions of one
+  agent, and why the bump class routes a review rather than grading it;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

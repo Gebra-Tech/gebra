@@ -548,6 +548,56 @@ the arming sweep. Nothing in the example suite, in either gated run, or in this 
 network connection; the workflow's checkout, interpreter setup and install steps are ordinary CI
 provisioning, outside that claim exactly as the TE-13 paragraph above scopes its own.
 
+### DOC-14 — the snapshot/diff guide, and the second re-exported ledger
+
+`docs/guides/snapshot-diff-and-evolution.md` adds thirteen examples, and they are the first on
+this site to import `tests/sample_workflows/travel_booking_evolution.py`. That import is what
+made the module's ledger arrangement matter. Its bodies record into the **v1 family ledger** —
+one list for the whole travel-booking family, `travel_booking.TRIPPED`, which is the right design
+because a fired body anywhere in the family has to be visible everywhere — but the DOC-01
+trailer's sweep asks each imported sample workflow for a `TRIPPED` of *its own* and refuses a
+module that has none, since it cannot tell "records elsewhere" from "records nowhere". The module
+therefore binds `TRIPPED` to that same list object, exactly as `travel_booking_defects.py` does
+and for the reason recorded at its binding;
+`test_the_family_re_exports_are_the_family_ledger_itself` pins the **identity** of both
+bindings, because a rebinding would leave the sweep reading a list nothing writes to, which is
+the silent-vacuity case the sweep exists to refuse. A fired control for the module lands with it
+in `SAMPLE_WORKFLOW_LEDGER_CONTROLS`, firing `join_waitlist` — a body only the evolution module
+defines, so a control that stopped reaching it cannot pass by landing on v1's twin of the same
+name.
+
+Three of the guide's examples are the first documentation examples to drive the **CLI**, in
+process, through `gebra.cli.main` — two `diff` runs over two stored labels each, and one
+`history`. None reaches a live object: a stored-label side is read from the store, and a listing
+reads the index, so the import-reference path (the one verb path that imports a user module, and
+`--call`'s explicit opt-in beyond it) is not on any of the three routes. `GUARD_PROLOGUE` gains
+`import gebra.cli` for the reason DOC-13 recorded for `gebra.pytest_plugin`, plus one specific
+to this module: `gebra.cli` keeps the substrate out of its own import closure on purpose, by two
+lazy imports rather than one — the extractor inside `resolve_import_reference`, the snapshot
+engine inside the `snapshot` verb — and it is the **extractor** one that pulls langgraph. The day
+either moves to module level, the import must land in front of the arming sweep rather than
+behind it, where a `Runnable` subclass's own `invoke` override would shadow the armed base.
+
+The rest of the guide's WA-07 posture is the ordinary one. Twelve of the thirteen examples call
+`gebra.snapshot.snapshot`, which extracts and never runs, and one of those twelve
+(`has-the-store-kept-up`) additionally calls `gebra.extract` directly for the freshness check's
+IR; the thirteenth reads a table off `gebra.versioning` and touches no workflow at all. Every
+`.gebra/` store they write lands in the child's temporary working directory, never the
+repository. No example registers a node it defined or writes a module, so neither
+`SELF_DEFINED_MARKERS` nor `WRITES_A_MODULE` owes anything.
+`a-first-snapshot` prints the family ledger into its pinned output block, so a fired body fails
+that example on stdout as well as on `WA07-LEDGER`.
+
+`tests/docs/test_snapshot_guide.py` is the card's **second in-process CLI surface**, and it
+belongs in this index rather than only in the docs one: it builds the same eight-version store
+through `gebra.snapshot.snapshot` and then drives `gebra.cli.main` seven times — six `diff`
+invocations (two of them re-rendering the page's own transcripts, and one a refused label at
+exit 2) and one `history`, all over stored labels, so the import-reference path is off its
+routes too. It asserts the family ledger empty before and
+after **every** test in the module (the TE-05 autouse idiom), which is what the module's own
+claims rest on: it re-derives the gate verdicts and re-renders the diff reports the page prints,
+and a run in which a node had executed could not have produced either.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

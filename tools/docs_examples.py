@@ -370,6 +370,11 @@ def discover(
 #: among them, whose closure is ``pytest`` and the standard library today but which is exactly
 #: the module where a future module-level substrate import would land a ``Runnable`` subclass
 #: *after* the sweep below, where its own ``invoke`` override would shadow the armed base.
+#: ``gebra.cli`` is here for the same reason and one more: it keeps the substrate out of its own
+#: import closure on purpose — the extractor is imported inside ``resolve_import_reference`` and
+#: the snapshot engine inside the ``snapshot`` verb, and the first of those is the one that pulls
+#: langgraph — so the day either moves to module level it must land in front of the sweep rather
+#: than behind it.
 GUARD_PROLOGUE: Final = """\
 import os as _gebra_os, socket as _gebra_socket, sys as _gebra_sys
 
@@ -417,6 +422,7 @@ _GebraStateGraph.compile = _gebra_record("StateGraph.compile")
 import gebra
 import gebra.annotations
 import gebra.audit
+import gebra.cli
 import gebra.diff
 import gebra.extraction
 import gebra.ir

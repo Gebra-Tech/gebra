@@ -24,7 +24,11 @@ from typing import Any
 import pytest
 import yaml
 
-from tests.sample_workflows import travel_booking, travel_booking_defects
+from tests.sample_workflows import (
+    travel_booking,
+    travel_booking_defects,
+    travel_booking_evolution,
+)
 from tools.docs_examples import (
     DEFAULT_INCLUDE,
     INHERITED_ENV,
@@ -411,6 +415,16 @@ SAMPLE_WORKFLOW_LEDGER_CONTROLS = (
         "travel_booking_defects:travel-booking-defects.classify_request_temperature_unpinned",
         id="travel-booking-defects",
     ),
+    # The evolution sequence, which the snapshot/diff guide walks version by version. Same
+    # re-exported family ledger, same reason for a control of its own — and the body chosen is
+    # one only this module defines, so a control that stopped reaching it could not pass by
+    # landing on v1's twin of the same name.
+    pytest.param(
+        "travel_booking_evolution",
+        "join_waitlist({})",
+        "travel_booking_evolution:travel-booking-evolution.join_waitlist",
+        id="travel-booking-evolution",
+    ),
 )
 
 
@@ -717,15 +731,17 @@ def test_a_written_module_with_no_ledger_fails_rather_than_reads_clean() -> None
     assert any("keeps no TRIPPED ledger" in problem for problem in result.problems)
 
 
-def test_the_defect_variants_ledger_is_the_family_ledger_itself() -> None:
-    """The re-export is a second *name* for one list, never a second list.
+def test_the_family_re_exports_are_the_family_ledger_itself() -> None:
+    """Each re-export is a second *name* for one list, never a second list.
 
-    ``travel_booking_defects`` records into the v1 family ledger and re-exports it so the
-    fail-closed sweep finds a ledger under this module's own name too. Identity is the whole
-    point: a rebinding (rather than an in-place clear) would leave the sweep reading an empty
-    list that nothing writes to, which is the silent-vacuity case the sweep exists to refuse.
+    ``travel_booking_defects`` and ``travel_booking_evolution`` both record into the v1 family
+    ledger and re-export it so the fail-closed sweep finds a ledger under their own names too.
+    Identity is the whole point: a rebinding (rather than an in-place clear) would leave the
+    sweep reading an empty list that nothing writes to, which is the silent-vacuity case the
+    sweep exists to refuse.
     """
     assert travel_booking_defects.TRIPPED is travel_booking.TRIPPED
+    assert travel_booking_evolution.TRIPPED is travel_booking.TRIPPED
 
 
 @requires_an_example

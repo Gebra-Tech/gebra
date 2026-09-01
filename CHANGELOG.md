@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The guide "Snapshot, diff and evolution"** (card DOC-14; brief D-11 In-Scope 1–7 and SOW §1's
+  V.S.F.E vocabulary). `docs/guides/snapshot-diff-and-evolution.md` is the second published guide
+  and the one a reviewer reads in front of a pull request: the `.gebra/` store and what each file
+  in it is for, `graph_version` as the identity a snapshot is anchored to, what each of the four
+  V.S.F.E counters counts, the anatomy of a `gebra diff` report, the per-version audit export, the
+  freshness check, and the history listing's two different answers about one pair of versions.
+
+  Thirteen examples run under the DOC-01 harness, and the walkthrough builds a real `.gebra/` tree:
+  `eight-versions-one-store` records the whole travel-booking evolution sequence — the same eight
+  stages the acceptance scenario evolves — and prints the store it wrote. The two breaking changes
+  the page walks through in depth each carry their S/F/E bump class beside the deferred-P-12 marker
+  rendered as `not checked [deferred-to-phase-1]`: `the-loop-bounds-carrier-leaves` puts the
+  removed `variant` slot beside verification moving from a pass to a FATAL
+  `cycle-without-termination-witness`, and `an-effect-class-escalates` prints the whole diff report
+  for an `effect` slot gaining `billable`.
+
+  The page's spine is `two-changes-one-counter`: an added optional state key and a removed key that
+  two node contracts still declare carry the *same* bump class, the same marker status and the same
+  green gate, so the guide teaches the bump class as a routing decision — which section of the diff
+  to read — and never as a risk grade. `tests/docs/test_snapshot_guide.py` holds the page to its
+  sources: the V.S.F.E table against `FIELD_COMPONENTS` in both directions, the store's paths
+  against the store module's constants, every step's bump class and gate verdict re-derived from a
+  store the test builds, the marker's fields against the shared registry instance, and the
+  documented `gebra diff` exit codes against real in-process runs.
+
+  These are the first site examples to drive the CLI, so the DOC-01 harness's WA-07 guard preloads
+  `gebra.cli` ahead of its arming sweep, and `tests/sample_workflows/travel_booking_evolution.py`
+  binds the shared family `TRIPPED` ledger under its own name — the arrangement
+  `travel_booking_defects.py` already uses, which is what keeps the harness's fail-closed sweep
+  from reading "records elsewhere" as "records nowhere". A fired ledger control for that module
+  lands with it.
+
 - **The guide "The pytest plugin and CI gating"** (card DOC-13; brief D-10 In-Scope 2 and 6, and
   the TE-13 rollout ladder). `docs/guides/pytest-plugin-and-ci-gating.md` is the first published
   guide and the adopter path the plugin was built for: one dependency and `@pytest.mark.gebra`,

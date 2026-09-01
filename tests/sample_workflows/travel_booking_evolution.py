@@ -104,7 +104,8 @@ about the definition and never about what compiling configured. Nothing here com
 extraction or a test reaches fails the run. The arming test fires every body reachable from
 any evolved stage's built graph — the superseded twins included. Importing this module
 defines callables, TypedDicts and constants only: no graph is built at import time, nothing
-is compiled, no connection is opened.
+is compiled, no connection is opened. :data:`TRIPPED` binds that shared ledger under this
+module's own name, for the reason stated where it is bound.
 
 No ``from __future__ import annotations`` here, on purpose, for the reason
 ``travel_booking.py`` states: the fixture family pins the mainstream evaluated-annotation
@@ -126,6 +127,7 @@ from tests.sample_workflows import travel_booking as tb
 
 __all__ = [
     "EVOLUTION",
+    "TRIPPED",
     "EvolutionStage",
     "TravelRequestV2",
     "TravelStateV2",
@@ -142,6 +144,16 @@ __all__ = [
     "join_waitlist",
     "replan_unwitnessed",
 ]
+
+
+#: The shared family ledger under this module's own name — the *same list object* as
+#: :data:`tests.sample_workflows.travel_booking.TRIPPED`, not a second one, because
+#: :func:`_trip` records into that list. Bound here for the reason
+#: ``travel_booking_defects.py`` records at its own binding: the documentation harness's
+#: fail-closed sweep (``tools/docs_examples.py``) asks each imported sample workflow for its
+#: own ``TRIPPED`` and refuses a module that has none — correctly, since it cannot tell
+#: "records elsewhere" from "records nowhere".
+TRIPPED: Final[list[str]] = tb.TRIPPED
 
 
 def _trip(label: str) -> Any:

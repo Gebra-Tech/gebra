@@ -43,9 +43,9 @@ a row is `available` only where the capability is in the package and covered by 
 | The five property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()` | available | surface frozen — [VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md) |
 | The other eight catalog properties (P-03, P-05, P-07, P-09…P-13) | out of scope for this phase | answered in every run by a structured not-implemented marker, never a silent pass |
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md) |
-| Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here |
+| Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached |
-| Published documentation site | in development | thirteen pages are written, including all five per-validator explainers and the CI-gating guide; the rest of the site is a reserved skeleton this README does not link to |
+| Published documentation site | in development | fourteen pages are written, including all five per-validator explainers and two guides; the rest of the site is a reserved skeleton this README does not link to |
 | Installation from a package index | in development | nothing is published yet — [install from a checkout](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -278,7 +278,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-The documentation site is still being written — thirteen of its pages are done. Those, and the
+The documentation site is still being written — fourteen of its pages are done. Those, and the
 repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
@@ -314,6 +314,11 @@ repository documents worth reading beside them:
   one dependency to a merge gate: the marker and the two fixtures, which findings fail which test
   item, what `--gebra-strict` moves and what it leaves untouched, and the report-only → gate →
   strict rollout, with the workflow this repository runs on every push.
+- [Snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) — a guide to keeping
+  and reading the record of how an agent changes: the `.gebra/` store, what each of the four
+  V.S.F.E counters counts, the anatomy of a diff report over eight versions of one agent, the
+  per-version audit export and the freshness check, and why a bump class tells a reviewer where to
+  look rather than what to conclude.
 - [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
   site are marked, run and checked in CI.
 - [The CI-gate GitHub Action](docs/ci/github-action.md) — the action's own interface reference:

@@ -86,6 +86,7 @@ LANDED_PAGES = frozenset(
         "validators/p02-termination-witness.md",
         "validators/p04-dataflow-completeness.md",
         "validators/p06-effect-safety.md",
+        "validators/p08-determinism-replay.md",
     }
 )
 

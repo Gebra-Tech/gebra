@@ -58,6 +58,9 @@ Written so far:
 - [P-06 effect-safety](validators/p06-effect-safety.md) — which effect tags raise an obligation,
   the retry-region and plain-cycle distinction, the protection ledger a pass returns, why a
   declared key or hook has to bind, and what a pass does not claim;
+- [P-08 determinism-replay](validators/p08-determinism-replay.md) — what makes a determinism claim
+  coherent, the ledger of claims a pass returns, why every finding is a WARNING and strict mode is
+  the only gate, and what a pinned seed is and is not evidence of;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

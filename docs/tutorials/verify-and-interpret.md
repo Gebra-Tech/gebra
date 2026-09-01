@@ -742,12 +742,10 @@ blocks are what those runs printed. If any of it stops behaving this way the bui
 than the page misleading a reader — [Executable examples](../contributing/executable-examples.md)
 explains the mechanism.
 
-Four of the per-validator pages are written and go further on their own property than this page
+All five per-validator pages are written, and each goes further on its own property than this page
 does: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
 [P-02 `termination-witness`](../validators/p02-termination-witness.md),
-[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md) and
-[P-06 `effect-safety`](../validators/p06-effect-safety.md). The last one is still a
-placeholder, and until it is written the frozen contract for that property — what it
-reads and what its records contain — is PROPERTY-CATALOG-SPEC §P-08. The
-validator modules under `gebra.verify.properties` and their tests are where that contract is
-implemented and pinned, and are the closest description of it in this repository.
+[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md),
+[P-06 `effect-safety`](../validators/p06-effect-safety.md) and
+[P-08 `determinism-replay`](../validators/p08-determinism-replay.md) — the last of which takes the
+defect-3 finding above apart field by field, and says why a run carrying it still exits `0`.

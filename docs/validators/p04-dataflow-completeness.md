@@ -903,5 +903,6 @@ kept diagnostics) and DEC-05 (the `START`-path scope), with DEC-26 fixing what a
 on ill-formed topology. `gebra.verify.properties.dataflow_completeness` and its tests are where
 that contract is implemented and pinned in this repository. The other written explainers are
 [P-01 `graph-well-formed`](p01-graph-well-formed.md),
-[P-02 `termination-witness`](p02-termination-witness.md) and
-[P-06 `effect-safety`](p06-effect-safety.md).
+[P-02 `termination-witness`](p02-termination-witness.md),
+[P-06 `effect-safety`](p06-effect-safety.md) and
+[P-08 `determinism-replay`](p08-determinism-replay.md).

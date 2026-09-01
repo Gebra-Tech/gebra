@@ -1176,5 +1176,6 @@ rule and the handling of a dangling hook, and DEC-16 authorizing the two gap fix
 `gebra.verify.properties.effect_safety` and its tests are where that contract is implemented and
 pinned in this repository. The other written explainers are
 [P-01 `graph-well-formed`](p01-graph-well-formed.md),
-[P-02 `termination-witness`](p02-termination-witness.md) and
-[P-04 `dataflow-completeness`](p04-dataflow-completeness.md).
+[P-02 `termination-witness`](p02-termination-witness.md),
+[P-04 `dataflow-completeness`](p04-dataflow-completeness.md) and
+[P-08 `determinism-replay`](p08-determinism-replay.md).

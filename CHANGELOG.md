@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The validator explainer "P-08 determinism-replay"** (card DOC-12; PROPERTY-CATALOG-SPEC §8 and
+  Appendix B with the shared envelope of §0; the DEC-11 shape pins, the DEC-14 `divergence_handling`
+  ruling, and the DEC-16 gap fixtures). `docs/validators/p08-determinism-replay.md` is the fifth and
+  last per-validator page, and the one where the honest-claims boundary is the subject rather than a
+  caveat: P-08 checks whether a declared `@gebra.deterministic` claim pins what such a claim has to
+  pin, and never whether a provider reproduces anything. It answers what a reader holding one of its
+  findings needs — which two effect tags make a claim carry a pinning obligation at all, what the
+  claim ledger a pass returns says member by member, why the mandatory provider caveat is part of
+  the shape of a pass rather than a courtesy added to it, why every finding is a WARNING that only
+  `--gebra-strict` turns into a gate, and where the claim stops.
+
+  Ten examples run under the DOC-01 harness, and every one of them starts from the **vendored
+  property-fixture corpus** — three go on to edit the loaded document and re-validate it, which is
+  how the page shows shapes the corpus does not carry. None builds a graph and none calls a model.
+  `a-pass-and-its-claim-ledger` and `a-failure-and-its-record` are the corpus's own counterpart pair
+  — the same classifier with and without the pinning — and between them walk every member of
+  `DeterminismWitness`, `DeterminismClaim`, `DeterminismNodeLocation` and the §0.3 `Failure`,
+  optional members included; P-08 is the only property in this release that populates
+  `remediation`, and the page says what that prose is and is not. `every-fixture-in-the-corpus` runs
+  all six at once and re-checks each report against its own `expected:` block.
+
+  Four examples exist for the ways P-08 surprises people.
+  `a-claim-on-a-node-with-no-llm-evidence` shows the non-LLM claim record, including `mixed/10`'s
+  object form whose pinned seed is **dropped** from the witness because it was never part of the
+  question. `a-claim-is-what-p-08-checks` puts the vacuous pass beside a one-boolean edit, so
+  `deterministic: true`, `deterministic: false` and no annotation at all are three transcripts
+  rather than three assertions. `two-findings-one-record` reads the §0.3 same-property packaging off
+  `mixed/03`, where a co-failure carries its own severity and claim class but not the remediation.
+  `every-finding-is-a-warning` runs all three negatives under two policies and shows the six runs
+  producing **one** distinct (severity, claim class, blocking tally, snapshot eligibility) tuple:
+  the gate moves, the record does not.
+
+  `the-caveat-in-a-rendered-report` is the boundary as a reader meets it — the terminal rendering
+  displaying the caveat at the same level as the pinned seed, and a *failing* P-08 block whose gate
+  line reads `exit 0`. `what-p-08-reads` deletes every edge in a document, retypes every state field
+  and drops every other annotation slot, and gets the same report value back; that is why
+  `the-p-01-boundary-does-not-reach-p-08` can show `determinism-replay` staying out of
+  `best_effort` and returning an identical answer on a graph P-01 rejects — the one wedge validator
+  whose result needs no topology precondition.
+
+  `tests/docs/test_validator_pages.py` gained the P-08 rows, and its `CLOSED_VOCABULARIES` entry is
+  the first that is not report content: the Appendix B C-1 evidence tags are the closed *input*
+  vocabulary that decides every P-08 verdict, read off the module constant so widening it fails the
+  build rather than dating the page. The site index, the README's documentation list and status
+  table, and the three pages that counted the written explainers now all say five.
+
 - **The validator explainer "P-06 effect-safety"** (card DOC-11; PROPERTY-CATALOG-SPEC §6 and §0;
   the DEC-11 shape pins, DEC-05 D7 compensation-as-protection and D2 same-node dominance, the
   DEC-13 open-item rulings, and the DEC-16 gap fixtures). `docs/validators/p06-effect-safety.md`

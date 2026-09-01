@@ -208,13 +208,14 @@ pass.
 | P-06 `effect-safety` | No node tagged `irreversible` or `billable` sits in a cycle or retry region without an idempotency key or compensation hook; `irreversible` + keyless `idempotent` is a design error outright (§P-06). | DEFENSIBLE-A | FATAL for the irreversible + keyless-idempotent contradiction; ERROR for an unprotected irreversible/billable effect in a cycle or retry region |
 | P-08 `determinism-replay` | A node declaring `@gebra.deterministic(seed=…)` around an LLM call pins both `seed` and `temperature` (§P-08). | HEURISTIC | WARNING |
 
-Four of the per-validator pages are written — [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
+All five per-validator pages are written, and each goes further on its own property than this
+table can: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
 [P-02 `termination-witness`](../validators/p02-termination-witness.md),
-[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md) and
-[P-06 `effect-safety`](../validators/p06-effect-safety.md) — and the last one is still a
-placeholder. Where a page is not yet written, the authority on what that property's
-witness and failure records actually contain is the validator modules under
-`gebra.verify.properties` and their tests.
+[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md),
+[P-06 `effect-safety`](../validators/p06-effect-safety.md) and
+[P-08 `determinism-replay`](../validators/p08-determinism-replay.md). Each one says what its
+property reads, what its witness and failure records contain field by field, and where its claim
+stops.
 
 ## What a finding does not claim
 

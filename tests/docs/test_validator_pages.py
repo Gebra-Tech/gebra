@@ -29,6 +29,7 @@ import pytest
 from gebra.verify import (
     ConditionId,
     DataflowLocation,
+    DeterminismNodeLocation,
     Failure,
     GuardEdgeLabels,
     P01EdgeLocation,
@@ -41,11 +42,14 @@ from gebra.verify import (
     Witness,
     conditions_for,
 )
+from gebra.verify.properties.determinism_replay import LLM_EVIDENCE_TAGS
 from gebra.verify.witnesses import (
     CounterGuardSource,
     CycleCensus,
     DataflowCoverage,
     DataflowWitness,
+    DeterminismClaim,
+    DeterminismWitness,
     EffectSafetyWitness,
     GuardEdgeRef,
     P06EffectRecord,
@@ -70,6 +74,7 @@ VALIDATOR_PAGES: dict[PropertySlug, str] = {
     "termination-witness": "validators/p02-termination-witness.md",
     "dataflow-completeness": "validators/p04-dataflow-completeness.md",
     "effect-safety": "validators/p06-effect-safety.md",
+    "determinism-replay": "validators/p08-determinism-replay.md",
 }
 
 #: The witness model each landed page explains — the concrete member of the §0.3 witness union
@@ -79,6 +84,7 @@ WITNESS_MODELS: dict[PropertySlug, type[Witness]] = {
     "termination-witness": TerminationWitness,
     "dataflow-completeness": DataflowWitness,
     "effect-safety": EffectSafetyWitness,
+    "determinism-replay": DeterminismWitness,
 }
 
 #: The failure model each landed page explains. Usually the base :class:`Failure`, but a property
@@ -90,6 +96,7 @@ FAILURE_MODELS: dict[PropertySlug, type[Failure]] = {
     "termination-witness": Failure,
     "dataflow-completeness": P04Failure,
     "effect-safety": Failure,
+    "determinism-replay": Failure,
 }
 
 #: The evidence models *beyond* the pass witness that a page has to explain: the property's own
@@ -114,15 +121,22 @@ EVIDENCE_MODELS: dict[PropertySlug, tuple[type[ReportModel], ...]] = {
     ),
     "dataflow-completeness": (DataflowCoverage, DataflowLocation),
     "effect-safety": (P06EffectRecord, P06NodeLocation),
+    "determinism-replay": (DeterminismClaim, DeterminismNodeLocation),
 }
 
-#: Closed string vocabularies a page must name in full: report content pinned as a ``Literal``,
-#: which moves only by specification addendum. P-01's property has none; P-02's is §2.3's note
-#: vocabulary, whose five kinds a reader meets on a witness or a failure record; P-06's are the
-#: two enumerations of its witness record — §6.3's ``Region`` and the protection arm — where a
-#: page listing three regions and two arms would be a page with a hole. The property's other
-#: pinned strings (``keyless``, ``send``) are single-member evidence markers rather than sets to
-#: enumerate, and the page's transcripts pin them byte-for-byte through the DOC-01 harness.
+#: Closed string vocabularies a page must name in full, because a page listing some members of a
+#: frozen set is a page with a hole. Usually that is report content pinned as a ``Literal``: P-01's
+#: property has none; P-02's is §2.3's note vocabulary, whose five kinds a reader meets on a witness
+#: or a failure record; P-06's are the two enumerations of its witness record — §6.3's ``Region``
+#: and the protection arm. Single-member pinned strings (P-06's ``keyless`` and ``send``, P-08's
+#: ``bare-boolean``, ``logged`` and ``pure-local-computation``) are evidence markers rather than
+#: sets to enumerate, and the pages' transcripts pin them byte-for-byte through the DOC-01 harness.
+#:
+#: P-08's entry is the one that is **not** report content, and it is here on the same reasoning: the
+#: Appendix B C-1 evidence tags are the closed input vocabulary that decides every P-08 verdict —
+#: which node is LLM-backed, and so which claim carries a pinning obligation at all. A page naming
+#: one of the two would leave a reader believing a claim beside the other tag is unchecked. Read off
+#: the module constant, so a §8.3 addendum widening the set fails this page rather than dating it.
 PROTECTION_FORMS: tuple[str, ...] = get_args(P06EffectRecord.model_fields["protection"].annotation)
 
 CLOSED_VOCABULARIES: dict[PropertySlug, tuple[str, ...]] = {
@@ -130,6 +144,7 @@ CLOSED_VOCABULARIES: dict[PropertySlug, tuple[str, ...]] = {
     "termination-witness": get_args(WitnessNoteKind),
     "dataflow-completeness": (),
     "effect-safety": (*get_args(Region), *PROTECTION_FORMS),
+    "determinism-replay": tuple(sorted(LLM_EVIDENCE_TAGS)),
 }
 
 #: The header of the condition table every explainer carries.

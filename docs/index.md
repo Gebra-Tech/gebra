@@ -46,6 +46,12 @@ Written so far:
 - [Verify and interpret](tutorials/verify-and-interpret.md) — running the five validators over a
   real agent and reading what comes back: witnesses, failure records, claim classes, strict mode,
   and what a finding does not claim;
+- [Travel booking, end to end](tutorials/travel-booking-end-to-end.md) — the flagship tutorial:
+  the whole pipeline over one agent, from a clean extraction through five seeded defects each
+  caught by its named property, eight recorded versions, the four evolution steps a reviewer
+  would stop on each with its diff classification, and the audit trail the store ends up
+  holding — over the same assets and in the same sequence as the repository's acceptance
+  scenario;
 - [P-01 graph-well-formed](validators/p01-graph-well-formed.md) — the first per-validator page:
   the four conditions, the five keys of the pass witness, what a failure record names, and where
   the claim stops;

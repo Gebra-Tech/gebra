@@ -22,7 +22,7 @@ lets the regression test assert every pair, not only neighbours::
                       route_booking, and a widened finish set
     v4  1.2.1.1  S    a second `waitlist` label, on route_availability, to the existing node
     v5  1.2.1.2  E    Σ drops `itinerary`; two contracts still declare it
-    v6  1.2.1.3  E    `availability` redeclared `list[str]`; three contracts still read it
+    v6  1.2.1.3  E    `availability` redeclared `list[str]`; four contracts still read it
     v7  1.2.2.3  F    `replan` loses its `variant` annotation — the witness carrier
     v8  1.2.3.3  F    `check_booking`'s effects gain `billable`
 
@@ -53,7 +53,7 @@ about a renamed guard.
 
 * *Read-key removal (v5) / retype (v6).* Σ moves while the contracts that read the key stay
   exactly as they were — v5 keeps ``compile_itinerary``'s declared write of ``itinerary``
-  and ``notify_traveler``'s declared read of it; v6 keeps the three declared reads of
+  and ``notify_traveler``'s declared read of it; v6 keeps the four declared reads of
   ``availability``. Both diffs are E alone: nothing about the topology or any contract
   changed. D-11's own witness example for this class is "removed key ``return_date`` still
   read by ``book_flight``".
@@ -212,8 +212,8 @@ class TravelStateV6(TypedDict):
     """Σ from v6 onward: ``availability`` is redeclared ``list[str]``.
 
     The read-key-*retype* canonical case: same key set as v5, one declared type moved, and
-    the three contracts reading ``availability`` (``replan``, ``book_flight``,
-    ``book_hotel``) are untouched. Extraction renders the parameterized form as the opaque
+    the four contracts reading ``availability`` (``replan``, ``book_flight``, ``book_hotel``,
+    ``join_waitlist``) are untouched. Extraction renders the parameterized form as the opaque
     type-name string ``"list[str]"`` (IR-SPEC §2.2 — no type algebra in ir 1.0), so the E
     delta reports a retype and nothing else.
     """
@@ -854,7 +854,7 @@ EVOLUTION: Final[tuple[EvolutionStage, ...]] = (
         build=build_travel_booking_v6,
         expected_version="1.2.1.3",
         expected_bump=frozenset({Component.E}),
-        summary="availability is redeclared list[str] while three contracts still read it",
+        summary="availability is redeclared list[str] while four contracts still read it",
     ),
     EvolutionStage(
         name="v7-witness-removed",

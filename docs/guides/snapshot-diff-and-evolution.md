@@ -270,7 +270,7 @@ for path in sorted(store.path.rglob("*")):
 1.1.1.1    S F    contracted join_waitlist node, a waitlist label on route_booking, END wiring
 1.2.1.1    S      route_availability gains a waitlist label to the existing join_waitlist node
 1.2.1.2    E      Σ drops itinerary while two contracts still declare the write and the read
-1.2.1.3    E      availability is redeclared list[str] while three contracts still read it
+1.2.1.3    E      availability is redeclared list[str] while four contracts still read it
 1.2.2.3    F      replan loses its variant annotation, the carrier both cycles run through
 1.2.3.3    F      check_booking's effects gain billable, entering the P-06 trigger set
 

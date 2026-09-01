@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The flagship tutorial "Travel booking, end to end"** (card DOC-16; the SOW §1/§2 DoD
+  scenario and brief D-11's pipeline as the narrative spine).
+  `docs/tutorials/travel-booking-end-to-end.md` replaces the documentation skeleton's placeholder
+  with the whole pipeline over one agent — extract → verify → snapshot → evolve → diff →
+  report — told over the **same assets the repository's acceptance scenario runs**: the
+  travel-booking agent, the five seeded-defect variants and the eight-stage evolution sequence,
+  imported from the same three fixture modules the dedicated DoD CI job imports, with no asset
+  of the page's own. The five seeded defects are each shown caught by the property that owns
+  them — condition ID, severity and claim class, location and gate, with defect 3's catch under
+  the `determinism-replay` strict promotion shown as a gate move over an unchanged record — and
+  each of the four evolution steps a reviewer would stop on is shown with its diff
+  classification: the four `gebra diff` reports rendered in full, each carrying its bump class
+  and the deferred-P-12 `not checked` marker. The healthy version is recorded through the eligibility gate, the two
+  FATAL-bearing stages are shown refused with their reports and recorded handed-none, and the
+  report leg ends with the per-version audit exports, the `lineage.json` document beside them
+  and a green freshness check. A closing example runs all six legs in one process, each summary
+  line derived from the objects it reports.
+
+  Ten examples run under the DOC-01 harness. `tests/docs/test_travel_booking_tutorial.py` pins
+  the page to the scenario's own sources: every defect fact re-derived from a fresh verify run
+  and compared against the recorded `DEFECTS` expectations, the evolution rows against
+  `EVOLUTION`, the four rendered diffs byte for byte against the verb, the recorder's refusals
+  against its own reason vocabulary, the summary example's leg order against the DoD harness's
+  `LEGS`, and the CI-job facts against the workflow — while asserting that no example on the
+  page constructs a graph of its own, which is what makes "same assets as the scenario" a
+  checked mechanism rather than an intention.
+
 - **The CLI reference** (card DOC-15; CLI-SPEC and REPORT-FORMAT-SPEC as the merged surface,
   PROPERTY-CATALOG-SPEC §0.2 for the exit-code semantics). `docs/reference/cli.md` replaces the
   documentation skeleton's placeholder with the page a user or CI author looks a flag up in: the

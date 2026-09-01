@@ -666,6 +666,46 @@ produced them. Nothing in the module opens a network connection: every subject i
 document, every store is under `tmp_path`, and the only read outside the repository tree is of
 the delivery repository's frozen catalog, behind a `skipif`.
 
+### DOC-16 — the flagship tutorial, and the whole family on one page
+
+`docs/tutorials/travel-booking-end-to-end.md` adds ten examples and is the first page whose
+examples import all **three** travel-booking family modules at once — `travel_booking`,
+`travel_booking_defects` and `travel_booking_evolution`, the same three `tests/dod/conftest.py`
+imports, which is the card's point: the page shares the acceptance scenario's assets rather than
+copying them. All three already re-export the one family ledger under their own names and carry
+fired controls in `SAMPLE_WORKFLOW_LEDGER_CONTROLS`, so the DOC-01 trailer's fail-closed sweep
+reads each of them and this card owes it nothing new. The page's first transcript prints that
+ledger (`bodies run     []`), so a fired body fails the opening example on stdout as well as on
+`WA07-LEDGER` — DOC-14's `a-first-snapshot` idiom.
+
+Every subject on every route is an imported family builder; `tests/docs/test_travel_booking_tutorial.py`
+pins mechanically that no example authors workflow content of its own (no `StateGraph(`, no
+`add_node(`, no `add_edge(`, no `add_conditional_edges(`, no `@gebra.` in any block), so neither
+`SELF_DEFINED_MARKERS` nor `WRITES_A_MODULE`
+owes anything and there is no page-defined body to arm. The routes themselves are the ordinary
+ones, at larger scale: all ten examples reach `gebra.extract` — directly, or through
+`gebra.snapshot.snapshot`/`record` — and the one-run summary example performs thirteen
+extractions and eight recordings in a single child. The five defect variants are extracted and
+verified like any other builder; their twins record into the family ledger, and the strong-form
+fresh-interpreter arming for those graphs is `tests/dod/test_dod_guard.py`'s, which this page
+uses and does not substitute for. One example drives the **CLI** in process
+(`every-breaking-case-classified`: four `gebra diff` invocations), all over stored labels, so
+`resolve_import_reference` — the one verb path that imports a user module — is on none of this
+page's routes, and no example passes `--call`. Every `.gebra/` store, audit export and
+`lineage.json` lands in the child's temporary working directory, never the repository.
+`GUARD_PROLOGUE` is unchanged: the gebra surface these examples import — `gebra`, `gebra.audit`,
+`gebra.cli`, `gebra.lineage`, `gebra.snapshot`, `gebra.store`, `gebra.verify`,
+`gebra.versioning` — is already on its list.
+
+`tests/docs/test_travel_booking_tutorial.py` is the card's second in-process CLI surface: four
+`gebra diff` invocations re-rendering the page's four diff reports byte for byte, over
+stored labels only. Beyond the CLI it re-derives the page's claims the way the DoD harness does —
+a fresh verify run per defect variant, the evolve leg re-run end to end with the recorder's two
+refusals asserted by reason, the store's exports and lineage document re-read — and it asserts
+the family ledger empty before and after **every** test (the TE-05 autouse idiom), so a run in
+which a node had executed could not have produced any of it. Its stores live under pytest tmp
+paths; nothing in the module opens a network connection or writes into the repository.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

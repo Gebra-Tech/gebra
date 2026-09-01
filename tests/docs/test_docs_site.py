@@ -90,6 +90,7 @@ LANDED_PAGES = frozenset(
         "guides/pytest-plugin-and-ci-gating.md",
         "guides/snapshot-diff-and-evolution.md",
         "reference/cli.md",
+        "tutorials/travel-booking-end-to-end.md",
     }
 )
 

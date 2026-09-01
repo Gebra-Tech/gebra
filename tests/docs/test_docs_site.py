@@ -89,6 +89,7 @@ LANDED_PAGES = frozenset(
         "validators/p08-determinism-replay.md",
         "guides/pytest-plugin-and-ci-gating.md",
         "guides/snapshot-diff-and-evolution.md",
+        "reference/cli.md",
     }
 )
 

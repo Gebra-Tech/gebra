@@ -68,6 +68,9 @@ Written so far:
 - [Snapshot, diff and evolution](guides/snapshot-diff-and-evolution.md) — the `.gebra/` store, what
   the four V.S.F.E counters count, reading a diff report line by line over eight versions of one
   agent, and why the bump class routes a review rather than grading it;
+- [CLI reference](reference/cli.md) — the five verbs and every flag they take, how an invocation
+  names its subject, what each exit code means for each verb, and the surfaces `verify`,
+  `display` and `history` write;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

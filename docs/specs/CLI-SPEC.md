@@ -1019,7 +1019,13 @@ same witness-presence wording — not the same layout.
 
 **DOC-15 (CLI reference)** — documents the verbs that have merged, and only those, with
 examples executed in CI (WA-12). This document is a contract for implementers; it is not that
-reference and must not be published as one.
+reference and must not be published as one. **Landed 2026-09-01** as `docs/reference/cli.md`,
+which is the published page and excluded from nothing; this file stays out of the site by name
+(`mkdocs.yml`'s `exclude_docs`). The reference is held to the application rather than to this
+document: `tests/docs/test_cli_reference.py` compares each verb's flag table with that
+command's own declared options in both directions, re-executes the page's exit-code transcript,
+and reconciles the §3.1 three-code table cell for cell — so a change here that the
+implementation does not follow fails the reference's build, not only this file's own suite.
 
 **CLI-08 (D-12 promotion)** — stamps this document final alongside REPORT-FORMAT-SPEC, and
 closes or re-routes every open item below. **Landed 2026-08-31.** Both obligations are

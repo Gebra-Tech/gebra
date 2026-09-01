@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The CLI reference** (card DOC-15; CLI-SPEC and REPORT-FORMAT-SPEC as the merged surface,
+  PROPERTY-CATALOG-SPEC §0.2 for the exit-code semantics). `docs/reference/cli.md` replaces the
+  documentation skeleton's placeholder with the page a user or CI author looks a flag up in: the
+  five verbs and every option each one takes, the three input modes and the grammar an invocation
+  names its subject by, the exit codes `0`/`1`/`2` per verb, strict mode, the report surfaces
+  `verify`, `display` and `history` write, the stdout/stderr split, and the difference between a
+  usage error and a tool error.
+
+  Eleven examples run under the DOC-01 harness. `the-exit-codes` runs one invocation per
+  documented (verb, code) cell and prints the code each returned; `naming-the-subject` verifies
+  one agent as a document, as a live builder behind `--call` and as a stored version, printing the
+  `subject` block each run recorded; `strict-moves-the-gate` shows four strict policies over one
+  document with the recorded severity unchanged in every row; and the remaining eight print the
+  verb list, the human and machine report surfaces, a snapshot refused for a FATAL finding, a
+  diff, a Mermaid diagram, a history listing and six usage diagnostics.
+
+  The page's flag and exit-code tables are **asserted against the application rather than
+  transcribed**. `tests/docs/test_cli_reference.py` compares each verb's flag table with that
+  command's own declared options in both directions, reads every documented default and
+  `--format` value set off the parameter, re-executes the exit-code transcript line by line,
+  checks that the per-verb table covers exactly the cells that transcript demonstrates, runs the
+  input-mode matrix against real invocations, and reconciles the three-code table cell for cell
+  with CLI-SPEC §3.1's restatement of it — and, where the delivery repository is checked out
+  beside this one, with the frozen property catalog itself. A flag added to a verb and left
+  undocumented, a documented flag the verb does not have, a changed default and a moved exit code
+  each fail the build.
+
 - **The guide "Snapshot, diff and evolution"** (card DOC-14; brief D-11 In-Scope 1–7 and SOW §1's
   V.S.F.E vocabulary). `docs/guides/snapshot-diff-and-evolution.md` is the second published guide
   and the one a reviewer reads in front of a pull request: the `.gebra/` store and what each file

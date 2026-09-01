@@ -598,6 +598,74 @@ after **every** test in the module (the TE-05 autouse idiom), which is what the 
 claims rest on: it re-derives the gate verdicts and re-renders the diff reports the page prints,
 and a run in which a node had executed could not have produced either.
 
+### DOC-15 — the CLI reference, and the first documented `--call`
+
+`docs/reference/cli.md` adds eleven examples and is the first page on this site whose subject is
+the CLI itself. Two routes are new here, and both are named rather than left to inference: the
+`--call` opt-in, and — because the CLI is what a user hands an import reference to — the
+import-time execution that resolving one always performs.
+
+**`--call` is on the page's route once, on purpose.** `naming-the-subject` runs
+`gebra verify --import tests.sample_workflows.travel_booking:build_travel_booking_agent --call`,
+the one path on which the CLI calls a user object of its own accord — and a reference that
+documented the flag without ever exercising it would be describing behaviour nothing on this site
+checks. (Importing the module runs its top-level code either way; that concession is CLI-SPEC
+§2.4 step 1's, it is stated on the page where a reader meets it, and CLI-04's own tripwire arms
+an import-time marker for it.) What `--call` reaches is `build_travel_booking_agent`, a
+**builder**: it registers node callables and edges and returns the uncompiled `StateGraph`, so no
+node body, router, tool or model is invoked, and nothing is compiled. The guard is fully armed
+while it runs — `StateGraph.compile`, the whole `Runnable` invoke family, and every
+travel-booking body — and the two hazards fail through different marks, which is worth stating
+because they are not interchangeable: a **body** that ran records into the family ledger and
+raises its own `TravelBookingSentinelError`, so it surfaces as `WA07-LEDGER` (or, if the raise
+escapes, as a child that never reached the trailer at all) and never as `WA07-TRIP`; a
+**`compile()` or an `invoke`-family call** is a `_gebra_record` raiser and surfaces as
+`WA07-TRIP` with its name in `WA07-ATTEMPTS`.
+
+That invocation is the only **CLI** invocation on the page that enters
+`resolve_import_reference`, the CLI's lazy import of the extractor — nine of the eleven examples
+import `gebra.extract` and call it directly, so the extractor is loaded on almost every route
+regardless; what is unique here is the seam. The lazy import resolves out of `sys.modules` rather
+than running: `GUARD_PROLOGUE` already imports `gebra.extraction` and `gebra.cli` ahead of the
+arming sweep, which is exactly why it names them — a substrate import arriving *after* the sweep
+would land a `Runnable` subclass whose own `invoke` override shadows the armed base.
+
+`gebra snapshot` and `gebra diff` reach the same seam by construction (both accept import
+references), and `tests/docs/test_cli_reference.py` exercises all three verbs on an import target.
+Measured rather than counted by hand, the module makes **four** `--call` invocations — `verify`,
+`snapshot` and `diff` in the mode-matrix test, all three naming the reference as a positional
+`TARGET`, plus one `verify --format json --import … --call` in the subject-field test — and the
+factory is called **six** times in total: five through the CLI, because the two-sided `diff`
+resolves each side independently, and once directly in the module-scoped `subjects` fixture. Those
+runs are ledger-guarded (the autouse fixture below), not fresh-interpreter armed-raiser runs; the
+strong-form tripwires for this seam are CLI-04's `tests/cli/test_never_invokes.py` and CLI-05's
+`tests/cli/test_never_invokes_store.py`, and nothing here weakens or substitutes for them.
+
+The rest of the page's posture is ordinary. `naming-the-subject` is the only example that names an
+import reference at all; nine others take document and store targets, where
+`resolve_import_reference` is never entered; and `the-five-verbs` prints `--help` and touches no
+workflow. Extraction itself is on ten of the eleven routes either way — each of them writes its
+subject with `gebra.extract` and `gebra.ir.write_ir` first — which is the ordinary
+builder-path extraction every page on this site performs, and it lands in the child's temporary
+working directory, as does every `.gebra/` store the examples create; nothing is written into the
+repository. No example registers a node it defined or writes a module, so
+neither `SELF_DEFINED_MARKERS` nor `WRITES_A_MODULE` owes anything, and both sample-workflow
+modules the page imports (`travel_booking`, `travel_booking_defects`) already carry fired ledger
+controls in `SAMPLE_WORKFLOW_LEDGER_CONTROLS`. `GUARD_PROLOGUE` is unchanged by this card: the
+gebra surface these examples import — `gebra`, `gebra.cli`, `gebra.ir`, `gebra.snapshot`,
+`gebra.store` — is already on its list.
+
+`tests/docs/test_cli_reference.py` is the card's **third in-process CLI surface** and the busiest
+one: instrumenting `gebra.cli.main` for a whole session counts **72** invocations — the
+thirteen-row exit-code battery executed twice (26), the mode matrix (12), the format-acceptance
+sweep (9), the smaller-behaviour table (8), the help and version checks (7), the three
+report-shape and eligibility tests (7) and the subject-field test (3). It asserts the family
+ledger empty before and after **every** test in the module (the TE-05 autouse idiom), which is
+what the module's exit-code claims rest on — a run in which a node had executed could not have
+produced them. Nothing in the module opens a network connection: every subject is a local
+document, every store is under `tmp_path`, and the only read outside the repository tree is of
+the delivery repository's frozen catalog, behind a `skipif`.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

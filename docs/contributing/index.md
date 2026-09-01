@@ -233,6 +233,21 @@ Two rules ride along with the gate, and both exist because someone once wanted a
 - **A status change lands with the work it describes**, so the board and the tree never disagree
   about what is finished.
 
+The boards are held to their own rules mechanically. `tools/board_integrity.py` — in this
+repository, stdlib-only like the provenance guard — reads every board and the plan's gate table
+and refuses a duplicate card identifier, a prerequisite that names no card or gate, a dependency
+cycle, a status outside the seven, a `done` card with an unchecked box or no artifacts, a card
+sitting in the wrong section, and, given an earlier board state, a status change that is not an
+arrow of the transition diagram; a claim with no linked activity for more than five working days
+is flagged as stale rather than failed. The maintainers' `/plan-status check` runs that script,
+and the development-process repository's CI runs it on every push, so a skill verdict and a CI
+verdict cannot differ. It finds the boards on its own where the development-process repository
+is checked out beside this one:
+
+```bash
+python tools/board_integrity.py
+```
+
 ### If you do not have board access
 
 Most contributors will not, during the private phase. The route is an issue on this repository:

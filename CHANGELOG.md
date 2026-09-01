@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The board-integrity check** (card TOOL-02). `tools/board_integrity.py` computes, over the
+  task boards, the rules the maintainers' `/plan-status check` states: unique card identifiers
+  in the `<PREFIX>-<NN>` / `<PREFIX>-D<N>` grammar, prerequisite tokens that each resolve to a
+  card or a gate, no dependency cycles (reported as the full path), only the seven stored
+  statuses with a claim recorded exactly when the status says one exists, `done` cards in
+  `## Done` with every acceptance box checked and artifacts filled, `on-hold` cards that link
+  their reason, `superseded` cards that name their replacement, a gate table consistent with
+  the boards, board-index counts that match, and — given an earlier board state
+  (`--base-plan`, or `--base`/`--head` to walk a push commit by commit) — every status change
+  an arrow of the transition diagram, with `done`, `dropped` and `superseded` terminal and a
+  claim legal only on a READY card. An `in-progress` claim with no linked activity for more
+  than five working days is flagged stale as a WARNING (under `--git`, the newest commit
+  mentioning the card counts as activity); warnings never fail a run, any ERROR does, and a
+  plan that cannot be read is exit status 2 rather than a pass. It is stdlib-only, like the
+  provenance guard, so the development-process repository — where the boards live — runs a
+  byte-identical copy as its `board-integrity` job on every push with nothing to install, and
+  the maintainers' `/plan-status check` runs the same script rather than restating its rules:
+  one computation, not two readings.
+  `tests/test_board_integrity.py` (139 items) drives every rule over miniature boards written
+  in the real format, demonstrates the seeded dangling prerequisite, the seeded cycle and the
+  seeded stale claim on a copy of the real boards with the originals byte-verified untouched,
+  runs the real boards clean, and fakes the git boundary throughout. The contributor guide's
+  section on the boards gained a paragraph naming what the check refuses.
+
 - **The contributor guide** (card DOC-19). `docs/contributing/index.md` replaces the last
   placeholder the documentation skeleton reserved, so the site now has no unwritten page in it.
   It is the path from a clone to a first merged change, in the order a contribution meets each

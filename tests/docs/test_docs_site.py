@@ -94,6 +94,7 @@ LANDED_PAGES = frozenset(
         "tutorials/travel-booking-end-to-end.md",
         "reference/api.md",
         "reference/architecture.md",
+        "contributing/index.md",
     }
 )
 

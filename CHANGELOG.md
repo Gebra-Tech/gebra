@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The contributor guide** (card DOC-19). `docs/contributing/index.md` replaces the last
+  placeholder the documentation skeleton reserved, so the site now has no unwritten page in it.
+  It is the path from a clone to a first merged change, in the order a contribution meets each
+  step: where the two repositories are and why part of this one is a byte-copy of another; the
+  CLA and the signature record a reviewer actually checks; setup and the four local gates; how
+  work is chosen and what makes a card claimable; the vendored files that may not be edited and
+  the guard that refuses each way of editing them; the spec-defect protocol and the shortcut it
+  exists to close; the fixture corpus and the four steps a revision takes; commit conventions and
+  the one trailer that is not optional; and what the eighteen CI jobs refuse.
+
+  `CONTRIBUTING.md` is referenced rather than superseded — it stays the mechanics reference and
+  now links to the guide from its first line, and the one sentence it carried that the guide
+  answers ("development-process documentation is maintained separately; contact the maintainer")
+  is replaced by a pointer to the section that walks the route.
+
+  Writing the last reserved page also settled the README's "Published documentation site" row,
+  which had been `in development` because a skeleton remained. It stays `in development` for the
+  other half of the claim: all twenty pages are written and CI builds the site with
+  `mkdocs build --strict` on every push, but nothing deploys it — GitHub Pages is the recorded
+  destination and no publish step is wired anywhere. The row's probe now checks that, and it
+  cites no card, because no card in the plan publishes the site.
+
+  Two examples run under the DOC-01 harness: the dependency gate computed over a four-card
+  miniature board the example writes and reads back, printing a READY verdict, a not-a-candidate
+  verdict and a refusal naming both an unfinished prerequisite and an unsigned gate; and the
+  provenance guard run over a sandbox guarded tree, clean and then across the three ways a branch
+  breaks it — an in-place edit, a deletion, and a file added by hand.
+  `tests/docs/test_contributor_guide.py` (47 items) reads the page's claims off the things they
+  describe rather than trusting them: the guard's failure classes off `Report`'s own fields in
+  both directions, its diagnostics off its own strings, and the `--provenance-doc` qualifier off
+  the parser's default and the workflow's command line; the readiness rule, the status vocabulary
+  and the claim commit against the plan's definitions where that repository is checked out; the
+  miniature board's own two patterns run over a real board, so the format it demonstrates is the
+  format the boards use; the two golden trailer forms passed through `golden_guard.well_formed`
+  and the Markdown carve-out fired against `golden_paths_touched` in both directions; the job
+  table and the job count off `ci.yml`; the four gate commands held equal to `CONTRIBUTING.md`'s;
+  what a fixture *is* held to the corpus's own README; the CLA route against `CLA.md`; and the
+  walkthrough's prerequisite list against the card's own.
+
+  These are also the first documentation examples to import one of this repository's own
+  `tools/` modules, so the executable-examples harness gains a **fifth** derived page-level rule
+  beside the four DOC-01 and DOC-18 established. The hazard is ordering, not this module:
+  `GUARD_PROLOGUE` arms the whole `Runnable` subclass tree once, and a module imported by an
+  example loads behind that sweep — so the day a `tools/` module grew a substrate import, its
+  subclasses' `invoke` overrides would shadow the armed base and the trailer would report a clean
+  run. The prologue therefore imports `tools.provenance_guard` itself, in front of the sweep; the
+  new rule holds the prologue and the examples equal in both directions; and a third test imports
+  each named module in a fresh interpreter and asserts it pulls no `langgraph`, `langchain_core`
+  or `gebra`.
+
 - **The install, compatibility and versioning guide** (card DOC-18; VERSION-COMPAT §1/§4 as the
   ruling specification, EX-12's first-extract check and the SD-02 version engine as the code it
   describes). `docs/guides/install-and-compatibility.md` replaces the documentation skeleton's

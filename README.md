@@ -45,7 +45,7 @@ a row is `available` only where the capability is in the package and covered by 
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md) |
 | Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached — see [the CLI reference](docs/reference/cli.md) |
-| Published documentation site | in development | nineteen pages are written, including the flagship end-to-end tutorial, all five per-validator explainers, three guides and the CLI, API and architecture references; the rest of the site is a reserved skeleton this README does not link to |
+| Published documentation site | in development | all twenty pages are written — no placeholder is left — and CI builds the site with `mkdocs build --strict` on every push; nothing deploys it, so it is read here in the repository |
 | Installation from a package index | in development | nothing is published yet — [install from a checkout](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -278,8 +278,8 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-The documentation site is still being written — nineteen of its pages are done. Those, and the
-repository documents worth reading beside them:
+All twenty pages of the documentation site are written; nothing publishes them yet, so they are
+read here in the repository. Those, and the repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
   exit codes, strict mode, and what a finding does and does not claim.
@@ -340,14 +340,17 @@ repository documents worth reading beside them:
   public packages, the six stages from a live agent to a diff report, which two packages
   import the execution substrate and which fourteen do not, what changing each frozen surface
   costs, and the 1.x design-tracked backlog appendix.
+- [Contributor guide](docs/contributing/index.md) — clone to first merged change: the CLA, how
+  work is chosen and what makes a task claimable, the vendored files you may not edit and the
+  guard that enforces it, what to do when a frozen document cannot be implemented as written,
+  how a fixture changes, commit conventions, and what the eighteen CI jobs refuse.
 - [Executable examples](docs/contributing/executable-examples.md) — how the examples on the
   site are marked, run and checked in CI.
 - [The CI-gate GitHub Action](docs/ci/github-action.md) — the action's own interface reference:
   inputs, outputs and the refusal vocabulary. (A repository document, not a site page.)
 - [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md)
 
-Everything else in the site's navigation is a reserved placeholder that documents nothing.
-Read the source and the test suite until the page it names is written.
+That is the site's whole navigation: no reserved placeholder is left in it.
 
 ## Open core
 

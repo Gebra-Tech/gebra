@@ -1,5 +1,12 @@
 # Contributing to gebra
 
+**New here? Start with the [contributor guide](docs/contributing/index.md)** — clone to first
+merged change, in the order you meet each step: the CLA, how work is chosen and what makes a task
+claimable, the vendored files you may not edit and the guard that enforces it, what to do when a
+frozen document cannot be implemented as written, how a fixture changes, commit conventions, and
+what each CI job refuses. This file is the mechanics reference it links into: exact commands,
+exact configuration, and the procedures in full.
+
 ## Contributor License Agreement (CLA)
 
 All contributions require a signed Contributor License Agreement with
@@ -68,8 +75,9 @@ optional scope, e.g. `feat(ir): add SendEdge model`.
 snapshot of the specification vault, and a shared contract surface treated as
 read-only. Fixture additions or revisions route through the maintainer's review
 process (a validator/fixture mismatch is a logged decision, never a quiet edit).
-Development-process documentation for regular contributors is maintained
-separately; contact the maintainer.
+The [contributor guide](docs/contributing/index.md) walks that route — what the
+corpus is, why a mismatch is a decision rather than an edit, and the four steps a
+revision takes.
 
 A CI job enforces this rather than leaving it to review. Run it yourself:
 

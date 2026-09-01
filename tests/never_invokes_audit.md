@@ -850,6 +850,77 @@ it. It needs no guard, and `-W error` is the point of it, since the claim under 
 importing gebra emits no warning. The module writes nothing into the repository and opens no
 connection.
 
+### DOC-19 — the contributor guide, and the first examples to import out of `tools/`
+
+No file under `src/` is touched by this card, so §1's machine check owes it nothing and no
+tripwire is due. `GUARD_PROLOGUE` gains exactly one import, for the reason in the next
+paragraph but one.
+
+The page's two examples are the first on this site whose *subject* is the build's own process
+rather than the package's behaviour, and the consequence is that neither reaches a workflow
+object, the substrate, or `gebra` itself. (They are not the first examples to reach no workflow
+object — DOC-18's `what-the-install-brings` and `the-three-compatibility-classes` already did.)
+`the-dependency-gate` imports `re` and `pathlib`, writes a four-card Markdown board into its
+child's temporary working directory, reads it back and applies the readiness rule to it — the
+file it writes is a `.md`, not a module, so the trailer's `__file__` sweep finds nothing of the
+page's own to sweep, and `WRITES_A_MODULE` misses it on both counts (the hyphen and the
+extension) as well as in intent: a `.md` is not importable and this one is only ever read.
+`the-provenance-guard` imports `tools.provenance_guard`, whose whole import closure is
+`argparse`, `hashlib`, `json`, `re`, `sys`, `dataclasses`, `pathlib` and `typing` — the `tools`
+package's own `__init__` is a docstring and imports nothing — and hands it a sandbox tree of two
+files. `run_example` opens a fresh `TemporaryDirectory` per example, so the board and the sandbox
+never coexist, and every file either example writes (`demo-board.md`, two vendored files, a third
+added mid-example, and `manifest.json`) lands in one of those directories and never in the
+repository. All four of the harness's earlier derived page-level rules pass the page by: no
+example imports a sample workflow (so no `SAMPLE_WORKFLOW_LEDGER_CONTROLS` leg is owed), none
+constructs a graph (`SELF_DEFINED_MARKERS` is absent), none writes a module, and none assigns to
+an attribute of an imported module.
+
+**The new idiom is the `tools/` import, and it lands with its rule (WA-07's same-change
+requirement).** `GUARD_PROLOGUE` arms the whole `Runnable` subclass tree once, at a fixed point,
+and the two `langchain_core` imports above that sweep are there precisely so their classes load
+*in front* of it. A module imported by an example loads *behind* it — so the day a `tools/`
+module grew a substrate import, the `Runnable` subclasses it pulled would carry their own
+`invoke` overrides past the raisers, and the trailer would report a clean run because the
+attempts it counts are the ones its own raisers record. `tools.provenance_guard` is stdlib-only
+today, which makes this latent rather than live; it is named in `GUARD_PROLOGUE` regardless, and
+`tests/docs/test_doc_examples.py` gains a **fifth** derived page-level rule beside the four
+above: every `tools.` module an example imports must be one the prologue loads first, held in
+both directions, plus a third test that imports each named module in a fresh interpreter and
+asserts it pulls no `langgraph`, `langchain_core` or `gebra` — so the closure claimed a paragraph
+ago is checked rather than asserted.
+
+**What the clean run establishes, and what it does not.** Both examples finish with
+`WA07-ATTEMPTS`, `WA07-LEDGER` and `WA07-UNLEDGERED` empty — but only the first of those three is
+live here. Neither example loads a ledger-bearing module, so the swept set in these children is
+`__main__` alone, which the trailer exempts by design; the last two marks are empty by
+construction and carry no information for this page. The load-bearing legs are `WA07-ATTEMPTS`,
+the trailer being reached at all, the return code, and the stdout comparison against the page.
+That is adequate because there is no node here to execute — and the ledger leg was still
+exercised, from the probe side, below.
+
+**Fourteen control probes fired inside these two examples — seven each, after the page's own
+code — and twelve were caught.** A socket, a `create_connection`, a `getaddrinfo`, a
+`StateGraph.compile` on a graph the probe builds, and a `RunnableLambda.invoke` all raise; so do
+two swallowed-body probes that import `tests.sample_workflows.travel_booking` and call
+`book_flight` and `route_booking` inside a bare `except BaseException` — those two are what make
+the ledger leg a measured claim rather than a vacuous one, since importing the fixture is what
+puts a ledger in the swept set. The two not caught are one probe run against each example: the
+attribute-rebinding disarm, which replaces an armed `RunnableLambda.invoke` and then calls it.
+That is the *known* finding DOC-18 recorded — the trailer cannot see a raiser it did not install
+— and it is exactly why the refusal is a discovery-time AST rule rather than a run-time check.
+Neither of this page's examples has an attribute assignment target, so both are inside that rule
+rather than relying on the trailer to catch one.
+
+`tests/docs/test_contributor_guide.py` is text-and-tooling only: it reads Markdown, YAML and
+Python source, and imports three stdlib-only tooling modules for the surfaces it reconciles the
+page against. From `tools.golden_guard` it takes `GOLDEN_PATHS`, `TRAILER_KEY` and `well_formed`
+and nothing else — that module imports `subprocess` and defines `_git`, but every call site is
+inside a function this module does not import, and nothing at its import time runs one.
+`tools.honest_claims_lint` and `tools.provenance_guard` are stdlib-only outright. The module does
+not import `gebra`, construct a workflow, execute an example, or spawn a process, so it needs
+neither a guarded child nor the TE-05 family-ledger fixture, and it opens no connection.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

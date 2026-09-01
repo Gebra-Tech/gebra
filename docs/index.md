@@ -21,15 +21,17 @@ runs exactly those bytes and holds the printed output to what the page shows —
 [Executable examples](contributing/executable-examples.md) explains how. A page cannot show a
 transcript its own code did not produce.
 
-## This site is still being written
+## What is on this site
 
-Some pages linked in the navigation are still **placeholders** — a title and a note saying what
-the page is reserved for, and nothing else. That is deliberate: the skeleton and the
-example harness landed first, so that a page's examples are executed and checked from the day
-it appears. A placeholder documents nothing; read the source and the test suite instead until
-it is replaced.
+Every page the navigation lists is written: the skeleton reserved one page per planned topic and
+the last reservation has now been replaced. That order was deliberate — the skeleton and the
+example harness landed first, so that a page's examples were executed and checked from the day it
+appeared rather than from the day someone got round to it.
 
-Written so far:
+The site itself is built by CI on every push (`mkdocs build --strict`, where a warning is a
+failure) and is not deployed anywhere yet, so these pages are read in the repository.
+
+The pages, in the order they were written:
 
 - this page;
 - [What gebra checks](concepts/what-gebra-checks.md) — claim classes, the severity ladder,
@@ -89,7 +91,11 @@ Written so far:
   `GebraVersionWarning` and the out-of-range envelope warning each mean, and what a version
   change moves — the substrate's, gebra's own, and your workflow's V.S.F.E label;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
-  marked, run and checked.
+  marked, run and checked;
+- [Contributor guide](contributing/index.md) — the last of them: clone to first merged change —
+  the CLA, how work is chosen and what makes a task claimable, the vendored files that may not be
+  edited and the guard that enforces it, what a spec defect is and what to do about one, how a
+  fixture changes, commit conventions, and what the CI jobs refuse.
 
 ## How the site is arranged
 

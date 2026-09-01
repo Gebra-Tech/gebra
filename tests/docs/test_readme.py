@@ -148,12 +148,29 @@ def _the_five_verbs_are_registered() -> None:
     assert registered == {"verify", "snapshot", "diff", "display", "history"}
 
 
-def _the_site_is_still_a_skeleton() -> None:
-    """The row says `in development`; that is only honest while placeholders remain."""
-    placeholders = [
-        page for page in DOCS.rglob("*.md") if page.read_text(encoding="utf-8").startswith("<!--")
+#: How a workflow would publish the site. Any of these appearing in `.github/workflows/` means
+#: a deployment exists, which is the half of "published" this repository does not do.
+_PUBLISH_MARKERS = re.compile(
+    r"gh-pages|actions/deploy-pages|actions/upload-pages-artifact|gh-deploy|actions-gh-pages"
+)
+
+
+def _the_site_is_built_but_not_published() -> None:
+    """The row says `in development`, and after DOC-19 the reason changed rather than expired.
+
+    While reserved pages remained, what made the row honest was the skeleton. DOC-19 wrote the
+    last of them, so the honest half is now the other one: the `docs` job builds the site under
+    `mkdocs build --strict` on every push and *deploys nothing*. PD-051 ruling 6 recorded
+    GitHub Pages as the destination and wired no publish step, and none has been wired since.
+    When one is, this fails — which is the prompt to revisit the row, not a licence to have
+    called it `available` early.
+    """
+    deploying = [
+        path.name
+        for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
+        if _PUBLISH_MARKERS.search(path.read_text(encoding="utf-8"))
     ]
-    assert placeholders, "every reserved page has been written — the site row is stale"
+    assert deploying == [], deploying
 
 
 def _nothing_is_published() -> None:
@@ -258,15 +275,18 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
     RowSpec(
         capability="Published documentation site",
         status=IN_DEVELOPMENT,
-        probe=_the_site_is_still_a_skeleton,
-        # The two unwritten pages are cited alongside the written ones, because this row's
-        # status turns on what is *left*. DOC-17 landing exhausted the earlier list — every
-        # card it named was `done` while the site was still a skeleton — which is exactly
-        # the staleness `test_no_row_stays_behind_the_boards` exists to catch. DOC-18 and
-        # DOC-19 are the last two reserved pages; when the second of them lands, this row
-        # has to be revisited rather than extended again, and the probe above says the same
-        # thing from the other side: no placeholder left means the row is stale.
-        cards=("DOC-03", "DOC-05", "DOC-15", "DOC-17", "DOC-18", "DOC-19"),
+        probe=_the_site_is_built_but_not_published,
+        # DOC-19 wrote the last reserved page, which is the revisit the previous card list
+        # said was coming rather than another extension of it. The row cites no card now, and
+        # that is the correction: what keeps it out of `available` was never how many pages
+        # were written, it is that nothing publishes them. Every DOC card is `done` and the
+        # site still is not published, so a card list here could only ever read as stale —
+        # `test_no_row_stays_behind_the_boards` was right about the old one.
+        reason=(
+            "PD-051 ruling 6 recorded GitHub Pages as the destination and wired no publish "
+            "step; GOV-03 landed the release workflow without one, so no card in the plan "
+            "deploys the site, and the repository's public flip is the owner-run M14 step"
+        ),
     ),
     RowSpec(
         capability="Installation from a package index",

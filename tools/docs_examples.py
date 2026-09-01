@@ -450,6 +450,16 @@ import langchain_core.language_models
 # explicitly, and fired by a control in `tests/docs/test_doc_examples.py`.
 import langchain_core.tools
 
+# The repository's own tooling, for pages whose subject is the build rather than the package
+# (DOC-19's contributor guide is the first). These are stdlib-only today, but a page importing
+# one after the sweep is the same latent shape as the two imports above: the day such a module
+# grew a substrate import, the `Runnable` subclasses it loaded would land *behind* the sweep and
+# their `invoke` overrides would shadow the armed base. Named here so the import happens in
+# front of it instead, and held to this list in both directions by a page-level rule in
+# `tests/docs/test_doc_examples.py` — an example importing a `tools.` module absent from here
+# fails at discovery.
+import tools.provenance_guard
+
 # INTROSPECTION-SPEC §1 rule 1 names `Runnable.invoke/stream/batch` beside node functions
 # and routers, and arming `StateGraph.compile` does not reach them: an LCEL chain is invoked
 # without anything being compiled. Every override loaded at this point is armed, base class

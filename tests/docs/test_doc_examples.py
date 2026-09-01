@@ -32,6 +32,7 @@ from tests.sample_workflows import (
 )
 from tools.docs_examples import (
     DEFAULT_INCLUDE,
+    GUARD_PROLOGUE,
     INHERITED_ENV,
     DocExample,
     DocExampleError,
@@ -800,6 +801,70 @@ def test_a_rebinding_that_disarms_a_raiser_is_what_the_rule_refuses() -> None:
 
     assert result.ok, "the disarm is invisible to the trailer — that is the finding"
     assert _rebound_attributes(probe) == {"_probe_runnables.RunnableLambda.invoke"}
+
+
+#: How an example names one of this repository's own tooling modules. The fifth derived rule,
+#: and DOC-19's: the contributor guide is the first page whose subject is the build rather than
+#: the package, so it is the first to import out of ``tools/``. Those modules are stdlib-only
+#: today, which is exactly why the rule is about *shape* — an import that happens after
+#: ``GUARD_PROLOGUE``'s sweep loads its classes behind the raisers, so the day one grew a
+#: substrate import its ``Runnable`` subclasses would shadow the armed base, and the trailer
+#: would report a clean run. The prologue therefore imports every such module itself, in front
+#: of the sweep, and this rule holds the page and the prologue equal in both directions.
+TOOLS_IMPORT = re.compile(r"^\s*(?:from|import)\s+(tools\.[a-z_][a-z0-9_]*)", re.MULTILINE)
+
+
+def _tooling_modules(code: str) -> set[str]:
+    return set(TOOLS_IMPORT.findall(code))
+
+
+def _tooling_modules_the_prologue_arms() -> set[str]:
+    return _tooling_modules(GUARD_PROLOGUE)
+
+
+def test_no_example_imports_a_tooling_module_the_prologue_does_not_load_first() -> None:
+    """The fifth page-level rule: a `tools.` import must be one the guard already made."""
+    armed = _tooling_modules_the_prologue_arms()
+    assert armed, "GUARD_PROLOGUE names no tooling module — the rule below would be vacuous"
+
+    for example in EXAMPLES:
+        imported = _tooling_modules(example.code)
+        assert imported <= armed, (
+            f"{example.name} imports {sorted(imported - armed)}. A documentation example may "
+            "only import a tools/ module GUARD_PROLOGUE loads before it arms the Runnable "
+            "tree; otherwise a substrate import added to that module later would land behind "
+            "the sweep and shadow the raisers."
+        )
+
+
+def test_every_tooling_module_the_prologue_names_is_one_an_example_uses() -> None:
+    """The other direction: an entry nothing imports is one nobody would notice going stale."""
+    imported = {module for example in EXAMPLES for module in _tooling_modules(example.code)}
+
+    assert _tooling_modules_the_prologue_arms() <= imported
+
+
+def test_the_tooling_modules_examples_import_stay_free_of_the_substrate() -> None:
+    """And the property that makes them safe, measured rather than assumed.
+
+    Importing one of these in a fresh interpreter must not pull langgraph or langchain-core.
+    The prologue's ordering makes a future substrate import *harmless*; this makes it *visible*,
+    which is what keeps the audit's "stdlib-only closure" sentence a checked statement.
+    """
+    watched = "{'langgraph', 'langchain_core', 'gebra'}"
+    for module in sorted(_tooling_modules_the_prologue_arms()):
+        program = (
+            f"import sys, {module}\n"
+            f"print(sorted(n for n in sys.modules if n.split('.')[0] in {watched}))\n"
+        )
+        finished = subprocess.run(
+            [sys.executable, "-c", program],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert finished.stdout.strip() == "[]", f"{module}: {finished.stdout.strip()}"
 
 
 @requires_an_example

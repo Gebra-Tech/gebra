@@ -776,6 +776,80 @@ that one test's. It adds no extraction path — it calls `gebra.extract()` and n
 packages and reads Markdown; its one subprocess is `ruff format --check` over the committed page.
 Neither module writes into the repository or opens a connection.
 
+### DOC-18 — the install and compatibility guide, and three examples that replace a reader
+
+No file under `src/` is touched by this card, so §1's machine check owes it nothing and no
+tripwire is due. `GUARD_PROLOGUE` is unchanged: the page's examples reach `gebra`,
+`gebra.extraction` and `gebra.versioning`, all three already named in it.
+
+Seven examples run under the DOC-01 harness, and they divide into three shapes.
+`what-the-install-brings` and `the-three-compatibility-classes` reach no workflow object at all —
+the first reads `importlib.metadata` for the **gebra** distribution (metadata, not an import: the
+substrate is never imported by that route, which is the same reason
+`gebra.extraction.compat.read_installed_versions` is allowed to read it inside a guarded run at
+all), and the second constructs `SubstrateVersions` values and classifies them.
+`checking-your-own-install` calls the real reader over the live install and prints a boolean.
+The remaining four import `tests.sample_workflows.travel_booking` or
+`travel_booking_evolution` — the first defines the family ledger and the second re-exports it,
+and both already carry a fired control in `SAMPLE_WORKFLOW_LEDGER_CONTROLS`, so the trailer's
+fail-closed sweep reads them and this card adds no ledger obligation. Three of those four print
+the ledger — two as their last line (DOC-14's `a-first-snapshot` idiom) and one mid-transcript —
+so a fired body fails them on stdout as well as on `WA07-LEDGER`; `an-out-of-range-substrate`
+prints none and rests on `WA07-LEDGER` alone, which the WA-07 reviewer fired a swallowed-body
+control at. `SELF_DEFINED_MARKERS` and `WRITES_A_MODULE` both pass the page by: no example
+constructs a graph of its own or writes a module, none passes `--call`, none reaches
+`resolve_import_reference`, and none drives the CLI.
+
+**Three examples replace `gebra.extraction.compat.read_installed_versions` with a lambda, and
+that is worth stating rather than leaving to be noticed.** It is a substitution *toward* a
+constant: the real function reads two distributions' `importlib.metadata` entries, and the
+replacement returns a `SubstrateVersions` the page names inline. It disarms nothing — no raiser,
+no guard, no sweep is touched — and it cannot make anything run, because the value it feeds is
+consumed only by `classify_substrate` and by the two message builders. What it does reach is the
+ordinary builder-path `gebra.extract()` on the sentinel-guarded travel-booking agent, which
+compiles nothing (`build_travel_booking_agent` returns the uncompiled builder) and whose bodies
+raise if called. The WA-07 reviewer measured all of that rather than taking it: nine control
+probes fired *inside these examples, after the substitution* — four swallowed-body probes across
+both fixtures, a socket, a `create_connection`, a `getaddrinfo`, a `StateGraph.compile` and a
+`RunnableLambda.invoke` — every one caught; and after each of the seven examples finishes, every
+`invoke`/`ainvoke`/`stream`/`astream`/`batch`/`abatch` override in the whole `Runnable` subclass
+tree is still the harness's raiser.
+
+**The shape, though, is new on this site, and it now has a rule.** These three are the first
+documentation examples anywhere in the tree that assign to an attribute of an imported module.
+The targets here are inert, but the *shape* is not: the same statement aimed at
+`Runnable.invoke` would replace a raiser the harness installed, and the trailer would then
+report a clean run, because the attempts it counts are the ones its own raisers record. The
+reviewer demonstrated exactly that. So `tests/docs/test_doc_examples.py` gains a fourth
+page-level rule beside `SAMPLE_WORKFLOW_LEDGER_CONTROLS`, `SELF_DEFINED_MARKERS` and
+`WRITES_A_MODULE`: an AST scan of every discovered example for an assignment onto an attribute
+target, refused unless `ATTRIBUTE_REBINDING_ALLOWED` names that example and that dotted target.
+Both directions hold — an entry naming an example that no longer rebinds fails too — and a
+control fires the disarm above and asserts what the reviewer found: the guard reports it clean,
+which is why the refusal lives at discovery time rather than at run time.
+
+`tests/docs/test_install_and_compatibility.py` hands live workflows to `gebra.extract()` in
+process — the travel-booking agent and all eight evolution stages — so it carries the TE-05
+autouse fixture asserting the family ledger empty on entry to and exit from **every** test, and a
+second autouse fixture that binds the real `read_installed_versions` and clears the memo **both
+before and after** every test. Restoring only on teardown would re-install whatever was bound at
+setup, so a module that leaked a simulated reader would be preserved by the fixture rather than
+caught by it; the real function is captured at import, before any test has run, which is
+`tests/extraction/test_compat.py`'s own idiom. Measured across the boundary by the reviewer:
+after all of this module's items the real reader is bound, `_cached` is `None`, `_warned` is
+`False`, and combined runs in both orders are green. It adds no extraction path: it calls
+`gebra.extract()`, `classify_substrate()`, `out_of_range_warning()`, `check_version_once()`,
+`reset_version_check_cache()`, the version engine, and the honest-claims lint's text-only
+`scan()` — and nothing else. Its one subprocess is a bare
+`python -W error -c "import gebra; …"` child — the second such child in `tests/docs/`, after
+`test_architecture_overview.py`'s import-closure children — which imports the library only
+(fifteen modules, none of them the substrate), constructs no workflow, and asserts on
+`sys.modules`; like those children it inherits the parent's environment rather than the DOC-01
+harness's allowlist, which is inert here because that import can reach nothing that would use
+it. It needs no guard, and `-W error` is the point of it, since the claim under test is that
+importing gebra emits no warning. The module writes nothing into the repository and opens no
+connection.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

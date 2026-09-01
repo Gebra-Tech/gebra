@@ -84,6 +84,10 @@ Written so far:
   packages, the six stages from a live agent to a diff report, which two packages import the
   execution substrate and which fourteen do not, what each freeze record costs to change, and
   the 1.x backlog appendix;
+- [Install and compatibility](guides/install-and-compatibility.md) — how to install gebra from
+  a checkout, the tested Python and substrate pairs and what falls outside them, what
+  `GebraVersionWarning` and the out-of-range envelope warning each mean, and what a version
+  change moves — the substrate's, gebra's own, and your workflow's V.S.F.E label;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

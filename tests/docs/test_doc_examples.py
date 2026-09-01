@@ -15,6 +15,7 @@ node, calls no model and opens no connection, and neither does anything it start
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
@@ -705,6 +706,100 @@ def test_the_tool_a_page_shows_as_a_node_is_armed_like_any_other_body() -> None:
     assert any(
         "WA07-LEDGER ['booking_agent:find_hotels.impl']" in problem for problem in result.problems
     )
+
+
+#: Examples that assign to an attribute of an imported module — ``compat.read = …``. The
+#: fourth derived rule, and the newest: DOC-18's compatibility page needs to show what
+#: ``extract()`` does on a substrate the machine running the example does not have, and does it
+#: by pointing the version check's metadata reader at a value the page names inline. That is
+#: safe — the target reads ``importlib.metadata`` and its result reaches nothing but the
+#: classifier and two message builders — but nothing about the *shape* is: the same statement
+#: aimed at ``Runnable.invoke`` would rebind a raiser this harness armed, and the trailer would
+#: report a clean run because the raiser it counts is the one it installed. So the shape is
+#: allowlisted by (example, dotted target) rather than permitted, and every other rebinding
+#: fails here. Fired by the control below, which disarms exactly that way.
+ATTRIBUTE_REBINDING_ALLOWED: dict[str, tuple[str, ...]] = {
+    "docs/guides/install-and-compatibility.md::the-version-warning": (
+        "compat.read_installed_versions",
+    ),
+    "docs/guides/install-and-compatibility.md::treating-the-warning-as-an-error": (
+        "compat.read_installed_versions",
+    ),
+    "docs/guides/install-and-compatibility.md::an-out-of-range-substrate": (
+        "compat.read_installed_versions",
+    ),
+}
+
+
+def _rebound_attributes(code: str) -> set[str]:
+    """Every dotted attribute target an example assigns to, by AST rather than by text."""
+    targets: set[str] = set()
+    tree = ast.parse(code)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            assigned: list[ast.expr] = list(node.targets)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            assigned = [node.target]
+        else:
+            continue
+        for target in assigned:
+            if isinstance(target, ast.Attribute):
+                targets.add(ast.unparse(target))
+    return targets
+
+
+def test_no_example_rebinds_an_attribute_outside_the_allowlist() -> None:
+    """The fourth page-level rule, for the shape that can silently disarm the guard.
+
+    The three rules above ask a page to *add* something (a ledger, a control). This one
+    refuses something: an example may not rebind a module attribute unless it is named here,
+    because the guard's raisers are module attributes too and rebinding one is indistinguishable
+    from ordinary Python. The trailer cannot catch it — it reports the attempts its own raisers
+    recorded, and a replaced raiser records nothing — so the rule has to live at discovery time.
+    """
+    for example in EXAMPLES:
+        allowed = set(ATTRIBUTE_REBINDING_ALLOWED.get(example.name, ()))
+        rebound = _rebound_attributes(example.code)
+        assert rebound <= allowed, (
+            f"{example.name} rebinds {sorted(rebound - allowed)}. A documentation example may "
+            "not assign to a module attribute unless ATTRIBUTE_REBINDING_ALLOWED names it: the "
+            "WA-07 guard's raisers are module attributes, and the trailer cannot tell a "
+            "replaced raiser from one nothing tripped."
+        )
+
+
+def test_the_allowlist_names_examples_that_exist_and_really_rebind() -> None:
+    """The other direction: a stale entry would license a rebinding nobody looked at."""
+    by_name = {example.name: example for example in EXAMPLES}
+
+    for name, targets in ATTRIBUTE_REBINDING_ALLOWED.items():
+        example = by_name.get(name)
+        assert example is not None, f"{name} is gone — drop its allowlist entry"
+        assert set(targets) <= _rebound_attributes(example.code), (
+            f"{name} no longer rebinds {sorted(set(targets) - _rebound_attributes(example.code))}"
+        )
+
+
+@requires_an_example
+def test_a_rebinding_that_disarms_a_raiser_is_what_the_rule_refuses() -> None:
+    """The rule fired: the disarm it exists to refuse really is invisible to the trailer.
+
+    Appended to a real example, this rebinds an armed ``invoke`` and then calls it. The child
+    finishes green with empty attempts and an empty ledger — the guard reports nothing, because
+    the raiser it counts is the one this probe replaced. That is why the refusal is a
+    discovery-time rule over the page's source rather than a run-time check.
+    """
+    assert CONTROL_EXAMPLE is not None
+    probe = (
+        "import langchain_core.runnables as _probe_runnables\n"
+        "_probe_runnables.RunnableLambda.invoke = lambda self, value, *a, **k: value\n"
+        "_probe_runnables.RunnableLambda(lambda value: value).invoke({'k': 1})\n"
+    )
+
+    result = run_example(CONTROL_EXAMPLE, root=REPO_ROOT, probe=probe)
+
+    assert result.ok, "the disarm is invisible to the trailer — that is the finding"
+    assert _rebound_attributes(probe) == {"_probe_runnables.RunnableLambda.invoke"}
 
 
 @requires_an_example

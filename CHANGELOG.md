@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The install, compatibility and versioning guide** (card DOC-18; VERSION-COMPAT §1/§4 as the
+  ruling specification, EX-12's first-extract check and the SD-02 version engine as the code it
+  describes). `docs/guides/install-and-compatibility.md` replaces the documentation skeleton's
+  placeholder with one page for two questions: can I run gebra here, and what does a version
+  change mean.
+
+  Nothing on it is hand-maintained prose about version numbers. Every shell command it shows is
+  a command a named CI job runs, verbatim, with the one three-line checkout block declared as
+  the exception. The tested matrix — four Python minors × three pair cells = twelve blocking
+  cells plus one `--pre` early-warning cell — is checked pin for pin against the
+  `compat-cell-{1,2,3}` extras and cell count for cell count against the workflow's own matrix,
+  and the *bands* the runtime check compares an install against are checked against
+  `classify_substrate` itself over a grid built from the page's own numbers, so a pairing the
+  page calls tested that the classifier does not, or the reverse, fails the build.
+
+  Seven examples run under the DOC-01 harness: the distribution's own declared requirements;
+  the three compatibility classes over six installs; the self-check a project can run against
+  its own environment; `GebraVersionWarning` firing once across two `extract()` calls, with its
+  message and category; the same warning escalated to an error and filtered away; an
+  out-of-range substrate carrying its structured `unsupported-construct` record on *every*
+  envelope while raising no Python warning at all; and seven consecutive edits to one agent run
+  through the real V.S.F.E comparator, each with the counters it moves and the label it
+  produces. `tests/docs/test_install_and_compatibility.py` (64 items) re-derives all of it from
+  the code and the metadata, and reconciles the ranges, pins, cell counts and freeze citation
+  against the living document where that repository is checked out beside this one.
+
+  Three of those examples are the first anywhere on the site to rebind an attribute of an
+  imported module — they point the version check's metadata reader at an install the machine
+  does not have — so the executable-examples harness gains a fourth page-level rule beside its
+  sample-workflow, self-defined-graph and written-module rules: an AST scan of every discovered
+  example refuses an assignment onto an attribute target unless `ATTRIBUTE_REBINDING_ALLOWED`
+  names that example and that dotted target, held in both directions and fired by a control.
+  The targets here are inert metadata readers; the rule exists because the same statement aimed
+  at an armed `Runnable.invoke` would disarm the WA-07 guard and the harness's trailer would
+  report a clean run.
+
 - **The API reference and the architecture overview** (card DOC-17; the IR-06, VAL-12 and
   EX-15 freeze records as the frozen surfaces, and EX-15 §2 as the 1.x backlog appendix).
   `docs/reference/api.md` and `docs/reference/architecture.md` replace the documentation

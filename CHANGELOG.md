@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The validator explainer "P-06 effect-safety"** (card DOC-11; PROPERTY-CATALOG-SPEC §6 and §0;
+  the DEC-11 shape pins, DEC-05 D7 compensation-as-protection and D2 same-node dominance, the
+  DEC-13 open-item rulings, and the DEC-16 gap fixtures). `docs/validators/p06-effect-safety.md`
+  is the fourth per-validator page, and the first for a property that emits **two severities**:
+  FATAL for the forbidden `irreversible` + keyless `idempotent` combination, ERROR for an
+  unprotected effect in a retry region or a plain cycle. It answers what a reader holding one of
+  those findings needs — which two tags raise an obligation at all, which region the node is in
+  and why the two regions carry different condition IDs, what the protection ledger a pass returns
+  says member by member, why a declared key or hook has to *bind*, and where the claim stops.
+
+  Nine examples run under the DOC-01 harness, and none of them builds a graph. Seven read the
+  **vendored property-fixture corpus**, so the page's transcripts are runs over the frozen
+  examples the validator is already held to in CI; three write a small IR document by hand.
+  `a-pass-and-its-protection-ledger` and `a-failure-and-its-record` are the corpus's own
+  counterpart pair — the same booking-retry shape with and without the idempotency declaration —
+  and between them walk every member of `EffectSafetyWitness`, `P06EffectRecord`, `P06NodeLocation`
+  and the §0.3 `Failure`, optional members included. `every-fixture-in-the-corpus` runs all eight
+  `effect-safety` fixtures at once, so each condition ID, each protection arm, each region and
+  each evidence field arrives with the fixture that pins it, and all eight reports are re-checked
+  against their own `expected:` blocks.
+
+  Four examples exist for the ways P-06 surprises people.
+  `retry-region-plain-cycle-or-neither` reads the DEC-13 region rule off four graphs — the router
+  landing on the effect node, landing elsewhere on the loop, landing one `send` hop short of it,
+  and a `retry_policy` region with no cycle to anchor on — so the send-closure rule and the
+  anchor-free record are transcripts rather than assertions. `protection-has-to-bind` puts each
+  protection arm beside its near-miss: a key that names the node's own declared output, and a hook
+  left pointing at a node a refactor removed, with `dangling_compensation_hook` carrying the
+  unbound name. `the-fatal-is-decided-without-the-graph` shows the FATAL firing on an acyclic
+  graph and then, on a hand-written loop, the DEC-05 D2 same-node dominance that keeps the ERROR
+  off the record. `three-findings-one-record` builds a document carrying all three condition IDs
+  at once, showing the §6.4 Phase 5 order in which severity beats node identifier.
+
+  `a-pass-on-a-broken-graph` is the P-01 boundary made concrete for this property: one typo in a
+  `path_map` label, and P-06's own §0.3 degradation convention — *skip the edge* — drops the edge
+  that closed the loop, so an unprotected node reports `region: acyclic` and
+  `protection: none_required`. Fix the label and the same document produces the ERROR. It is why
+  a P-06 pass on a run that failed P-01 is a diagnostic and not a verdict. `what-p06-reads`
+  rewrites every state field, purity declaration, declared write and router condition in a fixture
+  and gets the same report value back, then drops the effect node's declared `input` alone and
+  watches the same idempotency key stop binding.
+
+  `tests/docs/test_validator_pages.py` gained the P-06 rows and its `CLOSED_VOCABULARIES` entry
+  now covers two enumerations rather than one — §6.3's `Region` and the protection arm — read off
+  the models, so growing either fails the build rather than dating the page. The site index, the
+  README's documentation list and the three pages that named the written explainers gained this
+  one.
+
 - **The validator explainer "P-04 dataflow-completeness"** (card DOC-10; PROPERTY-CATALOG-SPEC §4
   and §0; the DEC-11 shape pins, the DEC-05 D2 scope rule and the DEC-26 phantom-leak rule).
   `docs/validators/p04-dataflow-completeness.md` is the third per-validator page, and it answers

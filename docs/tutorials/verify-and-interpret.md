@@ -742,11 +742,12 @@ blocks are what those runs printed. If any of it stops behaving this way the bui
 than the page misleading a reader — [Executable examples](../contributing/executable-examples.md)
 explains the mechanism.
 
-Three of the per-validator pages are written and go further on their own property than this page
+Four of the per-validator pages are written and go further on their own property than this page
 does: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
-[P-02 `termination-witness`](../validators/p02-termination-witness.md) and
-[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md). The other two are
-still placeholders, and until they are written the frozen contract for those properties — what
-each reads and what its records contain — is PROPERTY-CATALOG-SPEC §P-06 and §P-08. The
+[P-02 `termination-witness`](../validators/p02-termination-witness.md),
+[P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md) and
+[P-06 `effect-safety`](../validators/p06-effect-safety.md). The last one is still a
+placeholder, and until it is written the frozen contract for that property — what it
+reads and what its records contain — is PROPERTY-CATALOG-SPEC §P-08. The
 validator modules under `gebra.verify.properties` and their tests are where that contract is
 implemented and pinned, and are the closest description of it in this repository.

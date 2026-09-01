@@ -55,6 +55,9 @@ Written so far:
 - [P-04 dataflow-completeness](validators/p04-dataflow-completeness.md) — the every-path
   write-before-read rule, how to read a coverage map and an offending path, what the two failure
   diagnostics tell you to change, and where P-01 owns the finding instead;
+- [P-06 effect-safety](validators/p06-effect-safety.md) — which effect tags raise an obligation,
+  the retry-region and plain-cycle distinction, the protection ledger a pass returns, why a
+  declared key or hook has to bind, and what a pass does not claim;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

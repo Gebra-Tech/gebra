@@ -428,7 +428,7 @@ reports equal: True
 
 Every contract and the whole state schema removed, and the report is the same value. Three
 things follow. Annotating a node — or getting an annotation wrong — never moves a P-01 verdict;
-that is [P-04's](p04-dataflow-completeness.md) and P-06's territory, and
+that is [P-04's](p04-dataflow-completeness.md) and [P-06's](p06-effect-safety.md) territory, and
 [contracts and annotations](../tutorials/contracts-and-annotations.md) is where declarations get
 read. A P-01 pass is correspondingly narrow: it says the wiring holds, and nothing about whether
 the nodes agree on the data they pass. And P-01's cost is set by the graph alone — the

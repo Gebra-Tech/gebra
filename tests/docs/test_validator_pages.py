@@ -10,8 +10,8 @@ has, would be wrong in exactly the way prose goes wrong: quietly, and only for t
 These tests are that reconciliation. They read the page's own condition table and its prose
 and check them against the registry and the models, so a registry addendum or a witness-shape
 change fails the build rather than dating the page. Pages are listed in
-:data:`VALIDATOR_PAGES` as they land — the four remaining explainers join it with their own
-cards, and a page that is still a placeholder is out of scope here (the placeholder rules are
+:data:`VALIDATOR_PAGES` as they land — each remaining explainer joins it with its own card, and
+a page that is still a placeholder is out of scope here (the placeholder rules are
 :mod:`tests.docs.test_docs_site`'s).
 
 The module reads Markdown and inspects model classes. It imports no workflow, runs no node,
@@ -35,6 +35,7 @@ from gebra.verify import (
     P02CycleLocation,
     P02SccLocation,
     P04Failure,
+    P06NodeLocation,
     PropertySlug,
     ReportModel,
     Witness,
@@ -45,9 +46,12 @@ from gebra.verify.witnesses import (
     CycleCensus,
     DataflowCoverage,
     DataflowWitness,
+    EffectSafetyWitness,
     GuardEdgeRef,
+    P06EffectRecord,
     RecursionLimitDecl,
     RecursionLimitSource,
+    Region,
     TerminationWitness,
     VariantDecl,
     VariantSource,
@@ -65,6 +69,7 @@ VALIDATOR_PAGES: dict[PropertySlug, str] = {
     "graph-well-formed": "validators/p01-graph-well-formed.md",
     "termination-witness": "validators/p02-termination-witness.md",
     "dataflow-completeness": "validators/p04-dataflow-completeness.md",
+    "effect-safety": "validators/p06-effect-safety.md",
 }
 
 #: The witness model each landed page explains — the concrete member of the §0.3 witness union
@@ -73,6 +78,7 @@ WITNESS_MODELS: dict[PropertySlug, type[Witness]] = {
     "graph-well-formed": WellFormednessWitness,
     "termination-witness": TerminationWitness,
     "dataflow-completeness": DataflowWitness,
+    "effect-safety": EffectSafetyWitness,
 }
 
 #: The failure model each landed page explains. Usually the base :class:`Failure`, but a property
@@ -83,6 +89,7 @@ FAILURE_MODELS: dict[PropertySlug, type[Failure]] = {
     "graph-well-formed": Failure,
     "termination-witness": Failure,
     "dataflow-completeness": P04Failure,
+    "effect-safety": Failure,
 }
 
 #: The evidence models *beyond* the pass witness that a page has to explain: the property's own
@@ -106,15 +113,23 @@ EVIDENCE_MODELS: dict[PropertySlug, tuple[type[ReportModel], ...]] = {
         GuardEdgeLabels,
     ),
     "dataflow-completeness": (DataflowCoverage, DataflowLocation),
+    "effect-safety": (P06EffectRecord, P06NodeLocation),
 }
 
 #: Closed string vocabularies a page must name in full: report content pinned as a ``Literal``,
 #: which moves only by specification addendum. P-01's property has none; P-02's is §2.3's note
-#: vocabulary, whose five kinds a reader meets on a witness or a failure record.
+#: vocabulary, whose five kinds a reader meets on a witness or a failure record; P-06's are the
+#: two enumerations of its witness record — §6.3's ``Region`` and the protection arm — where a
+#: page listing three regions and two arms would be a page with a hole. The property's other
+#: pinned strings (``keyless``, ``send``) are single-member evidence markers rather than sets to
+#: enumerate, and the page's transcripts pin them byte-for-byte through the DOC-01 harness.
+PROTECTION_FORMS: tuple[str, ...] = get_args(P06EffectRecord.model_fields["protection"].annotation)
+
 CLOSED_VOCABULARIES: dict[PropertySlug, tuple[str, ...]] = {
     "graph-well-formed": (),
     "termination-witness": get_args(WitnessNoteKind),
     "dataflow-completeness": (),
+    "effect-safety": (*get_args(Region), *PROTECTION_FORMS),
 }
 
 #: The header of the condition table every explainer carries.
@@ -177,9 +192,12 @@ def test_every_condition_the_page_documents_is_one_this_release_may_emit(
     §0.4's PROPOSED tier registers a name without licensing its emission, and a page that
     presented one as a finding a reader might meet would be describing unbuilt behaviour.
 
-    Read off the **page**, not the registry, so the guarantee stands on its own rather than
-    only in conjunction with the reconciliation above: a name the registry holds back, and a
-    name it does not hold at all, both fail here.
+    Read off the page's condition **table**, not the registry, so the guard stands on its own
+    rather than only in conjunction with the reconciliation above: a name the registry holds
+    back, and a name it does not hold at all, both fail here. The table is deliberately the
+    whole scope — a page may *name* a RESERVED id in prose, as P-06's does when it says where
+    the diagnostic for a non-binding idempotency key will live, and saying so is the opposite
+    of presenting it as a finding a reader might meet.
     """
     emittable = {entry.id for entry in conditions_for(slug) if entry.emittable}
     held_back = sorted(_named_conditions(_page(slug)) - emittable)

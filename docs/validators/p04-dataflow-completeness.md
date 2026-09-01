@@ -901,6 +901,7 @@ The frozen contract behind this page is PROPERTY-CATALOG-SPEC §4 with the share
 the shapes it pins were ratified in decision records DEC-11 (the coverage-map witness and the two
 kept diagnostics) and DEC-05 (the `START`-path scope), with DEC-26 fixing what a location may name
 on ill-formed topology. `gebra.verify.properties.dataflow_completeness` and its tests are where
-that contract is implemented and pinned in this repository. The other two written explainers are
-[P-01 `graph-well-formed`](p01-graph-well-formed.md) and
-[P-02 `termination-witness`](p02-termination-witness.md).
+that contract is implemented and pinned in this repository. The other written explainers are
+[P-01 `graph-well-formed`](p01-graph-well-formed.md),
+[P-02 `termination-witness`](p02-termination-witness.md) and
+[P-06 `effect-safety`](p06-effect-safety.md).

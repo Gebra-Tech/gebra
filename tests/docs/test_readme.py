@@ -259,7 +259,14 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
         capability="Published documentation site",
         status=IN_DEVELOPMENT,
         probe=_the_site_is_still_a_skeleton,
-        cards=("DOC-03", "DOC-05", "DOC-15", "DOC-17"),
+        # The two unwritten pages are cited alongside the written ones, because this row's
+        # status turns on what is *left*. DOC-17 landing exhausted the earlier list — every
+        # card it named was `done` while the site was still a skeleton — which is exactly
+        # the staleness `test_no_row_stays_behind_the_boards` exists to catch. DOC-18 and
+        # DOC-19 are the last two reserved pages; when the second of them lands, this row
+        # has to be revisited rather than extended again, and the probe above says the same
+        # thing from the other side: no placeholder left means the row is stale.
+        cards=("DOC-03", "DOC-05", "DOC-15", "DOC-17", "DOC-18", "DOC-19"),
     ),
     RowSpec(
         capability="Installation from a package index",

@@ -505,6 +505,49 @@ the two constrained family members (pydantic, langchain-protocol) are held to ex
 every cell extra already pins; and the `--pre` cell's substrate resolve stays unconstrained. No
 tripwire, sentinel, or hermeticity child was weakened, skipped, or re-scoped by it.
 
+The **CI-gating guide's example suite** (`examples/ci_gate/`, its workflow
+`.github/workflows/gebra-gate-example.yml`, and `tests/docs/test_ci_gating_guide.py`; card
+DOC-13) adds **no extraction path**: the only extraction it reaches is the plugin's own
+`gebra.extract()` call, whose every path has a row in §1. What it adds is three more *consumers*
+of the plugin gate, and each inherits the arming the target already carries. Both marked modules
+return the shared sentinel-guarded travel-booking agent at the **builder** level —
+`test_agent.py` the v1 builder, `test_unprotected_retry.py` the SD-09 defect-2 variant, whose
+bodies record into the same family ledger (the defects module re-exports that list object rather
+than keeping a second one) — and the depth guard over that agent remains
+`tests/testing/test_travel_booking.py`'s child. The suite is outside `testpaths`
+(`pyproject.toml` names `tests` alone, with no `addopts`) and is reached only by explicit path:
+by the workflow's three gate steps, through the TE-13 driver above, and by this module's two
+pytest children (`--collect-only`, and one `-q` run whose exit 1 and rendered finding are what
+the page quotes).
+
+Where each consumer's arming actually bites is worth stating leg by leg rather than in one
+sentence, because the legs are not equally strong. Rungs 2 and 3 assert `outcome: pass`, and
+`tests/docs/test_ci_gating_guide.py` pins the *rendered condition id* of the defect module's
+finding — a fired sentinel breaks extraction and therefore breaks both. Rung 1 is the weak leg:
+its asserted verdict is `exit 1` / `outcome: failures`, which is also what a sentinel-blown
+session produces, so that step alone cannot tell the seeded P-06 finding from an invocation.
+`examples/conftest.py` closes most of that gap — an autouse fixture asserting
+`travel_booking.TRIPPED == []` before and after every example test, the TE-05 idiom, placed one
+level above `ci_gate/` because those files are reproduced byte-equal on the published page. It
+is placed there rather than left implicit precisely because "nothing was recorded" must not read
+the same as "nothing ran"; the residue that remains — a ledger-fixture failure is also `exit 1` —
+is recorded here rather than engineered away.
+
+The guide's own eight examples run under the DOC-01 harness guard like every other page's, and
+the trailer's ledger sweep covers both fixtures they import by name (`travel_booking`,
+`travel_booking_defects`), each with a fired control in `tests/docs/test_doc_examples.py`;
+`nothing-was-executed` additionally prints that ledger into a pinned output block, so a fired
+body fails the example on stdout as well as on `WA07-LEDGER`. None of the eight registers a node
+it defined or writes a module, so neither `SELF_DEFINED_MARKERS` nor `WRITES_A_MODULE` owes
+anything. One of them writes a `.gebra/` store — into the child's temporary working directory,
+never the repository — through `gebra.snapshot`, which extracts and never runs. This card also
+extends `GUARD_PROLOGUE` with `import gebra.pytest_plugin`: the eight examples are the first to
+import a public gebra module the prologue did not preload, and preloading it is what keeps a
+future module-level substrate import in that module from landing a `Runnable` subclass *after*
+the arming sweep. Nothing in the example suite, in either gated run, or in this module opens a
+network connection; the workflow's checkout, interpreter setup and install steps are ordinary CI
+provisioning, outside that claim exactly as the TE-13 paragraph above scopes its own.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

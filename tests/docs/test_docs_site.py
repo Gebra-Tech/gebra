@@ -87,6 +87,7 @@ LANDED_PAGES = frozenset(
         "validators/p04-dataflow-completeness.md",
         "validators/p06-effect-safety.md",
         "validators/p08-determinism-replay.md",
+        "guides/pytest-plugin-and-ci-gating.md",
     }
 )
 

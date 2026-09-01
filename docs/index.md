@@ -23,7 +23,7 @@ transcript its own code did not produce.
 
 ## This site is still being written
 
-Most pages linked in the navigation are **placeholders** — a title and a note saying what
+Some pages linked in the navigation are still **placeholders** — a title and a note saying what
 the page is reserved for, and nothing else. That is deliberate: the skeleton and the
 example harness landed first, so that a page's examples are executed and checked from the day
 it appears. A placeholder documents nothing; read the source and the test suite instead until
@@ -61,6 +61,10 @@ Written so far:
 - [P-08 determinism-replay](validators/p08-determinism-replay.md) — what makes a determinism claim
   coherent, the ledger of claims a pass returns, why every finding is a WARNING and strict mode is
   the only gate, and what a pinned seed is and is not evidence of;
+- [The pytest plugin and CI gating](guides/pytest-plugin-and-ci-gating.md) — the first guide: the
+  marker, the `gebra_graph` and `gebra_verification` fixtures, which findings fail which item, what
+  `--gebra-strict` moves and what it leaves alone, and the report-only → gate → strict rollout with
+  the workflow that runs it;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked.
 

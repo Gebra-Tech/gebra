@@ -7,6 +7,11 @@ summary, and the exit code translated into the step's verdict. The action runs i
 repository's own CI on every push — the DoD scenario job issues its pytest invocation
 through it — so the in-repo example below is executed, not aspirational.
 
+This page is the action's own reference. The adopter-facing walkthrough — the plugin
+surfaces the gate is built on, which findings fail which test item, and a complete example
+workflow that runs all three rungs on every push — is the published guide
+[The pytest plugin and CI gating](../guides/pytest-plugin-and-ci-gating.md).
+
 What the gate checks is the workflow **definition**: the plugin extracts the Gebra IR
 from the graph a `@pytest.mark.gebra`-marked test returns and verifies it. gebra runs
 nothing on that path — it calls the function you marked, the way pytest calls any

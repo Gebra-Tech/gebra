@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The guide "The pytest plugin and CI gating"** (card DOC-13; brief D-10 In-Scope 2 and 6, and
+  the TE-13 rollout ladder). `docs/guides/pytest-plugin-and-ci-gating.md` is the first published
+  guide and the adopter path the plugin was built for: one dependency and `@pytest.mark.gebra`,
+  the `gebra_workflow` override behind `gebra_graph` and `gebra_verification`, which findings fail
+  which test item, what `--gebra-strict` moves and what it leaves exactly where it stands, the
+  `--gebra-select`/`--gebra-skip` trap of a green item list over a red run, the action's
+  interface, and the report-only → gate → strict rollout with what each rung does and does not
+  forgive.
+
+  Eight examples run under the DOC-01 harness. `nothing-was-executed` opens the page by verifying
+  the agent and printing its empty sentinel ledger; `severity-decides-the-item` and
+  `a-warning-is-a-note` walk the default mapping over two seeded-defect variants — one ERROR that
+  fails exactly one item out of five, one WARNING that fails none;
+  `the-gate-moves-the-record-does-not` runs one defective agent under all three strict policies and
+  shows the record line byte-identical while the item and the exit code move.
+
+  The page's copyable parts are files this repository runs, not retellings. `examples/ci_gate/` is
+  the example suite — a `conftest.py`, a marked module, and a second module marking a variant that
+  fails its gate on purpose, kept outside `testpaths` so a bare `pytest` never collects it — and
+  the page reproduces the first two byte for byte. `.github/workflows/gebra-gate-example.yml` runs
+  all three rungs through the shipped action on every push and every pull request, and its last
+  step compares each rung's `outcome` output against what the page documents, so a rung that
+  stopped behaving as described turns the workflow red rather than dating the page.
+  `tests/docs/test_ci_gating_guide.py` holds the reproductions, the workflow, the two interface
+  tables, the mode-by-exit translation, the collected item ids and the quoted failure message to
+  their sources. `[tool.mypy] files` gains `examples`, so a snippet a reader copies is type-checked
+  as strictly as the package it uses.
+
 - **The validator explainer "P-08 determinism-replay"** (card DOC-12; PROPERTY-CATALOG-SPEC §8 and
   Appendix B with the shared envelope of §0; the DEC-11 shape pins, the DEC-14 `divergence_handling`
   ruling, and the DEC-16 gap fixtures). `docs/validators/p08-determinism-replay.md` is the fifth and

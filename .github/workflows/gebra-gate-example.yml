@@ -1,0 +1,91 @@
+# The CI-gating guide's own workflow, executed (card DOC-13).
+#
+# `docs/guides/pytest-plugin-and-ci-gating.md` takes a team from one dependency to a merge
+# gate, and its central claim is that the three rungs of the rollout — report-only, gate,
+# strict — differ in exactly one word and in exactly what each forgives. This workflow is
+# that claim run rather than asserted: the same shipped action, one step per rung, over the
+# example suite in `examples/ci_gate/`, with the guide's fenced blocks held equal to these
+# steps by `tests/docs/test_ci_gating_guide.py`.
+#
+# It is deliberately a separate workflow from `ci.yml`. The gates in `ci.yml` judge this
+# repository; this one demonstrates a documented adopter workflow, and keeping it apart is
+# what lets it be read as the example it is — a copyable file, not a job entangled with a
+# thirteen-cell compatibility matrix.
+#
+# The suite it gates is outside `testpaths` on purpose: `test_unprotected_retry.py` marks a
+# variant that fails its gate, so a bare `pytest` over this repository never collects it,
+# while the report-only rung below has a real finding to report rather than a green run
+# pretending to be one.
+#
+# The last step is what makes this a test rather than a demonstration. Each rung's `outcome`
+# output is compared against what the guide documents for it, so a change that made
+# report-only stop forgiving test failures — or made the seeded finding stop being found —
+# turns this workflow red instead of quietly dating the page.
+name: gebra gate example
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gebra-gate-example:
+    name: "The documented gate, on all three rungs"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # The action installs nothing — the environment being gated is the job's own, which
+      # is the same contract an adopting repository works under. `-c` is this repository's
+      # freeze-time pin lock (GOV-08); an adopter's equivalent is their own pins.
+      - name: Install the package and the test environment being gated
+        run: pip install -e ".[dev]" -c tools/matrix-constraints.txt
+
+      - name: Rung 1 — report-only, over a suite that has a real finding
+        id: report_only
+        uses: ./.github/actions/gebra-gate
+        with:
+          tests: examples/ci_gate/test_unprotected_retry.py
+          mode: report-only
+          pytest-args: "-q"
+
+      - name: Rung 2 — gate, the recommended steady state
+        id: gate
+        uses: ./.github/actions/gebra-gate
+        with:
+          tests: examples/ci_gate/test_agent.py
+          pytest-args: "-q"
+
+      - name: Rung 3 — strict, promoting every WARNING in the run
+        id: strict
+        uses: ./.github/actions/gebra-gate
+        with:
+          tests: examples/ci_gate/test_agent.py
+          mode: strict
+          pytest-args: "-q"
+
+      # Step outputs reach the script through `env:` only, never spliced into the shell
+      # body — the discipline the action's own composite step follows.
+      - name: Each rung reported what the guide documents for it
+        env:
+          REPORT_ONLY_OUTCOME: ${{ steps.report_only.outputs.outcome }}
+          REPORT_ONLY_EXIT: ${{ steps.report_only.outputs.exit-code }}
+          GATE_OUTCOME: ${{ steps.gate.outputs.outcome }}
+          STRICT_OUTCOME: ${{ steps.strict.outputs.outcome }}
+        run: |
+          failed=0
+          check() {
+            if [ "$2" != "$3" ]; then
+              echo "::error title=gebra gate example::$1 was '$2'; the guide documents '$3'"
+              failed=1
+            fi
+            echo "- $1: \`$2\`" >> "$GITHUB_STEP_SUMMARY"
+          }
+          echo '### The three rungs, as the guide documents them' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          check "report-only pytest exit" "$REPORT_ONLY_EXIT" "1"
+          check "report-only outcome" "$REPORT_ONLY_OUTCOME" "failures"
+          check "gate outcome" "$GATE_OUTCOME" "pass"
+          check "strict outcome" "$STRICT_OUTCOME" "pass"
+          exit "$failed"

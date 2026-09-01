@@ -72,10 +72,11 @@ def test_mypy_runs_strict_over_source_and_tests(pyproject: dict[str, Any]) -> No
     """``mypy`` with no arguments is the gate, so the config carries every knob."""
     mypy = pyproject["tool"]["mypy"]
     assert mypy["strict"] is True
-    # `tools` joined the scope with the provenance guard (GOV-09), and `.github` with the
-    # CI-gate action's driver (TE-13): CI-executed tooling is checked as strictly as the
-    # package.
-    assert set(mypy["files"]) == {"src", "tests", "tools", ".github"}
+    # `tools` joined the scope with the provenance guard (GOV-09), `.github` with the
+    # CI-gate action's driver (TE-13), and `examples` with the CI-gating guide's own suite
+    # (DOC-13, whose files the published page reproduces verbatim): CI-executed tooling and
+    # copyable documentation are checked as strictly as the package.
+    assert set(mypy["files"]) == {"src", "tests", "tools", ".github", "examples"}
 
 
 def test_mypy_targets_the_declared_python_floor(pyproject: dict[str, Any]) -> None:

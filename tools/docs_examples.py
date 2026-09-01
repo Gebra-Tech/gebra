@@ -366,7 +366,10 @@ def discover(
 #: ``tests/extraction/test_dispatch.py`` records (urllib3 probes IPv6 capability at import),
 #: and raises from there on. ``StateGraph.compile`` raises from before ``gebra`` is imported.
 #: The gebra surface an example may use is imported here so that the example's own imports
-#: reach modules already in ``sys.modules`` rather than the armed socket.
+#: reach modules already in ``sys.modules`` rather than the armed socket — ``gebra.pytest_plugin``
+#: among them, whose closure is ``pytest`` and the standard library today but which is exactly
+#: the module where a future module-level substrate import would land a ``Runnable`` subclass
+#: *after* the sweep below, where its own ``invoke`` override would shadow the armed base.
 GUARD_PROLOGUE: Final = """\
 import os as _gebra_os, socket as _gebra_socket, sys as _gebra_sys
 
@@ -418,6 +421,7 @@ import gebra.diff
 import gebra.extraction
 import gebra.ir
 import gebra.lineage
+import gebra.pytest_plugin
 import gebra.report
 import gebra.snapshot
 import gebra.store

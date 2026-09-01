@@ -228,8 +228,10 @@ testpaths = ["tests"]
 # `tools/` is development tooling that CI executes (the provenance guard); it is checked
 # as strictly as the package it guards, and never shipped in the wheel. `.github/` holds
 # one more such script — the CI-gate action's driver (`actions/gebra-gate/gate.py`,
-# TE-13), executed by the composite action and held to the same gate.
-files = ["src", "tests", "tools", ".github"]
+# TE-13), executed by the composite action and held to the same gate. `examples/` is the
+# CI-gating guide's own suite (DOC-13): the documentation reproduces those files verbatim,
+# so a snippet a reader copies is checked exactly as strictly as the package it uses.
+files = ["src", "tests", "tools", ".github", "examples"]
 # The declared floor, not the interpreter that happens to run the job: syntax and
 # stdlib APIs that only exist on 3.11+ are errors here.
 python_version = "3.10"

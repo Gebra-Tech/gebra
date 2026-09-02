@@ -546,9 +546,13 @@ address, the trailer the commit is missing, the version the tag disagrees with. 
 `--employer-owned` if your employer has rights to the work, and `--format json` if you would
 rather read the report as data than as prose.
 
-The rest of the template is the reviewer's reading rather than a record's: whether the commits
-are conventional and carry their card ID, whether the board moved with the change, and whether
-the prose overstates.
+That is also how the change is read from the other side: the maintainers' pre-merge checklist
+reaches those three verdicts by running this same command rather than by checking the rules a
+second time, so neither side is working from its own copy of the rules. What a verdict says still
+depends on the commits it was given, so re-run it after you push rather than taking an earlier
+green as settled. The rest of the template is the reviewer's reading rather than a record's:
+whether the commits are conventional and carry their card ID, whether the board moved with the
+change, and whether the prose overstates.
 
 **What runs.** Eighteen CI jobs, on every push and every pull request. Beyond the four gates of
 section 2, these are the ones that refuse a change for a reason local `pytest` will not have

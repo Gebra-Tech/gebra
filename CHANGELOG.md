@@ -29,7 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   means a check reached no verdict at all, which is not a pass. There is no bypass flag.
   What the tool deliberately leaves to the reviewer — commit format, card linkage, board sync and
   whether the prose overstates — is named in `CONTRIBUTING.md` and in the contributor guide's
-  section 8 beside it.
+  section 8 beside it. The maintainers' pre-merge review reaches the same three verdicts by
+  running the same command, so neither side keeps its own copy of the rules.
 
 - **The specialist pre-review, written down and computed** (card TOOL-06). Three areas of this
   repository are governed by a document nobody here may edit, and a change touching one gets a

@@ -366,6 +366,12 @@ when the work is owned by your employer (which is a different row in the record)
 passes, 1 is a refusal, 2 means a check reached no verdict at all — which is not a pass, and
 there is no bypass flag.
 
+The maintainers' pre-merge review reaches these three verdicts by running this same command, so
+neither side is working from its own copy of the rules — as with the honest-claims lint, the
+command is the mechanical part of the check rather than the whole of it. A verdict is still about
+the commits it was handed, so re-run it over the range under review rather than treating an
+earlier local green as carrying forward.
+
 Three things the command deliberately does not decide, and the reviewer still does: whether the
 commits are conventional and carry their card ID, whether the board moved with the change, and
 whether the prose claims only what the code does. The first two are the boards' own business and

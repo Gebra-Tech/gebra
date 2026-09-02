@@ -460,6 +460,13 @@ import langchain_core.tools
 # fails at discovery.
 import tools.provenance_guard
 
+# TOOL-06's routing module, for the contributor guide's pre-review example. It is the first
+# entry here that imports another `tools.` module (`tools.docs_examples`, for the marked-page
+# rule), so this line makes that closure resident in the child as a reviewed entry rather than
+# as an unnoticed consequence of a page import — the closure rule below holds all of it to the
+# stdlib, and this file's own boundary is unchanged: the child inherits nothing of the guard.
+import tools.pre_review_routing
+
 # INTROSPECTION-SPEC §1 rule 1 names `Runnable.invoke/stream/batch` beside node functions
 # and routers, and arming `StateGraph.compile` does not reach them: an LCEL chain is invoked
 # without anything being compiled. Every override loaded at this point is armed, base class

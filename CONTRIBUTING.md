@@ -270,6 +270,65 @@ real `[drill]`-labeled issues that are safe to close. The `--pre` cell's
 non-pytest gates (resolve/ruff/mypy) stay annotation-and-summary only, as the
 matrix wired them.
 
+## Specialist pre-review (WA-08)
+
+Three areas of this repository are governed by a frozen document, and a change touching one
+gets a **specialist pre-review against that document before the code owner's review** — so
+that a factual disagreement with a frozen document reaches the maintainer as a citation
+rather than as an opinion. The three are the intermediate representation and extraction
+(`ir-contract`), the property catalog and its witnesses (`property-contract`), and the
+never-invokes invariant (`never-invokes`).
+
+Which of them a change owes is computed from the change, not remembered:
+
+```bash
+python tools/pre_review_routing.py --files $(git diff --name-only main...HEAD) --card EX-06
+```
+
+Two triggers, and a change owes any specialist either one names: the **paths** it touches
+(globs over repository-relative paths, so `git diff --name-only` output pastes in unchanged)
+and the **track** of the card it is written against, which is why an extractor card whose
+diff lands entirely in tests still gets the reviews its board is about. One path rule is
+computed rather than listed — a documentation page routes to `never-invokes` when it carries
+an example CI executes, read off the page by `tools/docs_examples.py` itself. A pull-request
+*label* is deliberately not a trigger: a label is set by the author of the change it would
+constrain. `--check` turns the report into a hook's gate (exit 1 means a pre-review is owed)
+and `--format json` prints the same routing as data.
+
+**The note that comes back has a fixed shape**, and the same tool prints it, already filled
+in with what routed the change and what the verdict is measured against:
+
+```bash
+python tools/pre_review_routing.py --files <paths...> --card EX-06 --comment ir-contract
+```
+
+The verdict comes first, in that specialist's own vocabulary — `APPROVE`,
+`APPROVE-WITH-NOTES` (the two contract specialists only; an execution hazard is either absent
+or it is the finding) or `BLOCK` — then what was read and what it was read against, then one
+line per finding, then one routing line per finding. That last pairing is what keeps an
+escalation from evaporating, and it is checked rather than trusted:
+
+```bash
+python tools/pre_review_routing.py --check-comment <the note>
+```
+
+That exits 1 on a template recorded unfilled, a verdict outside the specialist's vocabulary,
+a `BLOCK` naming no finding, or a finding whose routing was never written down. It judges the
+note's shape only; whether a finding is right is the reviewer's business and the maintainer's.
+
+**A finding is routed one of two ways, and neither is settling it in the thread.** If it is
+about the change, fix it — or, where the frozen document leaves the question open, record the
+reading as an implementer's decision naming the passage that leaves it open, then re-run the
+pre-review. If it is about the document, the passage cannot be implemented as written and
+that is a spec defect: file it, the card goes on hold with the link, and work stops at the
+boundary rather than picking a reading. The specialist has no authority to bless a deviation
+from a frozen document and an author has none to overrule a citation of one; which of the two
+kinds a finding is, when that is itself disputed, is the maintainer's call. A verdict is
+advice — the maintainer merges either way, as above.
+
+The [contributor guide](docs/contributing/index.md#the-specialist-pre-review) walks the same
+flow with a worked example of both outputs.
+
 ## Releases
 
 Releases are cut by pushing a tag; the `release` workflow

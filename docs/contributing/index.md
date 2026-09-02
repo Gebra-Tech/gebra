@@ -601,6 +601,140 @@ condition identifiers, or any path that has to be shown not to execute a workflo
 specialist pre-review against the governing specification before that human review, so a factual
 disagreement with a frozen document arrives as a citation rather than as an opinion.
 
+### The specialist pre-review
+
+Three areas of this repository are governed by a document nobody here may edit, and each has a
+reviewer whose whole job is to read a change against that document: the **intermediate
+representation and extraction**, the **property catalog and its witnesses**, and the
+**never-invokes invariant** of section 2. The pre-review is not a second opinion on the design —
+it is the one review that cites a frozen document, and it happens before the code owner reads
+the change so that the owner is deciding about a citation rather than refereeing an argument.
+
+**What routes a change to which reviewer is computed, not remembered.** Two triggers, and their
+union is the answer: the paths the change touches, and the track of the card it is written
+against. Ask before you push:
+
+```bash
+python tools/pre_review_routing.py --files $(git diff --name-only main...HEAD) --card EX-06
+```
+
+<!-- gebra:example id=the-pre-review-routing -->
+```python
+from tools.pre_review_routing import comment, format_report, reviewer, route
+
+# One change, as `git diff --name-only` prints it, written against a card on the
+# extractor board.
+routing = route(
+    [
+        "src/gebra/extraction/lcel.py",
+        "tests/extraction/golden/parity.canonical.json",
+        "docs/contributing/index.md",
+        "CHANGELOG.md",
+    ],
+    card="EX-06",
+)
+print(format_report(routing))
+
+# And the note one of them writes back, already carrying what routed the change to it.
+print()
+print(
+    comment(
+        reviewer("never-invokes"),
+        card="EX-06",
+        triggers=routing.triggers_for("never-invokes"),
+    )
+)
+```
+
+<!-- gebra:output id=the-pre-review-routing -->
+```text
+pre-review routing: 2 specialist review(s) required — EX-06 over 4 changed path(s)
+
+  ir-contract — the intermediate representation, its canonical form, and extraction
+    routed by  EX-06  (track EX-)
+    routed by  src/gebra/extraction/lcel.py  (src/gebra/extraction/**)
+    routed by  tests/extraction/golden/parity.canonical.json  (tests/extraction/golden/**)
+    verdicts   APPROVE | APPROVE-WITH-NOTES | BLOCK
+    cites      IR-SPEC, INTROSPECTION-SPEC, ANNOTATION-API-SPEC, the IR field ledger, WA-05 (a
+               golden diff carries its justification)
+
+  never-invokes — the never-invokes invariant: nothing here runs what it reads
+    routed by  EX-06  (track EX-)
+    routed by  docs/contributing/index.md  (a documentation page carrying an executed example)
+    routed by  src/gebra/extraction/lcel.py  (src/gebra/extraction/**)
+    verdicts   APPROVE | BLOCK
+    cites      INTROSPECTION-SPEC §1, WA-07, the sample workflows' tripwire pattern
+
+  not required: property-contract
+
+### Pre-review — EX-06 · never-invokes
+
+- **verdict:** <APPROVE | BLOCK>
+- **reviewed:** docs/contributing/index.md, src/gebra/extraction/lcel.py
+- **routed by:** a documentation page carrying an executed example; src/gebra/extraction/**; track EX-
+- **measured against:** INTROSPECTION-SPEC §1, WA-07, the sample workflows' tripwire pattern
+
+#### Findings
+
+- `<path>:<line>` — <the observation> — <document> §<section> — <what would settle it>
+
+#### Routing
+
+- `<path>:<line>` → <fix here | latitude recorded as a PD | spec defect (WA-03)>
+```
+
+Three things in that output are worth reading twice. `CHANGELOG.md` appears nowhere in it: no
+frozen document governs a changelog, so it routes to no one. This page routes to the
+never-invokes reviewer, and not from a list
+of pages kept somewhere — a documentation page routes there when it *carries an example CI
+executes*, which is read off the page by the harness that runs the examples. And the card
+identifier routes on its own: paths answer "what did this change touch", the card answers "what
+is this change for", so an extractor card whose diff lands entirely in tests still gets the
+reviews its board is about.
+
+A pull-request **label is deliberately not a trigger**. A label is set by the author of the
+change it would constrain, so a rule keyed to one can be switched off by the person it governs.
+A path list and a card identifier cannot.
+
+**What comes back has a fixed shape**, which is the second half of the example above: the
+verdict first and in that reviewer's own vocabulary — the two contract reviewers have a middle
+verdict for a finding that does not block, the never-invokes reading has none, because an
+execution hazard is either absent or it is the finding — then what was read and what it was read
+against, then one line per finding, then **one routing line per finding**. The template arrives
+pre-filled with everything the router already knows, so what the reviewer adds is the reading.
+
+The last section is the one that cannot be skipped, and the shape is checked rather than trusted:
+
+```bash
+python tools/pre_review_routing.py --check-comment <the note>
+```
+
+That reports what a reader could not act on — a template recorded unfilled, a verdict outside
+the reviewer's vocabulary, a `BLOCK` naming no finding, a finding whose routing was never
+written down. It says nothing about whether a finding is *right*; that is the reviewer's
+business and the owner's.
+
+**When you disagree with a finding**, there are exactly two exits, and neither of them is
+arguing it out in the pull-request thread:
+
+- **The finding is about your change.** Fix it — or, where the frozen document deliberately
+  leaves the question open, say which passage leaves it open and record your reading as an
+  implementer's decision, which section 5 describes as the lighter process. Then re-run the
+  pre-review on the fixed change — and route it again rather than assuming, because a fix can
+  pull a new path into the change and a new reason to review with it.
+- **The finding is about the document.** If the passage cannot be implemented as written, you
+  have found a spec defect, and section 5 is the whole procedure: file it, the card goes
+  `on-hold` with the link, and you stop at the boundary rather than picking a reading.
+
+Which of the two a finding is can itself be disputed, and that call is a maintainer's, exactly
+as section 5 says. What is not available to either side is settling it locally: the reviewer has
+no authority to bless a deviation from a frozen document, and an author has none to overrule a
+citation of one. That is the point of the arrangement — the disagreement leaves the pull request
+as a question about a document rather than staying in it as a question about a person.
+
+And a verdict is advice, not a merge decision. An approval does not merge your change and a
+block does not close it; the maintainer merges, as above.
+
 ## A walkthrough: the card that produced this page
 
 The page you are reading is the output of one card, and its history is a worked example of

@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The specialist pre-review, written down and computed** (card TOOL-06). Three areas of this
+  repository are governed by a document nobody here may edit, and a change touching one gets a
+  specialist pre-review against that document before the code owner's review — so that a
+  factual disagreement with a frozen document reaches the maintainer as a citation rather than
+  as an opinion. Which specialist a change owes is now computed from the change rather than
+  remembered: `python tools/pre_review_routing.py --files $(git diff --name-only main...HEAD)
+  --card EX-06` reports it, taking `git diff --name-only` output unchanged. Two triggers, and
+  their union is the answer — the paths the change touches, and the track of the card it is
+  written against, so an extractor card whose diff lands entirely in tests still gets the
+  reviews its board is about. One path rule is computed rather than listed: a documentation
+  page routes to the never-invokes reviewer when it carries an example CI executes, read off
+  the page by `tools/docs_examples.py` itself, so a page gaining or losing an example moves the
+  routing with no edit to the table. A pull-request label is deliberately not a trigger, since
+  a label is set by the author of the change it would constrain. `--check` turns the report
+  into a hook's gate (exit 1 means a pre-review is owed) and `--format json` prints the same
+  routing as data. The same command prints the note the reviewer writes back (`--comment
+  <specialist>`), pre-filled with what routed the change and what the verdict is measured
+  against, and reads one back (`--check-comment <file>`) — reporting a template recorded
+  unfilled, a verdict outside that reviewer's own vocabulary, a `BLOCK` naming no finding, and
+  a finding whose routing was never written down. That last one is what keeps an escalation
+  from evaporating, since one of the three routes a finding can take is the spec-defect
+  protocol. The flow itself — the triggers, the note's shape, and the two exits a disagreement
+  takes — is in `CONTRIBUTING.md` and in the contributor guide's section 8, whose transcript of
+  both outputs is executed by the examples harness rather than transcribed.
+
 - **A review scope and a machine-readable report for the provenance guard, and one place the
   read-only carve-out is read from** (card TOOL-05). `python tools/provenance_guard.py --only
   <path>` answers the question a *review* asks — what the guard says about the paths this change

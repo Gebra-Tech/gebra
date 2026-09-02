@@ -16,6 +16,9 @@ plausibly. So nothing on it is left as prose where the thing it describes can be
   passed through its own validator;
 * the CI job table, the job count and the four local gates are read off ``ci.yml`` and
   ``CONTRIBUTING.md``;
+* the specialists the pre-review section names, their verdict vocabularies and the four things
+  the note check reports are read off ``tools.pre_review_routing`` — and the section's routing
+  example is executed by the examples harness, so the page's transcript is a real answer;
 * the CLA route is the one ``CLA.md`` and the signature record actually describe;
 * every repository file the page links to exists, and the banned-phrase lint runs over the page
   on every test run.
@@ -42,6 +45,17 @@ import yaml
 
 from tools.golden_guard import GOLDEN_PATHS, TRAILER_KEY, golden_paths_touched, well_formed
 from tools.honest_claims_lint import load_phrases, scan
+from tools.pre_review_routing import (
+    FINDING_PLACEHOLDER,
+    NO_FINDINGS,
+    NO_ROUTING,
+    REVIEWERS,
+    ROUTING_PLACEHOLDER,
+    check_comment,
+    comment,
+    reviewer,
+)
+from tools.pre_review_routing import build_parser as pre_review_parser
 from tools.provenance_guard import (
     FINDING_KINDS,
     MANIFEST,
@@ -662,6 +676,85 @@ def test_the_lint_command_the_page_shows_is_a_command_ci_runs(page_text: str) ->
     for command in ("python tools/provenance_guard.py", "python tools/honest_claims_lint.py"):
         assert command in page_text, command
         assert command in workflow_text, command
+
+
+# ── Section 8: the specialist pre-review ─────────────────────────────────────────────────
+
+
+def test_every_specialist_the_page_names_is_one_the_router_routes_to(page_text: str) -> None:
+    """The page describes three reviewers; a fourth added to the table, or one renamed, must
+    not leave this section reading plausibly."""
+    contributing = CONTRIBUTING.read_text(encoding="utf-8")
+
+    assert len(REVIEWERS) == 3
+    for spec in REVIEWERS:
+        assert f"`{spec.key}`" in contributing, spec.key
+        assert spec.key in page_text, spec.key
+
+
+def test_the_verdict_vocabularies_the_page_describes_are_the_specialists_own(prose: str) -> None:
+    """Two reviewers have a middle verdict and one does not; the page says so in words, and
+    the words are checked against the data rather than against the last time anyone looked."""
+    middle = {spec.key for spec in REVIEWERS if "APPROVE-WITH-NOTES" in spec.verdicts}
+
+    assert middle == {"ir-contract", "property-contract"}
+    assert reviewer("never-invokes").verdicts == ("APPROVE", "BLOCK")
+    assert "the two contract reviewers have a middle verdict for a finding that does not" in prose
+    assert "the never-invokes reading has none" in prose
+
+
+def test_the_page_does_not_offer_a_trigger_the_router_does_not_have(prose: str) -> None:
+    """A label is not a trigger, and the page says why. The claim is the code's: routing reads
+    the changed paths and the card, and there is nowhere for a label to enter."""
+    assert "label" not in pre_review_parser().format_help()
+    assert not any("label" in field for spec in REVIEWERS for field in (spec.paths + spec.tracks))
+    assert "A pull-request **label is deliberately not a trigger**." in prose
+
+
+def test_the_commands_the_page_shows_are_the_tools_own_surface(page_text: str) -> None:
+    contributing = CONTRIBUTING.read_text(encoding="utf-8")
+    usage = pre_review_parser().format_help()
+
+    for flag in ("--files", "--card", "--comment", "--check", "--check-comment", "--format"):
+        assert flag in usage, flag
+    for command in (
+        "python tools/pre_review_routing.py --files $(git diff --name-only main...HEAD) --card EX-06",
+        "python tools/pre_review_routing.py --check-comment <the note>",
+    ):
+        assert command in page_text, command
+        assert command in contributing, command
+
+
+#: What the page says the note check reports, each with a note that provokes it. The pairing is
+#: the assertion: a page listing a refusal the checker does not make would pass a reading.
+NOTE_PROBLEMS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("a template recorded unfilled", "<APPROVE | BLOCK>", "still the template's placeholder"),
+    ("a verdict outside the", "APPROVE-WITH-NOTES", "is not one of never-invokes's verdicts"),
+    ("naming no finding", "BLOCK", "the verdict is BLOCK and no finding is named"),
+    ("whose routing was never", "APPROVE", "has no routing line"),
+)
+
+
+def test_the_four_things_the_note_check_reports_are_the_four_it_reports(prose: str) -> None:
+    template = comment(reviewer("never-invokes"), card="TOOL-06")
+    finding = "- `a/path.py:1` — an observation — INTROSPECTION-SPEC §1 — a citation"
+
+    for page_phrase, verdict, expected in NOTE_PROBLEMS:
+        note = template.replace("<APPROVE | BLOCK>", verdict)
+        if expected != "still the template's placeholder":
+            note = note.replace(
+                FINDING_PLACEHOLDER, finding if expected == "has no routing line" else NO_FINDINGS
+            ).replace(ROUTING_PLACEHOLDER, NO_ROUTING)
+        assert any(expected in problem for problem in check_comment(note)), expected
+        assert page_phrase in prose, page_phrase
+
+
+def test_the_escalation_the_page_describes_is_the_one_section_5_prescribes(prose: str) -> None:
+    """The two exits, and the one thing neither side may do — the page routes the second exit
+    into its own spec-defect section rather than restating the protocol a second time."""
+    assert "you have found a spec defect, and section 5 is the whole procedure" in prose
+    assert "no authority to bless a deviation from a frozen document" in prose
+    assert "An approval does not merge your change and a block does not close it" in prose
 
 
 # ── Section 1: the CLA ───────────────────────────────────────────────────────────────────

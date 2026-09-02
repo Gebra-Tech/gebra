@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A review scope and a machine-readable report for the provenance guard, and one place the
+  read-only carve-out is read from** (card TOOL-05). `python tools/provenance_guard.py --only
+  <path>` answers the question a *review* asks — what the guard says about the paths this change
+  touches — rather than the question the CI job asks, which is whether the whole guarded surface
+  is intact. It is repeatable and takes repo-relative paths, so `git diff --name-only` output
+  pastes in unchanged, and it is a narrower report rather than a narrower check: the guarded
+  surface is read exactly as the unscoped job reads it and what that run found is then filtered
+  for listing. It narrows what is listed, never what is decided — the exit status stays the
+  whole run's, because a change's effect need not land on a path the change touches (deleting a
+  manifest row leaves the *fixture* unlisted; editing a `docs/PROVENANCE.md` row moves the
+  cross-check). A scoped run can list nothing and still exit 1, in which case it reports how
+  many findings lie outside the scope and says to re-run without `--only`, so a green scope is
+  never mistakable for a green tree and a scoped review fails on exactly the trees CI fails on.
+  A named path the manifest does not guard comes back as out of scope instead of being dropped,
+  which turns "does provenance apply to this change at all" into a computed answer; `--only` is
+  refused alongside `--regenerate`, which selects nothing. `--format json` prints the same run
+  as data on stdout at the same exit status, each finding carrying its kind, path,
+  classification and the remediation to relay, alongside `findings_outside_scope`. That
+  remediation field is the second half: the sync rules in
+  `docs/PROVENANCE.md` can record that a vendored file was transferred out of read-only status
+  by a ratified ruling, and the guard now parses that record on each run instead of anyone
+  remembering it — for such a file an in-place edit is sanctioned and owes no spec defect, while
+  the manifest refresh in the same commit is still owed, so an edit arriving without it fails
+  exactly as before. A carve-out naming no ratified ruling is not a transfer, nothing is keyed
+  to a filename, and the manifest schema is unchanged. The maintainers' `/provenance-check` now
+  reaches its integrity verdict by running this guard and reporting its exit status, and relays
+  the routing the guard printed rather than composing routing of its own, so a review verdict
+  and the CI job's verdict are one computation; what the review still reads for itself is the
+  half no working tree carries — the vault hash in the commit message, the manifest-row updates,
+  and whether a recorded carve-out cites a ruling that actually exists and is ratified. The
+  contributor guide's vendored-files section gained the review scope, the JSON surface and the
+  two routings.
+
 - **A machine-readable honest-claims report, and one home for the allow-pragma** (card
   TOOL-04). `python tools/honest_claims_lint.py --format json` prints the run the CI job makes
   as data on stdout, at the same exit status: every violation with its path, line, kind and

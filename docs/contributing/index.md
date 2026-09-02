@@ -347,6 +347,36 @@ bytes, which is precisely the event a reviewer should be looking at. The six ste
 [re-vendoring.md](https://github.com/Gebra-Tech/gebra/blob/main/docs/governance/re-vendoring.md),
 along with what to do when the guard fails on your branch.
 
+**Reviewing a change, rather than gating a tree.** `--only <path>` narrows the report to the
+paths a change touches. It is repeatable, `git diff --name-only` output pastes in unchanged, and
+it is a filter over the run above rather than a second one — the guard still reads the whole
+guarded surface.
+
+It narrows what the report **lists**, never what it decides. The exit status stays the whole
+run's, because a change's effect need not land on a path the change touches: deleting a manifest
+row leaves the *fixture* unlisted, and editing a `docs/PROVENANCE.md` row moves the cross-check.
+A scoped run can therefore list nothing and still exit 1; when it does, it says how many findings
+lie outside the scope and tells you to re-run without `--only`. So a scoped review reports a
+failure on exactly the trees the CI job fails on, and a green scope is never mistakable for a
+green tree. A named path the manifest does not guard comes back as *out of scope* instead of
+narrowing the run quietly, which is how "does provenance apply to this change at all" gets a
+computed answer rather than a remembered one. `--format json` prints the same run
+machine-readably, with each finding's classification and its remediation beside it and the count
+it did not list, so a review surface relays the guard's routing instead of composing routing of
+its own. The maintainers' `/provenance-check` review reaches its integrity verdict this way —
+by running this guard and reporting its exit status — so a review of your branch and the CI job
+on it are one computation rather than two readings.
+
+**Not every guarded path routes the same way, and the guard reads that from the record rather
+than knowing it.** The sync rules in `docs/PROVENANCE.md` can record that a vendored file has
+been transferred out of read-only status by a ratified ruling. For such a file an in-place edit
+is sanctioned and owes no spec defect — but the manifest is still owed, so the edit and its
+regenerated hash land in one commit, and an edit that arrives without its refresh is caught
+here exactly as before. The guard parses that record on each run — which needs
+`--provenance-doc`, so the half of the surface where such a record can apply is also the half
+whose CI passes the flag — and a carve-out naming no ratified ruling is not a transfer, leaving
+the path read-only. Nothing about it is keyed to a filename.
+
 ## 5. When a frozen document cannot be implemented
 
 Sooner or later you will hit a passage in a specification that cannot be implemented as written

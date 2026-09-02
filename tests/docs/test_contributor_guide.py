@@ -34,7 +34,6 @@ It builds no workflow, runs no node, executes no example and opens no connection
 from __future__ import annotations
 
 import re
-from dataclasses import fields
 from pathlib import Path
 from typing import Final
 
@@ -43,7 +42,15 @@ import yaml
 
 from tools.golden_guard import GOLDEN_PATHS, TRAILER_KEY, golden_paths_touched, well_formed
 from tools.honest_claims_lint import load_phrases, scan
-from tools.provenance_guard import Report, build_parser
+from tools.provenance_guard import (
+    FINDING_KINDS,
+    MANIFEST,
+    MISSING,
+    MODIFIED,
+    UNLISTED,
+    Finding,
+    build_parser,
+)
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 PAGE: Final = REPO_ROOT / "docs" / "contributing" / "index.md"
@@ -404,11 +411,9 @@ def test_the_miniature_board_is_in_the_format_the_real_boards_use(page_text: str
 
 
 def test_the_page_names_every_failure_class_the_guard_reports(prose: str) -> None:
-    """Both directions against `Report`'s own fields: a fifth class cannot land unmentioned."""
-    classes = {field.name for field in fields(Report) if field.name != "checked"}
-
-    assert classes == {"modified", "missing", "unlisted", "provenance_mismatch"}
-    for name in ("modified", "missing", "unlisted"):
+    """Both directions against the guard's own kind vocabulary: a fifth cannot land unmentioned."""
+    assert set(FINDING_KINDS) == {MODIFIED, MISSING, UNLISTED, MANIFEST}
+    for name in (MODIFIED, MISSING, UNLISTED):
         assert f"**{name}**" in prose, name
     assert "**manifest drift**" in prose
     assert "fails on four distinct things" in prose
@@ -450,13 +455,15 @@ def test_the_guards_transcript_is_the_guards_own_wording(page_text: str) -> None
     printed = output.group(1)
 
     source = (REPO_ROOT / "tools" / "provenance_guard.py").read_text(encoding="utf-8")
-    for tail in (
-        "— bytes differ from the recorded snapshot",
-        "— listed in the manifest, absent from the tree",
-        "— inside a guarded tree, absent from the manifest",
+    for kind, detail in (
+        (MODIFIED, "bytes differ from the recorded snapshot"),
+        (MISSING, "listed in the manifest, absent from the tree"),
+        (UNLISTED, "inside a guarded tree, absent from the manifest"),
     ):
-        assert tail in printed
-        assert tail in source
+        assert detail in source
+        # The separator is the report's, not the page's: build the line the way the guard does.
+        assert Finding(kind, "any/path", detail).line == f"any/path — {detail}"
+        assert f"— {detail}" in printed
 
 
 def test_the_guarded_tree_the_page_names_is_the_one_this_repository_guards(prose: str) -> None:

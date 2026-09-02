@@ -29,7 +29,23 @@ guarded file and compares it with the SHA-256 recorded in the manifest:
 ```bash
 python tools/provenance_guard.py                    # what CI runs
 python tools/provenance_guard.py --provenance-doc ../<development-process repo>/docs/PROVENANCE.md  # maintainers only
+python tools/provenance_guard.py --only <path> [--only <path> ...]   # review scope: a change's own files
+python tools/provenance_guard.py --format json      # the same run, machine-readable
 ```
+
+`--only` narrows the *report* to the paths a change touches — never the check, and
+never the verdict. The guarded surface is read exactly as the bare command reads
+it and what that run found is then filtered for listing, but the exit status stays
+the whole run's, because a change's effect need not land on a path the change
+touches: deleting a manifest row leaves the *fixture* unlisted, and editing a
+`docs/PROVENANCE.md` row moves the cross-check. A scoped run can therefore list
+nothing and still exit 1; it then says how many findings lie outside the scope and
+tells you to re-run without `--only`. A green scope is not a green tree — only an
+exit status of 0 is. `--only` is repeatable, `git diff --name-only` output pastes
+in unchanged, and a named path the manifest does not guard comes back as out of
+scope rather than being dropped. `--format json` prints the same run as data, each
+finding carrying its kind, path, classification and the remediation to relay, plus
+the count of findings the scope kept out of the list.
 
 It fails, with the offending paths named, on any of:
 
@@ -41,6 +57,16 @@ It fails, with the offending paths named, on any of:
   `docs/PROVENANCE.md` rows disagree about which files are vendored or about a
   file's vault source and commit. This is what stops a manifest row from being
   deleted to quietly unguard a file.
+
+Not every guarded path is governed the same way, and the guard reads which from
+the record rather than from a list kept here. `docs/PROVENANCE.md`'s sync rules
+can record that a file was transferred out of read-only status by a ratified
+ruling; for such a file an in-place edit is sanctioned, owes no spec defect, and
+does not follow the vault-first path below. What it still owes is the manifest —
+the edit and its regenerated hash land in one commit, so an edit arriving without
+that refresh fails here exactly as any other would. The guard names the path, the
+ruling behind it and what to do, in both output formats. A carve-out naming no
+ratified ruling is not a transfer, and the path stays read-only.
 
 A hash manifest was chosen over a git-diff rule deliberately: it holds
 regardless of how a change arrived (rebase, squash, force-push, a directory

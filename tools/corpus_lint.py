@@ -58,6 +58,18 @@ remaining three are enumerated rather than summarised. Reconciling (1)–(2) nee
 sections; (3) is not a defect at all. What this lint owes is that the state is *visible* per
 fixture rather than silently assumed.
 
+**The review scope.** Reviewing a *change* asks a narrower question than gating a corpus:
+not "is the corpus clean" but "what does this gate say about the files this change touches".
+``--only`` answers it, and answers it with the run above rather than a second reading —
+:func:`check` computes the whole corpus exactly as the gate does and :func:`scope_report`
+then filters what it found, so a scoped verdict and a full one cannot disagree about a
+fixture. Two properties make that filter safe to trust. Violations carrying no fixture — the
+per-directory minimums, serial uniqueness and the grand-total floor — stay in scope whatever
+is selected, because they are properties of the corpus *after* the change and a deletion
+leaves no file to attribute them to. And a token naming no fixture in the corpus stops the
+run: a review scope that quietly narrowed on a typo would report green over the fixture it
+was meant to judge.
+
 Nothing here imports langgraph or langchain, executes a workflow node, calls a model, or
 opens a socket (WA-07). Fixtures are read through :mod:`gebra.testing.fixtures`, whose
 parser is PyYAML's safe constructor set in a private subclass; ``source_snippet`` is never
@@ -67,6 +79,7 @@ Usage::
 
     python tools/corpus_lint.py                      # lint the vendored corpus
     python tools/corpus_lint.py --corpus some/dir    # lint a candidate corpus (WA-04 proposal)
+    python tools/corpus_lint.py --only <dir>/<name>.yaml  # review scope: a change's own files
     python tools/corpus_lint.py --envelope-ledger    # add the per-fixture composing/not lines
 
 Exit status is 0 when the corpus is clean, 1 when any rule is violated.
@@ -87,6 +100,7 @@ from typing import Any
 import yaml
 
 from gebra.testing import (
+    FIXTURE_SUFFIX,
     SCHEMA_FILENAME,
     FixtureError,
     PropertyFixture,
@@ -224,12 +238,22 @@ class EnvelopeStatus:
 
 @dataclass
 class CorpusReport:
-    """What the lint found. Empty ``violations`` means the corpus is clean."""
+    """What the lint found. Empty ``violations`` means the corpus is clean.
+
+    Attributes:
+        fixtures_checked: How many fixtures :func:`check` read — the whole corpus, in a
+            scoped report too, because the corpus-wide rules are computed over all of them.
+        directories_checked: How many directories those fixtures came from.
+        violations: Every rule broken, in reporting order.
+        envelope: The per-fixture composes/does-not ledger, reported and never gated.
+        selected: The review scope, or ``None`` for a full run. Set by :func:`scope_report`.
+    """
 
     fixtures_checked: int = 0
     directories_checked: int = 0
     violations: list[Violation] = field(default_factory=list)
     envelope: list[EnvelopeStatus] = field(default_factory=list)
+    selected: tuple[str, ...] | None = None
 
     @property
     def ok(self) -> bool:
@@ -337,7 +361,7 @@ def check(corpus_root: Path, schema_path: Path) -> CorpusReport:
     directory_counts: Counter[str] = Counter()
 
     for path in paths:
-        fixture_id = f"{path.parent.name}/{path.name}"
+        fixture_id = _fixture_id(path)
         directory = path.parent.name
         directory_counts[directory] += 1
         found = _check_layout(fixture_id, path, directory, serials)
@@ -369,6 +393,11 @@ def check(corpus_root: Path, schema_path: Path) -> CorpusReport:
     report.violations.extend(_check_serials(serials))
     report.violations.extend(_check_counts(directory_counts, polarity_counts, len(paths)))
     return report
+
+
+def _fixture_id(path: Path) -> str:
+    """The corpus-relative identity a violation is attributed to: ``<directory>/<filename>``."""
+    return f"{path.parent.name}/{path.name}"
 
 
 def _build(
@@ -735,16 +764,85 @@ def _envelope_status(fixture: PropertyFixture) -> EnvelopeStatus:
     return EnvelopeStatus(fixture.fixture_id, composes=True)
 
 
+# ── The review scope ─────────────────────────────────────────────────────────────────────
+
+
+def resolve_selection(corpus_root: Path, tokens: Sequence[str]) -> tuple[str, ...]:
+    """Resolve ``--only`` tokens to the fixture identities violations are attributed to.
+
+    A token is any path ending in the fixture's directory and filename, so the output of
+    ``git diff --name-only -- tests/fixtures/properties/`` pastes in unchanged, as do a
+    corpus-relative identity and an absolute path.
+
+    Raises:
+        CorpusLintError: on a token naming no fixture in ``corpus_root``. A review scope never
+            narrows quietly: a typo, a path from another corpus, and the corpus's own schema
+            each stop the run rather than reading as green over the fixture they meant to name.
+    """
+    known = {_fixture_id(path) for path in iter_fixture_paths(corpus_root)}
+    selected: set[str] = set()
+    for token in tokens:
+        parts = Path(token).parts
+        if len(parts) < 2:
+            raise CorpusLintError(
+                f"--only {token!r}: name the fixture's directory too, as "
+                f"<directory>/<filename>{FIXTURE_SUFFIX} — the form a violation is reported under"
+            )
+        fixture_id = f"{parts[-2]}/{parts[-1]}"
+        if fixture_id not in known:
+            raise CorpusLintError(_unselectable(token, fixture_id, corpus_root))
+        selected.add(fixture_id)
+    return tuple(sorted(selected))
+
+
+def _unselectable(token: str, fixture_id: str, corpus_root: Path) -> str:
+    """Why a ``--only`` token names nothing lintable, and what to do about it."""
+    if Path(token).name == SCHEMA_FILENAME:
+        return (
+            f"--only {token!r}: {SCHEMA_FILENAME} states the rules every fixture is read "
+            "against, so a change to it is not reviewable inside one fixture's scope — lint "
+            "the whole corpus, without --only"
+        )
+    return (
+        f"--only {token!r}: no fixture {fixture_id!r} under {corpus_root}. A path the change "
+        "deletes has no fixture left to lint — its effect is the corpus-wide rules "
+        "(per-directory minimums, the grand-total floor), which are in scope for every run, so "
+        "drop it from --only. Otherwise the path is a typo, and a scope never narrows quietly."
+    )
+
+
+def scope_report(report: CorpusReport, selected: Sequence[str]) -> CorpusReport:
+    """Narrow ``report`` to a review scope: the named fixtures, plus every corpus-wide rule.
+
+    A pure filter over what :func:`check` already computed, never a second reading — which is
+    what makes a scoped verdict and a full one incapable of disagreeing about a fixture.
+    Violations carrying no fixture (the per-directory minimums, serial uniqueness and the
+    grand-total floor) stay in scope whatever is selected: they are properties of the corpus
+    after the change, and a deletion leaves no file to attribute them to.
+    """
+    chosen = frozenset(selected)
+    return CorpusReport(
+        fixtures_checked=report.fixtures_checked,
+        directories_checked=report.directories_checked,
+        violations=[
+            violation
+            for violation in report.violations
+            if not violation.fixture or violation.fixture in chosen
+        ],
+        envelope=[status for status in report.envelope if status.fixture in chosen],
+        selected=tuple(sorted(chosen)),
+    )
+
+
 # ── Reporting ────────────────────────────────────────────────────────────────────────────
 
 
 def format_report(report: CorpusReport, *, envelope_ledger: bool = False) -> str:
     """Render ``report`` for a terminal — the violations first, then the envelope ledger."""
-    headline = (
-        f"corpus lint: {'OK' if report.ok else 'FAILED'} — {report.fixtures_checked} fixture(s) "
-        f"in {report.directories_checked} director(y/ies), {len(report.violations)} violation(s)"
-    )
-    lines = [headline]
+    lines = _headline(report)
+    if len(lines) > 1 and report.violations:
+        # The scope block and a violation line share an indent; keep them apart to read.
+        lines.append("")
     lines.extend(violation.rendered() for violation in report.violations)
     if not report.ok:
         lines.extend(("", _REMEDIATION))
@@ -756,6 +854,30 @@ def format_report(report: CorpusReport, *, envelope_ledger: bool = False) -> str
             for status in report.not_composing
         )
     return "\n".join(lines)
+
+
+def _headline(report: CorpusReport) -> list[str]:
+    """The verdict line, and — under ``--only`` — what the scope it was reached over covers."""
+    verdict = "OK" if report.ok else "FAILED"
+    if report.selected is None:
+        return [
+            (
+                f"corpus lint: {verdict} — {report.fixtures_checked} fixture(s) in "
+                f"{report.directories_checked} director(y/ies), "
+                f"{len(report.violations)} violation(s)"
+            )
+        ]
+    return [
+        (
+            f"corpus lint: {verdict} — review scope: {len(report.selected)} of "
+            f"{report.fixtures_checked} fixture(s), {len(report.violations)} violation(s) in scope"
+        ),
+        *(f"  scope: {fixture}" for fixture in report.selected),
+        (
+            "  corpus-wide rules (per-directory minimums, serial uniqueness, the grand-total "
+            "floor) are in scope for every run"
+        ),
+    ]
 
 
 def _envelope_summary(report: CorpusReport) -> str:
@@ -812,6 +934,17 @@ def build_parser(default_corpus: Path) -> argparse.ArgumentParser:
         help=f"fixture schema to read the envelope rules from (default: <corpus>/{SCHEMA_FILENAME})",
     )
     parser.add_argument(
+        "--only",
+        action="append",
+        metavar="PATH",
+        default=None,
+        help=(
+            "review scope: report only what this run found about the named fixture(s), plus "
+            "the corpus-wide rules. Repeatable; takes any path ending in the fixture's "
+            "directory and filename, so `git diff --name-only` output pastes in unchanged"
+        ),
+    )
+    parser.add_argument(
         "--envelope-ledger",
         action="store_true",
         help="list every fixture whose `expected:` block does not compose into a §0.3 report",
@@ -827,6 +960,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         report = check(args.corpus, schema_path)
+        if args.only is not None:
+            report = scope_report(report, resolve_selection(args.corpus, args.only))
     except CorpusLintError as exc:
         print(f"corpus lint: {exc}", file=sys.stderr)
         return 1

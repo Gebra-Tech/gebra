@@ -425,6 +425,28 @@ The corpus lint is the last gate:
 python tools/corpus_lint.py
 ```
 
+Reviewing a change to the corpus asks a narrower question than gating it — not "is the corpus
+clean" but "what does this gate say about the files this change touches" — and `--only` answers
+that one, taking the output of `git diff --name-only` unchanged:
+
+```bash
+python tools/corpus_lint.py --only tests/fixtures/properties/mixed/10-all-properties-pass-healthy-research-pipeline.yaml
+```
+
+It is a narrower *report*, never a narrower check: the whole corpus is read exactly as above,
+and what that run found is then filtered to the fixtures you named, plus every corpus-wide
+finding no single file can own — the per-directory minimums, serial uniqueness, the grand-total
+floor, which is where a deletion shows up. So a scoped verdict and a full one are incapable of
+disagreeing about a fixture. A path that names no fixture in the corpus stops the run rather
+than narrowing the scope quietly; if a change deletes that path, drop it from `--only` and the
+corpus-wide rules judge its effect.
+
+That is also how a fixture change is reviewed: the maintainers' `/fixture-review` reaches its
+conformance verdict by running this lint rather than by walking a checklist written beside it,
+so a review verdict and the CI job's verdict cannot differ. What the skill still reads for
+itself is the half no script can compute — the vault decision record, the new vault hash, and
+the updated manifest rows that make a revision a routed one.
+
 ## 7. Commit messages
 
 [Conventional Commits](https://www.conventionalcommits.org/), with the card identifier where the

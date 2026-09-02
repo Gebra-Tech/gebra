@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A review scope for the corpus lint** (card TOOL-03). `python tools/corpus_lint.py --only
+  <path>` answers the question a *review* of a fixture change asks — what the gate says about
+  the files this change touches — rather than the question the CI job asks, which is whether
+  the whole corpus is clean. It is repeatable and takes any path ending in the fixture's
+  directory and filename, so the output of `git diff --name-only` pastes in unchanged. It is a
+  narrower report, never a narrower check: the corpus is read exactly as the unscoped gate
+  reads it, and what that run found is then filtered to the named fixtures plus every
+  corpus-wide finding no single file can own — the per-directory minimums, serial uniqueness
+  and the grand-total floor, which is where a deletion shows up. A scoped verdict and a full
+  one therefore cannot disagree about a fixture, which `tests/testing/test_fixture_review.py`
+  asserts as set equality per fixture under every one of the lint's seeded rules. A token
+  naming no fixture in the corpus stops the run rather than narrowing the scope quietly, and
+  the refusal names the one legitimate cause — the change deletes that path — along with where
+  its effect is judged instead. The maintainers' `/fixture-review` now reaches its conformance
+  verdict by running this lint rather than by walking a checklist written beside it, so a review
+  verdict and the CI job's verdict cannot differ; what the skill still reads for itself is the
+  half no script can compute, the vault sign-off that makes a fixture revision a routed one. The
+  contributor guide's fixture-corpus section gained the invocation and that division of labour.
+
 - **The board-integrity check** (card TOOL-02). `tools/board_integrity.py` computes, over the
   task boards, the rules the maintainers' `/plan-status check` states: unique card identifiers
   in the `<PREFIX>-<NN>` / `<PREFIX>-D<N>` grammar, prerequisite tokens that each resolve to a

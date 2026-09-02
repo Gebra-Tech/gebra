@@ -16,3 +16,16 @@ guaranteed to halt
 cannot fail
 proven correct
 verified behavior
+
+# Added at TOOL-04. PROPERTY-CATALOG-SPEC §B.1 names three phrasings banned in any P-08
+# rendering; the third of them has been listed since TE-15.
+proves determinism
+guaranteed reproducible
+# Singular forms of the bare entry above: listing the plural alone let the singular through
+# (mid-plan audit, 2026-08-09). The bare singular word is deliberately NOT listed — §B.3's
+# T-2 template must keep reproducing "…do NOT guarantee strict seed reproducibility"
+# verbatim in *rendered* output, which no per-line pragma can reach. See the reasoning in
+# docs/setups/TOOL-04.md of the development-process repository.
+guarantee termination
+we guarantee
+guaranteeing

@@ -536,6 +536,27 @@ The list is not the whole rule — it is the mechanical part of it. The rule is 
 prose has to be a claim the code demonstrates, and review applies that to sentences no substring
 search would catch.
 
+A line that has to quote the wording the list rejects — a page explaining the rule, an error
+message naming what it refuses — carries an allow-pragma, and the reason is part of it: a pragma
+with no reason is a violation in its own right rather than a silent bypass. This page uses one,
+and shows it:
+
+```markdown
+<!-- honest-claims: allow: naming what the list rejects, never asserting it -->
+Gebra never says that a check "proves termination".
+```
+
+Where a pragma may sit relative to the line it exempts is stated by the lint's own failure
+message, so that placement rule has one home. The same run is available as data —
+
+```bash
+python tools/honest_claims_lint.py --format json
+```
+
+— which prints every violation and, beside them, every line a pragma exempts together with the
+reason given. That second half is there so that a reviewer working past the substring list is
+reading the exemptions this lint granted rather than deciding for themselves which ones count.
+
 **Then review.** Every pull request except a board-only plan commit needs the code owner's
 review, and the maintainer is the one who merges. Changes to an area with a frozen contract —
 the intermediate representation and its canonical form, extraction, the validators and their

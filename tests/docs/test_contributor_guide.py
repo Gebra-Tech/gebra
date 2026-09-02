@@ -258,6 +258,27 @@ def test_the_page_carries_no_banned_phrase() -> None:
     assert report.violations == []
 
 
+def test_the_pages_allow_pragma_example_is_a_live_one() -> None:
+    """The page shows a pragma exempting a quoted phrase; it is the lint that exempts it.
+
+    A worked example nothing enforces is decoration one edit away from being wrong. This
+    holds that the demonstrated line really does carry a phrase the list rejects, and that
+    the report which came back clean above is clean *because* the pragma covers it.
+    """
+    phrases = load_phrases(PHRASES)
+    report = scan(REPO_ROOT, phrases, include=("docs/contributing/index.md",))
+    lines = PAGE.read_text(encoding="utf-8").splitlines()
+
+    quoted = [
+        exemption.line_no
+        for exemption in report.exemptions
+        if any(phrase in lines[exemption.line_no - 1].lower() for phrase in phrases)
+    ]
+
+    assert quoted, "the page's pragma example exempts no line the list would reject"
+    assert report.violations == []
+
+
 # ── Section 3: the dependency gate ───────────────────────────────────────────────────────
 
 #: The stored statuses the page lists as "not a candidate at all", plus the one it calls

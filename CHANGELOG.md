@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A machine-readable honest-claims report, and one home for the allow-pragma** (card
+  TOOL-04). `python tools/honest_claims_lint.py --format json` prints the run the CI job makes
+  as data on stdout, at the same exit status: every violation with its path, line, kind and
+  offending text; the lint's own remediation wording; and — this is the new half — every line
+  a justified allow-pragma exempts, with the pragma that covers it and the reason given. The
+  window a pragma reaches is now computed in exactly one place, `exempt_lines`, which the
+  phrase gate itself applies, so a reviewer who has to reason past a substring list reads the
+  exemptions this lint granted instead of forming a second opinion about which lines count.
+  Two smaller corrections came with it: a pragma written in a syntax that has to be closed
+  (`<!-- honest-claims: allow: -->`, `/* … */`) was reading its own comment terminator as a
+  justification and so passing as justified — it is a bare pragma again, and a reason is
+  reported without the terminator attached; and the two test modules that parsed the phrase
+  file with their own inline reader now load it through the lint's loader, leaving the data
+  file's format one reader. The contributor guide's honest-claims section gained the pragma,
+  a worked example that the page's own test holds to being a live one rather than decoration,
+  and the JSON surface.
+
 - **A review scope for the corpus lint** (card TOOL-03). `python tools/corpus_lint.py --only
   <path>` answers the question a *review* of a fixture change asks — what the gate says about
   the files this change touches — rather than the question the CI job asks, which is whether

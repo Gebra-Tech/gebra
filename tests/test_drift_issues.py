@@ -25,6 +25,7 @@ import pytest
 from tests.version_drift import conftest as drift_conftest
 from tests.version_drift import inventory, review
 from tools import drift_issues
+from tools.honest_claims_lint import load_phrases
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -383,13 +384,9 @@ def test_proposal_bodies_are_inlined_into_the_issue(tmp_path: Path) -> None:
     assert "# Drift review proposal — full body" in payload.body
 
 
-def _banned_phrases() -> list[str]:
-    text = (REPO_ROOT / "tools" / "honest-claims-phrases.txt").read_text(encoding="utf-8")
-    return [
-        line.strip()
-        for line in text.splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+def _banned_phrases() -> tuple[str, ...]:
+    """Through the lint's own loader — the data file's format has one reader (TOOL-04)."""
+    return load_phrases(REPO_ROOT / "tools" / "honest-claims-phrases.txt")
 
 
 def test_no_rendered_issue_text_carries_a_banned_phrase() -> None:

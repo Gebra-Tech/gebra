@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Final
 
 import gebra.ir as ir_module
+from tools.honest_claims_lint import load_phrases
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 FREEZE_NOTE: Final = REPO_ROOT / "docs" / "governance" / "IR-MODELS-FREEZE.md"
@@ -198,11 +199,8 @@ def test_status_frozen_and_dated() -> None:
 
 
 def test_no_banned_phrase() -> None:
-    phrases = [
-        line.strip()
-        for line in BANNED_PHRASES_FILE.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    ]
+    # Through the lint's own loader, so the data file's format has one reader (TOOL-04).
+    phrases = load_phrases(BANNED_PHRASES_FILE)
     text = _text().lower()
-    hits = [phrase for phrase in phrases if phrase.lower() in text]
+    hits = [phrase for phrase in phrases if phrase in text]
     assert not hits, f"banned phrase(s) found in IR-MODELS-FREEZE.md: {hits}"

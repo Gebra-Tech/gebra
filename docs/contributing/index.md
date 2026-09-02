@@ -557,6 +557,13 @@ python tools/honest_claims_lint.py --format json
 reason given. That second half is there so that a reviewer working past the substring list is
 reading the exemptions this lint granted rather than deciding for themselves which ones count.
 
+That is how the copy on a change is reviewed: the maintainers' `/honest-claims` reaches its
+phrase verdict by running this lint rather than by matching the list a second time, so a review
+verdict and the CI job's verdict cannot differ, and it takes the exempted lines from the same
+output rather than judging for itself which pragmas reach which line. What the skill still reads
+for itself is the half no list can express — the sentence that carries its claim in a paraphrase,
+which is why the phrase gate is the mechanical part of WA-06 and not the whole of it.
+
 **Then review.** Every pull request except a board-only plan commit needs the code owner's
 review, and the maintainer is the one who merges. Changes to an area with a frozen contract —
 the intermediate representation and its canonical form, extraction, the validators and their

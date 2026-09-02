@@ -22,9 +22,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   justification and so passing as justified — it is a bare pragma again, and a reason is
   reported without the terminator attached; and the two test modules that parsed the phrase
   file with their own inline reader now load it through the lint's loader, leaving the data
-  file's format one reader. The contributor guide's honest-claims section gained the pragma,
-  a worked example that the page's own test holds to being a live one rather than decoration,
-  and the JSON surface.
+  file's format one reader. The maintainers' `/honest-claims` now reaches its phrase verdict by
+  running this lint rather than by matching the list a second time, and takes the exempted lines
+  from the same output rather than judging for itself which pragmas reach which line, so a
+  review verdict and the CI job's verdict cannot differ; what the skill still reads for itself
+  is the half no list can express, the sentence that carries its claim in a paraphrase. The
+  contributor guide's honest-claims section gained the pragma, a worked example that the page's
+  own test holds to being a live one rather than decoration, the JSON surface, and that division
+  of labour.
+
+- **Five entries added to the banned-phrase list** (card TOOL-04, owner-reviewed and
+  owner-committed in both copies per the convention TE-15 set). Two of them are phrasings
+  PROPERTY-CATALOG-SPEC §B.1 bans in any P-08 rendering and that had never been listed; three
+  close singular forms of an entry that had been listed only in the plural, which is what let
+  them through. The entries themselves are in `tools/honest-claims-phrases.txt`, which is where
+  a list belongs and why this entry does not transcribe it — the four lines of this changelog
+  that first did were refused by the lint, correctly, since a changelog is repository-authored
+  prose like any other. Nothing repository-authored used any of the five. The bare singular
+  word is deliberately *not* among them, and the reason is recorded in the file rather than
+  left to be rediscovered: §B.3's warning template fixes, verbatim and with a conformance
+  anchor, a clause that denies such a promise on a provider's behalf, and that clause reaches a
+  reader as rendered output — where a per-line pragma, being a property of a source line,
+  cannot reach it.
 
 - **A review scope for the corpus lint** (card TOOL-03). `python tools/corpus_lint.py --only
   <path>` answers the question a *review* of a fixture change asks — what the gate says about

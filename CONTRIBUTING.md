@@ -22,7 +22,9 @@ record is what reviewers check — no row, no merge. A CLA bot that checks pull
 requests automatically is deferred to the 1.0 launch; when it lands it reads the
 same record.
 
-The pull-request template carries the reminder as its first checklist item.
+The pull-request template carries the reminder as its first checklist item, and the reviewer's
+check against the record is computed rather than eyeballed — see
+[The pre-merge checklist](#the-pre-merge-checklist-wa-08).
 
 ## Development setup
 
@@ -328,6 +330,46 @@ advice — the maintainer merges either way, as above.
 
 The [contributor guide](docs/contributing/index.md#the-specialist-pre-review) walks the same
 flow with a worked example of both outputs.
+
+## The pre-merge checklist (WA-08)
+
+Three of the obligations a review owes before a merge are settled by a record this repository
+already keeps, so the review reads the record rather than recalling the rule. One command reads
+all three:
+
+```bash
+python tools/pr_checklist.py --author <handle> --base main --head HEAD
+```
+
+- **The CLA row** comes from
+  [docs/governance/cla-signatures.md](docs/governance/cla-signatures.md). A row covers a
+  contribution when its handle is the author's, its `CLA version` is the version `CLA.md`
+  currently publishes, and its `Type` covers how the work is owned. A code owner needs no row,
+  as the record itself says.
+- **The golden-file justification** is `tools/golden_guard.py`'s verdict, taken per commit — the
+  same call the `golden-guard` job makes, so this cannot pass a commit that job fails.
+- **Release conformance** is `tools/release_gate.py`: with `--tag` it gates the tag before it
+  exists, and without one it is the dry run CI's `build` job makes on every push, which is what
+  catches an ordinary change that leaves the tree unable to release.
+
+`--base`/`--head` judges each commit separately, as the golden guard does. Where there is no
+range to walk, the git-free spelling takes the change pasted in:
+
+```bash
+python tools/pr_checklist.py --author <handle> \
+    --files $(git diff --name-only main...HEAD) --message "$(git log -1 --format=%B)"
+```
+
+Add `--tag v0.0.1.dev1` when the change under review is the release cut itself, `--employer-owned`
+when the work is owned by your employer (which is a different row in the record), and
+`--format json` for the same report as data, each finding beside its own remediation. Exit 0
+passes, 1 is a refusal, 2 means a check reached no verdict at all — which is not a pass, and
+there is no bypass flag.
+
+Three things the command deliberately does not decide, and the reviewer still does: whether the
+commits are conventional and carry their card ID, whether the board moved with the change, and
+whether the prose claims only what the code does. The first two are the boards' own business and
+the last is `tools/honest_claims_lint.py` plus the reading no substring search can do.
 
 ## Releases
 

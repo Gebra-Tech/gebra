@@ -531,6 +531,25 @@ claims only what the code does. Ticking a box you have not checked is the specif
 exists to prevent; leaving one unticked with a sentence saying why is an ordinary review
 conversation.
 
+**Three of those boxes are computed**, on your side and the reviewer's alike, because each has a
+record this repository already keeps — so neither of you has to remember the rule:
+
+```bash
+python tools/pr_checklist.py --author <your handle> --base main --head HEAD
+```
+
+That reads your row in the signature record of section 1, runs the WA-05 golden guard over each
+commit of the branch separately, and runs the release gate over the tree — the same three
+verdicts CI and the maintainer will reach. A refusal names the step that clears it: the signing
+address, the trailer the commit is missing, the version the tag disagrees with. Exit 0 passes,
+1 refuses, and 2 means a check could not be evaluated at all, which is not a pass. Add
+`--employer-owned` if your employer has rights to the work, and `--format json` if you would
+rather read the report as data than as prose.
+
+The rest of the template is the reviewer's reading rather than a record's: whether the commits
+are conventional and carry their card ID, whether the board moved with the change, and whether
+the prose overstates.
+
 **What runs.** Eighteen CI jobs, on every push and every pull request. Beyond the four gates of
 section 2, these are the ones that refuse a change for a reason local `pytest` will not have
 told you about:

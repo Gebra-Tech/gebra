@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The pre-merge checks that read their own records** (card TOOL-07). Three of the obligations a
+  review owes before a merge are settled by a record this repository already keeps, and
+  `python tools/pr_checklist.py --author <handle> --base main --head HEAD` now reads all three
+  rather than asking a reviewer to recall the rule. The **CLA** verdict comes from
+  `docs/governance/cla-signatures.md`, the append-only record the maintainer keeps: a row covers
+  a contribution when its handle is the author's, its `CLA version` is the version `CLA.md`
+  currently publishes, and its `Type` covers how the work is owned (`--employer-owned` asks for
+  the corporate row instead) — and a code owner needs no row, as the record itself says. The
+  **golden-file** verdict is `tools/golden_guard.py`'s, taken per commit, so a justified commit
+  does not cover an unjustified one here either and this cannot pass a commit the `golden-guard`
+  job fails. The **release** verdict is `tools/release_gate.py`'s: `--tag v0.0.1.dev1` gates a
+  release cut before the tag exists, and without a tag it is the dry run CI's `build` job makes
+  on every push, which catches an ordinary change that leaves the tree unable to release. Every
+  refusal names the step that clears it — the signing address and the row to append, the trailer
+  the commit is missing, the version the tag disagrees with — rather than a category. `--files`
+  with `--message` is the git-free spelling for a change pasted in, `--format json` prints the
+  same report as data, and the exit status separates the three outcomes: 0 passes, 1 refuses, 2
+  means a check reached no verdict at all, which is not a pass. There is no bypass flag.
+  What the tool deliberately leaves to the reviewer — commit format, card linkage, board sync and
+  whether the prose overstates — is named in `CONTRIBUTING.md` and in the contributor guide's
+  section 8 beside it.
+
 - **The specialist pre-review, written down and computed** (card TOOL-06). Three areas of this
   repository are governed by a document nobody here may edit, and a change touching one gets a
   specialist pre-review against that document before the code owner's review — so that a

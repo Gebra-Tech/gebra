@@ -222,7 +222,7 @@ print(f"  extraction warnings {len(verification.extraction_notes)}")
 ```text
 gebra_graph
   9 nodes, 7 edges
-  input_mode extracted, extractor 0.0.1.dev0
+  input_mode extracted, extractor 0.0.1
 gebra_verification
   13 outcomes (5 verdicts, 8 not-implemented markers)
   gate pass, exit 0

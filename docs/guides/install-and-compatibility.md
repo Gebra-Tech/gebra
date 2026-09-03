@@ -12,11 +12,19 @@ it, executed in CI.
 
 ## Install
 
-### There is no package index yet
+### From the package index
 
-`pip install gebra` does not work. The first published release and this repository's public
-launch are one step, and neither has happened — the declared version is `0.0.1.dev0`. Until
-then gebra installs from a checkout, which is how every contributor already runs it.
+```bash
+pip install gebra
+```
+
+The published package is [`gebra` on PyPI](https://pypi.org/project/gebra/), and that is the
+one command on this page that installs it from there: no CI job installs gebra from an index,
+because CI checks the tree it runs in rather than what was published before it.
+
+### From a checkout
+
+The route every contributor runs, and the one that builds the package from the tree you have:
 
 ```bash
 git clone https://github.com/Gebra-Tech/gebra.git
@@ -24,11 +32,11 @@ cd gebra
 pip install .
 ```
 
-Those three lines are the only commands on this page CI does not run. The build they perform
-is run, though, one step apart: `pip install .` asks the pinned `hatchling` backend for a
-wheel and installs it, and the `build` CI job builds a wheel through that same pinned backend
-and installs it into an empty environment on every push. The two routes below are the ones
-with a job behind them.
+The index command and those three lines are the only commands on this page CI does not run.
+The build the checkout performs is run, though, one step apart: `pip install .` asks the
+pinned `hatchling` backend for a wheel and installs it, and the `build` CI job builds a wheel
+through that same pinned backend and installs it into an empty environment on every push. The
+two routes below are the ones with a job behind them.
 
 ### The distribution, into a clean environment
 
@@ -91,8 +99,8 @@ Swap `compat-cell-3` for `compat-cell-1` or `compat-cell-2` for the older pairs.
 | `pip install -e ".[dev,compat-cell-N]" -c tools/matrix-constraints.txt` | `dod`, and the twelve `test-matrix` cells |
 
 `tests/docs/test_install_and_compatibility.py` holds every shell command on this page to that
-table: a command here that no job runs fails the build, and the three-line checkout block
-above is the one declared exception.
+table: a command here that no job runs fails the build, and the index command and the
+three-line checkout block above are the declared exceptions.
 
 ### What comes with it
 
@@ -113,7 +121,7 @@ for requirement in metadata.requires("gebra") or ():
 
 <!-- gebra:output id=what-the-install-brings -->
 ```text
-gebra           0.0.1.dev0
+gebra           0.0.1
 requires-python >=3.10
 
 langchain-core<2.0,>=1.0
@@ -531,7 +539,7 @@ workflow.
 
 | Number | Example | What it versions | What moves it |
 |---|---|---|---|
-| The package version | `0.0.1.dev0` | gebra itself | a gebra release |
+| The package version | `0.0.1` | gebra itself | a gebra release |
 | The substrate versions | `langgraph 1.2.10` | what gebra reads | upgrading your own dependencies |
 | `ir_version` | `1.0` | the IR *format* | a ratified change to the IR schema |
 | The V.S.F.E label | `1.2.3.3` | **your workflow definition** | your edits |

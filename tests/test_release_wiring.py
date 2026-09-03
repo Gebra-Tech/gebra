@@ -35,6 +35,15 @@ pytestmark = pytest.mark.skipif(
 #: twine resolved by uvx, strict so a warning is a failure.
 TWINE_COMMAND = "uvx twine@6.1.0 check --strict dist/*"
 
+#: The publish action, pinned to a commit rather than to upstream's mutable `release/v1`
+#: branch (GOV-14, the `DV-A-9` hardening): the job that mints the OIDC credential runs
+#: exactly this code. The SHA is the `release/v1` head on 2026-09-02 and the comment beside
+#: it names the upstream release it resolves to, so a reviewer can check the pair without
+#: resolving the ref.
+PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
+PUBLISH_ACTION_SHA = "dc37677b2e1c63e2034f94d8a5b11f265b73ba33"
+PUBLISH_ACTION_RELEASE = "v1.14.2"
+
 
 @pytest.fixture(scope="module")
 def release() -> dict[Any, Any]:
@@ -194,9 +203,24 @@ def test_the_publish_job_downloads_the_dist_artifact_and_publishes_via_the_pypa_
     download = steps[_step_index(steps, "actions/download-artifact")]
     assert download["uses"] == "actions/download-artifact@v4"
     assert download["with"]["name"] == "gebra-dist-${{ needs.build.outputs.version }}"
-    publish = steps[_step_index(steps, "pypa/gh-action-pypi-publish")]
-    assert publish["uses"] == "pypa/gh-action-pypi-publish@release/v1"
+    publish = steps[_step_index(steps, PUBLISH_ACTION)]
+    assert publish["uses"] == f"{PUBLISH_ACTION}@{PUBLISH_ACTION_SHA}"
     assert publish["with"] == {"packages-dir": "dist"}
+
+
+def test_the_publish_action_is_pinned_to_a_commit_with_its_release_named() -> None:
+    """The pinned form, held textually: YAML drops the comment that names the release.
+
+    A full 40-hex commit SHA (a branch or tag name is mutable, and an abbreviated SHA is
+    ambiguous), followed on the same line by the upstream release it resolves to — and no
+    `@release/v1` left anywhere in the file to fall back to.
+    """
+    text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    [line] = [line.strip() for line in text.splitlines() if PUBLISH_ACTION in line]
+
+    assert line == f"uses: {PUBLISH_ACTION}@{PUBLISH_ACTION_SHA} # {PUBLISH_ACTION_RELEASE}"
+    assert len(PUBLISH_ACTION_SHA) == 40 and set(PUBLISH_ACTION_SHA) <= set("0123456789abcdef")
+    assert f"{PUBLISH_ACTION}@release/" not in text
 
 
 def test_no_step_in_the_release_workflow_reads_a_secret(release: dict[Any, Any]) -> None:

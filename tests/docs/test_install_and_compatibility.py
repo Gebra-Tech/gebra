@@ -6,9 +6,9 @@ runs, a pin in the packaging metadata, a band the runtime check compares against
 warning carries, a label the version engine derives. Prose cannot hold itself to any of that,
 so this module does:
 
-* every shell command on the page is one a named CI job runs, and the three-line checkout
-  block is the single declared exception — the acceptance requirement that the page's install
-  commands are executed in CI, made mechanical;
+* every shell command on the page is one a named CI job runs, and the index command plus the
+  three-line checkout block are the declared exceptions — the acceptance requirement that the
+  page's install commands are executed in CI, made mechanical;
 * the declared ranges are ``pyproject.toml``'s, and the matrix's pins are the
   ``compat-cell-N`` extras', both directions;
 * the band table is checked **against the classifier itself** over a grid built from the
@@ -82,10 +82,14 @@ CI_WORKFLOW: Final = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PHRASES: Final = REPO_ROOT / "tools" / "honest-claims-phrases.txt"
 
 #: The commands the page shows that **no** CI job runs, and the reason the page gives for
-#: showing them anyway: they are the checkout a reader performs, and the build they trigger is
-#: the one the `build` job performs a step later. Any other unmatched command is a failure —
-#: this tuple is the whole licence, and growing it is a decision someone has to make on purpose.
+#: showing them anyway. The index command is the install a reader performs against the
+#: published package, and no job here installs gebra from an index, because every job checks
+#: the tree it runs in (GOV-14 grew this tuple by exactly that line). The checkout lines are
+#: the checkout a reader performs, and the build they trigger is the one the `build` job
+#: performs a step later. Any other unmatched command is a failure — this tuple is the whole
+#: licence, and growing it is a decision someone has to make on purpose.
 NOT_RUN_IN_CI: Final[tuple[str, ...]] = (
+    "pip install gebra",
     "git clone https://github.com/Gebra-Tech/gebra.git",
     "cd gebra",
     "pip install .",
@@ -347,17 +351,23 @@ def test_every_shell_command_on_the_page_is_one_ci_runs(
     assert unmatched == [], f"the page shows install commands no CI job runs: {unmatched}"
 
 
-def test_the_declared_exception_is_exactly_the_checkout_block(page_text: str) -> None:
+def test_the_declared_exceptions_are_the_index_command_and_the_checkout_block(
+    page_text: str, workflow: dict[str, Any]
+) -> None:
     """The other direction: the licence is not vacuous, and it has not grown.
 
     Each declared line is really on the page (so a stale entry cannot quietly license a new
-    command), and no fourth command is exempt.
+    command), really run by no job (so the licence never covers a command CI performs after
+    all — the page's "no CI job installs gebra from an index" is this assertion), and no fifth
+    command is exempt.
     """
     commands = _shell_commands(page_text)
+    steps = _every_run_step(workflow)
 
     for command in NOT_RUN_IN_CI:
         assert command in commands, f"{command!r} is declared not-run-in-CI but is not shown"
-    assert len(NOT_RUN_IN_CI) == 3
+        assert not any(command in step for step in steps), f"a CI job runs {command!r}"
+    assert len(NOT_RUN_IN_CI) == 4
 
 
 @pytest.mark.parametrize(("command", "jobs"), INSTALL_COMMANDS)

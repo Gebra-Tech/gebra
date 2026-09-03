@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-09-03
+
+The first release of gebra — the Phase-0 wedge, as one package. `gebra.extract()` reads a
+LangGraph `StateGraph` builder, a compiled graph or an LCEL `Runnable` and emits the frozen
+Gebra IR (`ir_version` 1.0) without invoking anything it reads; the five wedge validators —
+P-01 `graph-well-formed`, P-02 `termination-witness`, P-04 `dataflow-completeness`, P-06
+`effect-safety` and P-08 `determinism-replay` — check that IR through `verify()` and return
+structured witnesses and failures, each finding carrying its claim class, while the other
+eight catalog properties answer with structured not-implemented markers; the `.gebra/`
+snapshot store, V.S.F.E versioning, structural diff, lineage and audit export record how a
+definition evolves; the `gebra` CLI carries `verify`, `snapshot`, `diff`, `display` and
+`history` with the `0`/`1`/`2` exit contract and the text, JSON and SARIF report surfaces; the
+pytest plugin loads through its `pytest11` entry point and the reusable CI-gate GitHub Action
+runs it in a job; and the twenty-page documentation site, whose examples CI executes
+verbatim, ships in the repository beside the code.
+
+**The release cut itself** (card GOV-14). The declared version is `0.0.1` in `pyproject.toml`,
+`gebra.__version__` and `uv.lock` together, so the release workflow's install smoke and the
+lockfile check agree with the tag; this dated section is what the release gate ships as the
+release notes; the README and the install guide lead with `pip install gebra`, with the
+checkout route kept below them; and the publish job pins `pypa/gh-action-pypi-publish` to the
+commit its `v1.14.2` release names rather than to a mutable branch ref. This change creates
+no tag: the tag naming this version is pushed at the launch step, after this landing's own CI
+run is green.
+
+Everything below is the record of how that package was built, card by card, kept verbatim
+from the `[Unreleased]` section it accumulated in.
+
 ### Added
 
 - **The pre-merge checks that read their own records** (card TOOL-07). Three of the obligations a

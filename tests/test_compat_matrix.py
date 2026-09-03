@@ -207,8 +207,8 @@ def test_compat_test_extra_is_the_newest_frozen_cell(extras: dict[str, list[str]
     §4 names one ``compat-test`` extra; the matrix needs three. The bare name resolves to
     cell 3 — the newest frozen pair, the substrate line the committed ``uv.lock`` already
     tracks — spelled out verbatim rather than as a self-referential
-    ``gebra[compat-cell-3]`` requirement, because gebra is published to no index and a
-    self-reference invites the resolver to look for it on one. This test is what keeps the
+    ``gebra[compat-cell-3]`` requirement, because a self-reference invites the resolver to
+    look for gebra on an index rather than in this tree. This test is what keeps the
     duplication honest.
     """
     assert extras["compat-test"] == extras["compat-cell-3"]

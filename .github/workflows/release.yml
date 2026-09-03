@@ -9,9 +9,9 @@
 #
 # The publish leg targets PyPI via trusted publishing (OIDC) and is triple-gated:
 #   1. `tools/release_gate.py` emits publish=true ONLY for a bare final `vX.Y.Z` tag.
-#      Every Phase-0 tag is a `v0.0.1.devN` / `v0.0.1rcN` form, so during Phase-0 the
-#      job is skipped on every run — PD-036: "the first tag whose publish leg delivers
-#      to PyPI is the launch release itself."
+#      Every dev cut (`vX.Y.Z.devN`) and release candidate (`vX.Y.ZrcN`) is skipped by
+#      it; the launch tag `v0.0.1` is the first final form — PD-036: "the first tag whose
+#      publish leg delivers to PyPI is the launch release itself."
 #   2. The job requires the `pypi` deployment environment, which the owner configures
 #      together with the PyPI trusted publisher (repository Gebra-Tech/gebra, THIS
 #      workflow file, environment `pypi`) at the launch step — MANUAL-STEPS M14.
@@ -129,10 +129,14 @@ jobs:
 
   # ── The publish leg: PyPI via trusted publishing, at the launch step only ──
   #
-  # Skipped by the gate on every Phase-0 run (no dev/rc tag is the final form). At
-  # launch (M14) the owner configures the PyPI trusted publisher naming this file and
-  # the `pypi` environment, then pushes the final tag — same workflow, this job live.
-  # `id-token: write` is the OIDC exchange; nothing else is granted here.
+  # Skipped by the gate on every dev/rc cut (neither is the final form). At launch (M14)
+  # the owner configures the PyPI trusted publisher naming this file and the `pypi`
+  # environment, then pushes the final tag — same workflow, this job live.
+  # `id-token: write` is the OIDC exchange; nothing else is granted here. The publish
+  # action is pinned to a commit, not to upstream's mutable `release/v1` branch: this is
+  # the job that mints the OIDC credential, so what it runs is fixed here (GOV-14; the
+  # comment beside the SHA names the upstream release it resolves to, and
+  # `tests/test_release_wiring.py` holds both).
   publish-pypi:
     needs: build
     if: github.event_name == 'push' && needs.build.outputs.publish == 'true' && github.ref_type == 'tag'
@@ -149,6 +153,6 @@ jobs:
           name: gebra-dist-${{ needs.build.outputs.version }}
           path: dist
       - name: Publish to PyPI (trusted publishing, OIDC)
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist

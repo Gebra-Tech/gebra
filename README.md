@@ -5,7 +5,7 @@
 [![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml/badge.svg)](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue.svg)](#install)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-pre--release%200.0.1.dev0-orange.svg)](#status)
+[![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)](#status)
 
 `gebra` reads a LangGraph workflow **definition** and answers questions about it before
 anything runs. It imports and inspects a `StateGraph` builder, a compiled graph or an LCEL
@@ -32,7 +32,7 @@ diagnostics rather than verdicts.
 
 ## Status
 
-`0.0.1.dev0` — pre-release. The table is what is merged in this repository, and nothing else;
+`0.0.1` — the first release. The table is what is merged in this repository, and nothing else;
 a row is `available` only where the capability is in the package and covered by its tests.
 
 | Capability | Status | Notes |
@@ -46,15 +46,20 @@ a row is `available` only where the capability is in the package and covered by 
 | Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached — see [the CLI reference](docs/reference/cli.md) |
 | Published documentation site | in development | all twenty pages are written — no placeholder is left — and CI builds the site with `mkdocs build --strict` on every push; nothing deploys it, so it is read here in the repository |
-| Installation from a package index | in development | nothing is published yet — [install from a checkout](#install) |
+| Installation from a package index | available | `pip install gebra` — the [`gebra` project on PyPI](https://pypi.org/project/gebra/); see [Install](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
 
 ## Install
 
-gebra is **not on a package index yet**: the first published release and the repository's
-public launch are one step, and neither has happened. Until then it installs from a checkout,
-which is how every contributor already runs it.
+From the package index:
+
+```bash
+pip install gebra
+```
+
+The published package is [`gebra` on PyPI](https://pypi.org/project/gebra/). From a checkout —
+the route every contributor runs, and the one that builds the package from the tree you have:
 
 ```bash
 git clone https://github.com/Gebra-Tech/gebra.git
@@ -142,7 +147,7 @@ slot it had to guess arrives with a warning naming the node and the slot.
 <!-- gebra-quickstart:console id=verify exit=1 -->
 ```console
 $ PYTHONPATH=. gebra verify booking:workflow
-gebra 0.0.1.dev0 — booking:workflow (extracted)
+gebra 0.0.1 — booking:workflow (extracted)
 ...
 P-01 graph-well-formed — pass  [DEFENSIBLE]
   witness                 2 nodes reachable from START | 1 terminal node | no

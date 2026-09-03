@@ -4,10 +4,12 @@ Card DOC-04 asks for three things a test can hold. The **status table** must say
 only where the capability is merged: each row carries a probe that asks this repository
 whether its claim is true, and — where the development-process repository is checked out
 beside this one — a reconciliation against the cards that produce it, in both directions, so
-a row cannot go stale in either. The **install instructions** must not predate the wheel
-path: while the declared version is a pre-release, PD-036 says nothing is published, and the
-page may not tell anyone to install from an index that has no such package. And the
-**open-core statement** must be present and must still agree with the licensing record.
+a row cannot go stale in either. The **install instructions** lead with the index route once
+a release is recorded: PD-036 put the first publish at the launch step, the release gate ships
+a final tag only with its dated changelog section (GOV-03), and GOV-14 recorded `0.0.1` that
+way — so the page says `pip install gebra`, names the PyPI project, keeps the checkout route
+below, and reads no live index. And the **open-core statement** must be present and must
+still agree with the licensing record.
 
 Everything here reads text and imports the package. It builds no workflow, runs no node and
 opens no connection (WA-07).
@@ -32,6 +34,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 README = REPO_ROOT / "README.md"
 DOCS = REPO_ROOT / "docs"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
+CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+
+#: A dated release heading, in the one form the release gate accepts before it lets a final
+#: tag publish (`tools/release_gate.py`): `## [X.Y.Z] - YYYY-MM-DD`.
+_RELEASE_HEADING = re.compile(r"^## \[(\d+)\.(\d+)\.(\d+)\] - \d{4}-\d{2}-\d{2}$", re.MULTILINE)
 
 #: The status table's header line, matched exactly.
 STATUS_TABLE_HEADER = "| Capability | Status | Notes |"
@@ -173,13 +180,32 @@ def _the_site_is_built_but_not_published() -> None:
     assert deploying == [], deploying
 
 
-def _nothing_is_published() -> None:
+def _released_versions() -> list[tuple[int, int, int]]:
+    """Every release the changelog records, as version triples."""
+    return [
+        (int(major), int(minor), int(patch))
+        for major, minor, patch in _RELEASE_HEADING.findall(CHANGELOG.read_text(encoding="utf-8"))
+    ]
+
+
+def _a_release_is_recorded() -> None:
     """PD-036: the first tag whose publish leg delivers to PyPI is the launch release.
 
-    A pre-release version is what says the launch has not happened. When a final version is
-    declared, this fails — and the install section is exactly what has to be revisited.
+    The repository's own evidence that such a release exists is the changelog: the release
+    gate ships a final tag only with its dated `## [X.Y.Z] - YYYY-MM-DD` section (GOV-03), and
+    GOV-14 recorded `0.0.1` that way in the commit the launch tag names. The publish itself is
+    the owner-run launch step, minutes after that commit — a WA-12 window the ship decision
+    accepted explicitly — so the row reads off the record rather than off an index this test
+    may not reach. What the declared version *looks like* is deliberately not read here: a
+    `.devN` declared after a release no longer means nothing is published (GOV-15), it only
+    has to sit at or above the newest release the changelog records.
     """
-    assert re.search(r"(\.dev\d+|rc\d+|a\d+|b\d+)$", _declared_version()), _declared_version()
+    released = _released_versions()
+    assert released, "CHANGELOG.md records no dated release section"
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)", _declared_version())
+    assert match is not None, _declared_version()
+    declared = tuple(int(part) for part in match.groups())
+    assert declared >= max(released), f"{_declared_version()} is below a recorded release"
 
 
 def _no_extension_is_implemented() -> None:
@@ -290,12 +316,13 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
     ),
     RowSpec(
         capability="Installation from a package index",
-        status=IN_DEVELOPMENT,
-        probe=_nothing_is_published,
-        reason=(
-            "PD-036 ruled the destination and put the first publish in the owner-run launch "
-            "step (MANUAL-STEPS M14), not in a card"
-        ),
+        status=AVAILABLE,
+        probe=_a_release_is_recorded,
+        # The release cut is the card; the publish is the owner-run launch step it arms
+        # (PD-036, MANUAL-STEPS M14), which tags this landing's own commit. The row turned
+        # `available` with that commit rather than with the upload, by the ship decision's
+        # explicit acceptance of that window — see `_a_release_is_recorded`.
+        cards=("GOV-14",),
     ),
     RowSpec(
         capability="VS Code extension",
@@ -413,7 +440,7 @@ def test_no_row_stays_behind_the_boards() -> None:
     assert stale == []
 
 
-# ── The install instructions, and the wheel path they may not predate ────────────────────
+# ── The install instructions: the index route first, the checkout route kept ─────────────
 
 
 def _install_commands() -> list[str]:
@@ -436,20 +463,38 @@ def test_the_install_section_shows_commands() -> None:
     assert _install_commands(), "the install section shows nothing to run"
 
 
-def test_no_install_instruction_predates_the_wheel_path() -> None:
-    """Nothing is published, so nothing may tell a reader to install from an index.
+def test_the_install_section_leads_with_the_index_route() -> None:
+    """The first thing a reader is told to run installs the published package.
 
-    The premise is checked rather than assumed: `_nothing_is_published` reads the declared
-    version, and PD-036 ties a pre-release version to the un-taken launch step. When a final
-    version is declared this test's premise fails first, which is the prompt to write the
-    index instructions rather than the licence to have written them early.
+    The premise is checked rather than assumed: `_a_release_is_recorded` reads the changelog
+    the release gate reads, so a tree with no recorded release fails here first — which is
+    the prompt to cut one rather than the licence to have written the index instructions
+    early.
     """
-    _nothing_is_published()
+    _a_release_is_recorded()
 
-    for command in _install_commands():
-        installs_the_package = re.search(r"\b(pip|uv|pipx|poetry|conda)\b.*\bgebra\b", command)
-        assert not installs_the_package, f"{command!r} installs gebra from somewhere published"
-    assert "pypi.org" not in _readme().replace("https://pypi.org/project/gebra/", "")
+    assert _install_commands()[0] == "pip install gebra"
+
+
+def test_the_readme_names_the_pypi_project_and_no_other_index_page() -> None:
+    """One project page, and nothing else on pypi.org — the URL PD-036's destination names."""
+    text = _readme()
+
+    assert "https://pypi.org/project/gebra/" in text
+    assert "pypi.org" not in text.replace("https://pypi.org/project/gebra/", "")
+
+
+def test_no_badge_reads_a_live_index() -> None:
+    """The version badge is copy — a literal the release commit sets — never a live lookup.
+
+    A badge that queries the index (`shields.io/pypi/…`) or a download counter would say
+    something this repository cannot hold to; the owner's ruling at the release cut was to
+    say nothing beyond the install command and the version (GOV-14).
+    """
+    text = _readme()
+
+    assert "shields.io/pypi" not in text
+    assert "pepy.tech" not in text
 
 
 def test_the_install_section_installs_from_the_checkout() -> None:
@@ -532,11 +577,15 @@ def test_no_link_points_at_a_page_that_documents_nothing() -> None:
     assert promises == []
 
 
-def test_the_status_badge_carries_the_declared_version() -> None:
-    """A badge is copy too: a stale version in it is a stale claim about what this is."""
-    version = _declared_version().replace(".", ".")
+def test_the_version_badge_carries_the_declared_version() -> None:
+    """A badge is copy too: a stale version in it is a stale claim about what this is.
 
-    assert f"status-pre--release%20{version}-orange" in _readme()
+    The badge is a static one whose message is the declared version verbatim (canonical
+    PEP 440 spellings carry no `-`, the one character the badge grammar would escape).
+    """
+    version = _declared_version()
+
+    assert f"https://img.shields.io/badge/version-{version}-" in _readme()
 
 
 def test_the_python_badge_matches_the_declared_floor() -> None:

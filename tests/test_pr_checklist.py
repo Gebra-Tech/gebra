@@ -113,7 +113,9 @@ class Sample:
 
 #: A compliant sample: the repository owner's own change, no golden touched, the tree at the
 #: version its tag would name. Every input here is real — the author is the account CODEOWNERS
-#: names, and the release check runs against this repository's own pyproject and changelog.
+#: names, and the release check runs against this repository's own pyproject and changelog —
+#: which is why the tag is read off `pyproject.toml` rather than spelled: a version bump (the
+#: `0.0.1` release cut, or the dev cut that follows a release) moves what "compliant" names.
 COMPLIANT_SAMPLE = Sample(
     author="hesam-shams",
     files=(
@@ -122,7 +124,7 @@ COMPLIANT_SAMPLE = Sample(
         "CHANGELOG.md",
     ),
     message="fix(val): count a bounded loop's guard once [VAL-07]",
-    tag="v0.0.1.dev0",
+    tag=f"v{release_gate.project_version(PYPROJECT)}",
 )
 
 #: A non-compliant sample, breaking all three at once: an author with no row in the record, a

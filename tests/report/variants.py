@@ -27,6 +27,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Final
 
+from gebra import __version__
 from gebra.ir import WorkflowIR
 from gebra.verify import (
     WEDGE_SLUGS,
@@ -580,7 +581,11 @@ def case_report(
     source: str = "travel_booking:build_graph",
     input_mode: str = "extracted",
     version: str | None = None,
-    extractor_version: str | None = "0.0.1.dev0",
+    # The build that extracted the subject is this one — the value `gebra.cli.verify` and the
+    # snapshot engine record — so the goldens normalize it together with `tool.version`
+    # (``goldens.normalize``). A literal here would drift from that placeholder at the first
+    # version bump, which is what the `0.0.1` release cut found (GOV-14).
+    extractor_version: str | None = __version__,
     sidecar: str | None = None,
 ) -> RunReport:
     """Run ``verify()`` with the wedge five stubbed to return ``reports``."""

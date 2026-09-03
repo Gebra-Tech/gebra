@@ -415,7 +415,7 @@ can never be mistaken for a final release by its version string.
    run (90-day retention — run artifacts are working copies; the durable release
    surface is PyPI, at launch).
 4. The `publish-pypi` job is skipped: the gate emits `publish=true` only for the
-   bare `vX.Y.Z` form, which no Phase-0 tag carries.
+   bare `vX.Y.Z` form, which a dev or rc tag never carries.
 
 **The launch release** is the owner's step (MANUAL-STEPS M14 in the delivery
 repo): configure the PyPI trusted publisher — repository `Gebra-Tech/gebra`,

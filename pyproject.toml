@@ -10,7 +10,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gebra"
-version = "0.0.1"
+# Development declares the version it is heading for, never the one it shipped. `0.0.1` is
+# published and its tag is used: while `main` still declared it, every development build named
+# a release it was not, and a second `v0.0.1` tag would have passed the gate against a used
+# version (GOV-15). The dev segment is PEP 440's, off the next patch (PD-036); the release
+# commit that ships `0.0.2` drops it.
+version = "0.0.2.dev0"
 description = "Design-time verification and versioning for LangGraph agent workflows"
 readme = "README.md"
 requires-python = ">=3.10"

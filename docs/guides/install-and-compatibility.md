@@ -121,7 +121,7 @@ for requirement in metadata.requires("gebra") or ():
 
 <!-- gebra:output id=what-the-install-brings -->
 ```text
-gebra           0.0.1
+gebra           0.0.2.dev0
 requires-python >=3.10
 
 langchain-core<2.0,>=1.0
@@ -132,6 +132,14 @@ rich>=13.8
 tomli>=2; python_version < '3.11'
 typer>=0.27
 ```
+
+That version is the one the tree declares, because the `docs` job runs this block against an
+editable install of the checkout — no job installs gebra from an index, as the table above
+says. `main` declares what it is working towards rather than what it last shipped, so a
+checkout reports `0.0.2.dev0` while `pip install gebra` reports the released `0.0.1`. PEP 440
+sorts a `.devN` before the release it names — `0.0.2.dev0` is after `0.0.1` and before
+`0.0.2` — and excludes a developmental release from an ordinary version specifier, so
+`pip install gebra` does not select one unless it is asked to.
 
 `langgraph` and `langchain-core` are ordinary required dependencies: gebra reads their
 builder, compiled-graph and `Runnable` surfaces to extract an IR, so an install without them
@@ -539,7 +547,7 @@ workflow.
 
 | Number | Example | What it versions | What moves it |
 |---|---|---|---|
-| The package version | `0.0.1` | gebra itself | a gebra release |
+| The package version | `0.0.1` published, `0.0.2.dev0` on `main` | gebra itself | a release, and the dev cut that re-opens development after one |
 | The substrate versions | `langgraph 1.2.10` | what gebra reads | upgrading your own dependencies |
 | `ir_version` | `1.0` | the IR *format* | a ratified change to the IR schema |
 | The V.S.F.E label | `1.2.3.3` | **your workflow definition** | your edits |

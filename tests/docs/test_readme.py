@@ -577,15 +577,44 @@ def test_no_link_points_at_a_page_that_documents_nothing() -> None:
     assert promises == []
 
 
-def test_the_version_badge_carries_the_declared_version() -> None:
+def test_the_release_badge_carries_the_newest_recorded_release() -> None:
     """A badge is copy too: a stale version in it is a stale claim about what this is.
 
-    The badge is a static one whose message is the declared version verbatim (canonical
-    PEP 440 spellings carry no `-`, the one character the badge grammar would escape).
+    The badge is a static one whose message is a version verbatim (canonical PEP 440 spellings
+    carry no `-`, the one character the badge grammar would escape). Which version is GOV-15's
+    call: once development re-opens on a `.devN`, the declared version and the installable one
+    are two different numbers, and a badge sitting above `pip install gebra` says the one that
+    command delivers — the newest release the changelog records. The declared version is not
+    unclaimed, it is claimed in prose one section down, where there is room to say which is
+    which (`test_the_status_paragraph_names_both_versions`).
     """
-    version = _declared_version()
+    major, minor, patch = max(_released_versions())
 
-    assert f"https://img.shields.io/badge/version-{version}-" in _readme()
+    assert f"https://img.shields.io/badge/release-{major}.{minor}.{patch}-" in _readme()
+    assert "badge/version-" not in _readme(), "the badge's label no longer says which version"
+
+
+def _status_paragraph() -> str:
+    """The prose between the `## Status` heading and the table it introduces."""
+    text = _readme()
+    section = text[text.index("\n## Status\n") :]
+    return section[: section.index(STATUS_TABLE_HEADER)]
+
+
+def test_the_status_paragraph_names_both_versions() -> None:
+    """After a release, `main` declares a version nobody can install — so say both numbers.
+
+    The card's objective (GOV-15) is that a development build stops reporting the released
+    version. Doing that truthfully costs a sentence: a reader arriving at the status section
+    is told what `pip install gebra` gives them and what this checkout declares, and neither
+    number may go stale against the file that decides it.
+    """
+    paragraph = _unwrapped(_status_paragraph())
+    major, minor, patch = max(_released_versions())
+
+    assert f"`{_declared_version()}`" in paragraph
+    assert f"`{major}.{minor}.{patch}`" in paragraph
+    assert "pip install gebra" in paragraph
 
 
 def test_the_python_badge_matches_the_declared_floor() -> None:

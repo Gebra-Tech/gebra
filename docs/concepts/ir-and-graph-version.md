@@ -389,7 +389,7 @@ august = Snapshot.of(
     version="1.0.0.0",
     extracted_from=ExtractedFrom(
         source="app/workflow.py:build",
-        extractor_version="0.0.1",
+        extractor_version="0.0.2.dev0",
         extracted_at="2026-08-31T09:00:00Z",
     ),
 )

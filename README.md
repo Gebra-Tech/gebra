@@ -5,7 +5,7 @@
 [![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml/badge.svg)](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue.svg)](#install)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)](#status)
+[![Release](https://img.shields.io/badge/release-0.0.1-blue.svg)](#status)
 
 `gebra` reads a LangGraph workflow **definition** and answers questions about it before
 anything runs. It imports and inspects a `StateGraph` builder, a compiled graph or an LCEL
@@ -32,8 +32,11 @@ diagnostics rather than verdicts.
 
 ## Status
 
-`0.0.1` — the first release. The table is what is merged in this repository, and nothing else;
-a row is `available` only where the capability is in the package and covered by its tests.
+`0.0.1` is the released version — the first one — and `pip install gebra` installs it. This
+checkout declares `0.0.2.dev0`: development re-opened on the next patch after that release, so
+installing from the tree gives you that instead, and the badge above stays on the number the
+index serves. The table is what is merged in this repository, and nothing else; a row is
+`available` only where the capability is in the package and covered by its tests.
 
 | Capability | Status | Notes |
 |---|---|---|
@@ -93,7 +96,8 @@ path.
 Ten minutes, from an installed package to a verification report. Every command below is run
 verbatim by CI against the built wheel, in a fresh environment holding only the package and
 what it depends on, and the transcript is that run's own output — trimmed where a `...` line
-appears, exact everywhere it does not.
+appears, exact everywhere it does not. That wheel is built from this tree, so the version line
+below reads the declared `0.0.2.dev0` rather than the `0.0.1` the index serves.
 
 ### 1. A workflow to check
 
@@ -147,7 +151,7 @@ slot it had to guess arrives with a warning naming the node and the slot.
 <!-- gebra-quickstart:console id=verify exit=1 -->
 ```console
 $ PYTHONPATH=. gebra verify booking:workflow
-gebra 0.0.1 — booking:workflow (extracted)
+gebra 0.0.2.dev0 — booking:workflow (extracted)
 ...
 P-01 graph-well-formed — pass  [DEFENSIBLE]
   witness                 2 nodes reachable from START | 1 terminal node | no

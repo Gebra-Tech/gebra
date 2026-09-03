@@ -48,7 +48,7 @@ if TYPE_CHECKING:  # resolved for type checkers only; at runtime `__getattr__` d
     )
     from gebra.extraction import ExtractionError, extract
 
-__version__ = "0.0.1"
+__version__ = "0.0.2.dev0"
 
 __all__ = [
     "ExtractionError",

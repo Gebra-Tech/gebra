@@ -360,7 +360,7 @@ python tools/pr_checklist.py --author <handle> \
     --files $(git diff --name-only main...HEAD) --message "$(git log -1 --format=%B)"
 ```
 
-Add `--tag v0.0.1.dev1` when the change under review is the release cut itself, `--employer-owned`
+Add `--tag v0.0.2.dev1` when the change under review is the release cut itself, `--employer-owned`
 when the work is owned by your employer (which is a different row in the record), and
 `--format json` for the same report as data, each finding beside its own remediation. Exit 0
 passes, 1 is a refusal, 2 means a check reached no verdict at all — which is not a pass, and
@@ -400,12 +400,12 @@ can never be mistaken for a final release by its version string.
 **Cutting a dev/rc release:**
 
 1. Land the release commit through the normal review path: bump
-   `[project].version` (say `0.0.1.dev1`) and make sure `CHANGELOG.md` carries
+   `[project].version` (say `0.0.2.dev1`) and make sure `CHANGELOG.md` carries
    what the cut should ship under `## [Unreleased]`. CI's `build` job runs the
    same gate in dry-run mode (plus `twine check --strict`) on every push, so a
    tree that is not release-ready is red before any tag exists.
 2. Tag that commit on the repository the workflows run in
-   (`Gebra-Tech/gebra`): `git tag v0.0.1.dev1 && git push origin v0.0.1.dev1`.
+   (`Gebra-Tech/gebra`): `git tag v0.0.2.dev1 && git push origin v0.0.2.dev1`.
 3. The `release` workflow gates the tag, builds wheel + sdist from it
    (`uv build`), validates metadata (`twine check --strict`), verifies the
    artifacts are exactly one wheel + one sdist named for exactly the gated

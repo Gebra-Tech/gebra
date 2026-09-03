@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Development re-opened at `0.0.2.dev0`** (card GOV-15). `0.0.1` is published and its tag is
+  used, so `main` could not keep declaring it: while it did, every build made from a checkout
+  named a release it was not, and a second `v0.0.1` tag on a later commit would have passed the
+  release gate and fired the publish leg at a version the index already holds. `pyproject.toml`,
+  `gebra.__version__` and `uv.lock` now declare `0.0.2.dev0` together — PEP 440's dev segment off
+  the next patch, the form PD-036 ruled — so `tools/release_gate.py --tag v0.0.1` refuses with a
+  version mismatch, and the release commit that ships `0.0.2` is what drops the segment. Nothing
+  about the published `0.0.1` moves: `pip install gebra` installs it exactly as before, and this
+  entry records no code change beyond the version literal itself. What changed for a reader is
+  that the documentation now names two numbers where it named one — the README badge carries the
+  released version the install command below it delivers, the status paragraph names the declared
+  dev version beside it, and the install guide says which of the two a checkout gives you and why
+  a `.devN` sorts where it does. The transcripts CI executes verbatim — the install guide, the
+  pytest-plugin guide, the CLI reference and the IR concept page — carry the declared version, as
+  they always have.
+
 ## [0.0.1] - 2026-09-03
 
 The first release of gebra — the Phase-0 wedge, as one package. `gebra.extract()` reads a

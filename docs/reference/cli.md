@@ -186,7 +186,7 @@ input_mode          extracted
 source              tests.sample_workflows.travel_booking:build_travel_booking_agent
 ir_version          1.0
 graph_version       sha256:b310b9dc037b819503de71ac0d29d10ce0902c2901fd13a7cb8a0d5b30766335
-extractor_version   0.0.1
+extractor_version   0.0.2.dev0
 
 input_mode          snapshot
 source              agent.ir.yaml
@@ -414,7 +414,7 @@ print(f"exit {exit_code}")
 
 <!-- gebra:output id=the-human-surface -->
 ```text
-gebra 0.0.1 — agent.ir.yaml (ir-document)
+gebra 0.0.2.dev0 — agent.ir.yaml (ir-document)
   identity                ir_version 1.0 | graph_version 
 sha256:b310b9dc037b8195... | strict off
     … 156 lines: one block per property, in catalog order …
@@ -484,7 +484,7 @@ print("run properties    ", ", ".join(run["properties"]))
 ```text
 report keys        report_format, tool, subject, properties, best_effort, gate
 report_format      1.1
-tool               {'name': 'gebra', 'version': '0.0.1'}
+tool               {'name': 'gebra', 'version': '0.0.2.dev0'}
 properties         13
 gate.outcome       pass
 gate.exit_code     0

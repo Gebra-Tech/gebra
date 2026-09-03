@@ -13,7 +13,7 @@ the emitter rules, and this package is that ruling as code::
         version="1.0.0.0",
         extracted_from=ExtractedFrom(
             source="travel_booking:build_graph",
-            extractor_version="0.0.1",
+            extractor_version="0.0.2.dev0",
             extracted_at="2026-08-04T09:00:00Z",
         ),
     )

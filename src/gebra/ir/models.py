@@ -34,12 +34,21 @@ validators and to canonicalization, neither of which is part of this module. Kee
 out of model validity is deliberate: a document that violates one has to *load* before
 anything can report it.
 
-The one single-field well-formedness rule that *is* model validity is the node-identity
-grammar on ``nodes[].id``, where §2.3 writes "``id`` MUST satisfy the §5 grammar"; the
-implementation is :mod:`gebra.ir.identity` and the annotation is
-:data:`~gebra.ir.identity.NodeIdStr`. Identity is the one thing no later stage can report
-on its own behalf — the condition-ID registry has no finding for a malformed id, and
-canonicalization would hash it — so it is checked where the spec writes the requirement.
+**Two rules are model validity**, and both are about identity, because identity is the one
+thing no later stage can report on its own behalf: the condition-ID registry has no finding
+for a malformed or repeated id, and canonicalization would hash the document either way.
+
+1. The node-identity grammar on ``nodes[].id``, where §2.3 writes "``id`` MUST satisfy the
+   §5 grammar"; the implementation is :mod:`gebra.ir.identity` and the annotation is
+   :data:`~gebra.ir.identity.NodeIdStr`.
+2. **Node-id uniqueness across ``nodes[]``** — §2.1's ``nodes`` row, whose MUST is worded
+   at the loader ("a duplicate id has no meaning under §5.3's identity rules and loaders
+   MUST reject it"; ratified — DEC-22, 2026-08-04, resolving the PD-032 spec defect). It is
+   the one rule here that reads more than one member at once, and it is model validity for
+   the same reason the grammar is: §6.2's ``nodes[]`` sort is total only *because* ids are
+   unique, so on a document that repeats one the canonical form is not canonical
+   (:func:`_require_unique_node_ids`).
+
 Reference-role strings (``entry``, ``finish``, ``from``, ``to``, ``path_map`` values,
 ``interrupts``, ``compensation.hook``) stay unconstrained here: §2.3 states the MUST on the
 definition site alone, and whether a reference resolves is the reporting stage's question —
@@ -51,7 +60,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Annotated, Any, Final, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field
 
 from gebra.ir.base import IRModel
 from gebra.ir.identity import NodeIdStr
@@ -477,6 +486,60 @@ class Runtime(IRModel):
     checkpointer: Checkpointer | None = None
 
 
+def _require_unique_node_ids(nodes: tuple[Node, ...]) -> tuple[Node, ...]:
+    """Refuse a ``nodes`` array that declares one id twice (IR-SPEC §2.1; ratified DEC-22).
+
+    The rule is worded at the loader — "**Node ``id``s MUST be unique within a document**
+    … a duplicate id has no meaning under §5.3's identity rules and loaders MUST reject
+    it" — so this is where it is enforced, on the array it constrains. Everything in the
+    package downstream of loading keys on the id: §6.2 sorts ``nodes[]`` by it and calls
+    the order total, §4.1's model view has one vertex per id, `gebra.diff` anchors every
+    delta on it, and every P-01…P-13 consumer looks a node up by it.
+
+    Until DEC-22 the uniqueness was an unstated *premise* of §6.2's totality rather than a
+    rule, and the gap was reachable: two authorings of one node set tie on the sort key,
+    the tie is broken by authored order, and authored order is exactly what §6.4 excludes
+    from the digest — so one node set had two ``graph_version`` values (PD-032, reproduced
+    at ratification). With the constraint here that document no longer loads, and the
+    §6.2 sort is total by construction rather than by assumption.
+
+    Both the dict key and the message go through ``str``'s own methods called **unbound**, so
+    no ``__hash__``/``__eq__``/``__repr__`` an exotic ``str`` subclass defines is ever run
+    here (WA-07, the :func:`~gebra.ir.identity.synthetic_segment` precedent). Strict mode
+    already coerces ``Node.id`` to an exact ``str`` on every validated path, so this is
+    belt-and-braces for the one residual reach — a ``Node`` whose ``id`` was replaced through
+    ``model_copy``, which skips validation — and it costs one call per node.
+
+    Args:
+        nodes: The validated ``nodes`` array, in authored order.
+
+    Returns:
+        ``nodes`` unchanged — this validator refuses, and never rewrites. Deduplicating
+        would be the one thing worse than accepting: it silently discards a declared node
+        contract and changes the digest of a document the author wrote.
+
+    Raises:
+        ValueError: naming the repeated id and both positions that declare it. A
+            ``ValueError`` because that is what pydantic renders as an ordinary
+            ``ValidationError`` at ``loc = ("nodes",)``, which is where a consumer's own
+            error handling already looks.
+    """
+    first_seen: dict[str, int] = {}
+    for index, node in enumerate(nodes):
+        node_id = str.__str__(node.id)
+        earlier = first_seen.setdefault(node_id, index)
+        if earlier != index:
+            raise ValueError(
+                f"node id {str.__repr__(node_id)} is declared twice, at nodes[{earlier}] and "
+                f"nodes[{index}]: IR-SPEC §2.1 makes node ids unique within a document "
+                "(ratified — DEC-22, 2026-08-04), and one id names at most one node "
+                "(§5.3). A repeated id ties §6.2's `nodes[]` sort key, so authored order "
+                "would reach the digest that §6.4 excludes it from and one node set would "
+                "have two canonical forms (PD-032). Give the second node its own id"
+            )
+    return nodes
+
+
 class WorkflowIR(IRModel):
     """A workflow definition in ``ir_version`` 1.0 — the seven fields of IR-SPEC §2.1.
 
@@ -495,6 +558,11 @@ class WorkflowIR(IRModel):
     The five REQUIRED members carry no model default (§2.5 note 6), so omit-normalization
     can never strip them — a workflow with no edges carries an explicitly authored
     ``edges`` of length zero.
+
+    **Node ids are unique within a document** — §2.1's MUST, ratified DEC-22 — so a document
+    declaring one ``id`` twice is a validation error naming the repeated id and both positions
+    that declare it, not a document with two nodes of one identity. See the ``nodes`` field
+    below for why the check lives there and what it deliberately does not constrain.
     """
 
     ir_version: IrVersion
@@ -510,6 +578,21 @@ class WorkflowIR(IRModel):
     finish: NodeReference | tuple[str, ...]
     state: dict[str, str | StateField] | None = None
     """State key → bare type-name string, or the object form (§2.2)."""
-    nodes: Annotated[tuple[Node, ...], Field(min_length=1)]
+    nodes: Annotated[
+        tuple[Node, ...], Field(min_length=1), AfterValidator(_require_unique_node_ids)
+    ]
+    """The node set $N$ (§2.1), non-empty and with **unique** ids (DEC-22).
+
+    The uniqueness MUST is checked here rather than on :attr:`Node.id`, because it is a
+    property of the array and no single element can violate it; the error therefore lands at
+    ``loc = ("nodes",)`` and names both positions (:func:`_require_unique_node_ids`).
+
+    It is an ``AfterValidator`` and not a JSON-Schema ``uniqueItems`` constraint: the rule is
+    uniqueness of the ``id`` member, not of whole node objects — two nodes sharing an id and
+    differing in their annotations are distinct items — and keeping it out of the generated
+    schema leaves ``model_json_schema()`` agreeing with the vendored ``schema.yaml``, which
+    IR-05's lockstep check compares against.
+    """
+
     edges: tuple[Edge, ...]
     runtime: Runtime | None = None

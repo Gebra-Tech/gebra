@@ -48,7 +48,14 @@ from gebra.ir.models import (
     WorkflowIR,
 )
 from gebra.versioning import Component, changed_components
-from tests.versioning.workflows import NODES, contract_of, node, with_contract, workflow
+from tests.versioning.workflows import (
+    NODES,
+    contract_of,
+    node,
+    with_contract,
+    with_repeated_node_id,
+    workflow,
+)
 
 #: The contract the base workflow gives ``work`` — every row edits this one.
 WORK = contract_of("work")
@@ -415,12 +422,13 @@ def test_node_ids_report_in_ledger_order() -> None:
 
 def test_a_node_id_declared_twice_is_refused_rather_than_collapsed() -> None:
     """IR-SPEC §2.1 makes node-id uniqueness a MUST (ratified DEC-22, resolving the PD-032
-    defect this suite's pre-review found). Until the constraint lands on the model itself
-    (card IR-07) the models still admit such a document, and keying a delta by id would
-    collapse the two entries and report nothing while ``graph_version`` moved — PD-012 makes
-    a V.S.F.E label a file name, so an under-reported counter is a second workflow content
-    under a file that already holds one. Refused at the boundary instead."""
-    doubled = workflow(nodes=(*NODES, node("work", None)))
+    defect this suite's pre-review found). ``WorkflowIR`` refuses such a document at
+    validation since card IR-07, so it can no longer be *loaded* — but ``model_copy`` still
+    builds one past validation, and keying a delta by id would collapse the two entries and
+    report nothing while ``graph_version`` moved: PD-012 makes a V.S.F.E label a file name,
+    so an under-reported counter is a second workflow content under a file that already
+    holds one. This engine keeps its own refusal for exactly that reach."""
+    doubled = with_repeated_node_id(workflow(), "work")
 
     with pytest.raises(ValueError, match="declared twice"):
         contracts_diff(workflow(), doubled)
@@ -433,7 +441,7 @@ def test_a_node_id_declared_twice_is_refused_rather_than_collapsed() -> None:
 def test_the_refusal_cites_the_ratified_rule() -> None:
     """DEC-22's in-repo obligation for this engine: the message names the rule it enforces,
     so a reader hitting it is one search away from §2.1 rather than from an opinion."""
-    doubled = workflow(nodes=(*NODES, node("work", None)))
+    doubled = with_repeated_node_id(workflow(), "work")
 
     with pytest.raises(ValueError) as raised:
         contracts_diff(workflow(), doubled)
@@ -446,7 +454,7 @@ def test_the_refused_document_is_one_the_digest_does_distinguish() -> None:
     """The refusal is not academic: the pair really does move ``graph_version`` and really
     does select components, which is exactly why reporting nothing was the danger — and is
     the PD-032 repro the owner re-executed at ratification."""
-    doubled = workflow(nodes=(*NODES, node("work", None)))
+    doubled = with_repeated_node_id(workflow(), "work")
 
     assert graph_version(workflow()) != graph_version(doubled)
     assert changed_components(workflow(), doubled) == frozenset({Component.S, Component.F})

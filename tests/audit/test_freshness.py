@@ -28,11 +28,10 @@ import pytest
 from gebra.audit import Freshness, FreshnessOutcome, freshness
 from gebra.diff import workflow_diff
 from gebra.ir.canonical import graph_version
-from gebra.ir.models import Node
 from gebra.store import Snapshot, SnapshotStore, StoreError, dump_meta
 from gebra.versioning import Component
 from tests.lineage.stores import STAGES, evolved_labels, evolved_store, provenance
-from tests.versioning.workflows import NODES, workflow
+from tests.versioning.workflows import NODES, with_repeated_node_id, workflow
 
 if TYPE_CHECKING:
     from gebra.ir import WorkflowIR
@@ -160,8 +159,12 @@ def test_a_document_repeating_a_node_id_is_refused_before_the_store_is_read(
 ) -> None:
     """IR-SPEC §2.1 (DEC-22): such a document has no identity to anchor on, so it is refused on
     the same terms and in the same order :func:`gebra.snapshot.snapshot` refuses it — before the
-    store is looked at, so an empty store does not answer ``unsnapshotted`` for it."""
-    duplicated = workflow(nodes=(*NODES, Node(id=NODES[0].id)))
+    store is looked at, so an empty store does not answer ``unsnapshotted`` for it.
+
+    The model refuses one at validation since card IR-07, so nothing *loaded* reaches here;
+    the document is built past validation with ``model_copy`` to reach this floor, which is
+    the only way left to hold it."""
+    duplicated = with_repeated_node_id(workflow(), NODES[0].id)
     store = SnapshotStore.for_project(tmp_path)
 
     with pytest.raises(ValueError, match="unique"):

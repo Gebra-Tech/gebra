@@ -108,6 +108,14 @@ you chose (§5.1). And ids never contain uuids: drawing ids, task ids and checkp
 namespaces are construction- or run-dependent, and the grammar exists precisely to refuse
 inheriting them (§5.2).
 
+**One id names at most one node.** A document declaring the same `id` twice in `nodes[]` is
+refused when it loads, with an error naming the repeated id and both of its positions — §2.1
+makes uniqueness a MUST and words it at the loader. Extraction cannot produce such a document
+(a LangGraph node name is a dict key), so this is a rule about hand-written IR. It matters
+because everything downstream keys on the id: `graph_version` orders `nodes[]` by it and
+`gebra diff` anchors every change on it, so two nodes under one id would mean one workflow
+with two digests and a diff that reports less than moved.
+
 <!-- gebra:example id=node-identity -->
 ```python
 from gebra.ir import (

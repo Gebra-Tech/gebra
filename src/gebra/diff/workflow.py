@@ -27,8 +27,9 @@ with §6.2's sort totality following from it. A document repeating an id has no 
 node order, so the tied entries' authored order reaches the digest (which §6.4 excludes), and
 every delta here is keyed by id, so reporting one would collapse it and under-report both S
 and F. :func:`~gebra.diff.topology.resolve_subject` refuses it before anything else runs.
-That check is a floor rather than the enforcement point: DEC-22 puts the constraint on the
-model itself (card IR-07), after which nothing reaching this engine can violate it.
+That check is a floor rather than the enforcement point: DEC-22's constraint is on the model
+itself since card IR-07, so no *loaded* document can violate it — the floor covers a model
+built past validation with ``model_copy(update=...)``, which this engine can still be handed.
 
 **What this diff never says is whether a change is safe.** P-12 ``evolution-safety`` is out of
 Phase-0 scope (SOW §8), a deferral ratified in PD-006 R4 with the owner's signature, and

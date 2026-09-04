@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from gebra.ir import read_ir, write_ir
-from gebra.ir.models import DynamicEdge, Node, NormalEdge, WorkflowIR
+from gebra.ir.models import DynamicEdge, Node, WorkflowIR
 from gebra.store import SnapshotStore
 from gebra.verify import verify
 from tests.cli.conftest import FAILING_FIXTURE as _FAILING
@@ -202,28 +202,39 @@ def test_an_ir_1_1_document_is_declined_before_the_store_exists(
     assert store_bytes(project_dir) == {}
 
 
-def test_a_document_repeating_a_node_id_is_refused_by_the_engine(
+def test_a_document_repeating_a_node_id_is_refused_at_ir_validation(
     run_cli: RunCli, project_dir: Path
 ) -> None:
-    """IR-SPEC §2.1 (DEC-22): the recorder refuses what nothing could ever diff against.
+    """IR-SPEC §2.1 (DEC-22): the CLI never gets as far as the recorder with one of these.
 
-    The eligibility run reaches a verdict on this document (the constraint sits on the
-    engines until IR-07 puts it on the model), so the refusal observed here is the
-    engine's own — exit ``2``, nothing written.
+    The refusal used to be the snapshot engine's, because the models admitted the document
+    and the eligibility run reached a verdict on it. Card IR-07 put the constraint on
+    ``WorkflowIR``, so the *loader* refuses it — which is what §2.1's MUST says ("loaders
+    MUST reject it") — and the stage the CLI names moves with it: ``ir-validation``, before
+    any property runs. Either way it is exit ``2`` with nothing written; what changed is how
+    early, and how plainly, a user is told.
+
+    The document is written as text rather than dumped from a model, because the model that
+    would dump it can no longer be loaded back.
     """
-    duplicated = WorkflowIR(
-        ir_version="1.0",
-        entry="a",
-        finish="a",
-        nodes=(Node(id="a"), Node(id="a")),
-        edges=(NormalEdge(kind="normal", **{"from": "a"}, to="a"),),
+    (project_dir / "dup.ir.yaml").write_text(
+        "ir_version: '1.0'\n"
+        "entry: a\n"
+        "finish: a\n"
+        "nodes:\n"
+        "  - id: a\n"
+        "  - id: a\n"
+        "edges:\n"
+        "  - {from: a, to: a}\n",
+        encoding="utf-8",
     )
-    write_ir(duplicated, project_dir / "dup.ir.yaml")
 
     result = run_cli("snapshot", "dup.ir.yaml", "--store", ".gebra")
 
     assert result.exit_code == 2
     assert "nothing was recorded" in result.stderr
+    assert "stage: ir-validation" in result.stderr
+    assert "declared twice" in result.stderr
     assert store_bytes(project_dir) == {}
 
 

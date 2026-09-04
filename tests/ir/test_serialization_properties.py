@@ -160,8 +160,15 @@ def node_annotations(draw: st.DrawFn) -> Annotations:
 
 @st.composite
 def workflow_irs(draw: st.DrawFn) -> WorkflowIR:
-    """A generated ``WorkflowIR`` — shape-valid, not necessarily well-formed as a graph."""
-    ids = draw(st.lists(node_ids(), min_size=1, max_size=3))
+    """A generated ``WorkflowIR`` — shape-valid, not necessarily well-formed as a graph.
+
+    Ids are drawn ``unique=True``, which is what IR-SPEC §2.1 requires of a conforming
+    document (ratified DEC-22, enforced on the model since card IR-07). The restriction is a
+    statement of this suite's domain rather than an avoidance: what these properties claim is
+    that a *loadable* document survives the round trip, and a document repeating an id is no
+    longer loadable — ``tests/ir/test_node_id_uniqueness.py`` is where that class is tested.
+    """
+    ids = draw(st.lists(node_ids(), min_size=1, max_size=3, unique=True))
     nodes = tuple(
         Node(id=node_id, annotations=draw(st.none() | node_annotations())) for node_id in ids
     )

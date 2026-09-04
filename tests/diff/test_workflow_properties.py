@@ -22,8 +22,8 @@ a node id has no total canonical node order (§6.2's sort key ties) and would br
 agreement claim. It is not quietly excluded — :func:`duplicated_id_irs` generates exactly that
 class and asserts the engine *refuses* it, so the boundary is tested rather than avoided. That
 class is what SD-05's pre-review used to falsify the first cut of the agreement claim; it is
-recorded in PD-032 and ruled non-conforming by DEC-22, and the model-level constraint that
-will make it unconstructible is card IR-07.
+recorded in PD-032, ruled non-conforming by DEC-22, and refused at model validation since card
+IR-07 — so the generator now has to reach past validation to build one at all.
 
 Everything here is pure data (WA-07): strategies build IR models, and a diff is a function of
 two of them.
@@ -151,11 +151,13 @@ def diff_irs(draw: st.DrawFn) -> WorkflowIR:
 def duplicated_id_irs(draw: st.DrawFn) -> WorkflowIR:
     """An IR that declares one node id twice — the class this engine refuses.
 
-    Non-conforming by IR-SPEC §2.1's uniqueness MUST (ratified DEC-22), but still
-    *constructible*: the model-level constraint that will make it unbuildable is card IR-07,
-    and until it lands the models accept the document and canonicalize it, so it has a
-    ``graph_version``. What it does not have is a total canonical node order, since §6.2's
-    sort key ties on the repeated id — which is the whole defect.
+    Non-conforming by IR-SPEC §2.1's uniqueness MUST (ratified DEC-22), and no longer
+    *loadable*: ``WorkflowIR`` refuses it at validation since card IR-07. It is still
+    *constructible*, which is why the engine's own refusal is still load-bearing —
+    ``model_copy(update=...)`` skips validation by design, and the model it returns
+    canonicalizes, so the document does have a ``graph_version``. What it does not have is a
+    total canonical node order, since §6.2's sort key ties on the repeated id — the whole
+    defect.
     """
     ir = draw(diff_irs())
     twin = draw(st.sampled_from(ir.nodes))
@@ -217,16 +219,17 @@ def test_a_repeated_node_id_is_refused_by_the_whole_engine(
 ) -> None:
     """The boundary of the claim above, tested rather than assumed away.
 
-    A document repeating a node id is non-conforming (IR-SPEC §2.1's MUST, DEC-22) but still
-    constructible until card IR-07 puts the constraint on the model, and it does have a
-    ``graph_version``. Every delta this engine reports is keyed by node id, so reporting one
+    A document repeating a node id is non-conforming (IR-SPEC §2.1's MUST, DEC-22) and is
+    refused at model validation since card IR-07 — but it is still constructible past
+    validation, and it does have a ``graph_version``. Every delta this engine reports is keyed
+    by node id, so reporting one
     would collapse the two entries and could leave S and F standing while the digest moved — a
     second workflow content under a label that already names one (PD-012 makes the label a
     file name). The engine refuses instead, from either side and in either order, including
     when both sides are the same document, where the digest short-circuit would otherwise
     answer before the check ran.
     """
-    assert graph_version(doubled)  # constructible today: refused by the diff, not the format
+    assert graph_version(doubled)  # built past validation, so it still canonicalizes
 
     for pair in ((doubled, other), (other, doubled), (doubled, doubled)):
         with pytest.raises(ValueError, match="declared twice"):

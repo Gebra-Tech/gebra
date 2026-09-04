@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A workflow document that declares one node `id` twice no longer loads** (card IR-07;
+  `gebra.ir.WorkflowIR`). IR-SPEC §2.1 makes node-`id` uniqueness a MUST and words it at the
+  loader — "a duplicate id has no meaning under §5.3's identity rules and loaders MUST reject
+  it" (ratified DEC-22, resolving spec-defect record PD-032) — and the model now enforces it:
+  `WorkflowIR` raises a `ValidationError` at `nodes` naming the repeated id and both positions
+  that declare it, through every ingestion path (`load_yaml`, `load_json`, `read_ir`,
+  `model_validate`, `model_validate_json`, the constructor). Before this, such a document
+  loaded and canonicalized, and because §6.2 orders `nodes[]` by `id` its sort key tied — so
+  authored array order, which §6.4 excludes from the hash, reached the digest and one node set
+  had two `graph_version` values. That pair can no longer be built by loading, so §6.2's sort
+  is total by construction.
+  **Nothing that conformed before changed.** No emitted digest moves and `ir_version` stays
+  `1.0`: every vendored corpus payload and every committed golden still loads, with every
+  canonical byte length and digest identical to what this build produced before the constraint
+  (pinned in `tests/ir/test_node_id_uniqueness.py`). Uniqueness is of the `id` alone and
+  nothing else gained a rule: `entry`/`finish` members may still repeat (they are sets §6.3
+  collapses) and duplicate edge objects are still content.
+  **One extraction case moves with it.** Node ids are NFC-normalized before escaping (§5.1),
+  so two builder node names differing only in Unicode composition — `"caf\u00e9"` and
+  `"cafe\u0301"`, distinct dict keys that both display as *café* — normalize to one id
+  (spelled as escapes here because the difference is invisible otherwise). `gebra.extract()`
+  on such a builder used to return a document with a repeated id; it now raises the loader's
+  `ValidationError` naming the collision. Loud beats silent, but a typed extraction error is
+  what INTROSPECTION-SPEC §2's posture asks for there, and that is extractor-track work
+  recorded on the card rather than done here.
+  What moves for a CLI user is *when* the refusal happens: `gebra snapshot` on such a file now
+  reports `stage: ir-validation` with the loader's message, before any property runs, where it
+  previously reached the snapshot engine's own refusal. Both are exit `2` with nothing written.
+  The engine-level refusals in `gebra.diff`, `gebra.snapshot` and `gebra.audit` are kept rather
+  than removed: `model_copy(update=...)` builds a model past validation by design, so they stay
+  the floor for a model that never went through a loader.
 - **The provenance guard closes four evasions, and its manifest gains a `foreign_trees` /
   `foreign_files` declaration** (card GOV-10; `tools/provenance_guard.py`,
   `tools/provenance-manifest.json`, manifest `schema_version` 1 → 2). The guard is contributor

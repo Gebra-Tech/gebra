@@ -64,8 +64,10 @@ what that is.
 store, where there is nothing to diff against. That is deliberate rather than incidental: a
 stored snapshot the diff engine would refuse is a snapshot nothing can ever be compared with,
 and its digest is authored-order-dependent (PD-032's finding, ratified as DEC-22), which is
-exactly what a store must not hold under a content-addressed label. The check stays until IR-07
-puts it on the model, where it belongs.
+exactly what a store must not hold under a content-addressed label. Card IR-07 has since put
+the constraint on ``WorkflowIR`` itself, so no *loaded* document can violate it; the check
+here stays for the model built past validation (``model_copy(update=...)``), which is the
+only way one can still be held.
 
 **A second class is refused for the same reason: an ir 1.1 document.** A ``dynamic`` edge
 (ratified — DEC-28, 2026-08-09) declares a router whose target set is not statically known, and

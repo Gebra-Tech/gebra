@@ -869,14 +869,16 @@ def test_p04_emits_no_record_another_property_owns() -> None:
 
 
 def test_a_duplicated_node_id_yields_one_obligation_not_two() -> None:
-    """The IR models admit a repeated ``nodes[].id``; the obligation loop iterates the vertex
-    *set* in ledger §6 order rather than the ``nodes`` list, so a duplicate is one finding.
+    """The obligation loop iterates the vertex *set* in ledger §6 order rather than the
+    ``nodes`` list, so a repeated ``nodes[].id`` is one finding and not two.
 
     That is §4.4's consistent reading rather than a liberty: Step 1 already keys ``reads`` and
     ``writes`` by id, so two entries with the same id are indistinguishable by the time Step 4
     runs, and "ordered by the ledger-§6 id comparator" has no meaning over a list carrying the
-    same id twice. Whether the IR should admit one at all is the IR track's question, not this
-    validator's; what is pinned here is that P-04 does not double-blame for it.
+    same id twice. The IR track has since answered its half of the question — IR-SPEC §2.1
+    makes uniqueness a MUST (ratified DEC-22) and ``WorkflowIR`` refuses such a document at
+    validation (card IR-07), so it can no longer be *loaded*; ``model_copy`` still builds one
+    past validation, which is the reach this keeps pinned. P-04 does not double-blame for it.
     """
     contract = {"id": "twice", "annotations": {"input": ["missing"], "output": []}}
     document: dict[str, Any] = {
@@ -888,9 +890,7 @@ def test_a_duplicated_node_id_yields_one_obligation_not_two() -> None:
         "edges": [],
     }
     ir = WorkflowIR.model_validate_json(json.dumps(document))
-    doubled = WorkflowIR.model_validate_json(
-        json.dumps({**document, "nodes": [contract, contract]})
-    )
+    doubled = ir.model_copy(update={"nodes": ir.nodes * 2})
 
     assert [node.id for node in doubled.nodes] == ["twice", "twice"]
     failure = check_dataflow_completeness(doubled).failure

@@ -184,12 +184,16 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
     holds one. Such a document is therefore **refused**, from either side and before the
     identity short-circuit.
 
-    The check is a floor, not the enforcement point: DEC-22 puts the load-time constraint on
-    the model (card IR-07), after which no ``WorkflowIR`` reaching here can violate it and
-    this becomes an assertion. It stays until then, because the rule is only worth having if
-    something enforces it. (It is also what found the defect: §2.1 carried no uniqueness
-    constraint before DEC-22, and SD-05's IR-spec pre-review reproduced two
-    canonical forms — two digests — for one node set. Record: PD-032.)
+    The check is a floor rather than the enforcement point, and it stays one now that the
+    enforcement point exists: DEC-22's load-time constraint landed on ``WorkflowIR`` with
+    card IR-07, so no *loaded* document can violate the rule, but ``model_copy(update=...)``
+    builds a model past validation by design and this package takes a model rather than a
+    document. It is kept as a refusal and not downgraded to an ``assert`` for two concrete
+    reasons: an assertion vanishes under ``python -O``, and this ``ValueError`` is what the
+    CLI and the pytest plugin already branch on to report the refusal as an exit code rather
+    than a traceback. (The check is also what found the defect: §2.1 carried no uniqueness
+    constraint before DEC-22, and SD-05's IR-spec pre-review reproduced two canonical
+    forms — two digests — for one node set. Record: PD-032.)
 
     Public because every engine in this package resolves its two sides the same way and a
     second implementation of the step-9 recompute would be a second opinion about which IR a
@@ -199,7 +203,7 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
         ValueError: if a ``Snapshot``'s stored ``graph_version`` is not the digest of its own
             IR (IR-SPEC §6.1 step 9), or if the IR declares one node id twice (§2.1, DEC-22).
     """
-    _require_unique_node_ids(subject.ir if isinstance(subject, Snapshot) else subject)
+    _refuse_repeated_node_ids(subject.ir if isinstance(subject, Snapshot) else subject)
     if isinstance(subject, Snapshot):
         digest = graph_version(subject.ir)
         if digest != subject.graph_version:
@@ -212,8 +216,13 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
     return subject, DiffAnchor(graph_version=graph_version(subject))
 
 
-def _require_unique_node_ids(ir: WorkflowIR) -> None:
-    """Refuse a document that declares one node id twice — see :func:`resolve_subject`."""
+def _refuse_repeated_node_ids(ir: WorkflowIR) -> None:
+    """Refuse a document that declares one node id twice — see :func:`resolve_subject`.
+
+    Named apart from :func:`gebra.ir.models._require_unique_node_ids`, which enforces the same
+    §2.1 rule at load time on a different contract (it takes the ``nodes`` array and returns
+    it), so a search on either name returns one function with one signature.
+    """
     seen: set[str] = set()
     for node in ir.nodes:
         if node.id in seen:
@@ -222,7 +231,9 @@ def _require_unique_node_ids(ir: WorkflowIR) -> None:
                 "ids MUST be unique within a document (ratified DEC-22). This engine anchors "
                 "every delta on node identity (§5.3), so a document that repeats an id has "
                 "no total canonical node order and cannot be diffed without under-reporting "
-                "the S and F counters. Refused rather than misreported"
+                "the S and F counters. Refused rather than misreported. `WorkflowIR` rejects "
+                "such a document at validation, so this one was built past validation — "
+                "`model_copy(update=...)` is the way in"
             )
         seen.add(node.id)
 

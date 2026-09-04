@@ -33,9 +33,10 @@ structured not-implemented marker — in the slot where a classification would g
 reports structure and which counters move; nothing here grades a change.
 
 **One document class is refused rather than diffed.** Node ids MUST be unique within a
-document (IR-SPEC §2.1, ratified DEC-22). One that repeats an id has no identity to anchor on
-— and every delta here is keyed by id — so :func:`~gebra.diff.topology.resolve_subject` raises
-rather than under-report it.
+document (IR-SPEC §2.1, ratified DEC-22), and :class:`~gebra.ir.models.WorkflowIR` enforces
+that at validation. One that repeats an id has no identity to anchor on — and every delta
+here is keyed by id — so :func:`~gebra.diff.topology.resolve_subject` raises rather than
+under-report it, for the models that reach it past validation.
 
 Nothing in this package imports langgraph, opens a socket, or executes anything (WA-07). Its
 inputs are IR models; networkx is in reach by design — it is the representation brief D-11

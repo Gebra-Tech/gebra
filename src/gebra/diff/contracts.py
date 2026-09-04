@@ -339,9 +339,11 @@ def _contracts_by_id(view: Mapping[str, Any]) -> dict[str, Mapping[str, Any] | N
     ties, so the tied entries' authored order survives into the digest, which is exactly what
     §6.4 excludes ("authored array order (normalized away per §6.2)").
 
-    :func:`~gebra.diff.topology.resolve_subject` refuses such a document before any delta
-    runs, so no caller of the public entry points reaches here with one; this is the
-    view-level floor for the same rule. Reporting instead would be the harmful option: two
+    ``WorkflowIR`` refuses such a document at validation (card IR-07), and
+    :func:`~gebra.diff.topology.resolve_subject` refuses it again before any delta runs, so
+    no caller of the public entry points reaches here with one; this is the view-level floor
+    for the same rule, still load-bearing because ``model_copy(update=...)`` builds a model
+    past validation. Reporting instead would be the harmful option: two
     nodes under one id make the F and S counters under-report, and PD-012 makes a V.S.F.E
     label a snapshot's file name, so an under-reported counter is a second workflow content
     under a file that already holds one — which is how SD-05's pre-review found the defect
@@ -360,7 +362,8 @@ def _contracts_by_id(view: Mapping[str, Any]) -> dict[str, Mapping[str, Any] | N
                 "ids MUST be unique within a document (ratified DEC-22). A diff is anchored "
                 "on node identity (§5.3), so such a document has no total canonical node "
                 "order and cannot be diffed without under-reporting the F and S counters. "
-                "Refused rather than misreported"
+                "Refused rather than misreported. `WorkflowIR` rejects such a document at "
+                "validation, so this one was built past validation"
             )
         contracts[node_id] = node.get("annotations")
     return contracts

@@ -1063,7 +1063,9 @@ class WorkflowIR(IRModel):
     entry: NodeReference | tuple[str, ...]
     finish: NodeReference | tuple[str, ...]
     state: dict[str, str | StateField] | None = None
-    nodes: Annotated[tuple[Node, ...], Field(min_length=1)]
+    nodes: Annotated[
+        tuple[Node, ...], Field(min_length=1), AfterValidator(_require_unique_node_ids)
+    ]
     edges: tuple[Edge, ...]
     runtime: Runtime | None = None
 ```
@@ -1077,6 +1079,8 @@ START and END are implicit sentinels: `entry` names the node(s) wired from START
 **The empty list is a value, not a gap** (ratified — DEC-18, 2026-08-02). On `entry` it means "no statically known sentinel wiring" — deliberately covering both the genuinely unwired builder and the dynamically-dispatched entry, with the distinguishing warning riding the provenance envelope, outside hash scope. On `finish` it means there is no (m2) member: END reachability, if any, is declared through (m3) `path_map` labels valued `"END"`, which is what an ordinary router-terminated workflow looks like. Both stay REQUIRED, so the empty form is written explicitly and never confused with absence.
 
 The five REQUIRED members carry no model default (§2.5 note 6), so omit-normalization can never strip them — a workflow with no edges carries an explicitly authored `edges` of length zero.
+
+**Node ids are unique within a document** — §2.1's MUST, ratified DEC-22 — so a document declaring one `id` twice is a validation error naming the repeated id and both positions that declare it, not a document with two nodes of one identity. See the `nodes` field below for why the check lives there and what it deliberately does not constrain.
 
 #### `gebra.ir.lowest_ir_version`
 

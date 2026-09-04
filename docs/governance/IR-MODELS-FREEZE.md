@@ -63,12 +63,23 @@ known, filed divergence — PD-048 in the development-process repository,
 filed by this card per the carry-forward IR-01/IR-03/IR-05 each recorded — not a frozen
 ambiguity: the model, as already shipped since IR-01, is the surface this freeze fixes.
 
-**Pending ruled enforcement, acknowledged (post-landing review, 2026-08-13):** card IR-07
-(todo) will add DEC-22's node-`id` uniqueness constraint to `WorkflowIR` validation — a
-ruled change (DEC-22: `ir_version` stays 1.0, no emitted digest moves, loaders MUST reject
-duplicates) that this freeze anticipates rather than contradicts; §4's every-change-needs-a-
-bump blanket defers to DEC-22's own no-bump ruling for exactly this constraint, which
-tightens validation without touching any conforming document's bytes.
+A second, ruled divergence of the same kind joined it with card IR-07 (below): the model
+refuses a document repeating a node `id`, which `schema.yaml` v2.2 still admits, because
+DEC-22 amended IR-SPEC §2.1 and not the vendored fixture schema. It is authorized rather than
+accidental, and it leaves the §1 lockstep comparison untouched (that check compares field-name
+vocabulary, which neither side changed).
+
+**Ruled enforcement, anticipated here and since landed (card IR-07, 2026-09-04):**
+`WorkflowIR` now rejects a document declaring one node `id` twice, at validation, naming the
+repeated id — DEC-22's constraint, on the surface this document freezes. It is a ruled change
+(DEC-22: `ir_version` stays 1.0, no emitted digest moves, loaders MUST reject duplicates)
+that this freeze anticipated rather than contradicts; §4's every-change-needs-a-bump blanket
+defers to DEC-22's own no-bump ruling for exactly this constraint, which tightens validation
+without touching any conforming document's bytes. Measured rather than asserted: every
+vendored corpus payload and every committed golden still loads, and every canonical byte
+length and digest is unchanged (`tests/ir/test_node_id_uniqueness.py`). The frozen export set
+in §1 is unchanged — the constraint adds no symbol, and it stays out of
+`model_json_schema()`, so the IR-05 lockstep check sees the same vocabulary as before.
 
 ## 2. Validator-consumer sign-off — "the IR gives validators what they need"
 

@@ -98,3 +98,22 @@ def with_contract(name: str, annotations: Annotations) -> tuple[Node, ...]:
         Node(id=existing.id, annotations=annotations) if existing.id == name else existing
         for existing in NODES
     )
+
+
+def with_repeated_node_id(
+    ir: WorkflowIR, name: str, annotations: Annotations | None = None
+) -> WorkflowIR:
+    """``ir`` with ``name`` declared a second time — built *past* validation, deliberately.
+
+    IR-SPEC §2.1 makes node-id uniqueness a MUST (ratified DEC-22) and :class:`WorkflowIR`
+    refuses it at validation since card IR-07, so this document can no longer be **loaded**.
+    It can still be **built**: ``model_copy(update=...)`` is public pydantic API that skips
+    validation by design, and it is the only way left in — ``model_construct`` is banned
+    outright on the frozen base (A6 PC-6).
+
+    That gap is why the engines keyed on node identity (``gebra.diff``, the snapshot recorder,
+    the freshness check) keep their own refusals rather than assuming the model has already
+    refused, and this helper is how the tests for those refusals reach them. Every call site
+    is testing that floor; nothing here asks for a document like this on its own account.
+    """
+    return ir.model_copy(update={"nodes": (*ir.nodes, Node(id=name, annotations=annotations))})

@@ -319,11 +319,12 @@ def test_a_change_against_an_unparseable_current_label_is_refused(store: Snapsho
 def test_a_document_repeating_a_node_id_is_never_stored(store: SnapshotStore) -> None:
     """IR-SPEC §2.1 (ratified DEC-22), enforced on **every** path — the empty store included.
 
-    "Node ``id``s MUST be unique within a document … loaders MUST reject it." Until IR-07 puts
-    that on the model, the shipped floor is
-    :func:`~gebra.diff.topology.resolve_subject`'s — and a first snapshot has nothing to diff
-    against, so it would otherwise walk straight past it. This engine therefore resolves the
-    document before it looks at the store, on the first write and on every later one.
+    "Node ``id``s MUST be unique within a document … loaders MUST reject it." The model
+    rejects it since card IR-07, so nothing *loaded* gets this far; the floor that catches a
+    model built past validation is :func:`~gebra.diff.topology.resolve_subject`'s — and a
+    first snapshot has nothing to diff against, so it would otherwise walk straight past it.
+    This engine therefore resolves the document before it looks at the store, on the first
+    write and on every later one.
 
     Two reasons that matters here specifically, both about what a stored digest means. Such a
     document has no well-defined canonical form (§6.2's ``nodes[]`` sort key ties, so authored

@@ -1,12 +1,21 @@
 {
-  "schema_version": 1,
-  "_comment": "Byte-copy expectations for the vendored files this repository holds (WA-11). Regenerated only by a sanctioned vault-first re-vendor, in the same commit as the new bytes and the docs/PROVENANCE.md row update \u2014 see docs/governance/re-vendoring.md.",
+  "schema_version": 2,
+  "_comment": "Byte-copy expectations for the vendored files this repository holds (WA-11). Regenerated only by a sanctioned vault-first re-vendor, in the same commit as the new bytes and the docs/PROVENANCE.md row update — see docs/governance/re-vendoring.md. foreign_trees/foreign_files declare the share of the same docs/PROVENANCE.md the sibling repository holds, so that every row of the record is claimed by exactly one of the two scopes.",
   "vault_repo": "Gebra-Tech/initial-documents",
   "snapshot_commit": "ec34169",
   "guarded_trees": [
     "tests/fixtures/properties"
   ],
   "guarded_files": [],
+  "foreign_trees": [
+    "docs/specs",
+    "docs/briefs",
+    "docs/decisions",
+    "docs/notes"
+  ],
+  "foreign_files": [
+    "docs/SOW.md"
+  ],
   "entries": [
     {
       "path": "tests/fixtures/properties/README.md",

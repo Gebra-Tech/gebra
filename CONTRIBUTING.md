@@ -88,10 +88,13 @@ python tools/provenance_guard.py     # no dependencies, no install needed
 ```
 
 It hashes every vendored file and compares it with
-`tools/provenance-manifest.json`, failing on an edited file, a deleted one, or a
-file added to the corpus by hand. There is no bypass flag: a sanctioned
-re-vendor updates the bytes *and* regenerates the manifest in one commit. The
-procedure — and what to do when the guard fails on your branch — is
+`tools/provenance-manifest.json`, failing on an edited file, a deleted one, a
+file added to the corpus by hand, and a symlink planted there (which it reports
+rather than follows). There is no bypass flag: a sanctioned re-vendor updates
+the bytes *and* regenerates the manifest in one commit. The procedure — what
+that manifest declares about the two repositories that share the record, what a
+run in one of them decides on its own, and what to do when the guard fails on
+your branch — is
 [docs/governance/re-vendoring.md](docs/governance/re-vendoring.md).
 
 ## Golden files and their justification (WA-05)

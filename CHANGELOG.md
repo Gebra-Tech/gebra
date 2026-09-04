@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The provenance guard closes four evasions, and its manifest gains a `foreign_trees` /
+  `foreign_files` declaration** (card GOV-10; `tools/provenance_guard.py`,
+  `tools/provenance-manifest.json`, manifest `schema_version` 1 → 2). The guard is contributor
+  tooling, not library API, so nothing you import from `gebra` changes. What changes for anyone
+  running it: a symlink inside a guarded tree is now reported instead of skipped — a directory
+  link used to hide everything beneath it from the *unlisted* check, and a listed file replaced
+  by a link verified clean whenever the link's target carried the recorded bytes; the manifest
+  now names the *other* repository's share of `docs/PROVENANCE.md` as well as its own, and a row
+  claimed by neither declaration, claimed by both, or handed to the sibling while its file sits
+  in this tree is a failure — so a manifest can no longer shrink its own scope and take rows out
+  of the comparison with it; `--regenerate` names every entry it drops for a file no longer in
+  the tree, because dropping one unguards its path; and a manifest missing a top-level key is
+  reported as a sentence naming the key rather than as a `KeyError` traceback (the exit status
+  was already 1). Existing manifests need the two new keys — regenerate, or add them by hand.
+  `docs/governance/re-vendoring.md` now also sets out what a run in one repository decides on its
+  own and what only a run with both repositories checked out side by side can check.
 - **Development re-opened at `0.0.2.dev0`** (card GOV-15). `0.0.1` is published and its tag is
   used, so `main` could not keep declaring it: while it did, every build made from a checkout
   named a release it was not, and a second `v0.0.1` tag on a later commit would have passed the

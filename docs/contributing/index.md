@@ -272,9 +272,18 @@ repository's CI passes — a **manifest drift** where the two records disagree. 
 below runs the first three. There is no bypass flag and no exemption label.
 
 Nothing is unguarded by that split: deleting a manifest row to quietly unguard a fixture leaves
-the file itself inside a guarded tree, where the **unlisted** check finds it. What the
-cross-check adds is agreement about *provenance* — which vault file and which vault commit a row
-claims — and that is checked where both records live.
+the file itself inside a guarded tree, where the **unlisted** check finds it — and so does a
+symlink planted there, which the guard reports rather than follows, because a snapshot is a file
+in this tree and a directory link would hide everything beneath it. What the cross-check adds is
+agreement about *provenance* — which vault file and which vault commit a row claims, and which
+of the two repositories guards it — and that is checked where both records live. The manifest
+here names the other repository's share as well as its own, so wherever that cross-check runs,
+neither manifest can shrink its scope and take rows out of the comparison with it. The bare
+command below does not run the cross-check, so in *this* repository the declaration is held by
+something simpler and stronger: a test in `tests/test_provenance_guard.py` that pins both halves
+of the split and needs no second checkout to do it.
+[re-vendoring.md](https://github.com/Gebra-Tech/gebra/blob/main/docs/governance/re-vendoring.md)
+sets out what a run in one repository decides and what only a side-by-side run can.
 
 Run it yourself — it needs no dependencies and no install:
 
@@ -288,7 +297,13 @@ Three of the four failures, on a sandbox tree built for the purpose:
 ```python
 from pathlib import Path
 
-from tools.provenance_guard import Manifest, format_report, regenerate, verify
+from tools.provenance_guard import (
+    MANIFEST_SCHEMA_VERSION,
+    Manifest,
+    format_report,
+    regenerate,
+    verify,
+)
 
 # A guarded tree of two files, standing in for the fixture corpus.
 root = Path("sandbox")
@@ -297,12 +312,14 @@ root = Path("sandbox")
 (root / "vendored" / "fixture.yaml").write_text("id: positive-01\n", encoding="utf-8")
 
 seed = Manifest(
-    schema_version=1,
+    schema_version=MANIFEST_SCHEMA_VERSION,
     vault_repo="Example-Org/sandbox-vault",  # invented, like the tree — not the real vault
     snapshot_commit="0000000",
     guarded_trees=("vendored",),
     guarded_files=(),
     entries=(),
+    foreign_trees=(),  # no sibling repository holds part of this sandbox's record
+    foreign_files=(),
 )
 manifest = regenerate(seed, root, Path("manifest.json"))
 print(format_report(verify(manifest, root), manifest, root))

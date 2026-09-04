@@ -34,6 +34,18 @@ refreshed in the same commit, so out-of-commit tampering is still caught. That s
 from the provenance record at run time (:func:`parse_living_documents`); this script hard-codes
 no path's exemption and no transfer's date.
 
+**What a single repository's run decides, and what it cannot.** The provenance record spans two
+repositories, so a manifest declares both halves of it: ``guarded_trees``/``guarded_files`` are
+this repository's share, ``foreign_trees``/``foreign_files`` the sibling's. A run here therefore
+decides that this repository's guarded files are byte-intact, that its manifest mirrors the
+record's rows inside its own scope, that **every** row of the record is claimed by exactly one
+of the two scopes — so shrinking the guarded scope unguards nothing quietly, it fails — and that
+no row handed to the sibling is sitting in this tree. What it cannot decide is whether the
+sibling repository actually holds and guards the share this manifest hands it: that needs a
+second checkout, and it is asserted by the cross-repository tests in the library repository's
+suite, which run only where both repositories are checked out side by side. See
+``docs/governance/re-vendoring.md`` for what that division means in practice.
+
 Usage::
 
     python tools/provenance_guard.py                      # verify, using the defaults
@@ -54,6 +66,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -61,13 +74,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-MANIFEST_SCHEMA_VERSION = 1
+#: Bumped to 2 when the manifest gained its ``foreign_trees``/``foreign_files`` declaration of
+#: the sibling repository's share, which every manifest must now carry (GOV-10).
+MANIFEST_SCHEMA_VERSION = 2
 
 #: How a guarded path's bytes are governed. ``VENDORED`` is the default and the rule: a
 #: byte-copy snapshot of the vault, read-only here. ``LIVING_DOCUMENT`` is what a recorded
 #: transfer in ``docs/PROVENANCE.md`` makes of a path — see :func:`parse_living_documents`.
 VENDORED = "vendored"
 LIVING_DOCUMENT = "living-document"
+#: Neither: the finding is about the manifest's *declaration* of who guards a path, so what it
+#: owes is a corrected declaration rather than anything done to the file's bytes.
+SCOPE_DECLARATION = "scope-declaration"
 
 #: The four things the guard reports, in the order the report prints them.
 MODIFIED = "modified"
@@ -102,6 +120,19 @@ REMEDIATION_LIVING = (
     "requires and regenerates the manifest in that same commit "
     "(python tools/provenance_guard.py --regenerate), so an edit arriving without its refresh "
     "is still caught here."
+)
+
+#: The third routing: the manifest's account of *who guards what* disagrees with the provenance
+#: record. Nothing is asked of the file's bytes — the declaration is what is wrong, and a
+#: shrunk one is exactly how a path stops being guarded without anybody editing it.
+REMEDIATION_SCOPE = (
+    "The manifest declares which of docs/PROVENANCE.md's rows this repository guards "
+    "(guarded_trees/guarded_files) and which its sibling does (foreign_trees/foreign_files), "
+    "and every row must fall in exactly one of the two. Restore the declaration these rows fell "
+    "out of — a row covered by neither is guarded nowhere, and a row handed to the sibling "
+    "while its file sits here is guarded by a manifest that cannot see it. If the split really "
+    "did move, update both repositories' manifests in the same change, then re-run the "
+    "cross-repository tests, which are what checks the sibling's half."
 )
 
 #: What a reader does when the run failed somewhere the review scope does not name. The
@@ -160,7 +191,12 @@ class Entry:
 
 @dataclass(frozen=True)
 class Manifest:
-    """The recorded expectation for one repository's share of the vendored surface."""
+    """The recorded expectation for one repository's share of the vendored surface.
+
+    ``foreign_trees``/``foreign_files`` are the *other* repository's share of the same
+    ``docs/PROVENANCE.md`` — declared here so that a row is never merely unclaimed. Together the
+    two scopes must partition the record: see :func:`_cross_check_provenance`.
+    """
 
     schema_version: int
     vault_repo: str
@@ -168,6 +204,8 @@ class Manifest:
     guarded_trees: tuple[str, ...]
     guarded_files: tuple[str, ...]
     entries: tuple[Entry, ...]
+    foreign_trees: tuple[str, ...] = ()
+    foreign_files: tuple[str, ...] = ()
 
     @property
     def paths(self) -> frozenset[str]:
@@ -175,9 +213,17 @@ class Manifest:
 
     def covers(self, path: str) -> bool:
         """Is ``path`` (repo-relative, POSIX) inside this manifest's guarded scope?"""
-        if path in self.guarded_files:
-            return True
-        return any(path.startswith(f"{tree}/") for tree in self.guarded_trees)
+        return _within(path, self.guarded_files, self.guarded_trees)
+
+    def foreign_covers(self, path: str) -> bool:
+        """Is ``path`` inside the share this manifest hands to the sibling repository?"""
+        return _within(path, self.foreign_files, self.foreign_trees)
+
+
+def _within(path: str, files: Sequence[str], trees: Sequence[str]) -> bool:
+    if path in files:
+        return True
+    return any(path.startswith(f"{tree}/") for tree in trees)
 
 
 @dataclass(frozen=True)
@@ -206,6 +252,8 @@ class Finding:
         """The route this finding takes — the copy every surface relays instead of writing."""
         if self.classification == LIVING_DOCUMENT:
             return REMEDIATION_LIVING.format(paths=self.path, records=self.record)
+        if self.classification == SCOPE_DECLARATION:
+            return REMEDIATION_SCOPE
         return REMEDIATION_VENDORED
 
 
@@ -216,6 +264,19 @@ class Scope:
     selected: tuple[str, ...]
     in_scope: tuple[str, ...]
     out_of_scope: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class TreeScan:
+    """What one walk of the guarded trees found, kept apart because they are not alike.
+
+    ``files`` are regular files — the things a manifest entry can be about. ``symlinks`` are
+    links of either kind, which a manifest entry can never be about: see
+    :func:`scan_guarded_trees`.
+    """
+
+    files: tuple[str, ...] = ()
+    symlinks: tuple[str, ...] = ()
 
 
 @dataclass
@@ -266,6 +327,34 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _required(raw: Mapping[str, Any], key: str, manifest_path: Path) -> Any:
+    """One top-level manifest key, or a :class:`ManifestError` naming the one that is absent.
+
+    An absent key is not a crash to report as a traceback: it is the manifest saying less than
+    the guard needs, and the dangerous shapes are quiet. A manifest with no ``guarded_trees``
+    guards nothing; one with no ``foreign_trees`` hands the sibling repository nothing, so every
+    row it does not list itself would read as unclaimed. Both deserve a sentence, not a
+    ``KeyError``.
+    """
+    if key not in raw:
+        raise ManifestError(f"manifest is missing the required key {key!r}: {manifest_path}")
+    return raw[key]
+
+
+def _path_list(value: Any, key: str, manifest_path: Path) -> tuple[str, ...]:
+    if isinstance(value, str) or not isinstance(value, Sequence):
+        raise ManifestError(f"manifest key {key!r} must be a list of paths: {manifest_path}")
+    return tuple(str(item) for item in value)
+
+
+def _entry_field(item: Mapping[str, Any], key: str, index: int, manifest_path: Path) -> str:
+    if key not in item:
+        raise ManifestError(
+            f"manifest entry {index} is missing the required key {key!r}: {manifest_path}"
+        )
+    return str(item[key])
+
+
 def load_manifest(manifest_path: Path) -> Manifest:
     if not manifest_path.is_file():
         raise ManifestError(f"manifest not found: {manifest_path}")
@@ -281,39 +370,92 @@ def load_manifest(manifest_path: Path) -> Manifest:
             f"manifest schema_version {version!r} is not the supported "
             f"{MANIFEST_SCHEMA_VERSION} ({manifest_path})"
         )
-    entries = tuple(
-        Entry(
-            path=str(item["path"]),
-            sha256=str(item["sha256"]),
-            vault_source=str(item["vault_source"]),
-            vault_commit=str(item["vault_commit"]),
+    raw_entries = _required(raw, "entries", manifest_path)
+    if isinstance(raw_entries, str) or not isinstance(raw_entries, Sequence):
+        raise ManifestError(f"manifest key 'entries' must be a list of objects: {manifest_path}")
+    entries: list[Entry] = []
+    for index, item in enumerate(raw_entries):
+        if not isinstance(item, Mapping):
+            raise ManifestError(f"manifest entry {index} must be a JSON object: {manifest_path}")
+        entries.append(
+            Entry(
+                path=_entry_field(item, "path", index, manifest_path),
+                sha256=_entry_field(item, "sha256", index, manifest_path),
+                vault_source=_entry_field(item, "vault_source", index, manifest_path),
+                vault_commit=_entry_field(item, "vault_commit", index, manifest_path),
+            )
         )
-        for item in raw["entries"]
-    )
     return Manifest(
         schema_version=MANIFEST_SCHEMA_VERSION,
-        vault_repo=str(raw["vault_repo"]),
-        snapshot_commit=str(raw["snapshot_commit"]),
-        guarded_trees=tuple(str(tree) for tree in raw.get("guarded_trees", ())),
-        guarded_files=tuple(str(name) for name in raw.get("guarded_files", ())),
-        entries=entries,
+        vault_repo=str(_required(raw, "vault_repo", manifest_path)),
+        snapshot_commit=str(_required(raw, "snapshot_commit", manifest_path)),
+        guarded_trees=_path_list(
+            _required(raw, "guarded_trees", manifest_path), "guarded_trees", manifest_path
+        ),
+        guarded_files=_path_list(
+            _required(raw, "guarded_files", manifest_path), "guarded_files", manifest_path
+        ),
+        entries=tuple(entries),
+        foreign_trees=_path_list(
+            _required(raw, "foreign_trees", manifest_path), "foreign_trees", manifest_path
+        ),
+        foreign_files=_path_list(
+            _required(raw, "foreign_files", manifest_path), "foreign_files", manifest_path
+        ),
     )
+
+
+def scan_guarded_trees(root: Path, manifest: Manifest) -> TreeScan:
+    """Walk the guarded trees without following links out of them.
+
+    The walk is deliberately link-blind. A directory symlink planted inside a guarded tree is a
+    hole in the ``unlisted`` check the moment the walk follows it: everything the link reaches
+    is inside a guarded tree by path and outside the manifest by content, and a walk that
+    descended would have to hash whatever the link happened to point at. So the guard does not
+    descend — it *reports the link itself*, which is the only description of the situation that
+    stays true whatever sits on the other side. Symlinks to files are reported for the same
+    reason: a byte-copy snapshot is a file in this tree, not a reference to one elsewhere.
+    """
+    files: list[str] = []
+    links: list[str] = []
+    for tree in manifest.guarded_trees:
+        base = root / tree
+        if base.is_symlink():
+            # The root of a guarded tree is the one link `os.walk` would follow regardless of
+            # `followlinks`, and the entry loop's own check sees only a path's last component —
+            # so every listed file below it would hash clean through bytes this tree does not
+            # hold. Report the link and walk nothing.
+            links.append(tree)
+            continue
+        if not base.is_dir():
+            continue
+        for parent, directories, names in os.walk(base):  # followlinks=False is the default
+            here = Path(parent)
+            if IGNORED_DIRS.intersection(here.relative_to(root).parts):
+                directories[:] = []
+                continue
+            for name in directories:
+                if (here / name).is_symlink():
+                    links.append((here / name).relative_to(root).as_posix())
+            for name in names:
+                path = here / name
+                if name in IGNORED_NAMES:
+                    continue
+                relative = path.relative_to(root).as_posix()
+                if path.is_symlink():
+                    links.append(relative)
+                elif path.is_file():
+                    files.append(relative)
+    return TreeScan(files=tuple(sorted(files)), symlinks=tuple(sorted(links)))
 
 
 def files_in_guarded_trees(root: Path, manifest: Manifest) -> list[str]:
-    """Every file currently inside a guarded tree, repo-relative and POSIX-separated."""
-    found: list[str] = []
-    for tree in manifest.guarded_trees:
-        base = root / tree
-        if not base.is_dir():
-            continue
-        for path in base.rglob("*"):
-            if not path.is_file():
-                continue
-            if path.name in IGNORED_NAMES or IGNORED_DIRS.intersection(path.parts):
-                continue
-            found.append(path.relative_to(root).as_posix())
-    return sorted(found)
+    """Every *regular* file currently inside a guarded tree, repo-relative and POSIX-separated.
+
+    A symlink is not one of these, and that is what keeps :func:`regenerate` from recording one:
+    a link cannot be laundered into the manifest, so it stays unlisted and stays reported.
+    """
+    return list(scan_guarded_trees(root, manifest).files)
 
 
 def parse_provenance_rows(provenance_doc: Path) -> dict[str, tuple[str, str]]:
@@ -353,6 +495,21 @@ def parse_living_documents(provenance_doc: Path) -> dict[str, str]:
     return living
 
 
+def _symlink_detail(target: Path, *, is_tree_root: bool = False) -> str:
+    """Why a link in a guarded tree is a finding — the directory cases are the wider holes."""
+    if is_tree_root:
+        return (
+            "the guarded tree itself is a symlink; every path the manifest lists would be read "
+            "through it, from bytes this tree does not hold"
+        )
+    if target.is_dir():
+        return (
+            "a symlinked directory inside a guarded tree; the guard does not descend into it, "
+            "so nothing it reaches is guarded"
+        )
+    return "a symlink inside a guarded tree; a vendored snapshot is a file here, not a link"
+
+
 def verify(
     manifest: Manifest,
     root: Path,
@@ -372,6 +529,17 @@ def verify(
     missing: list[Finding] = []
     for entry in manifest.entries:
         target = root / entry.path
+        if target.is_symlink():
+            # Hashing here would hash whatever the link resolves to, and report the recorded
+            # bytes as present in a tree that does not hold them.
+            modified.append(
+                found(
+                    MODIFIED,
+                    entry.path,
+                    "a symlink, not the recorded snapshot's bytes in this tree",
+                )
+            )
+            continue
         if not target.is_file():
             missing.append(
                 found(MISSING, entry.path, "listed in the manifest, absent from the tree")
@@ -393,15 +561,23 @@ def verify(
             )
 
     listed = manifest.paths
+    scan = scan_guarded_trees(root, manifest)
     unlisted = [
         found(UNLISTED, path, "inside a guarded tree, absent from the manifest")
-        for path in files_in_guarded_trees(root, manifest)
+        for path in scan.files
+        if path not in listed
+    ]
+    # A link at a listed path is already reported by the entry loop above, and once is enough.
+    tree_roots = frozenset(manifest.guarded_trees)
+    unlisted += [
+        found(UNLISTED, path, _symlink_detail(root / path, is_tree_root=path in tree_roots))
+        for path in scan.symlinks
         if path not in listed
     ]
 
     mismatch: list[Finding] = []
     if provenance_doc is not None:
-        mismatch = _cross_check_provenance(manifest, provenance_doc, found)
+        mismatch = _cross_check_provenance(manifest, provenance_doc, found, root)
 
     return Report(
         checked=checked,
@@ -414,27 +590,40 @@ def _cross_check_provenance(
     manifest: Manifest,
     provenance_doc: Path,
     found: Callable[[str, str, str], Finding],
+    root: Path,
 ) -> list[Finding]:
     """The manifest must mirror the PROVENANCE.md rows that fall in its guarded scope.
 
     This is what stops a manifest row from being quietly deleted to unguard a file, and what
     ties a re-vendor's hash refresh to its PROVENANCE row update.
+
+    Mirroring alone is not enough, because the manifest also decides *what falls in its scope*.
+    Shrink ``guarded_trees`` and the rows below it leave the comparison entirely — the deleted
+    entries then have no row to miss, and a run that reads one repository sees a smaller surface
+    rather than a broken one. So the scopes are checked before the rows are: every row must be
+    claimed by exactly one of this manifest's two declarations, and a row it hands to the
+    sibling repository must not be a file sitting in this tree.
     """
     rows = parse_provenance_rows(provenance_doc)
+    problems: list[Finding] = _check_declared_scopes(manifest, rows, root)
+    # A path whose *declaration* is already wrong gets one finding, not two. The row comparison
+    # below reads the same shrunk scope that produced the first, so it would answer a broken
+    # declaration with the vendored route's "revert it and file a spec defect" — advice about
+    # bytes nobody has touched. Fix the declaration; the comparison is meaningful again after.
+    declared = {finding.path for finding in problems}
     in_scope = {path: value for path, value in rows.items() if manifest.covers(path)}
-    problems: list[Finding] = []
 
-    for path in sorted(set(in_scope) - manifest.paths):
+    for path in sorted(set(in_scope) - manifest.paths - declared):
         problems.append(
             found(MANIFEST, path, "listed in PROVENANCE.md but absent from the manifest")
         )
-    for path in sorted(manifest.paths - set(in_scope)):
+    for path in sorted(manifest.paths - set(in_scope) - declared):
         problems.append(
             found(MANIFEST, path, "in the manifest but not a PROVENANCE.md row in scope")
         )
     for entry in manifest.entries:
         recorded = in_scope.get(entry.path)
-        if recorded is None:
+        if recorded is None or entry.path in declared:
             continue
         source, commit = recorded
         if (entry.vault_source, entry.vault_commit) != (source, commit):
@@ -444,6 +633,52 @@ def _cross_check_provenance(
                     entry.path,
                     f"manifest records {entry.vault_source}@{entry.vault_commit}, "
                     f"PROVENANCE.md records {source}@{commit}",
+                )
+            )
+    return problems
+
+
+def _check_declared_scopes(
+    manifest: Manifest,
+    rows: Mapping[str, tuple[str, str]],
+    root: Path,
+) -> list[Finding]:
+    """Every provenance row is claimed by exactly one of the manifest's two declared scopes.
+
+    The three ways that fails are three different lies about the same record: a row nobody
+    claims is guarded nowhere; a row both claim is guarded twice and owned by neither; and a row
+    handed to the sibling repository while its file is here is guarded by a manifest that will
+    never look at it. All three are reachable by editing the manifest alone, which is why they
+    are checked here rather than left to the cross-repository tests.
+    """
+    problems: list[Finding] = []
+    for path in sorted(rows):
+        here, there = manifest.covers(path), manifest.foreign_covers(path)
+        if here and there:
+            problems.append(
+                Finding(
+                    MANIFEST,
+                    path,
+                    "claimed by both this manifest's guarded scope and its foreign scope",
+                    SCOPE_DECLARATION,
+                )
+            )
+        elif not here and not there:
+            problems.append(
+                Finding(
+                    MANIFEST,
+                    path,
+                    "a PROVENANCE.md row this manifest neither guards nor hands to its sibling",
+                    SCOPE_DECLARATION,
+                )
+            )
+        elif there and (root / path).exists():
+            problems.append(
+                Finding(
+                    MANIFEST,
+                    path,
+                    "declared as the sibling repository's share but present in this tree",
+                    SCOPE_DECLARATION,
                 )
             )
     return problems
@@ -497,6 +732,24 @@ def scope_report(report: Report, manifest: Manifest, selected: Sequence[str]) ->
     )
 
 
+def _is_snapshot_file(target: Path) -> bool:
+    """A vendored snapshot is a regular file in this tree — never a link to one elsewhere."""
+    return target.is_file() and not target.is_symlink()
+
+
+def dropped_paths(manifest: Manifest, root: Path) -> tuple[str, ...]:
+    """The entries a regeneration would remove: listed here, no longer a file in the tree.
+
+    Call it *before* :func:`regenerate`, which is the only moment the two records still
+    disagree. Dropping an entry is how a re-vendor records a deletion, and it is also how a
+    deletion goes unrecorded: afterwards the path is simply not in the manifest, and a run that
+    is not given ``--provenance-doc`` has nothing left to notice. So the CLI names them.
+    """
+    return tuple(
+        entry.path for entry in manifest.entries if not _is_snapshot_file(root / entry.path)
+    )
+
+
 def regenerate(manifest: Manifest, root: Path, manifest_path: Path) -> Manifest:
     """Rewrite the manifest from the working tree — the sanctioned re-vendor step."""
     listed = {entry.path: entry for entry in manifest.entries}
@@ -505,7 +758,7 @@ def regenerate(manifest: Manifest, root: Path, manifest_path: Path) -> Manifest:
     entries: list[Entry] = []
     for path in present:
         target = root / path
-        if not target.is_file():
+        if not _is_snapshot_file(target):
             continue
         previous = listed.get(path)
         entries.append(
@@ -524,6 +777,8 @@ def regenerate(manifest: Manifest, root: Path, manifest_path: Path) -> Manifest:
         guarded_trees=manifest.guarded_trees,
         guarded_files=manifest.guarded_files,
         entries=tuple(entries),
+        foreign_trees=manifest.foreign_trees,
+        foreign_files=manifest.foreign_files,
     )
     write_manifest(refreshed, manifest_path)
     return refreshed
@@ -536,12 +791,16 @@ def write_manifest(manifest: Manifest, manifest_path: Path) -> None:
             "Byte-copy expectations for the vendored files this repository holds (WA-11). "
             "Regenerated only by a sanctioned vault-first re-vendor, in the same commit as "
             "the new bytes and the docs/PROVENANCE.md row update — see "
-            "docs/governance/re-vendoring.md."
+            "docs/governance/re-vendoring.md. foreign_trees/foreign_files declare the share of "
+            "the same docs/PROVENANCE.md the sibling repository holds, so that every row of the "
+            "record is claimed by exactly one of the two scopes."
         ),
         "vault_repo": manifest.vault_repo,
         "snapshot_commit": manifest.snapshot_commit,
         "guarded_trees": list(manifest.guarded_trees),
         "guarded_files": list(manifest.guarded_files),
+        "foreign_trees": list(manifest.foreign_trees),
+        "foreign_files": list(manifest.foreign_files),
         "entries": [
             {
                 "path": entry.path,
@@ -581,6 +840,8 @@ def _remediation_paragraphs(report: Report) -> list[str]:
     paragraphs: list[str] = []
     if any(finding.classification == VENDORED for finding in report.findings):
         paragraphs.append(REMEDIATION_VENDORED)
+    if any(finding.classification == SCOPE_DECLARATION for finding in report.findings):
+        paragraphs.append(REMEDIATION_SCOPE)
     living = [finding for finding in report.findings if finding.classification == LIVING_DOCUMENT]
     if living:
         paragraphs.append(
@@ -631,6 +892,8 @@ def format_json(report: Report, manifest: Manifest, root: Path) -> str:
         "snapshot_commit": manifest.snapshot_commit,
         "guarded_trees": list(manifest.guarded_trees),
         "guarded_files": list(manifest.guarded_files),
+        "foreign_trees": list(manifest.foreign_trees),
+        "foreign_files": list(manifest.foreign_files),
         "living_documents": [
             {"path": path, "record": record}
             for path, record in sorted(report.living_documents.items())
@@ -731,6 +994,7 @@ def main(argv: list[str] | None = None) -> int:
                 "run the regeneration without it"
             )
         if args.regenerate:
+            dropped = dropped_paths(manifest, root)
             manifest = regenerate(manifest, root, args.manifest)
             print(
                 f"provenance guard: manifest regenerated from {root} "
@@ -738,6 +1002,18 @@ def main(argv: list[str] | None = None) -> int:
                 "the same commit must carry the new bytes, the docs/PROVENANCE.md row update, "
                 "and the vault hash in its message (WA-11; WA-04 for fixtures)."
             )
+            if dropped:
+                print(
+                    f"provenance guard: {len(dropped)} entry(ies) dropped — the manifest no "
+                    "longer guards these paths, because the tree no longer holds them as files:"
+                )
+                for path in dropped:
+                    print(f"  dropped:  {path}")
+                print(
+                    "A dropped entry unguards its path. If a sanctioned re-vendor deleted the "
+                    "file, remove its docs/PROVENANCE.md row in this same commit; otherwise "
+                    "restore the file (a symlink is not one) and regenerate again."
+                )
         report = verify(manifest, root, args.provenance_doc)
         if args.only is not None:
             report = scope_report(report, manifest, normalize_selection(args.only))

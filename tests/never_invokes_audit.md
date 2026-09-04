@@ -866,7 +866,8 @@ file it writes is a `.md`, not a module, so the trailer's `__file__` sweep finds
 page's own to sweep, and `WRITES_A_MODULE` misses it on both counts (the hyphen and the
 extension) as well as in intent: a `.md` is not importable and this one is only ever read.
 `the-provenance-guard` imports `tools.provenance_guard`, whose whole import closure is
-`argparse`, `hashlib`, `json`, `re`, `sys`, `dataclasses`, `pathlib` and `typing` — the `tools`
+`argparse`, `hashlib`, `json`, `os`, `re`, `sys`, `dataclasses`, `pathlib` and `typing` (`os`
+joined it at GOV-10, for the link-blind `os.walk` of the guarded trees) — the `tools`
 package's own `__init__` is a docstring and imports nothing — and hands it a sandbox tree of two
 files. `run_example` opens a fresh `TemporaryDirectory` per example, so the board and the sandbox
 never coexist, and every file either example writes (`demo-board.md`, two vendored files, a third

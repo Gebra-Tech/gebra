@@ -21,6 +21,12 @@ vendored path together with its vault source file and the vault commit it was
 copied from. The rows are split across the two repositories only because the
 files themselves are.
 
+Each manifest declares **both** sides of that split: `guarded_trees` and
+`guarded_files` are the share the repository holds, `foreign_trees` and
+`foreign_files` the share it hands to the other. A row of the record is then
+never merely unclaimed — see [what a single run
+decides](#what-a-single-run-decides-and-what-needs-both-repositories).
+
 ## How the guard works
 
 `tools/provenance_guard.py` is a dependency-free script that hashes every
@@ -52,11 +58,22 @@ It fails, with the offending paths named, on any of:
 - **modified** — a guarded file whose bytes differ from the recorded hash;
 - **missing** — a manifest entry with no file in the tree;
 - **unlisted** — a file inside a guarded tree that no manifest entry covers, so
-  a fixture added by hand is caught as surely as one edited by hand;
+  a fixture added by hand is caught as surely as one edited by hand. A symlink
+  inside a guarded tree is reported here too, of either kind: the guard does not
+  follow it (following a directory link would mean hashing whatever it happens
+  to point at, and everything beneath it would be inside a guarded tree by path
+  and outside the manifest by content), and a snapshot is a file in this tree,
+  not a reference to one elsewhere. A listed path replaced by a link is reported
+  as **modified** for the same reason, even when the link's target carries the
+  recorded bytes exactly;
 - **manifest drift** (with `--provenance-doc`) — the manifest and the
   `docs/PROVENANCE.md` rows disagree about which files are vendored or about a
   file's vault source and commit. This is what stops a manifest row from being
-  deleted to quietly unguard a file.
+  deleted to quietly unguard a file. It also reads the two declared scopes
+  against the record: a row claimed by neither of them, a row claimed by both,
+  and a row handed to the sibling repository whose file is sitting in this tree
+  are each a finding, so shrinking a manifest's own scope cannot shrink the
+  surface it is judged against.
 
 Not every guarded path is governed the same way, and the guard reads which from
 the record rather than from a list kept here. `docs/PROVENANCE.md`'s sync rules
@@ -79,6 +96,45 @@ and the fixture review checklist are for.
 
 CI runs the guard as its own job on every push and pull request, in both
 repositories.
+
+## What a single run decides, and what needs both repositories
+
+A run inside one repository decides, on its own:
+
+- every file in its guarded scope is byte-identical to the manifest, no manifest
+  entry is missing from the tree, and nothing unlisted or symlinked sits inside
+  a guarded tree;
+- with `--provenance-doc`, the manifest mirrors the record's rows that fall in
+  its own scope — row for row, including each row's vault source and commit;
+- **every** row of the record is claimed by exactly one of the two declared
+  scopes, and no row handed to the sibling is a file sitting in this tree.
+
+What it cannot decide is whether the sibling repository actually holds and
+guards the share this manifest hands it. Nothing in one checkout can read the
+other's bytes, so that is asserted by the cross-repository tests in
+`tests/test_provenance_guard.py` — the two declarations are mirrors, the two
+entry sets partition the record's rows exactly, the companion's own tree
+verifies against its manifest, and the companion's copy of the guard is
+byte-identical to this one.
+
+**Those tests run on a maintainer's machine and nowhere else.** They are marked
+`requires_companion` and skip whenever the development-process repository is not
+checked out beside this one — which is always, in this repository's CI, because
+the companion is private and no workflow here carries a credential for it. So
+the green badge on this repository has never covered them, and it is not
+evidence about the companion's half or about the pair. There are three
+enforcement points, and they are different in kind:
+
+| Claim | Where it is enforced |
+|---|---|
+| this repository's guarded files are intact, and its manifest still declares the whole split | this repository's CI, on every push (the declaration itself is pinned by a test that reads no companion) |
+| the companion's vendored documentation package is intact, and its manifest agrees with the record | the companion repository's own CI, on every push |
+| the two manifests partition the record, and the two copies of the guard have not drifted | a side-by-side run of this repository's test suite, on a maintainer's machine |
+
+The third row has no CI anywhere. It is checked whenever the suite runs with
+both repositories checked out, which is the side-by-side layout the maintainers
+work in — and saying so plainly is the point: a check whose only enforcement is
+a dev-machine run is worth having and worth not mistaking for a CI-enforced one.
 
 ## The sanctioned re-vendor path
 
@@ -109,7 +165,11 @@ new bytes, which is precisely the reviewable event.
    updates those, and the cross-check in the second command is what proves the
    two records agree. A file newly added to a guarded tree is written with
    `UNRECORDED` provenance fields — fill them in from its `docs/PROVENANCE.md`
-   row before committing, or the cross-check fails.
+   row before committing, or the cross-check fails. An entry whose file is no
+   longer in the tree is **dropped**, and the command names each one it drops:
+   read that list, because a dropped entry unguards its path. If the re-vendor
+   deleted the file, its `docs/PROVENANCE.md` row goes in this same commit; if it
+   did not, restore the file and regenerate again.
 5. **One commit.** The new bytes, the `docs/PROVENANCE.md` rows and the
    regenerated manifest land together, and the commit message cites the new
    vault commit hash, e.g.:

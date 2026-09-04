@@ -54,6 +54,7 @@ import pytest
 from tools.provenance_guard import (
     LIVING_DOCUMENT,
     MANIFEST,
+    MANIFEST_SCHEMA_VERSION,
     MISSING,
     MODIFIED,
     REMEDIATION_VENDORED,
@@ -153,7 +154,7 @@ def _synthetic(tmp_path: Path, exception: str = "") -> tuple[Path, Path, Path]:
     manifest_path.parent.mkdir(parents=True)
     write_manifest(
         Manifest(
-            schema_version=1,
+            schema_version=MANIFEST_SCHEMA_VERSION,
             vault_repo="Example-Org/sandbox-vault",
             snapshot_commit="abc1234",
             guarded_trees=("vendored",),

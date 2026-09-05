@@ -119,13 +119,16 @@ def topology_graph(ir: WorkflowIR) -> nx.MultiDiGraph:
     authored document — so consumers that need a canonical order sort, as the diff does;
     none of the diff's output depends on it.
 
-    **``ir_version`` 1.1 is declined, and totality is the reason.** A ``dynamic`` edge
-    (DEC-28, 2026-08-09) has no head at all, and this graph's contract is that its
+    **A ``dynamic``-bearing document is declined, and totality is the reason.** A ``dynamic``
+    edge (DEC-28, 2026-08-09) has no head at all, and this graph's contract is that its
     edge-descriptor universe *is* the ``graph_version`` topology slice — so dropping such an
     edge would make two documents with different digests diff as unchanged, which is the one
     failure mode a review tool must not have. What a headless edge should look like in an
     ``nx`` representation is unruled (a materialized pseudo-head would be exactly the phantom
-    vertex DEC-26 closed elsewhere), so this refuses rather than choosing.
+    vertex DEC-26 closed elsewhere), so this refuses rather than choosing. The test is on the
+    construct, never on the ``ir_version`` stamp: a hand-authored ``"1.1"`` document with no
+    ``dynamic`` edge builds like any other. The validators read such a document since VAL-14;
+    ruling the representation here is follow-on traceability work.
 
     Raises:
         DynamicEdgeUnsupportedError: if the document carries a ``dynamic`` edge (above).

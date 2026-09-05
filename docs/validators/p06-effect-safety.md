@@ -1156,10 +1156,17 @@ a prediction about a run. That is the value of the check: double-charging is the
 reproduce on demand, and a region analysis names the node where nothing declared stands between one
 attempt and the next, before anything runs.
 
-One further limit worth keeping straight: a document using the `ir_version` 1.1 `dynamic` edge kind —
-a router whose destinations are computed rather than declared — reaches
-[no verdict at all](../tutorials/extract-your-first-ir.md#one-consequence-to-know-before-you-build-on-this),
-exit `2`, rather than a P-06 answer.
+One further limit worth keeping straight: a `dynamic` edge — the `ir_version` 1.1 kind for a router
+whose destinations are computed rather than declared — contributes **no edge** to the graph P-06's
+regions are computed over (§6.4 Phase 0; DEC-28). A billable or irreversible node whose only way
+back into itself is such a router therefore sits in an `acyclic` region here, with
+`none_required`: nothing declared puts it in a cycle or a retry region, and P-06 reads declarations
+only. That is the same honesty boundary as the rest of this page, on its sharpest edge — if the
+router does re-dispatch to that node at runtime, no protection was checked, because none was
+declared to be needed. Declaring the router's targets is what brings the region back under the
+analysis;
+[the extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+shows how a verdict over such a document reads.
 
 ## Where this page is checked
 

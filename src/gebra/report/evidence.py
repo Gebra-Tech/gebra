@@ -73,7 +73,7 @@ def _closed_walk(nodes: tuple[str, ...]) -> str:
 
 
 def _well_formedness_lines(witness: WellFormednessWitness) -> list[tuple[str, str]]:
-    return [
+    lines = [
         (
             "reachable from START",
             (
@@ -95,6 +95,24 @@ def _well_formedness_lines(witness: WellFormednessWitness) -> list[tuple[str, st
             else f"evaluated — unresolved: {_listed(witness.unresolved_targets)}",
         ),
     ]
+    if witness.dynamic_dependent:
+        # §4.3's `dynamic_dependent` row (DEC-28 clause 1): the nodes condition (i) did not name
+        # because a reachable `dynamic` edge may dispatch to them. The line states its relation
+        # to the list above it, claims neither reachability nor unreachability (gebra observes
+        # no dispatch), and scopes the coverage gap to what DEC-28 prices — condition (i) and
+        # P-04's obligations — rather than to "every analysis".
+        lines.append(
+            (
+                "dynamic-dependent",
+                (
+                    f"of these, {_plural(len(witness.dynamic_dependent), 'node')} depend on a "
+                    "dynamic router: no declared START-path reaches them, so their reachability "
+                    "is neither claimed nor denied here, and P-04 generates no obligation for "
+                    f"their reads: {_listed(witness.dynamic_dependent)}"
+                ),
+            )
+        )
+    return lines
 
 
 # ── P-02 (§4.3 termination rows, TERMINATION-WITNESS-SPEC §6.2/§6.3) ─────────────────────
@@ -236,13 +254,36 @@ def _coverage_line(coverage: DataflowCoverage) -> str:
 
 
 def _dataflow_lines(witness: DataflowWitness) -> list[tuple[str, str]]:
-    return [
+    lines = [
         (
             "coverage",
             f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered",
         ),
         *(("covered", _coverage_line(coverage)) for coverage in witness.coverage),
     ]
+    if witness.outside_static_coverage:
+        lines.append(
+            (
+                "outside static coverage",
+                _outside_static_coverage_phrase(witness.outside_static_coverage),
+            )
+        )
+    return lines
+
+
+def _outside_static_coverage_phrase(readers: tuple[str, ...]) -> str:
+    """§4.3's `outside_static_coverage` row (DEC-28 clause 2), on the pass witness.
+
+    The same fact rides a failing P-04 report's primary finding as evidence (§4.4), where
+    :func:`gebra.report.human._evidence_label` words it; the two spellings say one thing —
+    these readers' declared reads were covered by no analysis in this run, and the pass above
+    them is a statement about the static graph only.
+    """
+    return (
+        f"{_plural(len(readers), 'node')} with declared reads that no START-path of the static "
+        "graph reaches — reachable only through a dynamic router, so no analysis in this run "
+        f"covers those reads: {_listed(readers)}"
+    )
 
 
 # ── P-06 (§4.3 effect-safety rows) ───────────────────────────────────────────────────────
@@ -349,10 +390,15 @@ def witness_summary(witness: Witness) -> str:
             if not witness.unresolved_targets
             else _plural(len(witness.unresolved_targets), "unresolved target")
         )
+        dynamic = (
+            f" | {_plural(len(witness.dynamic_dependent), 'dynamic-dependent node')}"
+            if witness.dynamic_dependent
+            else ""
+        )
         return (
             f"{_plural(len(witness.reachable_from_start), 'node')} reachable from START | "
             f"{_plural(len(witness.terminal_nodes), 'terminal node')} | {orphans} | "
-            f"{unresolved}"
+            f"{unresolved}{dynamic}"
         )
     if isinstance(witness, TerminationWitness):
         notes = f" | {_plural(len(witness.notes), 'note')}" if witness.notes else ""
@@ -361,7 +407,12 @@ def witness_summary(witness: Witness) -> str:
             f"acyclicity certificate present{notes}"
         )
     if isinstance(witness, DataflowWitness):
-        return f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered"
+        outside = (
+            f" | {_plural(len(witness.outside_static_coverage), 'reader')} outside static coverage"
+            if witness.outside_static_coverage
+            else ""
+        )
+        return f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered{outside}"
     if isinstance(witness, EffectSafetyWitness):
         return (
             f"{_plural(len(witness.cycles), 'cycle')} | "

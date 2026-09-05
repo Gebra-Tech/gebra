@@ -5,11 +5,10 @@
     "version": "<gebra-version>"
   },
   "subject": {
-    "input_mode": "extracted",
+    "input_mode": "ir-document",
     "source": "travel_booking:build_graph",
-    "ir_version": "1.0",
-    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
-    "extractor_version": "<gebra-version>"
+    "ir_version": "1.1",
+    "graph_version": "sha256:e10cdc0550c540b6cc5db3fbbca429a93f5f3680ce559af01eb99e2e08ff2361"
   },
   "properties": [
     {
@@ -18,23 +17,36 @@
       "witness": {
         "kind": "well-formedness",
         "reachable_from_start": [
-          "book_flight",
-          "check_availability",
-          "send_confirmation"
+          "book_leg",
+          "collect",
+          "plan"
         ],
         "terminal_nodes": [
-          "send_confirmation"
+          "collect"
         ],
         "orphan_nodes": [],
-        "unresolved_targets": []
+        "unresolved_targets": [],
+        "dynamic_dependent": [
+          "book_leg",
+          "collect"
+        ]
       }
     },
     {
-      "kind": "not-implemented",
       "property": "termination-witness",
-      "property_id": "P-02",
-      "status": "not-yet-implemented",
-      "detail": "P-02 termination-witness is one of the Phase-0 wedge five, but no validator is registered for it in this build. Its contract is PROPERTY-CATALOG-SPEC §2; TERMINATION-WITNESS-SPEC. No verdict was reached — this is not a pass."
+      "result": "pass",
+      "witness": {
+        "kind": "termination",
+        "inventory": [],
+        "certificate": [
+          "START",
+          "check_availability",
+          "book_flight",
+          "send_confirmation",
+          "END"
+        ],
+        "notes": []
+      }
     },
     {
       "kind": "not-implemented",
@@ -50,12 +62,16 @@
         "kind": "dataflow",
         "coverage": [
           {
-            "node": "send_confirmation",
-            "key": "booking_id",
+            "node": "plan",
+            "key": "legs",
             "satisfied_by": [
-              "book_flight"
+              "START"
             ]
           }
+        ],
+        "outside_static_coverage": [
+          "book_leg",
+          "collect"
         ]
       }
     },

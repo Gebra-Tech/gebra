@@ -1,5 +1,5 @@
 {
-  "report_format": "1.1",
+  "report_format": "1.2",
   "tool": {
     "name": "gebra",
     "version": "<gebra-version>"

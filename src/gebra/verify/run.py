@@ -57,7 +57,7 @@ from typing import Annotated, Final, Literal, TypeAlias
 from pydantic import Field, model_validator
 
 import gebra
-from gebra.ir import IR_VERSION, WorkflowIR
+from gebra.ir import IrVersion, WorkflowIR
 from gebra.ir.canonical import CanonicalizationError, graph_version
 from gebra.verify.base import (
     ClaimClass,
@@ -113,11 +113,14 @@ __all__ = [
 ]
 
 
-#: The ``report_format`` this build produces and reads. ``1.1`` under §1.6's MINOR rule: two
-#: members join shapes that did not carry them at ``1.0`` — ``Promotion.property_condition``
-#: on a witness-note promotion (TERMINATION-WITNESS-SPEC §6.1's promoted-item identity) and
-#: ``RunReport.best_effort`` (§0.3's P-01-clean precondition, reported rather than implied).
-REPORT_FORMAT: Final = "1.1"
+#: The ``report_format`` this build produces and reads. ``1.2`` under §1.6's MINOR rows, on the
+#: post-final route (VAL-14; DEC-28's two optional diagnostics): three optional members join
+#: shapes that did not carry them at ``1.1`` — ``WellFormednessWitness.dynamic_dependent``,
+#: ``DataflowWitness.outside_static_coverage`` and ``P04Failure.outside_static_coverage`` — and
+#: ``Subject.ir_version`` admits ``"1.1"``, the stamp a ``dynamic``-bearing document carries.
+#: ``1.1`` (VAL-11) added ``Promotion.property_condition`` on a witness-note promotion and
+#: ``RunReport.best_effort``; Phase-0 shipped at it.
+REPORT_FORMAT: Final = "1.2"
 
 #: The topology-consuming wedge properties: §0.3 defines their results **only over P-01-clean
 #: topology**, and where P-01 fails their reports are best-effort diagnostics rather than
@@ -171,7 +174,13 @@ class Subject(RunReportModel):
 
     input_mode: Literal["extracted", "ir-document", "snapshot"]
     source: str
-    ir_version: Literal["1.0"]
+    #: The document's own ``ir_version`` stamp, verbatim — ``"1.0"``, or ``"1.1"`` for a
+    #: document carrying a ``dynamic`` edge (IR-SPEC §8; DEC-28). It is inside the
+    #: ``graph_version`` hash scope (IR-SPEC §6.4), so it is part of the identity reported here,
+    #: and it is read off the document rather than re-derived from its constructs: the stamp's
+    #: relation to the constructs is the emitter's obligation (minimal stamping, PD-044 D10),
+    #: not this report's to police.
+    ir_version: IrVersion
     #: ``"sha256:<64 lowercase hex>"`` — the IR-SPEC §6 content digest of the core IR,
     #: byte-for-byte the string a snapshot envelope carries. Provenance and identity for a
     #: report; never a claim about behavior.
@@ -329,7 +338,7 @@ PropertyOutcome: TypeAlias = Annotated[
 class RunReport(RunReportModel):
     """The run-level wrapper (§1.2; PROPERTY-CATALOG-SPEC §0.3's scope boundary)."""
 
-    report_format: Literal["1.1"]
+    report_format: Literal["1.2"]
     tool: Tool
     #: Absent only when a tool error preceded IR identity.
     subject: Subject | None = None
@@ -681,29 +690,25 @@ def _tool() -> Tool:
     return Tool(name="gebra", version=gebra.__version__)
 
 
-def _verifiable_version(ir: WorkflowIR) -> Literal["1.0"] | None:
-    """``"1.0"`` if this build's validators are defined over ``ir``'s version, else ``None``.
-
-    ``ir_version`` gained ``"1.1"`` with the ``dynamic`` edge kind (ratified — DEC-28,
-    2026-08-09), and the validator semantics that kind needs — the P-01/P-02/P-04/P-06 skip
-    branches, P-01's condition-(i) over-approximation, and the two optional diagnostics —
-    are DEC-28's paired validator regression card, not this build's. Until they land, a 1.1
-    document is refused as a §2.4 ``ir-validation`` tool error: exit ``2``, "no verdict was
-    reached", which is the honest answer. Running the 1.0 rules over it would instead emit
-    ``node-unreachable-from-start`` for every node reachable only through the router — the
-    false FATAL DEC-28 clause 1 forbids by name — so the refusal is the conservative pole,
-    not a shortfall.
-
-    A ``bool`` would do; the narrowed literal is returned instead so :func:`_subject` states
-    what it stamps rather than being trusted to.
-    """
-    return IR_VERSION if ir.ir_version == IR_VERSION else None
-
-
-def _subject(
-    ir: WorkflowIR, reference: SubjectRef | None, *, ir_version: Literal["1.0"]
-) -> Subject:
+def _subject(ir: WorkflowIR, reference: SubjectRef | None) -> Subject:
     """The §1.2 subject: the caller's label plus the IR's own identity.
+
+    Both admitted ``ir_version`` stamps are verified. ``"1.1"`` — the ``dynamic`` edge kind
+    (ratified — DEC-28, 2026-08-09) — is read by every wedge validator under §0.3's one
+    convention (the shared model of :mod:`gebra.verify.graph` inserts no member for such an
+    edge and records its source), so nothing here keys on the stamp: the document's declaration
+    is carried into the report as identity, and what the validators dispatch on is the
+    construct, which is also what :mod:`gebra.snapshot` and :mod:`gebra.audit` key their own
+    declines on — one predicate, not two.
+
+    One consequence is interim rather than settled. IR-SPEC §2.4 ties kind ``dynamic`` to
+    ``ir_version`` ≥ 1.1 but names no enforcement site for that constraint, so a hand-authored
+    document stamped ``"1.0"`` that carries a ``dynamic`` edge loads, is verified under the
+    dynamic semantics, and is reported here at its own stamp. Policing the stamp against the
+    constructs is a validation-requiredness change on ``WorkflowIR``'s frozen surface and takes
+    IR-MODELS-FREEZE §4's DEC route (filed as PD-055 at VAL-14); until it is ruled, verbatim
+    reporting is the reading the frozen text supports, not a decision that the under-stamp is
+    acceptable.
 
     Raises:
         CanonicalizationError: if the IR has no digest, which :func:`verify` turns into a
@@ -716,7 +721,7 @@ def _subject(
     return Subject(
         input_mode=reference.input_mode,
         source=reference.source,
-        ir_version=ir_version,
+        ir_version=ir.ir_version,
         graph_version=graph_version(ir),
         version=reference.version,
         extractor_version=reference.extractor_version,
@@ -756,22 +761,24 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
     ill-formed topology is worth reading; ``best_effort`` is what stops one being read as a
     contract-bearing verdict.
 
-    Five things become a tool error rather than a verdict (§2.4), because exit ``2`` means
-    "no verdict was reached" and each of them means exactly that: a document declaring an
-    ``ir_version`` this build's validators are not defined over — ir 1.1, whose ``dynamic``
-    edge semantics are DEC-28's paired validator card (``ir-validation``,
-    :func:`_verifiable_version`); an IR with no computable digest (``ir-validation``); an
-    unregistered member of the wedge five, since a run that silently checked four of the five
-    would be a weakened gate wearing a pass (``dispatch``, §1.4 rule 2); an exception escaping
-    a validator, or a validator answering for the wrong property — a crash is not a finding
-    (``dispatch``); and a gate that could not be derived from the outcomes, which is what a
-    property's own promotion refusal surfaces as (``dispatch``). Between them they make this
-    function **total**: it returns a report or it does not return, and a caller never has to
-    handle both.
+    Four things become a tool error rather than a verdict (§2.4), because exit ``2`` means
+    "no verdict was reached" and each of them means exactly that: an IR with no computable
+    digest (``ir-validation``); an unregistered member of the wedge five, since a run that
+    silently checked four of the five would be a weakened gate wearing a pass (``dispatch``,
+    §1.4 rule 2); an exception escaping a validator, or a validator answering for the wrong
+    property — a crash is not a finding (``dispatch``); and a gate that could not be derived
+    from the outcomes, which is what a property's own promotion refusal surfaces as
+    (``dispatch``). Between them they make this function **total**: it returns a report or it
+    does not return, and a caller never has to handle both.
+
+    An ir 1.1 document — one carrying a ``dynamic`` edge (DEC-28) — is **not** among them: the
+    wedge five read it under the ruled semantics (PROPERTY-CATALOG-SPEC §0.3; P-01 §1.4; P-02
+    §2.4; P-04 §4.4; P-06 §6.4), so it reaches a verdict like any other, with
+    ``subject.ir_version`` carrying its stamp.
 
     Args:
-        ir: A validated workflow IR. Each validator reads only the fields its own §P-nn.3
-            I/O contract lists.
+        ir: A validated workflow IR at ``ir_version`` ``"1.0"`` or ``"1.1"``. Each validator
+            reads only the fields its own §P-nn.3 I/O contract lists.
         policy: The §0.2 strict-mode request and the caller's subject label. ``None`` is
             strict off over an unnamed in-process IR.
 
@@ -781,21 +788,8 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
     """
     policy = policy if policy is not None else RunPolicy()
     strict = policy.strict
-    verifiable = _verifiable_version(ir)
-    if verifiable is None:
-        return _tool_error_report(
-            "ir-validation",
-            f"the document declares ir_version {ir.ir_version!r} and this build's validators "
-            f"are defined over {IR_VERSION!r} only, so no verdict is reported. The 1.1 edge "
-            "kind `dynamic` (ratified — DEC-28, 2026-08-09) contributes no member to the "
-            "graph the topology properties are computed over; running the 1.0 rules against "
-            "it would report unreachable nodes that the router can reach, which DEC-28 rules "
-            "out in terms. The semantics land with the paired validator regression card.",
-            subject=None,
-            strict=strict,
-        )
     try:
-        subject = _subject(ir, policy.subject, ir_version=verifiable)
+        subject = _subject(ir, policy.subject)
     except CanonicalizationError as error:
         return _tool_error_report(
             "ir-validation",

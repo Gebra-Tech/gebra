@@ -171,13 +171,17 @@ them §4.4's `linkStyle` paints, deterministic.
 
 ### 3.4 Documents this guide declines
 
-A document carrying a `dynamic` edge (`ir_version` 1.1 — DEC-28) is **declined**, exactly
-as `verify()`, the structural diff and the snapshot engines decline it: a `dynamic` edge
-contributes no member to the graph the §0.3 vocabulary is defined over, and its
-consumer-side representation is assigned to the kind's paired follow-up cards, not
-improvised here. `gebra display` reports the decline as a CLI-SPEC §2.6 tool error
-(`ir-validation` stage, exit 2); the diagram representation of a headless router edge lands
-with those semantics, in a later card, not in this guide.
+A document carrying a `dynamic` edge (`ir_version` 1.1 — DEC-28) is **declined**, as the
+structural diff and the snapshot engines decline it: a `dynamic` edge contributes no member
+to the graph the §0.3 vocabulary is defined over, and what a headless router edge should
+look like in a drawing is unruled — an invented head would name a vertex the document does
+not declare (the phantom class DEC-26 closed), so it is not improvised here. `gebra display`
+reports the decline as a CLI-SPEC §2.6 tool error (`ir-validation` stage, exit 2). `verify()`
+no longer declines such a document: since VAL-14 (2026-09-04) the wedge five read it under
+PROPERTY-CATALOG-SPEC §0.3's ruled convention and reach a verdict, so a run report over a
+`dynamic`-bearing document exists while the diagram it would overlay does not. The diagram
+representation of a headless router edge lands with a ruling of its own, in a later card,
+not in this guide.
 
 ## 4. The verification overlay
 

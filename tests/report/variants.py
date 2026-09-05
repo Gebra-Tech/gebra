@@ -100,13 +100,30 @@ _IR_DOCUMENT: Final[dict[str, Any]] = {
 }
 
 
-def _ir() -> WorkflowIR:
+#: An ir 1.1 subject: ``plan`` dispatches dynamically (DEC-28), so ``subject.ir_version`` reads
+#: ``"1.1"`` and the two optional diagnostics §4.3/§4.4 gained at ``1.2`` have a report to ride.
+#: The stubbed validators ignore it like the other; what it decides is the subject line.
+_DYNAMIC_IR_DOCUMENT: Final[dict[str, Any]] = {
+    "ir_version": "1.1",
+    "entry": "plan",
+    "finish": "collect",
+    "state": {"legs": "list[str]"},
+    "nodes": [{"id": "plan"}, {"id": "book_leg"}, {"id": "collect"}],
+    "edges": [
+        {"kind": "dynamic", "from": "plan", "condition": "route_legs"},
+        {"kind": "normal", "from": "book_leg", "to": "collect"},
+    ],
+}
+
+
+def _ir(document: dict[str, Any] = _IR_DOCUMENT) -> WorkflowIR:
     # The IR models are strict (IR-SPEC §2.5 note 4), so parsed document data validates in
     # JSON mode — the same ingestion path the loaders use.
-    return WorkflowIR.model_validate_json(json.dumps(_IR_DOCUMENT))
+    return WorkflowIR.model_validate_json(json.dumps(document))
 
 
 IR: Final[WorkflowIR] = _ir()
+DYNAMIC_IR: Final[WorkflowIR] = _ir(_DYNAMIC_IR_DOCUMENT)
 
 
 @contextmanager
@@ -436,6 +453,46 @@ _P04_FAILURE = PropertyReport.failing(
     ),
 )
 
+# ── The `1.2` variants: DEC-28's two optional diagnostics (§4.3/§4.4; VAL-14) ────────────
+
+#: P-01 on a dynamic-bearing document: condition (i) over-approximation-silenced, the nodes only
+#: the router reaches surfaced on the witness rather than flagged (DEC-28 clause 1).
+_P01_DYNAMIC_PASS = PropertyReport.passing(
+    "graph-well-formed",
+    WellFormednessWitness(
+        kind="well-formedness",
+        reachable_from_start=("book_leg", "collect", "plan"),
+        terminal_nodes=("collect",),
+        orphan_nodes=(),
+        unresolved_targets=(),
+        dynamic_dependent=("book_leg", "collect"),
+    ),
+)
+
+#: P-04's pass witness naming the readers no analysis covers (DEC-28 clause 2).
+_P04_DYNAMIC_PASS = PropertyReport.passing(
+    "dataflow-completeness",
+    DataflowWitness(
+        kind="dataflow",
+        coverage=(DataflowCoverage(node="plan", key="legs", satisfied_by=("START",)),),
+        outside_static_coverage=("book_leg", "collect"),
+    ),
+)
+
+#: The same diagnostic on the fail path, riding the primary finding (§4.4).
+_P04_DYNAMIC_FAILURE = PropertyReport.failing(
+    "dataflow-completeness",
+    P04Failure(
+        property_condition="read-key-never-written-on-path",
+        location=DataflowLocation(
+            kind="state-key", key="legs", node="plan", path=("START", "plan")
+        ),
+        severity="fatal",
+        claim_class="defensible-a",
+        outside_static_coverage=("book_leg",),
+    ),
+)
+
 _P06_FAILURE = PropertyReport.failing(
     "effect-safety",
     Failure(
@@ -587,8 +644,13 @@ def case_report(
     # version bump, which is what the `0.0.1` release cut found (GOV-14).
     extractor_version: str | None = __version__,
     sidecar: str | None = None,
+    ir: WorkflowIR = IR,
 ) -> RunReport:
-    """Run ``verify()`` with the wedge five stubbed to return ``reports``."""
+    """Run ``verify()`` with the wedge five stubbed to return ``reports``.
+
+    ``ir`` is the subject whose identity the report carries — :data:`IR` unless a case needs
+    the ``1.1`` stamp of :data:`DYNAMIC_IR` on its subject line; the stubs ignore it either way.
+    """
     subject = SubjectRef(
         source=source,
         input_mode=input_mode,  # type: ignore[arg-type]
@@ -597,7 +659,7 @@ def case_report(
         sidecar=sidecar,
     )
     with stub_wedge(reports):
-        return verify(IR, RunPolicy(strict=strict or StrictPolicy(mode="off"), subject=subject))
+        return verify(ir, RunPolicy(strict=strict or StrictPolicy(mode="off"), subject=subject))
 
 
 def _tool_error_report() -> RunReport:
@@ -784,6 +846,31 @@ def _build_cases() -> tuple[Case, ...]:
                 strict=StrictPolicy(mode="all"),
             ),
             covers="§2.4's `1.1` arm: a gate that cannot be derived is a dispatch tool error",
+        ),
+        Case(
+            name="dynamic-dispatch",
+            report=case_report(
+                {
+                    "graph-well-formed": _P01_DYNAMIC_PASS,
+                    "dataflow-completeness": _P04_DYNAMIC_PASS,
+                },
+                input_mode="ir-document",
+                extractor_version=None,
+                ir=DYNAMIC_IR,
+            ),
+            covers="§4.3's `1.2` rows: dynamic_dependent and outside_static_coverage on the "
+            "pass witnesses; a `1.1` subject",
+        ),
+        Case(
+            name="dynamic-dispatch-dataflow-failure",
+            report=case_report(
+                {
+                    "graph-well-formed": _P01_DYNAMIC_PASS,
+                    "dataflow-completeness": _P04_DYNAMIC_FAILURE,
+                },
+                ir=DYNAMIC_IR,
+            ),
+            covers="§4.4's `1.2` row: outside_static_coverage riding a primary P04Failure",
         ),
     )
 

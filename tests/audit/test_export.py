@@ -283,7 +283,7 @@ def _tool_error_report(subject: Subject | None = None) -> RunReport:
             stage="dispatch" if subject is not None else "ir-validation",
             detail="no validator is registered for graph-well-formed"
             if subject is not None
-            else "the document declares ir_version '1.1'",
+            else "the IR has no canonical form, so it has no identity to report against",
         ),
     )
 
@@ -334,13 +334,14 @@ def test_a_run_that_reached_no_verdict_is_not_the_profile(evolved: SnapshotStore
 def test_a_subject_less_report_is_not_the_profile_either(tmp_path: Path) -> None:
     """§6's profile is a report *about* a snapshot; one that names none cannot be one.
 
-    Reachable through an ``ir-validation`` stage error — a stored snapshot declaring an
-    ``ir_version`` this build's validators are not defined over. The ``no-verdict`` refusal
-    catches it first, which is why this test calls the subject check directly by handing in a
-    report with no ``error``… it cannot: ``RunReport`` enforces "``error`` present iff exit 2".
-    So the two refusals are ordered, and this asserts the order rather than pretending
-    otherwise: the *cause* is what a reader needs, and "no verdict — ir-validation: …" is the
-    cause, while "no subject" is its consequence.
+    Reachable through an ``ir-validation`` stage error that precedes IR identity — the one
+    ``verify()`` still has is a stored document with no canonical form (an ir 1.1 document is
+    no longer one: since VAL-14 the validators read it). The ``no-verdict`` refusal catches it
+    first, which is why this test calls the subject check directly by handing in a report with
+    no ``error``… it cannot: ``RunReport`` enforces "``error`` present iff exit 2". So the two
+    refusals are ordered, and this asserts the order rather than pretending otherwise: the
+    *cause* is what a reader needs, and "no verdict — ir-validation: …" is the cause, while
+    "no subject" is its consequence.
     """
     with pytest.raises(AuditError) as caught:
         check_profile(
@@ -348,7 +349,7 @@ def test_a_subject_less_report_is_not_the_profile_either(tmp_path: Path) -> None
         )
 
     assert caught.value.reason is AuditErrorReason.NO_VERDICT
-    assert "ir_version '1.1'" in str(caught.value)
+    assert "no canonical form" in str(caught.value)
 
 
 def test_the_subject_refusal_stands_on_its_own(tmp_path: Path) -> None:
@@ -474,8 +475,8 @@ def test_reading_an_export_of_a_version_the_index_does_not_hold(evolved: Snapsho
     "content",
     [
         pytest.param("{ not json", id="not-json"),
-        pytest.param('{"report_format": "1.1"}', id="missing-members"),
-        pytest.param('{"report_format": "1.1", "unknown": 1}', id="unknown-member"),
+        pytest.param(f'{{"report_format": "{REPORT_FORMAT}"}}', id="missing-members"),
+        pytest.param(f'{{"report_format": "{REPORT_FORMAT}", "unknown": 1}}', id="unknown-member"),
     ],
 )
 def test_reading_a_file_that_is_not_a_run_report(evolved: SnapshotStore, content: str) -> None:

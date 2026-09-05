@@ -953,10 +953,15 @@ outputs and every other annotation are read by other properties and not by this 
 Two boundaries at the edges of that list. P-02's results are defined over **P-01-clean**
 topology (§0.3): a document with a dangling `path_map` target has a graph P-02 cannot trust, so
 a run that fails P-01 names P-02 among its best-effort diagnostics — fix the wiring and re-run
-before drawing conclusions. And a document using the `ir_version` 1.1 `dynamic` edge kind — a
-router whose destinations are computed rather than declared — reaches
-[no verdict at all](../tutorials/extract-your-first-ir.md#one-consequence-to-know-before-you-build-on-this),
-exit `2`, rather than a P-02 answer.
+before drawing conclusions. And a `dynamic` edge — the `ir_version` 1.1 kind for a router whose
+destinations are computed rather than declared — contributes **no edge to the graph P-02
+analyses** (§2.4 Step 0; DEC-28): a route that closes only through such a router is not a cycle
+here, so it needs no witness and appears in no census, while a cycle wired with declared edges
+beside it is exactly as witnessed or unwitnessed as it would be without it. What the router may
+do at runtime is outside this property's reach, and a P-02 pass on such a document says so by
+saying nothing about it — see
+[the dynamic-edge section of the extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+for what P-01 and P-04 report about the same document.
 
 ## What a pass does not claim
 

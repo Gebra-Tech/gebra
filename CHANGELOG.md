@@ -7,8 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`verify()` reads an `ir_version` 1.1 document — one carrying a `dynamic` edge — and reaches
+  a verdict** (card VAL-14; `gebra.verify`). The `dynamic` edge kind (ratified DEC-28,
+  2026-08-09) represents a router whose target set is not statically known — a bare-`Send`
+  map-reduce, a hintless router — and `gebra.extract()` has emitted it since EX-03, while every
+  validator refused the document as an `ir-validation` tool error (exit `2`, "no verdict was
+  reached"). The wedge five now read it under the one convention PROPERTY-CATALOG-SPEC §0.3
+  states for every graph builder, implemented once in the shared graph model: a `dynamic` edge
+  contributes **no** edge to the graph — its targets are runtime facts — while its source still
+  counts as wired (P-01 condition (iii)) and is never a dead end (condition (ii)); P-02 and P-06
+  see no cycle and no retry re-entry through it; P-04 sees no path. The one genuinely new rule is
+  P-01 condition (i)'s: when such a router is reachable from `START` it may target any node at
+  runtime, so `node-unreachable-from-start` is reported for **no** node of that document — the
+  false FATAL DEC-28 clause 1 forbids in terms. What that costs is surfaced, never hidden, by two
+  optional diagnostics, each emitted only when non-empty and never part of a verdict: P-01's pass
+  witness gains `dynamic_dependent` (the nodes no declared edge reaches from `START`, unflagged
+  only because the router exists — a genuinely disconnected island lands here), and P-04's
+  report gains `outside_static_coverage` (the nodes with declared reads that no declared path
+  reaches, whose reads no analysis in the run therefore covers), on the pass witness or, when the
+  reachable part of the graph fails, on the primary finding. No condition ID is added. The human
+  rendering carries both as labelled evidence lines; the SARIF projection carries the P-04 one as
+  the `gebra/outsideStaticCoverage` property. `gebra verify` and `@pytest.mark.gebra` follow,
+  since both are `verify()`. Nothing changes for a 1.0 document: no corpus fixture carries the
+  kind (machine-checked), the shared model records no dynamic source on any of them, and neither
+  new member reaches the wire, so every existing verdict serializes byte for byte as before.
+
 ### Changed
 
+- **`report_format` is `1.2`** (card VAL-14; `gebra.verify.REPORT_FORMAT`,
+  `docs/specs/REPORT-FORMAT-SPEC.md` §1.6). The three optional members above join envelope
+  shapes that did not carry them at `1.1`, and `subject.ir_version` admits `"1.1"`, the stamp a
+  `dynamic`-bearing document carries — both MINOR rows of §1.6's bump table, travelled by the
+  post-final route the D-12 promotion fixed (a card of its own, an amendment-log row, this
+  entry). Phase-0 shipped at `1.1` and stays recorded as such. Two consumer-side consequences:
+  a strict `1.1` consumer (`extra="forbid"`) refuses a `1.2` report that carries one of the new
+  members, which is the intended failure §1.6 asks consumers to read `report_format` for; and
+  `gebra display --report` in this build refuses a `1.1` report file written by `0.0.1`, naming
+  the version it reads — re-running `gebra verify` produces a `1.2` report, and a store's
+  `.gebra/reports/` audit exports are re-exported the same way. Exit-code derivation, the finding
+  set and strict-mode reach are untouched.
+- **The remaining `dynamic`-edge refusals name the reason that is still theirs** (card VAL-14;
+  `gebra.ir.refuse_dynamic_edges`, `gebra.diff.graph.topology_graph`, `gebra.snapshot.record` /
+  `snapshot` / `record_document`, `gebra.audit.freshness`, the `@pytest.mark.gebra_freshness`
+  gate, `gebra display`). These still decline a document carrying a `dynamic` edge, exactly as
+  before and on the same terms — SD-12's interim ruling that a store holding one is neither
+  extended nor migrated stands — but their message no longer says the validator semantics are
+  pending. It says what is true now: the validators read the document; what is unruled is how an
+  edge with no target is represented in a topology diff or a diagram (dropping it would compare
+  two documents with different digests as unchanged; inventing a head would name a vertex the
+  document does not declare), and lifting the decline needs a decision record on that
+  representation, filed as follow-on traceability work. `gebra snapshot` on such a document
+  therefore now reports the recorder's own refusal (`nothing was recorded: …`) rather than a
+  no-verdict eligibility run, still at exit `2` with nothing written.
 - **A workflow document that declares one node `id` twice no longer loads** (card IR-07;
   `gebra.ir.WorkflowIR`). IR-SPEC §2.1 makes node-`id` uniqueness a MUST and words it at the
   loader — "a duplicate id has no meaning under §5.3's identity rules and loaders MUST reject

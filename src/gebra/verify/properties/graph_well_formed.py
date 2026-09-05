@@ -20,6 +20,21 @@ graph $G^*$:
   ``finish`` ids, an edge's ``from``, a ``normal``/``send`` edge's ``to``), which is DEC-12's
   ratified scope.
 
+**The ``dynamic`` edge (ir 1.1 — ratified DEC-28, 2026-08-09; PD-041) is read under the ruled
+semantics, never dropped.** §0.3's one convention: the edge contributes no member to $G^*$ —
+its targets are Runtime-only — while its source *participates*: wired for condition (iii)
+(Step 2's ``dynamic`` term), never a sink for condition (ii) (Step 4's ``id ∉
+dynamic_sources``), and, when statically reachable, the trigger of condition (i)'s
+over-approximation (Step 3): "the dispatcher may target any node at runtime, so static
+unreachability stops being a DEFENSIBLE claim — (i) MUST NOT fire for any node". The coverage
+that costs — a genuinely disconnected island goes unflagged on such a document — is surfaced
+rather than silent, on the witness's optional ``dynamic_dependent`` member (emitted only when
+non-empty, DEC-11 discipline, never verdict-bearing). Dropping the edge *quietly* would have
+reported ``node-unreachable-from-start`` for every node only the router reaches — the false
+FATAL DEC-28 clause 1 forbids by name and the same trap DEC-18 rejected edge omission for. An
+unresolved dispatcher is not a participant: Step 1 checks ``e.from ∈ V`` before its ``dynamic``
+branch, so it is an ``edge-target-undefined`` finding and nothing more.
+
 **P-01 is cycle-agnostic and never enumerates cycles** (§1.1, §1.5). The whole check is one
 graph build, one forward BFS and two degree scans, plus the ledger §6 sorts — O(|V| log |V| +
 |E*|), independent of |Σ|. Nothing here touches the shared module's SCC, condensation or
@@ -117,13 +132,15 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
     The five steps of the pseudocode, in order: build $G^*$ with the labels expanded and
     condition (iv)'s unresolved references recorded (Step 1, VAL-03's
     :func:`~gebra.verify.graph.build_graph_model`); the condition-(iii) orphan scan under
-    Reading A (Step 2); one forward BFS for condition (i) (Step 3); one out-degree scan for
-    condition (ii) (Step 4); and the root-cause ordering (iv)→(iii)→(i)→(ii) that names the
-    primary (Step 5).
+    Reading A (Step 2); one forward BFS for condition (i) — or, on a document with a reachable
+    ``dynamic`` edge, DEC-28's over-approximation and the witness's ``dynamic_dependent``
+    diagnostic (Step 3); one out-degree scan for condition (ii) (Step 4); and the root-cause
+    ordering (iv)→(iii)→(i)→(ii) that names the primary (Step 5).
 
     Args:
-        ir: A validated workflow IR. Only ``entry``, ``finish``, ``nodes[].id`` and
-            ``edges[].{from,to,kind,path_map}`` are read (§1.3).
+        ir: A validated workflow IR at ``ir_version`` ``"1.0"`` or ``"1.1"``. Only ``entry``,
+            ``finish``, ``nodes[].id`` and ``edges[].{from,to,kind,path_map}`` are read (§1.3);
+            ``edges[].kind`` distinguishes ``dynamic`` (no target fields) from the other three.
         model: A pre-built model of the *same* ``ir``, when a caller already has one —
             ``verify()`` builds one model and hands it to every topology-facing validator, and
             two builds of one IR are equal values, so sharing changes no result. It must be
@@ -142,12 +159,13 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
     """
     graph = _model_for(ir, model)
     node_ids = graph.node_ids
+    unreachable, dynamic_dependent = _condition_i(graph)
 
     findings: list[_Finding] = [
         *_condition_iv(graph),  # Step 1's F_iv, ordered by Step 5's DEC-12 key
-        *_condition_iii(graph),  # Step 2 — orphans, Reading A
-        *_condition_i(graph),  # Step 3 — forward reachability from START
-        *_condition_ii(graph),  # Step 4 — sinks not wired to END
+        *_condition_iii(graph),  # Step 2 — orphans, Reading A + the DEC-28 dynamic term
+        *unreachable,  # Step 3 — forward reachability from START, or its over-approximation
+        *_condition_ii(graph),  # Step 4 — sinks not wired to END; a dispatcher is never one
     ]
 
     if findings:
@@ -165,14 +183,24 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
         PROPERTY_SLUG,
         WellFormednessWitness(
             kind="well-formedness",
-            # §1.4 Step 5 writes `sorted(V)` with the comment "== reachable on pass" — and it
-            # is, because a non-reachable id would have filled F_i and there would be no
-            # witness to write. `graph.vertices` is already the ledger §6 order.
+            # §1.4 Step 5 writes `sorted(V)`, with the comment "== reachable on pass". On a
+            # static pass it is, because a non-reachable id would have filled F_i and there
+            # would be no witness to write. Under DEC-28's over-approximation the operative
+            # line is followed as written — every node is *possibly* reachable, since the
+            # dispatcher may target any of them — and the members that depend on the dispatch
+            # for it are named in `dynamic_dependent` beside this list, so a reader is never
+            # left to infer the static picture. The comment's equality no longer holds on that
+            # case and Step 5 was not amended with Step 3: a WA-03 clarification of whether
+            # this list is V or the static START-closure is filed as PD-056; the literal line
+            # is the reading until it is ruled. `graph.vertices` is already the ledger §6 order.
             reachable_from_start=_ids(graph, node_ids),
             terminal_nodes=tuple(to_display(v) for v in graph.predecessors(END_VERTEX)),
             # Empty by construction: a non-empty one would have filled `failure` instead.
             orphan_nodes=(),
             unresolved_targets=(),
+            # "Emitted only when non-empty" (DEC-28 clause 1; DEC-11 discipline). The PC-4
+            # profile drops the `None`, so a 1.0 witness serializes exactly as it always has.
+            dynamic_dependent=dynamic_dependent or None,
         ),
     )
 
@@ -271,32 +299,51 @@ def _condition_iii(graph: GraphModel) -> list[_Finding]:
 
     The splitter case §1.3 names — a single-node graph with ``entry == finish == n`` and no
     edges — passes here, which is what makes this Reading A rather than Reading B.
+
+    Step 2's third term is DEC-28's: ``dynamic ← [id ∈ dynamic_sources]`` — "a dynamic edge
+    wires its source". The edge inserted no member, so neither degree count sees it; membership
+    in :attr:`~gebra.verify.graph.GraphModel.dynamic_sources` is what says the node
+    participates. A dispatcher with no other edge and no sentinel wiring is therefore *not* an
+    orphan — which is exactly the false FATAL edge-omission would have produced (PD-041
+    rationale 3).
     """
     return [
         (ORPHAN_NODE, NodeLocation(kind="node", node=vertex))
         for vertex in _sorted_nodes(graph)
         if graph.degree(vertex, origins=("edges",)) == 0
         and graph.degree(vertex, origins=("entry", "finish")) == 0
+        and vertex not in graph.dynamic_sources
     ]
 
 
 # ── Step 3 — condition (i), forward reachability from START ──────────────────────────────
 
 
-def _condition_i(graph: GraphModel) -> list[_Finding]:
-    """F_i: nodes not reachable from ``__start__`` (§1.4 Step 3).
+def _condition_i(graph: GraphModel) -> tuple[list[_Finding], tuple[NodeId, ...]]:
+    """F_i, or its DEC-28 over-approximation: ``(findings, dynamic_dependent)`` (§1.4 Step 3).
 
     One BFS closure, O(|V| + |E*|). Unresolved references contributed no edge (Step 1), so a
     node reachable only through a dangling reference is correctly unreachable here — which is
     the cascade ``negative-03`` and ``mixed/04`` pin, reported alongside its root cause rather
     than instead of it.
+
+    **The dynamic-dispatch over-approximation** (ratified — DEC-28 clause 1; PD-041). When
+    some ``dynamic`` edge's *source* is statically reachable, the dispatcher may target any node
+    at runtime, so static unreachability stops being a DEFENSIBLE claim and condition (i) MUST
+    NOT fire for any node: the findings list is empty and the nodes it would have named are
+    returned as ``dynamic_dependent`` for the witness — the coverage cost, priced in the DEC,
+    surfaced rather than silent. When no dispatcher is reachable the dispatch can never run,
+    and (i) runs as written with an empty second member. Exactly one of the two is non-empty,
+    and on an ir 1.0 document the second always is.
     """
     reachable = graph.descendants(START_VERTEX)
+    unreachable = tuple(vertex for vertex in _sorted_nodes(graph) if vertex not in reachable)
+    if graph.reachable_dynamic_sources():
+        return [], tuple(to_display(vertex) for vertex in unreachable)
     return [
         (NODE_UNREACHABLE_FROM_START, NodeLocation(kind="node", node=vertex))
-        for vertex in _sorted_nodes(graph)
-        if vertex not in reachable
-    ]
+        for vertex in unreachable
+    ], ()
 
 
 # ── Step 4 — condition (ii), sinks not wired to END ──────────────────────────────────────
@@ -310,6 +357,10 @@ def _condition_ii(graph: GraphModel) -> list[_Finding]:
     test. A node that is neither wired onward nor in ``finish`` strands execution — the
     ``negative-02`` case.
 
+    Step 4's ``id ∉ dynamic_sources`` is DEC-28's: "a dynamic edge's source has a runtime
+    out-route and is never a dead end". Its out-degree in $G^*$ is what the static edges make
+    it — possibly zero — so the exclusion is by membership, not by degree.
+
     Trap components are **not** checked here. §1.7 open item 4 names the gap, PD-007 Q1
     (VAL-D1, ratified 2026-07-24) disposed it, and DEC-12's closing line confirms it in the
     vault — "condition (ii) (trap components) … confirmed as written, no scope change". The
@@ -321,7 +372,7 @@ def _condition_ii(graph: GraphModel) -> list[_Finding]:
     return [
         (DEAD_END_NODE_NOT_WIRED_TO_END, NodeLocation(kind="node", node=vertex))
         for vertex in _sorted_nodes(graph)
-        if not graph.out_edges(vertex)
+        if not graph.out_edges(vertex) and vertex not in graph.dynamic_sources
     ]
 
 

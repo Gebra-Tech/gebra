@@ -1,0 +1,107 @@
+gebra <gebra-version> — travel_booking:build_graph (extracted)
+  identity                ir_version 1.1 | graph_version sha256:e10cdc0550c540b6... | extractor 
+<gebra-version> | strict off
+
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets | 2 dynamic-dependent nodes
+    reachable from START    3 nodes: book_leg, collect, plan
+    terminal nodes          collect
+    orphan check            evaluated — no node stands outside every edge
+    reference check         evaluated — every edge and path_map target resolves
+    dynamic-dependent       of these, 2 nodes depend on a dynamic router: no declared START-path 
+reaches them, so their reachability is neither claimed nor denied here, and P-04 generates no 
+obligation for their reads: book_leg, collect
+
+P-02 termination-witness — pass  [DEFENSIBLE]
+  witness                 0 declared witnesses in the inventory | acyclicity certificate present
+    inventory               0 entries
+    certificate             present and re-checkable — a topological order of the graph with the 
+witnessed elements removed, over 5 vertices: START -> check_availability -> book_flight -> 
+send_confirmation -> END
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-03 signature-soundness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — fail  (1 finding: 1 fatal)
+  fatal: read-key-never-written-on-path  [P-04 dataflow-completeness | DEFENSIBLE-A]
+    state key               legs
+    reading node            plan
+    shortest path           START -> plan
+    finding                 State key is read on a path where nothing writes it
+    outside static coverage book_leg — readers no declared START-path reaches (reachable only 
+through a dynamic router); no analysis in this run covers their reads
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-05 guard-exhaustiveness is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-06 effect-safety — pass  [DEFENSIBLE-A]
+  witness                 0 cycles | 0 effect-tagged nodes recorded
+    cycle inventory         0 cycles
+    effect                  no node declares a trigger effect tag
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-07 retry-coherence is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — pass  [HEURISTIC]
+  witness                 0 declared determinism claims
+    claim class             heuristic (carried in-band)
+    claims                  no node declared determinism, so nothing was checked — this is not a 
+statement that every node is deterministic
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-09 parallel-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-10 subgraph-consistency is outside the Phase-0 wedge (SOW §8) and has 
+no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-11 join-key-soundness is outside the Phase-0 wedge (SOW §8) and has no
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no 
+validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass, and it is outside the Phase-0
+wedge
+    detail                  P-13 interrupt-gate-coverage is outside the Phase-0 wedge (SOW §8) and 
+has no validator in this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; 
+Verification-Properties §2 authoritative). No verdict was reached — this is not a pass.
+
+summary
+  findings                1 fatal | 0 error | 0 warning
+  notes                   0 carried (0 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  off
+  exit                    1 — a FATAL or ERROR finding is present, or a strict policy promoted a 
+warning
+  snapshot                not recorded for this run: a FATAL finding is present 
+(PROPERTY-CATALOG-SPEC §0.2)

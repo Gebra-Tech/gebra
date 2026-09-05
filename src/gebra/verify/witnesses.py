@@ -79,6 +79,13 @@ class WellFormednessWitness(ReportModel):
     would lose. Both are empty by construction on a pass — a non-empty one would have
     filled ``failure`` instead — so the declared types stay the general ones of the §0.3
     stub rather than an empty-tuple type.
+
+    The sixth member is the optional diagnostic DEC-28 clause 1 mandates (§1.4 Step 3, ir 1.1):
+    on a document with a statically reachable ``dynamic`` edge, condition (i) MUST NOT fire —
+    the dispatcher may target any node at runtime, so static unreachability stops being a
+    DEFENSIBLE claim — and the nodes it would otherwise have named are surfaced here instead.
+    Emitted only when non-empty (DEC-11 optional-diagnostic discipline), never verdict-bearing,
+    and the PC-4 profile drops the ``None``, so a 1.0 witness serializes exactly as before.
     """
 
     kind: Literal["well-formedness"]
@@ -88,6 +95,11 @@ class WellFormednessWitness(ReportModel):
     terminal_nodes: tuple[NodeId, ...]
     orphan_nodes: tuple[NodeId, ...]
     unresolved_targets: tuple[str, ...]
+    #: Nodes not statically reachable from START, unflagged only because a reachable
+    #: ``dynamic`` edge exists (DEC-28 clause 1; §1.4 Step 3). Sorted; absent when empty. The
+    #: coverage the over-approximation costs, surfaced rather than silent: a genuinely
+    #: disconnected island on such a document appears here, not as a finding.
+    dynamic_dependent: tuple[NodeId, ...] | None = None
 
 
 # ── P-02 termination-witness (§2.3; TERMINATION-WITNESS-SPEC §6.2/§6.3) ──────────────────
@@ -325,13 +337,25 @@ class DataflowCoverage(ReportModel):
 
 
 class DataflowWitness(ReportModel):
-    """P-04's pass witness — one coverage entry per reachable (reader, read key)."""
+    """P-04's pass witness — one coverage entry per reachable (reader, read key).
+
+    ``outside_static_coverage`` is the optional diagnostic DEC-28 clause 2 mandates (§4.4 Step
+    0, ir 1.1). P-04's quantification stays over START→n paths of the *static* graph — a
+    ``dynamic`` edge contributes no path — so a node reachable only through dynamic dispatch
+    generates no obligation, and with P-01's condition (i) over-approximation-silenced no
+    analysis covers its declared reads. That absence is never silent: the nodes are named here.
+    Emitted only when non-empty; never verdict-bearing; the PC-4 profile drops the ``None``.
+    """
 
     kind: Literal["dataflow"]
     coverage: Annotated[
         tuple[DataflowCoverage, ...],
         SetCompared("PROPERTY-CATALOG-SPEC §4.3: coverage order is not normative"),
     ]
+    #: Nodes with declared reads that no START-path of the static graph reaches, on a document
+    #: with a statically reachable ``dynamic`` edge (DEC-28 clause 2). Sorted; absent when
+    #: empty. Their reads are covered by no analysis in this run.
+    outside_static_coverage: tuple[NodeId, ...] | None = None
 
 
 # ── P-06 effect-safety (§6.3) ────────────────────────────────────────────────────────────

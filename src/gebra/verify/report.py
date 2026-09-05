@@ -127,13 +127,19 @@ class Failure(ReportModel):
 class P04Failure(Failure):
     """P-04's concrete failure subtype (§4.3).
 
-    It exists because ``extra="forbid"`` means the base cannot carry P-04's two optional
-    diagnostics, which DEC-11 pin 3 keeps: ``writers_on_other_paths`` (writers that cover
-    *other* paths) and ``downstream_writers`` (writers wired after the reader). Both are
+    It exists because ``extra="forbid"`` means the base cannot carry P-04's optional
+    diagnostics. Two are DEC-11 pin 3's: ``writers_on_other_paths`` (writers that cover
+    *other* paths) and ``downstream_writers`` (writers wired after the reader). The third is
+    DEC-28 clause 2's (ir 1.1): ``outside_static_coverage`` — the nodes with declared reads that
+    no START-path of the static graph reaches, on a document with a reachable ``dynamic`` edge,
+    whose reads no analysis in the run covers. It is report-level context rather than a fact
+    about this one finding, and it rides the **primary** failure because that is the one
+    carrier a failing P-04 report has (a co-failure is a plain :class:`CoFailure`); on a passing
+    report the same list rides :class:`~gebra.verify.witnesses.DataflowWitness`. All three are
     diagnostic context, emitted only when non-empty, and never part of the verdict.
 
-    The narrowed ``location`` is what makes the subtype recognisable. Resolving on the two
-    optional extras alone would leave a P-04 failure that happens to carry neither of them
+    The narrowed ``location`` is what makes the subtype recognisable. Resolving on the
+    optional extras alone would leave a P-04 failure that happens to carry none of them
     loading as a base :class:`Failure` while the validator constructs a ``P04Failure`` —
     and pydantic equality is class-sensitive, so the PC-6 fixture-vs-output identity would
     break on exactly the fixtures that need it least. A ``DataflowLocation`` (``kind:
@@ -144,6 +150,9 @@ class P04Failure(Failure):
     location: DataflowLocation
     writers_on_other_paths: tuple[NodeId, ...] | None = None
     downstream_writers: tuple[NodeId, ...] | None = None
+    #: DEC-28 clause 2 (ir 1.1): nodes with declared reads outside the static graph's START
+    #: closure, on a document with a reachable ``dynamic`` edge. Sorted; absent when empty.
+    outside_static_coverage: tuple[NodeId, ...] | None = None
 
 
 #: What ``PropertyReport.failure`` carries: the wedge's concrete failure subtypes, then the

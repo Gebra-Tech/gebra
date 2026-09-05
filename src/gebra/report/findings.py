@@ -74,12 +74,19 @@ class Finding:
 
 
 def _failure_evidence(failure: P04Failure) -> dict[str, Any]:
-    """P-04's two optional diagnostics, emitted only when non-empty (§4.4)."""
+    """P-04's three optional diagnostics, emitted only when non-empty (§4.4).
+
+    The third, ``outside_static_coverage`` (DEC-28 clause 2; ir 1.1), is report-level context
+    riding the primary finding — the readers a ``dynamic`` router alone reaches, whose declared
+    reads no analysis covered — and projects to the property bag like the other two.
+    """
     evidence: dict[str, Any] = {}
     if failure.writers_on_other_paths:
         evidence["gebra/writersOnOtherPaths"] = list(failure.writers_on_other_paths)
     if failure.downstream_writers:
         evidence["gebra/downstreamWriters"] = list(failure.downstream_writers)
+    if failure.outside_static_coverage:
+        evidence["gebra/outsideStaticCoverage"] = list(failure.outside_static_coverage)
     return evidence
 
 

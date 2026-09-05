@@ -1111,22 +1111,20 @@ def test_the_module_enumerates_no_cycles() -> None:
     assert "johnson" not in source.lower()
 
 
-# ── ir 1.1: the `dynamic` kind, declined rather than defaulted (DEC-28) ───────────────────
+# ── ir 1.1: the `dynamic` kind — no member of G, a participating source (DEC-28) ──────────
 
 
-def test_a_dynamic_edge_is_declined_rather_than_dropped() -> None:
-    """DEC-28 clause 1, from the side that would otherwise get it wrong.
+def test_a_dynamic_edge_contributes_no_member_and_its_source_participates() -> None:
+    """PROPERTY-CATALOG-SPEC §0.3's one convention for every graph builder, on this builder.
 
-    A ``dynamic`` edge contributes no member to $G$ (PROPERTY-CATALOG-SPEC §0.3) **and** its
-    source participates for conditions (ii)/(iii) while condition (i) runs under a ruled
-    over-approximation. Implementing only the first half — dropping the edge — would make P-01
-    report ``node-unreachable-from-start`` for every node the router reaches at runtime, which is
-    the false FATAL DEC-28 forbids by name and the same trap DEC-18 rejected edge omission for.
-
-    So this model declines such a document until the semantics land (DEC-28's paired validator
-    regression card), and the decline is a ``NotImplementedError`` subclass: anything catching
-    broadly — ``verify()`` turns an escaping exception into a §2.4 tool error — then answers "no
-    verdict was reached" rather than a verdict.
+    A ``dynamic`` edge contributes no member to $G$ — its targets are Runtime-only — **and** its
+    source participates: it is recorded in ``dynamic_sources`` so P-01 counts it wired for
+    condition (iii), never a sink for condition (ii), and the trigger of condition (i)'s
+    over-approximation when reachable. Implementing only the first half — dropping the edge
+    silently — would make P-01 report ``node-unreachable-from-start`` for every node the router
+    reaches at runtime, the false FATAL DEC-28 clause 1 forbids by name; this model used to decline
+    such a document for exactly that reason, and now reads it under the ruled semantics (VAL-14).
+    The validators' own uses of the set are pinned in ``tests/verify/test_dynamic_edges.py``.
     """
     ir = load_json(
         WorkflowIR,
@@ -1141,21 +1139,49 @@ def test_a_dynamic_edge_is_declined_rather_than_dropped() -> None:
         ),
     )
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        build_graph_model(ir)
+    model = build_graph_model(ir)
 
-    assert isinstance(caught.value, NotImplementedError)
-    assert "edges[0]" in str(caught.value)
-    assert "DEC-28" in str(caught.value)
-    assert "paired validator regression card" in str(caught.value)
+    assert model.dynamic_sources == frozenset({"plan"})
+    assert model.reachable_dynamic_sources() == frozenset({"plan"})
+    # No member: the only edge of the model is the (m1) entry wiring.
+    assert [(edge.source, edge.target, edge.origin) for edge in model.edges] == [
+        ("__start__", "plan", "entry")
+    ]
+    assert model.unresolved == ()
+    assert model.vertex_set == {"__start__", "__end__", "plan", "book"}
+
+
+def test_the_decline_class_is_no_longer_raised_by_the_shared_model() -> None:
+    """The consumers that still decline are the diff and the surfaces above it, not this one."""
+    ir = load_json(
+        WorkflowIR,
+        json.dumps(
+            {
+                "ir_version": "1.1",
+                "entry": "plan",
+                "finish": [],
+                "nodes": [{"id": "plan"}],
+                "edges": [{"kind": "dynamic", "from": "plan"}],
+            }
+        ),
+    )
+    try:
+        build_graph_model(ir)
+    except DynamicEdgeUnsupportedError:  # pragma: no cover - the regression this test pins
+        pytest.fail("the shared validator graph model declined a dynamic-bearing document")
 
 
 @pytest.mark.parametrize(("fixture_id", "ir"), _CORPUS_IRS, ids=[name for name, _ in _CORPUS_IRS])
-def test_the_guard_leaves_every_corpus_document_untouched(fixture_id: str, ir: WorkflowIR) -> None:
-    """The guard is a test on the edge kinds and nothing else, so no 1.0 document changes.
+def test_the_dynamic_branch_leaves_every_corpus_document_untouched(
+    fixture_id: str, ir: WorkflowIR
+) -> None:
+    """The branch is a test on the edge kinds and nothing else, so no 1.0 document changes.
 
-    Quantified over every corpus snapshot rather than a sample, because "the guard changed
+    Quantified over every corpus snapshot rather than a sample, because "the branch changed
     nothing" is the claim that matters most about it, and the corpus is what the golden-green gate
-    rests on.
+    rests on: every corpus document builds with an empty ``dynamic_sources``.
     """
-    assert build_graph_model(ir).vertices
+    model = build_graph_model(ir)
+    assert model.vertices
+    assert model.dynamic_sources == frozenset()
+    assert model.reachable_dynamic_sources() == frozenset()

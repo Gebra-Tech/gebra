@@ -498,10 +498,15 @@ for warning in envelope.warnings:
             f"(the IR is partial there: {detail['ir_partial']})"
         )
 
-gate = verify(ir).gate
+report = verify(ir)
+p01 = report.outcome_for("graph-well-formed")
+p04 = report.outcome_for("dataflow-completeness")
 print()
-print("verifying a 1.1 document in this release")
-print("  gate      ", gate.outcome, "| exit", gate.exit_code)
+print("verifying a 1.1 document")
+print("  gate              ", report.gate.outcome, "| exit", report.gate.exit_code)
+print("  ir_version        ", report.subject.ir_version)
+print("  dynamic_dependent ", list(p01.witness.dynamic_dependent))
+print("  outside coverage  ", list(p04.witness.outside_static_coverage))
 ```
 
 <!-- gebra:output id=knowability-classes -->
@@ -531,8 +536,11 @@ warnings about the shape of the graph
   barrier-flattened      ['search_web', 'search_docs'] -> merge, expanded to 2 normal edges
   unsupported-construct  triage: router-without-declared-targets (the IR is partial there: True)
 
-verifying a 1.1 document in this release
-  gate       tool-error | exit 2
+verifying a 1.1 document
+  gate               pass | exit 0
+  ir_version         1.1
+  dynamic_dependent  ['merge', 'search_docs', 'search_web', 'summarize']
+  outside coverage   ['merge', 'search_web', 'summarize']
 ```
 
 Reading the four blocks in order:
@@ -576,19 +584,37 @@ callable, a conditional entry with no declared targets, missing `START`/`END` wi
 self-referential composition, a version outside the supported range, and more
 (INTROSPECTION-SPEC §8).
 
-### One consequence to know before you build on this
+### A dynamic edge, and what the validators make of it
 
 A `dynamic` edge has a consequence downstream, and it is better met here than in a pipeline.
-The document extracts, and stamps itself `ir_version: 1.1` because it uses the 1.1
-edge kind — and verifying it reaches **no verdict**: the gate is `tool-error` and the exit
-code is `2`. That code means "no verdict was reached", never "the workflow failed": the
-[exit-code ladder](../concepts/what-gebra-checks.md#exit-codes) keeps those two apart on
-purpose. The first agent on this page, whose router has a `path_map`, is a 1.0 document and
-does not hit this.
+The document stamps itself `ir_version: 1.1` because it uses the 1.1 edge kind, and verifying it
+reaches a verdict like any other document — here a pass at exit `0` — but the last two lines
+of the transcript are the part to read. The edge contributes **no edge to the graph the
+properties analyse**: its targets are decided at run time, so the definition cannot name them,
+and gebra does not guess. Two things follow, and both are written into the report rather than
+left for you to infer.
+
+The first is on P-01's witness. From `START` the declared edges reach `triage` and nothing else;
+read literally, condition (i) would report the other four nodes unreachable. It does not, because
+a router that may target *any* node makes "unreachable" a claim the definition does not support
+— that would be a fatal finding against a workflow whose author declared nothing wrong. Instead
+the witness carries `dynamic_dependent`: the nodes no declared path reaches, unflagged only
+because the router exists. A node you actually forgot to wire would land in that list too, so it
+is the list to read before trusting the pass.
+
+The second is on P-04's witness. Dataflow completeness quantifies over declared `START`-paths, so
+the nodes only the router reaches generate no obligation — and since P-01 does not flag them
+either, **no analysis covers their declared reads**. `outside_static_coverage` names them
+(`search_docs` declares no read, so it is not there). A pass beside that list says "every read
+on a declared path is covered; these readers were not analysed".
 
 Declaring the router's targets is what moves an edge out of this class — a `path_map`, a
 `Literal[...]` return hint, or `destinations=` on the node. That is a declaration, so it is
-trusted rather than checked; it buys a target set the analysis can see, and nothing more.
+trusted rather than checked; it buys a target set the analysis can see, and both lists empty
+out. The first agent on this page, whose router has a `path_map`, is a 1.0 document and carries
+neither key. One further consequence stays for now: `gebra snapshot` and `gebra diff` decline a
+1.1 document, because the structural diff has no ruled representation for an edge with no
+target — they report a tool error, exit `2`, rather than a comparison.
 
 ## What a builder cannot know — and one thing nothing can
 

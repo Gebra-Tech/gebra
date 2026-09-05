@@ -883,11 +883,22 @@ the check: the branch nobody exercised is exactly the branch a per-path rule rea
 reaches it before anything runs.
 
 Two smaller limits worth keeping straight. **A pass is about reachable readers** — the
-[boundary section](#the-p-01-boundary) above is the whole of that story. And a document using the
-`ir_version` 1.1 `dynamic` edge kind — a router whose destinations are computed rather than
-declared — reaches
-[no verdict at all](../tutorials/extract-your-first-ir.md#one-consequence-to-know-before-you-build-on-this),
-exit `2`, rather than a P-04 answer.
+[boundary section](#the-p-01-boundary) above is the whole of that story. **And "reachable"
+means reachable by declared edges.** A `dynamic` edge — the `ir_version` 1.1 kind for a router
+whose destinations are computed rather than declared — contributes no path to the graph P-04
+quantifies over (§4.4 Step 0; DEC-28), so a node only such a router can reach generates no
+obligation, and because P-01 does not report it unreachable on such a document (its condition
+(i) is deliberately silenced there — a router that may target any node makes static
+unreachability an unsafe claim), no analysis covers that node's reads at all. The report does
+not let that pass silently: on a document with a reachable `dynamic` edge it carries
+`outside_static_coverage`, the sorted list of nodes with declared reads that no declared
+START-path reaches — on the pass witness, or on the primary finding when the reachable part of
+the graph fails — emitted only when non-empty and never a finding in its own right. Read a pass
+beside that list as "every read on a declared path is covered; these readers were not
+analysed", and declare the router's targets (a `path_map`, a `Literal[...]` return hint, or
+`destinations=`) when you want them to be.
+[The extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+shows the field on a real document.
 
 ## Where this page is checked
 

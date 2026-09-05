@@ -73,7 +73,7 @@ print(f"best_effort    {report.best_effort or '(empty — P-01 is clean)'}")
 
 <!-- gebra:output id=one-run-report -->
 ```text
-report_format  1.1, tool gebra
+report_format  1.2, tool gebra
 subject        extracted, ir_version 1.0
 digest         sha256:… (71 characters)
 outcomes       5 verdicts + 8 markers

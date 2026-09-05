@@ -221,7 +221,7 @@ def _finding_lines(finding: Finding) -> list[Text]:
             )
         )
     for key, value in finding.evidence.items():
-        lines.append(_kv(_evidence_label(key), _evidence_value(value)))
+        lines.append(_kv(_evidence_label(key), _evidence_value(key, value)))
     if finding.note is not None:
         lines.append(_kv("note", finding.note))
     for note in finding.notes:
@@ -231,10 +231,20 @@ def _finding_lines(finding: Finding) -> list[Text]:
     return lines
 
 
-#: The two P-04 diagnostics §4.4 asks to be shown as what they are.
+#: The P-04 diagnostics §4.4 asks to be shown as what they are. The third (DEC-28 clause 2)
+#: carries its own gloss in the value, so a reader does not take it for a finding: it names
+#: readers no analysis covered, not a second violation.
 _EVIDENCE_LABELS: Final[dict[str, str]] = {
     "gebra/writersOnOtherPaths": "writers on other paths",
     "gebra/downstreamWriters": "writers wired after the reader",
+    "gebra/outsideStaticCoverage": "outside static coverage",
+}
+
+_EVIDENCE_GLOSS: Final[dict[str, str]] = {
+    "gebra/outsideStaticCoverage": (
+        " — readers no declared START-path reaches (reachable only through a dynamic router); "
+        "no analysis in this run covers their reads"
+    ),
 }
 
 
@@ -242,10 +252,9 @@ def _evidence_label(key: str) -> str:
     return _EVIDENCE_LABELS.get(key, key)
 
 
-def _evidence_value(value: object) -> str:
-    if isinstance(value, list):
-        return ", ".join(str(item) for item in value)
-    return str(value)
+def _evidence_value(key: str, value: object) -> str:
+    listed = ", ".join(str(item) for item in value) if isinstance(value, list) else str(value)
+    return f"{listed}{_EVIDENCE_GLOSS.get(key, '')}"
 
 
 def _report_lines(report: PropertyReport, *, best_effort: bool) -> list[Text]:

@@ -15,11 +15,14 @@
 > **Status: FINAL.** Ratified as CLI-01's artifact, and **stamped final at the D-12 promotion
 > on 2026-08-31** (card CLI-08; the record is
 > [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md), which also
-> dispositions every item in Appendix B). **`report_format` is `1.1`, final.** `1.0` was this
-> document's shape before VAL-11 built it and was never emitted; the one MINOR amendment since
-> is recorded in §1.6, whose bump table — including the value-rule row added at the promotion
-> — is the route any later change travels. Final means no Phase-0 card amends this contract
-> further; editorial corrections and landing records are not amendments.
+> dispositions every item in Appendix B). **`report_format` is `1.2`.** `1.1` is the version
+> Phase-0 shipped at (v0.0.1) and was stamped final for Phase-0 at the promotion; `1.0` was this
+> document's shape before VAL-11 built it and was never emitted. The two MINOR amendments since
+> `1.0` are recorded in §1.6 — `1.1` at VAL-11, and `1.2` at VAL-14 under the post-final route
+> the stamp itself fixes: its own card, its own amendment-log row, its CHANGELOG entry. §1.6's
+> bump table — including the value-rule row added at the promotion — is the route any later
+> change travels. Final means no Phase-0 card amends this contract further; editorial
+> corrections and landing records are not amendments.
 
 ---
 
@@ -115,7 +118,7 @@ adding one is a scope change, not a schema change.
 
 ```json
 {
-  "report_format": "1.1",
+  "report_format": "1.2",
   "tool": { "name": "gebra", "version": "0.0.1.dev0" },
   "subject": {
     "input_mode": "extracted",
@@ -188,7 +191,7 @@ class Subject(RunReportModel):
 
     input_mode: Literal["extracted", "ir-document", "snapshot"]
     source: str  # see §1.3
-    ir_version: Literal["1.0"]
+    ir_version: Literal["1.0", "1.1"]  # the document's own stamp, verbatim (IR-SPEC §8; §1.3)
     graph_version: str  # "sha256:<64 lowercase hex>" (IR-SPEC §6)
     version: Optional[str] = None  # V.S.F.E label; REQUIRED iff input_mode == "snapshot"
     extractor_version: Optional[str] = None  # present iff input_mode == "extracted"
@@ -288,7 +291,7 @@ PropertyOutcome = Annotated[
 class RunReport(RunReportModel):
     """The run-level wrapper (PROPERTY-CATALOG-SPEC §0.3 scope boundary)."""
 
-    report_format: Literal["1.1"]
+    report_format: Literal["1.2"]
     tool: Tool
     subject: Optional[Subject] = None  # absent only when a ToolError preceded IR identity
     properties: tuple[PropertyOutcome, ...] = ()
@@ -340,6 +343,15 @@ class RunReport(RunReportModel):
   - `input_mode: "snapshot"` → the stored snapshot's `extracted_from.source` (the store's own
     provenance field, which is free text the producer chose — `gebra.store.ExtractedFrom` —
     not the extraction envelope's type identity).
+- **`subject.ir_version`** is the document's own stamp, verbatim — `"1.0"`, or `"1.1"` for a
+  document carrying a `dynamic` edge (IR-SPEC §2.4/§8; DEC-28). It is inside the `graph_version`
+  hash scope (IR-SPEC §6.4), so it is part of the identity reported here, and it is read off the
+  document rather than re-derived from its constructs: minimal stamping binds emitters (PD-044
+  D10), not this report. **Amended at `1.2` (VAL-14).** Until then the member admitted `"1.0"`
+  only and `verify()` refused a `"1.1"` document as an `ir-validation` tool error — the interim
+  posture of PD-044 D11, while the `dynamic` edge's validator semantics were DEC-28's paired
+  validator card. Those semantics landed (PROPERTY-CATALOG-SPEC §0.3; P-01 §1.4; P-02 §2.4; P-04
+  §4.4; P-06 §6.4), so such a document now reaches a verdict and its stamp rides here.
 - **`subject.graph_version`** is the IR-SPEC §6 content digest of the **core IR** — the same
   string the snapshot envelope carries, byte-for-byte (`"sha256:<hex>"`). It is provenance and
   identity for a report, never a claim about behavior: two reports with the same digest were
@@ -427,10 +439,11 @@ loosening the models.
 
 `report_format` is fixed by this document and was **stamped final at the D-12 promotion on
 2026-08-31** (CLI-08; [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md)).
-It is `1.1`, and no Phase-0 card moves it: before the stamp an amendment was an ordinary edit
-to this file by whichever card found the need — that is how `1.1` landed at VAL-11 — and after
-it, a bump needs its own card, its own row in the amendment log, and the CHANGELOG entry that
-always went with one. The two value-rule rows above were added by the promotion itself and are
+Phase-0 shipped at `1.1` and no Phase-0 card moved it: before the stamp an amendment was an
+ordinary edit to this file by whichever card found the need — that is how `1.1` landed at
+VAL-11 — and after it, a bump needs its own card, its own row in the amendment log, and the
+CHANGELOG entry that always went with one. `1.2` is the first amendment to travel that route
+(VAL-14, below). The two value-rule rows above were added by the promotion itself and are
 not a bump: they classify future changes without making one, on this table's own
 "editorial change, clarified prose" row.
 
@@ -440,11 +453,19 @@ not a bump: they classify future changes without making one, on this table's own
 |---|---|---|---|
 | `1.0` | The shape as first specified. Never emitted by anything: no `RunReport` existed in code until VAL-11 built one. | — | CLI-01 |
 | `1.1` | Two members join shapes that did not carry them at `1.0`: `Promotion.property_condition` on a `witness-note` promotion (§2.3), and `RunReport.best_effort` (§1.3). Two invariants `1.0` stated only in prose become model validators — §2.2's "the two never disagree" on `GateOutcome`, and `Promotion`'s own present-iff rules. | MINOR — `best_effort` on the new-optional-member row; `property_condition` on the present-iff row, which this amendment added because it was the class OI-7 flagged as unrowed and this is an instance of it (its field declaration is unchanged; what widened is when it is populated) | VAL-11, 2026-08-06 |
+| `1.2` | The `dynamic` edge's validator semantics land (DEC-28 clauses 1–3; PROPERTY-CATALOG-SPEC §0.3). Three optional members join envelope shapes that did not carry them at `1.1`, each emitted only when non-empty and never verdict-bearing: `WellFormednessWitness.dynamic_dependent` (§4.3), `DataflowWitness.outside_static_coverage` (§4.3) and `P04Failure.outside_static_coverage` (§4.4). `subject.ir_version` admits `"1.1"` — the stamp a `dynamic`-bearing document carries — so a document `1.1` refused as an `ir-validation` tool error now reaches a verdict (§1.3, §2.4). Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added and no new record carries a severity. | MINOR — the three members on the new-optional-member row; `ir_version` on the same row's "new member joining a closed vocabulary" clause (its `Literal` gained the token `"1.1"`; a strict `1.1` consumer's `Literal["1.0"]` refuses a `"1.1"` subject, which is §1.6's own MAY). Both are MINOR and no MAJOR row applies. The run-level model retype is recorded against VALIDATOR-API-FREEZE §4 in PD-057, since that note separates the Python model surface from this document's wire-format version. | VAL-14, 2026-09-04 |
 
 The `1.1` amendment is recorded rather than folded in because §1.6's rule is applied
 literally, on the CLI-02 precedent (its `subject.source` amendment was measured against this
 same table and came out "no bump"). That no `1.0` document was ever produced is why the class
-is the mild one and not a compatibility event; it is not a reason to skip the bump.
+is the mild one and not a compatibility event; it is not a reason to skip the bump. The `1.2`
+amendment is a compatibility event in the mild direction the table describes: every `1.1`
+document a consumer holds is still a document it can read, while a strict `1.1` consumer
+(`extra="forbid"`) will refuse a `1.2` report that carries one of the new members — and, because
+this build's own models read exactly the version they were built against, `gebra display
+--report` in this build refuses a `1.1` report file written by the previous release, naming the
+version it reads. Re-running `gebra verify` produces a `1.2` report; the `.gebra/reports/`
+audit exports a store already holds are re-exported the same way.
 
 ---
 
@@ -565,7 +586,7 @@ Exit `2` means no verdict was reached. `error.stage` says where it stopped:
 |---|---|
 | `input` | The invocation could not be resolved to a subject at all (no such target, unreadable file). |
 | `extraction` | `gebra.extract()` failed on a live target. |
-| `ir-validation` | The IR document did not validate against `ir_version` 1.0. |
+| `ir-validation` | The IR document did not validate against the IR model (`ir_version` 1.0 or 1.1), or validated but has no canonical form and so no identity to report against. Until `1.2` this row also covered a `dynamic`-bearing 1.1 document, which `verify()` refused while the kind's validator semantics were pending (DEC-28's paired validator card); since VAL-14 such a document is verified, not refused. |
 | `dispatch` | The run could not be assembled: a wedge validator is not registered (§1.4 rule 2), a validator returned a report for a different property, or the gate could not be derived from the outcomes (below). |
 
 A tool-error run carries `properties: []` and, where identity was never established,
@@ -740,6 +761,7 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 | Variant | Native JSON | Human — facts that must appear | SARIF |
 |---|---|---|---|
 | `WellFormednessWitness` (`kind: "well-formedness"`) | as serialized | how many nodes are reachable from START; the terminal nodes; that the orphan check and the unresolved-target check were evaluated and found empty — the two empty tuples are evidence, not padding, and a rendering that drops them loses the claim | does not project |
+| ↳ `dynamic_dependent` (added at `1.2`; DEC-28 clause 1) | as serialized when non-empty | which members of `reachable_from_start` depend on a `dynamic` router for it — no declared START-path reaches them — and **why** they are not findings: a reachable router may dispatch to them at runtime, so their reachability is neither claimed nor denied, and P-04 generates no obligation for their reads. Never worded "unreachable" (the claim the ruling withdraws) and never "reachable" without the qualification; the gap stated is condition (i)'s and P-04's, not every analysis's | does not project |
 | `TerminationWitness` (`kind: "termination"`) | as serialized | the inventory size and the form of each entry; that a re-checkable acyclicity certificate is present; every note (below); the census when present. Wording is **witness presence** only (§4.6) | does not project |
 | ↳ `WitnessInventoryEntry` form `a` (`CounterGuardSource`, `GuardEdgeRef`) | as serialized | the guard edge as `<source> --<label>-->`; the counter key; the declared bound; what it discharges | — |
 | ↳ `WitnessInventoryEntry` form `b` (`RecursionLimitSource`, `RecursionLimitDecl`) | as serialized | that the cover is the graph-level `recursion_limit`, its value and its declared justification; that it is a blanket over the edge set rather than a per-loop bound | — |
@@ -753,6 +775,7 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 | ↳ `CycleCensus` | as serialized | that the census is exhaustive under the cap, and the cycles it lists | — |
 | `DataflowWitness` (`kind: "dataflow"`) | as serialized; `coverage` order is not normative (`SetCompared`) | how many (reader, key) obligations were covered; on request, the per-obligation writers | does not project |
 | ↳ `DataflowCoverage` | as serialized | the reading node, the key, and the covering writers — with `START` shown as the boundary source, not as a node | — |
+| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2) | as serialized when non-empty | the nodes with declared reads that no START-path of the static graph reaches, and that **no analysis in the run covers their reads** — the pass above them is a statement about the static graph only. Never rendered as covered, and never as a finding | does not project |
 | `EffectSafetyWitness` (`kind: "effect-safety"`) | as serialized | the cycle inventory; one line per effect record (below) | does not project |
 | ↳ `P06EffectRecord`, `region: "retry"` | as serialized | the node, its declared effect tags, that the region is a retry region, and the binding protection | — |
 | ↳ `P06EffectRecord`, `region: "cycle"` | as serialized | as above, plus the anchor cycle | — |
@@ -773,9 +796,10 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 | `Failure` (primary) | as serialized | the severity word as the envelope spells it (`fatal`/`error`/`warning` — §5.1 rule 3); the **claim class**; the `property_condition` id; the owning property id + slug; the location per §4.5 | one `result` (A.4) |
 | ↳ `remediation` | as serialized when present | rendered as display-only guidance, clearly separate from the finding, and never parsed by anything | `rule.help` — never `message.text` |
 | ↳ `subsumed_by` | as serialized when present | that the finding is owned upstream by the named property, so a reader does not count it twice | `result.properties["gebra/subsumedBy"]` |
-| `P04Failure` | as serialized | everything a `Failure` shows, plus the two optional diagnostics when present | as `Failure`; the extras ride `result.properties` |
+| `P04Failure` | as serialized | everything a `Failure` shows, plus the optional diagnostics when present | as `Failure`; the extras ride `result.properties` |
 | ↳ `writers_on_other_paths` | as serialized when non-empty | that writers exist on *other* paths, listed — this is what makes the finding legible rather than baffling | property bag |
 | ↳ `downstream_writers` | as serialized when non-empty | that the writers are wired **after** the reader, listed | property bag |
+| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2) | as serialized when non-empty, on the **primary** finding — the one carrier a failing report has | the readers no declared START-path reaches (reachable only through a `dynamic` router), and that no analysis in the run covers their reads — report-level context riding the primary, not a fact about this finding's key, and never a second finding | property bag (`gebra/outsideStaticCoverage`) |
 | `CoFailure` | as serialized under the primary | its own severity **and** claim class (never inherited from the primary); its condition id; its location; its `note` when present | one `result` of its own |
 | ↳ `CoFailure` with `subsumed_by` | as serialized | as above, plus the upstream owner — shown as context, not as a second charge | property bag |
 | `Advisory` | as serialized under the primary | its own `warning` severity and claim class; the property it **belongs to** (which is not the host report's); its condition id and anchor location | one `result` of its own, at `level: "warning"` |
@@ -1022,8 +1046,8 @@ last paragraph anticipated.
 
 `check_profile` makes **four** refusals for §6.2's three obligations, and the arithmetic is
 worth stating here because it is a gap in §6.2 rather than in the implementation. Obligation 3
-is held by construction (`Literal["1.1"]` plus `verify()`'s own stamp), so two of the three are
-checkable at all. The fourth refusal is one §6.2 does not ask for: **an exit-2 run is not this
+is held by construction (the `report_format` Literal — `"1.2"` as of VAL-14 — plus `verify()`'s
+own stamp), so two of the three are checkable at all. The fourth refusal is one §6.2 does not ask for: **an exit-2 run is not this
 profile.** Every one of §6.2's obligations is about *identity*, and a `dispatch`-stage tool
 error carries a full subject — `verify()` builds the subject before dispatching — so an exit-2
 run over a stored snapshot satisfies all three while carrying `properties: []`. Writing that to
@@ -1065,6 +1089,13 @@ itself a bump); OI-4 and OI-7 are closed by the promotion, OI-1, OI-2 and OI-5 a
 Phase-1 cards, and OI-3, OI-6 and OI-8 are reaffirmed as already closed. No producer or consumer
 changes: the format the promotion stamps is exactly the one VAL-11 built and CLI-03, SD-07 and
 TE-07 read.
+
+**VAL-14 (the `dynamic` edge's validator semantics)** — the first amendment through the
+post-final route. **Landed 2026-09-04**: `report_format` `1.2` (§1.6's amendment log), three
+optional envelope members (§4.3/§4.4) and the widened `subject.ir_version` (§1.2/§1.3). Every
+producer and consumer in this repository moved together — `verify()`, the audit export, the
+`--format json` surface, the human and SARIF renderings, the CLI and plugin goldens — and the
+one consumer-visible consequence for a report written by the previous release is stated in §1.6.
 
 **Notes for consumers.** (1) Read `report_format` before anything else (§1.6). (2) Branch on
 structured fields only; prose fields are display-only (§4.6 rule 7). (3) A marker is not a

@@ -1060,12 +1060,13 @@ run. That is still worth having: an unpinned determinism claim on a model call i
 in the definition backs, and a document is a much cheaper place to notice that than a replay that
 came back different.
 
-One further limit worth keeping straight, and it is the one place the topology-independence above
-runs out: this build's validators are defined over `ir_version` 1.0, and a document stamped 1.1 —
-which is what using the `dynamic` edge kind does to it — reaches
-[no verdict at all](../tutorials/extract-your-first-ir.md#one-consequence-to-know-before-you-build-on-this),
-exit `2`. The refusal is on the declared version, not on the edge, so it takes P-08 with it even
-though P-08 would never have read that edge.
+One thing that is *not* a limit here, recorded because it used to be: a document stamped
+`ir_version` 1.1 — which is what using the `dynamic` edge kind does to it — is verified like any
+other. P-08 reads annotations and never edges, so a router whose destinations are computed rather
+than declared changes nothing on this page; the topology properties read that edge under their own
+rules (see
+[the extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)),
+and the run's subject line carries the document's stamp.
 
 ## Where this page is checked
 

@@ -130,14 +130,28 @@ def test_union_is_closed_to_the_declared_kinds() -> None:
 # ── P-01: the 5-key form (DEC-11 pin 1) ──────────────────────────────────────────────────
 
 
-def test_wellformedness_witness_is_the_five_key_form() -> None:
+def test_wellformedness_witness_is_the_five_key_form_plus_the_dec_28_diagnostic() -> None:
+    """DEC-11 pin 1's five keys, in order, and after them the one optional slot DEC-28 clause 1
+    mandates — ``dynamic_dependent``, absent unless a reachable ``dynamic`` edge exists."""
     assert list(WellFormednessWitness.model_fields) == [
         "kind",
         "reachable_from_start",
         "terminal_nodes",
         "orphan_nodes",
         "unresolved_targets",
+        "dynamic_dependent",
     ]
+    field = WellFormednessWitness.model_fields["dynamic_dependent"]
+    assert not field.is_required()
+    assert field.default is None
+
+
+def test_the_five_key_payload_still_validates_and_serializes_without_the_sixth() -> None:
+    """A 1.0 witness carries no ``dynamic_dependent`` member on the wire (PC-4 drops the None)."""
+    witness = validate_witness(WITNESS_PAYLOADS[WellFormednessWitness])
+    assert isinstance(witness, WellFormednessWitness)
+    assert witness.dynamic_dependent is None
+    assert "dynamic_dependent" not in to_data(witness)
 
 
 def test_wellformedness_witness_requires_all_five_keys() -> None:

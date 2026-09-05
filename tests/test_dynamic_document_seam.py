@@ -1,4 +1,4 @@
-"""The ir-1.1 seam across the snapshot, freshness and pytest-gate surfaces — SD-12.
+"""The ir-1.1 seam across the snapshot, freshness and pytest-gate surfaces — SD-12, then VAL-14.
 
 A ``dynamic`` edge (ratified — DEC-28, 2026-08-09) declares a router whose target set is not
 statically known, and every consumer written against the ir 1.0 ``kind`` vocabulary **declines**
@@ -23,14 +23,25 @@ and untested. One test per observation below, plus the coherence claims that mak
 rather than four bugs: one wording across every surface, nothing migrated, and no ir 1.0
 document touched.
 
+**VAL-14 (2026-09-04) lifted the validators' half of the seam and left the rest in place, on
+purpose.** The shared validator graph model now reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC
+§0.3's ruled convention, so ``verify()`` reaches a verdict on the very document below (pinned here
+end to end, over the live bare-``Send`` router). The topology-diff graph, the recorder, the
+freshness check and the pytest gate still decline: what a headless edge looks like in an ``nx``
+representation is unruled (DEC-26's phantom class), and ruling it is follow-on traceability work,
+not a validator card's. The one-wording claim therefore now spans **three** consumers and names
+the new reason — the validators read the document; the diff's representation is what is missing.
+
 **WA-07.** Every document here is built with the IR model constructors, and the inner pytest
 session's marked function *returns* a ``WorkflowIR``, so it takes
 :func:`gebra.pytest_plugin.resolve_ir`'s fixture-only branch and no extraction runs on that path.
-The one test that does reach a live object is
-:func:`test_snapshot_declines_a_live_map_reduce_workflow`, because ``snapshot()`` is defined as
-``record()`` over an extraction and there is no other way to state it; ``_nothing_was_executed``
-below says exactly what its ledger covers and what it does not. No extraction path is added — the
-entry points called here are the shipped ones, and the guarded children that speak for them are
+The tests that reach a live object are
+:func:`test_snapshot_declines_a_live_map_reduce_workflow` — because ``snapshot()`` is defined as
+``record()`` over an extraction and there is no other way to state it — and
+:func:`test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow`, which extracts the same
+builder once and hands the *document* to ``verify()``; ``_nothing_was_executed`` below says exactly
+what its ledger covers and what it does not. No extraction path is added — the entry points called
+here are the shipped ones, and the guarded children that speak for them are
 ``tests/snapshot/test_travel_booking.py`` (the ``snapshot()`` → ``extract()`` → store path) and
 ``tests/extraction/test_routing.py`` (this builder, extracted in a fresh interpreter with the
 network taken away and ``StateGraph.compile`` replaced by a raiser).
@@ -46,6 +57,7 @@ import pytest
 
 from gebra.audit import Freshness, freshness
 from gebra.diff.graph import topology_graph
+from gebra.extraction import extract
 from gebra.extraction.base import ObjectFamily
 from gebra.extraction.envelope import ExtractedFrom as ExtractionProvenance
 from gebra.extraction.envelope import ExtractionEnvelope
@@ -54,7 +66,9 @@ from gebra.ir.models import DynamicEdge, Edge, Node, NormalEdge, WorkflowIR
 from gebra.pytest_plugin import FRESHNESS_MARKER, check_freshness
 from gebra.snapshot import SnapshotAction, record, snapshot
 from gebra.store import ExtractedFrom, Snapshot, SnapshotStore
+from gebra.verify import PropertyReport, WellFormednessWitness, verify
 from gebra.verify.graph import build_graph_model
+from tests.sample_workflows import sentinel_graph as sg
 from tests.sample_workflows import sentinel_routing as sr
 from tests.store.hand_built import golden_vector_ir
 
@@ -76,17 +90,23 @@ def _nothing_was_executed() -> Iterator[None]:
     collection order rather than about this file. Every ``pytester`` session here is in-process,
     so this is the same list object throughout and an escape inside one would be visible.
 
-    What the ledger covers, precisely: ``route_send_list`` — the router that makes this
-    document ir 1.1 — records before raising, so an invocation of it is visible here even if
-    something on the extraction path swallowed the exception. The two *node* bodies come from
-    ``sentinel_graph.raiser`` and raise a ``RuntimeError`` subclass without recording, so an
-    invocation of those is caught by the exception propagating, not by this list; the guarded
-    child that holds that half for this exact builder is
-    ``tests/extraction/test_routing.py``'s fresh-interpreter run over ``ROUTING_BUILDERS``.
+    What the two ledgers cover, precisely. ``route_send_list`` — the router that makes this
+    document ir 1.1 — records into ``sentinel_routing.TRIPPED`` before raising, so an invocation
+    of it is visible here even if something on the extraction path swallowed the exception. The
+    two *node* bodies come from ``sentinel_graph.raiser`` and record too, into
+    ``sentinel_graph.TRIPPED`` — ``SentinelExecutedError.__init__`` appends before the raise —
+    so that ledger is cleared and asserted beside the first (corrected at VAL-14's never-invokes
+    pre-review: until then this file read only the router's ledger and described the node
+    bodies as raising without recording, which understated the coverage). The guarded child that
+    holds the same builder in a fresh interpreter, with the network taken away and
+    ``StateGraph.compile`` replaced by a raiser, is ``tests/extraction/test_routing.py``'s run
+    over ``ROUTING_BUILDERS``.
     """
     del sr.TRIPPED[:]
+    del sg.TRIPPED[:]
     yield
     assert sr.TRIPPED == []
+    assert sg.TRIPPED == []
 
 
 #: One fixed instant, so every fixture here is a function of its arguments.
@@ -361,19 +381,23 @@ def test_the_freshness_gate_renders_the_designed_message(pytester: pytest.Pytest
 # ── The seam: one wording, and no ir 1.0 document touched ─────────────────────────────────
 
 
-def test_every_surface_declines_the_same_document_with_one_wording(tmp_path: Path) -> None:
-    """Four consumers, one exception class, one explanation — that is what makes this a seam.
+def test_every_remaining_surface_declines_the_same_document_with_one_wording(
+    tmp_path: Path,
+) -> None:
+    """Three consumers, one exception class, one explanation — that is what makes this a seam.
 
-    The two that already declined (PD-044 D11) fix the wording; the two this card adds join it
-    rather than inventing their own, so a reader who meets the decline in a CI log recognizes it
-    in a traceback and in the API docs. ``snapshot()`` is the same decline one call up, stated
-    over a live object in :func:`test_snapshot_declines_a_live_map_reduce_workflow`.
+    The topology-diff graph declined from the start (PD-044 D11); the recorder and the freshness
+    check joined it at SD-12 rather than inventing their own wording, so a reader who meets the
+    decline in a CI log recognizes it in a traceback and in the API docs. ``snapshot()`` is the
+    same decline one call up, stated over a live object in
+    :func:`test_snapshot_declines_a_live_map_reduce_workflow`. The shared validator graph model
+    left this list at VAL-14 — see the next test — and the wording moved with it: it names what the
+    validators now do and what is still unruled, and no longer promises a card that has landed.
     """
     document = dynamic_ir()
     store = SnapshotStore.for_project(tmp_path)
     calls: tuple[Callable[[], object], ...] = (
         lambda: topology_graph(document),
-        lambda: build_graph_model(document),
         lambda: record(envelope_of(document), store=store, source="probe"),
         lambda: freshness(document, store=store),
     )
@@ -384,7 +408,49 @@ def test_every_surface_declines_the_same_document_with_one_wording(tmp_path: Pat
         message = str(caught.value)
         assert "has no semantics for the `dynamic` edge kind" in message
         assert "DEC-28" in message
-        assert "paired validator regression card" in message
+        assert "`gebra.verify` reads it" in message
+        assert "how a headless edge is represented in a topology diff or a diagram" in message
+        assert "paired validator regression card" not in message
+
+
+def test_the_shared_validator_graph_model_reads_the_same_document(tmp_path: Path) -> None:
+    """The consumer that left the list: VAL-14 landed §0.3's convention, so the model builds —
+    no member for the edge, ``plan`` recorded as a participating source — and ``verify()``
+    reaches a verdict where SD-12 recorded a tool error."""
+    document = dynamic_ir()
+
+    model = build_graph_model(document)
+    report = verify(document)
+
+    assert model.dynamic_sources == frozenset({"plan"})
+    assert report.error is None
+    assert report.subject is not None and report.subject.ir_version == "1.1"
+    # The store still declines the very same document, on the construct (the seam's other half).
+    with pytest.raises(DynamicEdgeUnsupportedError):
+        record(envelope_of(document), store=SnapshotStore.for_project(tmp_path), source="probe")
+
+
+def test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow() -> None:
+    """The story as a user meets it after VAL-14: extract a bare-``Send`` router, verify it.
+
+    ``gebra.extract()`` emits ``kind: dynamic`` for ``plan_step``'s router and stamps the document
+    ``"1.1"`` (INTROSPECTION-SPEC §6; IR-SPEC §8); ``verify()`` then answers — no
+    ``ir-validation`` refusal — with ``act_step`` surfaced as dynamic-dependent rather than
+    flagged unreachable, which is the false FATAL DEC-28 clause 1 forbids. Extraction reads the
+    builder and never runs it; the router records itself in the ledger if anything invokes it,
+    and ``_nothing_was_executed`` checks that ledger after this test as after every other.
+    """
+    envelope = extract(sr.build_dynamic_send_hinted_graph())
+    assert envelope.ir.ir_version == "1.1"
+
+    report = verify(envelope.ir)
+
+    assert report.error is None
+    assert report.gate.exit_code == 0
+    assert report.subject is not None and report.subject.ir_version == "1.1"
+    p01 = report.outcome_for("graph-well-formed")
+    assert isinstance(p01, PropertyReport) and isinstance(p01.witness, WellFormednessWitness)
+    assert p01.witness.dynamic_dependent == ("act_step",)
 
 
 def test_no_ir_1_0_document_is_affected(tmp_path: Path) -> None:

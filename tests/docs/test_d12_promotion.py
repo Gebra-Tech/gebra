@@ -28,6 +28,8 @@ from typing import Any, Final
 import pytest
 import yaml
 
+from gebra.verify import REPORT_FORMAT
+
 #: ``tests/docs/`` → the repository root.
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 
@@ -209,11 +211,19 @@ def test_the_extension_outline_exists_and_is_named_phase_1(record_text: str) -> 
 def test_the_report_format_version_the_record_stamps_is_the_one_the_spec_fixes(
     record_text: str,
 ) -> None:
-    """`1.1` is stamped in two documents; they may not drift apart."""
+    """The record stamped `1.1` final for Phase-0; the spec's head must still say so, name the
+    version this build now emits, and carry both in its amendment log — so the two documents
+    cannot drift apart even after the post-final route has been travelled (VAL-14 → `1.2`)."""
     assert "`1.1`" in record_text
     spec_text = (SPECS_DIR / "REPORT-FORMAT-SPEC.md").read_text(encoding="utf-8")
     head = "\n".join(spec_text.splitlines()[:40])
-    assert "`report_format` is `1.1`, final" in head
+    assert "`1.1`" in head and "stamped final" in head
+    assert f"`report_format` is `{REPORT_FORMAT}`" in head
+    versioning = _section(spec_text, "### 1.6 `report_format` versioning")
+    for version in ("1.1", REPORT_FORMAT):
+        assert any(line.startswith(f"| `{version}` |") for line in versioning.splitlines()), (
+            f"§1.6's amendment log has no row for {version}"
+        )
 
 
 # ── §4: the four open questions ─────────────────────────────────────────────────────────

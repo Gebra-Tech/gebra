@@ -890,7 +890,7 @@ class DynamicEdgeUnsupportedError(NotImplementedError)
 
 A 1.0-vocabulary consumer was handed a document carrying a `dynamic` edge.
 
-`NotImplementedError` by inheritance because that is exactly the fact: the construct is ratified and emitted, and *this consumer* has no semantics for it yet. Anything that catches broadly — `gebra verify` turns any escaping exception into a §2.4 tool error — therefore reports "no verdict was reached" rather than a verdict, which is the only honest outcome available before the semantics land.
+`NotImplementedError` by inheritance because that is exactly the fact: the construct is ratified and emitted, the validators read it (`gebra.verify` reaches a verdict on such a document), and *this consumer* — the topology diff, the store and the freshness check built on it, or the display emitter — has no ruled representation for an edge with no target yet. The CLI verbs that reach those consumers (`gebra snapshot`, `gebra diff`, `gebra display`) catch it and report a tool error — "nothing was recorded", "no comparison was made", "no diagram was emitted" — which is the only honest outcome available before that representation is ruled.
 
 #### `gebra.ir.Edge`
 
@@ -1884,7 +1884,7 @@ EdgeKind: TypeAlias = Literal["normal", "conditional", "send"]
 
 *type alias*, defined in `gebra.verify.graph`.
 
-The three edge kinds of ledger §4 (`kind` defaults to `normal` on the surface).
+The three edge kinds that contribute members to the model (ledger §4; `kind` defaults to `normal` on the surface). The fourth kind, `dynamic`, never becomes an `ExpandedEdge` — it contributes no member to G (PROPERTY-CATALOG-SPEC §0.3, ratified DEC-28) — so it is deliberately absent here and present in `AuthoredEdgeKind`.
 
 #### `gebra.verify.EdgeOrigin`
 
@@ -1934,6 +1934,7 @@ class GraphModel:
     edges: tuple[ExpandedEdge, ...]
     unresolved: tuple[UnresolvedReference, ...] = ()
     carried: frozenset[str] = frozenset()
+    dynamic_sources: frozenset[str] = frozenset()
 ```
 
 *class*, defined in `gebra.verify.graph`.
@@ -1949,6 +1950,7 @@ Built by `build_graph_model()`; a subgraph by `subgraph()`. Immutable and hashab
 - `edges` — Every expanded edge, in emission order: the `entry` wirings, the `finish` wirings, then `ir.edges` in authored order with each router's `path_map` labels in authored order. Emission order is *not* a normative order — every consumer sorts its own output by the ledger §6 comparator — but it is stable, so two builds of one IR are equal values.
 - `unresolved` — Every declared reference naming no node, in the same emission order. Emission order is **not** P-01's F_iv order: catalog §1.4 Step 5, as amended by DEC-12, sorts F_iv by a leading key that puts resolvable anchors first, and only then does `findings[0]` name the primary. Do not read `unresolved[0]` as the primary finding — `mixed/04` happens to come out right under emission order, which is exactly what makes the shortcut look safe.
 - `carried` — Unresolved references that were nonetheless materialized as vertices, empty unless `carry_unresolved_references=True` was asked for.
+- `dynamic_sources` — The vertices that are the `from` of a `dynamic` edge (IR-SPEC §2.4, DEC-28). **The one shared convention for every graph builder** (PROPERTY-CATALOG-SPEC §0.3): such an edge contributes no member to `edges` — its targets are Runtime-only — while its source *participates*: wired for P-01's condition (iii), never a dead end for condition (ii), and the trigger of condition (i)'s dynamic-dispatch over-approximation when statically reachable. Only a source that is a vertex of this model is a member: an unresolved `from` is recorded in `unresolved` instead (P-01 §1.4 Step 1 checks it before the `dynamic` branch), and joins here only when the caller's convention carries it as a phantom. Empty on every ir 1.0 document.
 
 #### `gebra.verify.ReferenceRole`
 
@@ -1969,7 +1971,7 @@ class UnresolvedReference:
     source: str
     index: int
     label: str | None = None
-    kind: EdgeKind | None = None
+    kind: AuthoredEdgeKind | None = None
 ```
 
 *class*, defined in `gebra.verify.graph`.
@@ -1993,7 +1995,7 @@ The field set is exactly what P-01's `P01EdgeLocation` needs, so P-01 reads a lo
 - `source` — The anchor vertex for a finding, per the table above.
 - `index` — Position in `ir.edges`, or in the `entry`/`finish` list form.
 - `label` — The `path_map` label, for `role="path-map-target"`; `None` otherwise.
-- `kind` — The authored edge's kind, when the reference sits on an edge; `None` for `entry`/`finish`.
+- `kind` — The authored edge's kind, when the reference sits on an edge; `None` for `entry`/`finish`. `"dynamic"` is reachable here and nowhere else in the model: a `dynamic` edge's `from` is checked (P-01 §1.4 Step 1, "`e.from ∈ V` already checked above") even though the edge inserts no member.
 
 #### `gebra.verify.build_graph_model`
 
@@ -2011,14 +2013,10 @@ Build the sentinel-augmented, label-expanded model of `ir` — IR-SPEC §4.2 (m1
 
 **Parameters**
 
-- `ir` — A validated `ir_version` 1.0 workflow.
+- `ir` — A validated workflow at `ir_version` `"1.0"` or `"1.1"`.
 - `carry_unresolved_references` — Materialize each unresolved reference as a vertex and insert the incidence anyway, the way an `nx` `add_edge` auto-vivifies. **Which setting is whose** is not this module's call to make: §0.3's P-01-clean precondition ratifies four *different* local degradation conventions by name and adds that they "are deliberately local, cross-validator agreement on ill-formed input is NOT promised". Off — the default — is **P-01**'s ("drops dangling-target edges") and **P-06**'s ("skips the edge"). On is **P-02**'s ("P-02's `resolve` would carry a dangling vertex", also §2.7) and **P-04**'s ("carries the phantom vertex with an empty contract", §4.4 Step 0). Either way the references stay listed in `GraphModel.unresolved` and the carried vertices in `GraphModel.carried`, so a consumer can always tell a declared node from a phantom — which matters for `DataflowLocation.path`, whose members are report-side node ids.
 
 **Returns** — The model. Equal inputs give equal models: emission order is authored order and every derived ordering is the ledger §6 comparator.
-
-**Raises**
-
-- `DynamicEdgeUnsupportedError` — if the document carries a `dynamic` edge (above).
 
 #### `gebra.verify.canonical_rotation`
 
@@ -2482,7 +2480,7 @@ Check every reachable node's declared reads against §4's every-path rule (§4.4
 - `ir` — A validated workflow IR. Only the fields §4.3 lists are read.
 - `model` — A pre-built model of the *same* `ir`, when a caller already has one — `verify()` builds one model per convention and hands it to every topology-facing validator, and two builds of one IR are equal values, so sharing changes no result. It must be built with `carry_unresolved_references=True`, which is P-04's own §0.3 degradation convention; a model built the other way is P-01's or P-06's and is refused rather than silently mis-analysed.
 
-**Returns** — One `PropertyReport`: `pass` with a `DataflowWitness` carrying one coverage entry per (reachable reader, read key), or `fail` with the ledger-§6-first finding as the primary `P04Failure` and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped).
+**Returns** — One `PropertyReport`: `pass` with a `DataflowWitness` carrying one coverage entry per (reachable reader, read key), or `fail` with the ledger-§6-first finding as the primary `P04Failure` and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped). On a document with a statically reachable `dynamic` edge either carries the optional `outside_static_coverage` diagnostic when it is non-empty (DEC-28 clause 2).
 
 **Raises**
 
@@ -2557,7 +2555,7 @@ Check the four §1 conditions over `ir`'s sentinel-augmented graph (§1.4).
 
 **Parameters**
 
-- `ir` — A validated workflow IR. Only `entry`, `finish`, `nodes[].id` and `edges[].{from,to,kind,path_map}` are read (§1.3).
+- `ir` — A validated workflow IR at `ir_version` `"1.0"` or `"1.1"`. Only `entry`, `finish`, `nodes[].id` and `edges[].{from,to,kind,path_map}` are read (§1.3); `edges[].kind` distinguishes `dynamic` (no target fields) from the other three.
 - `model` — A pre-built model of the *same* `ir`, when a caller already has one — `verify()` builds one model and hands it to every topology-facing validator, and two builds of one IR are equal values, so sharing changes no result. It must be built with `carry_unresolved_references=False`, which is P-01's own §0.3 degradation convention; a model carrying phantoms is P-02's or P-04's and is refused rather than silently mis-analysed.
 
 **Returns** — One `PropertyReport`: `pass` with the 5-key `WellFormednessWitness`, or `fail` with the root-cause-ordered primary finding and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped).
@@ -2964,15 +2962,20 @@ class P04Failure(Failure):
     location: DataflowLocation
     writers_on_other_paths: tuple[NodeId, ...] | None = None
     downstream_writers: tuple[NodeId, ...] | None = None
+    outside_static_coverage: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.report`.
 
 P-04's concrete failure subtype (§4.3).
 
-It exists because `extra="forbid"` means the base cannot carry P-04's two optional diagnostics, which DEC-11 pin 3 keeps: `writers_on_other_paths` (writers that cover *other* paths) and `downstream_writers` (writers wired after the reader). Both are diagnostic context, emitted only when non-empty, and never part of the verdict.
+It exists because `extra="forbid"` means the base cannot carry P-04's optional diagnostics. Two are DEC-11 pin 3's: `writers_on_other_paths` (writers that cover *other* paths) and `downstream_writers` (writers wired after the reader). The third is DEC-28 clause 2's (ir 1.1): `outside_static_coverage` — the nodes with declared reads that no START-path of the static graph reaches, on a document with a reachable `dynamic` edge, whose reads no analysis in the run covers. It is report-level context rather than a fact about this one finding, and it rides the **primary** failure because that is the one carrier a failing P-04 report has (a co-failure is a plain `CoFailure`); on a passing report the same list rides `DataflowWitness`. All three are diagnostic context, emitted only when non-empty, and never part of the verdict.
 
-The narrowed `location` is what makes the subtype recognisable. Resolving on the two optional extras alone would leave a P-04 failure that happens to carry neither of them loading as a base `Failure` while the validator constructs a `P04Failure` — and pydantic equality is class-sensitive, so the PC-6 fixture-vs-output identity would break on exactly the fixtures that need it least. A `DataflowLocation` (`kind: "state-key"` with a required `node` and `path`) resolves *every* P-04 failure here, extras or not.
+The narrowed `location` is what makes the subtype recognisable. Resolving on the optional extras alone would leave a P-04 failure that happens to carry none of them loading as a base `Failure` while the validator constructs a `P04Failure` — and pydantic equality is class-sensitive, so the PC-6 fixture-vs-output identity would break on exactly the fixtures that need it least. A `DataflowLocation` (`kind: "state-key"` with a required `node` and `path`) resolves *every* P-04 failure here, extras or not.
+
+**Fields**
+
+- `outside_static_coverage` — DEC-28 clause 2 (ir 1.1): nodes with declared reads outside the static graph's START closure, on a document with a reachable `dynamic` edge. Sorted; absent when empty.
 
 #### `gebra.verify.PropertyReport`
 
@@ -3087,12 +3090,12 @@ The four origins, for a consumer that enumerates them.
 #### `gebra.verify.REPORT_FORMAT`
 
 ```python
-REPORT_FORMAT: Final = "1.1"
+REPORT_FORMAT: Final = "1.2"
 ```
 
 *constant*, defined in `gebra.verify.run`.
 
-The `report_format` this build produces and reads. `1.1` under §1.6's MINOR rule: two members join shapes that did not carry them at `1.0` — `Promotion.property_condition` on a witness-note promotion (TERMINATION-WITNESS-SPEC §6.1's promoted-item identity) and `RunReport.best_effort` (§0.3's P-01-clean precondition, reported rather than implied).
+The `report_format` this build produces and reads. `1.2` under §1.6's MINOR rows, on the post-final route (VAL-14; DEC-28's two optional diagnostics): three optional members join shapes that did not carry them at `1.1` — `WellFormednessWitness.dynamic_dependent`, `DataflowWitness.outside_static_coverage` and `P04Failure.outside_static_coverage` — and `Subject.ir_version` admits `"1.1"`, the stamp a `dynamic`-bearing document carries. `1.1` (VAL-11) added `Promotion.property_condition` on a witness-note promotion and `RunReport.best_effort`; Phase-0 shipped at it.
 
 #### `gebra.verify.STRICT_ALL`
 
@@ -3214,7 +3217,7 @@ Deliberately two fields and no more. Strict mode is the one policy §0.2 gives t
 
 ```python
 class RunReport(RunReportModel):
-    report_format: Literal["1.1"]
+    report_format: Literal["1.2"]
     tool: Tool
     subject: Subject | None = None
     properties: tuple[PropertyOutcome, ...] = ()
@@ -3283,7 +3286,7 @@ Recorded rather than summarized: a reader of the report knows which gate produce
 class Subject(RunReportModel):
     input_mode: Literal["extracted", "ir-document", "snapshot"]
     source: str
-    ir_version: Literal["1.0"]
+    ir_version: IrVersion
     graph_version: str
     version: str | None = None
     extractor_version: str | None = None
@@ -3298,6 +3301,7 @@ What was verified, and how it was obtained (§1.2/§1.3).
 
 **Fields**
 
+- `ir_version` — The document's own `ir_version` stamp, verbatim — `"1.0"`, or `"1.1"` for a document carrying a `dynamic` edge (IR-SPEC §8; DEC-28). It is inside the `graph_version` hash scope (IR-SPEC §6.4), so it is part of the identity reported here, and it is read off the document rather than re-derived from its constructs: the stamp's relation to the constructs is the emitter's obligation (minimal stamping, PD-044 D10), not this report's to police.
 - `graph_version` — `"sha256:<64 lowercase hex>"` — the IR-SPEC §6 content digest of the core IR, byte-for-byte the string a snapshot envelope carries. Provenance and identity for a report; never a claim about behavior.
 - `version` — The V.S.F.E label; REQUIRED iff `input_mode == "snapshot"`.
 - `extractor_version` — Present iff `input_mode == "extracted"`.
@@ -3378,7 +3382,7 @@ Run the registered validators over `ir` and derive the run's gate.
 
 **Parameters**
 
-- `ir` — A validated workflow IR. Each validator reads only the fields its own §P-nn.3 I/O contract lists.
+- `ir` — A validated workflow IR at `ir_version` `"1.0"` or `"1.1"`. Each validator reads only the fields its own §P-nn.3 I/O contract lists.
 - `policy` — The §0.2 strict-mode request and the caller's subject label. `None` is strict off over an unnamed in-process IR.
 
 **Returns** — The `RunReport` of §1 — the one artifact the human rendering, the native JSON and the SARIF projection are three views of.
@@ -3438,11 +3442,18 @@ class DataflowWitness(ReportModel):
         tuple[DataflowCoverage, ...],
         SetCompared("PROPERTY-CATALOG-SPEC §4.3: coverage order is not normative"),
     ]
+    outside_static_coverage: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.witnesses`.
 
 P-04's pass witness — one coverage entry per reachable (reader, read key).
+
+`outside_static_coverage` is the optional diagnostic DEC-28 clause 2 mandates (§4.4 Step 0, ir 1.1). P-04's quantification stays over START→n paths of the *static* graph — a `dynamic` edge contributes no path — so a node reachable only through dynamic dispatch generates no obligation, and with P-01's condition (i) over-approximation-silenced no analysis covers its declared reads. That absence is never silent: the nodes are named here. Emitted only when non-empty; never verdict-bearing; the PC-4 profile drops the `None`.
+
+**Fields**
+
+- `outside_static_coverage` — Nodes with declared reads that no START-path of the static graph reaches, on a document with a statically reachable `dynamic` edge (DEC-28 clause 2). Sorted; absent when empty. Their reads are covered by no analysis in this run.
 
 #### `gebra.verify.DeterminismClaim`
 
@@ -3646,6 +3657,7 @@ class WellFormednessWitness(ReportModel):
     terminal_nodes: tuple[NodeId, ...]
     orphan_nodes: tuple[NodeId, ...]
     unresolved_targets: tuple[str, ...]
+    dynamic_dependent: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.witnesses`.
@@ -3654,10 +3666,13 @@ P-01's pass witness — the 5-key form (ratified at walkthrough #2, DEC-11 pin 1
 
 The two empty tuples are not padding: they are the re-checkable evidence that conditions (iii) and (iv) were evaluated and found clean, which a compact pass bit would lose. Both are empty by construction on a pass — a non-empty one would have filled `failure` instead — so the declared types stay the general ones of the §0.3 stub rather than an empty-tuple type.
 
+The sixth member is the optional diagnostic DEC-28 clause 1 mandates (§1.4 Step 3, ir 1.1): on a document with a statically reachable `dynamic` edge, condition (i) MUST NOT fire — the dispatcher may target any node at runtime, so static unreachability stops being a DEFENSIBLE claim — and the nodes it would otherwise have named are surfaced here instead. Emitted only when non-empty (DEC-11 optional-diagnostic discipline), never verdict-bearing, and the PC-4 profile drops the `None`, so a 1.0 witness serializes exactly as before.
+
 **Fields**
 
 - `reachable_from_start` — Sorted, UTF-16 code-unit order (ledger §6).
 - `terminal_nodes` — Predecessors of `__end__`, sorted.
+- `dynamic_dependent` — Nodes not statically reachable from START, unflagged only because a reachable `dynamic` edge exists (DEC-28 clause 1; §1.4 Step 3). Sorted; absent when empty. The coverage the over-approximation costs, surfaced rather than silent: a genuinely disconnected island on such a document appears here, not as a finding.
 
 #### `gebra.verify.Witness`
 

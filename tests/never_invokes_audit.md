@@ -347,15 +347,18 @@ order rather than about this file (and was: it failed this card's first full-sui
 What that ledger covers is stated in the fixture rather than assumed, because the two halves
 differ here: `route_send_list` records before raising, so an invocation of the *router* — the
 declaration this whole card is about — is visible even if an `except Exception` on the extraction
-path swallowed it; the two *node* bodies come from `sentinel_graph.raiser`, which raises a
-`RuntimeError` subclass **without** recording, so an invocation of those is caught by the
-exception propagating rather than by the list. The guarded child that holds that half for this
+path swallowed it; the two *node* bodies come from `sentinel_graph.raiser`, which records into
+`sentinel_graph.TRIPPED` before raising — a ledger this file did not read at SD-12, so at the time
+an invocation of those would have been caught by the exception propagating rather than by a list
+(*corrected at VAL-14's never-invokes pre-review: the earlier text here said the bodies raise
+"without recording", which understated the coverage; the file now clears and asserts both
+ledgers*). The guarded child that holds that half for this
 exact builder is `tests/extraction/test_routing.py`'s fresh-interpreter run over
 `ROUTING_BUILDERS` (`dynamic_send_hinted` is a pinned member of that table), and the one that
 holds the `snapshot()` → `extract()` → store *path* is `tests/snapshot/test_travel_booking.py`,
-above. Exactly one test in the file reaches a live object
+above. As of SD-12 exactly one test in the file reached a live object
 (`test_snapshot_declines_a_live_map_reduce_workflow`, which states the decline at the entry point
-a user meets it on); every other target is a hand-built `WorkflowIR`, including the one the
+a user meets it on; VAL-14 added a second — below); every other target is a hand-built `WorkflowIR`, including the one the
 generated inner test file returns, which takes `resolve_ir`'s fixture-only branch. Its `pytester`
 session is in-process — the file has no `runpytest_subprocess` leg — so the ledger is the same
 list object throughout. A guarded subprocess is **not** claimed here and is not owed: the card
@@ -921,6 +924,33 @@ inside a function this module does not import, and nothing at its import time ru
 `tools.honest_claims_lint` and `tools.provenance_guard` are stdlib-only outright. The module does
 not import `gebra`, construct a workflow, execute an example, or spawn a process, so it needs
 neither a guarded child nor the TE-05 family-ledger fixture, and it opens no connection.
+
+### VAL-14 — the `dynamic` edge's validator semantics, and one more read of the live router
+
+`tests/verify/test_dynamic_edges.py` is data-only: every document is built from the IR models
+through the JSON-mode ingestion path and read by the validators; there is no node body to run,
+no extraction, no model, no socket. The one test in it that touches a store
+(`test_verify_and_the_store_both_key_on_the_construct_not_the_stamp`) hands the recorder a
+hand-built extraction envelope, exactly as `tests/test_dynamic_document_seam.py` does, so no
+extraction runs there either.
+
+`tests/test_dynamic_document_seam.py` gains a second test that reaches a live object,
+`test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow`: it calls `gebra.extract()` on
+`sentinel_routing.build_dynamic_send_hinted_graph()` — the same builder, the same shipped entry
+point and no new extraction path — and hands the resulting *document* to `verify()`, which reads
+serialized IR and nothing else. The file's autouse fixture clears and asserts **two** ledgers
+after it: `sentinel_routing.TRIPPED`, which covers the router (`route_send_list` records before
+raising), and `sentinel_graph.TRIPPED`, which covers the two node bodies (`sentinel_graph.raiser`
+raises `SentinelExecutedError`, whose `__init__` appends before the raise). The second ledger
+was added at this card's never-invokes pre-review, which found the file — and the SD-12 paragraph
+above, since corrected — describing the node bodies as raising "without recording"; they record,
+into a ledger the file had not been reading. The guarded child that holds the same builder in a
+fresh interpreter is unchanged: `tests/extraction/test_routing.py`'s run over `ROUTING_BUILDERS`,
+of which `dynamic_send_hinted` is a pinned member. The validators' own hermeticity is unchanged in
+kind and re-observed: `tests/verify/test_run.py`'s guarded child runs `verify()` over the corpus
+with the substrate, the HTTP and LLM clients and `networkx` absent from the import closure, and
+`tests/verify/test_graph.py`'s source-level check still finds no graph library in the shared model,
+which is the module the `dynamic` branch landed in.
 
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 

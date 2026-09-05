@@ -36,7 +36,7 @@ exports re-exported from `gebra.verify.__init__`), specifically:
 
 This is the **Python callable/model surface** — signatures, field sets, and the registry
 contract ("slug → callable → claim class → severity" per brief D-09's Deliverable 2) —
-not the wire-format document version. `report_format` (currently `1.1`, REPORT-FORMAT-SPEC
+not the wire-format document version. `report_format` (currently `1.2`, REPORT-FORMAT-SPEC
 §1.6) is that document's own governance and is explicit that it is "stamped final at the
 D-12 promotion" (REPORT-FORMAT-SPEC front matter, Appendix B OI-4) — that stamping is
 CLI-08's event, not this one. Freezing the validator-result API here does not itself
@@ -101,6 +101,28 @@ PROPERTY-CATALOG-SPEC + TERMINATION-WITNESS-SPEC (R-05 lineage; DEC-05/DEC-11)."
 Additive, non-shape-changing work is unaffected by this freeze — e.g., a new wedge
 validator is not in scope (all five already landed), and internal refactors that do not
 move the surface in §1 need no R-05 routing, exactly as before.
+
+**Amendments landed under this policy.**
+
+- **VAL-14 (2026-09-04) — DEC-28's two optional diagnostics.** The R-05-routed decision is
+  DEC-28 itself (ratified 2026-08-09 by the product owner acting as R-05/R-06 authority,
+  vendored in the development-process repository's `docs/decisions/`), whose ruling text
+  mandates in terms that "the P-01 witness gains an optional `dynamic_dependent` diagnostic"
+  and "P-04's report gains an optional `outside_static_coverage` diagnostic", each "emitted
+  only when non-empty — DEC-11 optional-diagnostic discipline, never verdict-bearing", and
+  assigns their implementation to "a paired validator regression card" — VAL-14. Fields added
+  on the frozen surface: `WellFormednessWitness.dynamic_dependent`,
+  `DataflowWitness.outside_static_coverage`, `P04Failure.outside_static_coverage` (all
+  optional, default absent); `Subject.ir_version` widened from `Literal["1.0"]` to the IR
+  models' `IrVersion` (`"1.0" | "1.1"`). DEC-28's text names the first two by name; the
+  carrier of the third (the primary `P04Failure`, the one carrier a failing report has) and the
+  `Subject.ir_version` retyping — entailed by DEC-28 (a `verify()` that reads a 1.1 document
+  reports its stamp verbatim, REPORT-FORMAT-SPEC §1.3) but not named in it — are recorded as
+  VAL-14's implementer latitude in PD-057 (development-process repository,
+  `docs/plan/decisions/`), which also states that typing the field as the IR alias couples this
+  surface to every future IR minor, by design. No condition ID was added, renamed or
+  reclassified; no validator signature changed; no property moved off `DeferredToPhase1`. The
+  wire-format consequence is REPORT-FORMAT-SPEC §1.6's `1.2` row.
 
 ## 5. D-12 promotion eligibility
 

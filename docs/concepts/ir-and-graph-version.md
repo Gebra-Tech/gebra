@@ -480,8 +480,12 @@ to identical documents and carry identical versions (§6.6).
 One minor exists. `ir_version` `"1.1"` adds a fourth edge kind, `dynamic`, for a router whose
 target set is not statically knowable (§8; DEC-28); a document is stamped `"1.1"` only if it
 actually contains such an edge, and `"1.0"` otherwise. In this release a 1.1 document
-**extracts but is not verified, snapshotted or diffed** — the pipeline stops there and
-reports a tool error rather than a verdict.
+**extracts and is verified** — the five properties read the edge under one ruled convention,
+described in
+[the extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+— **but is not snapshotted or diffed**: the structural diff has no ruled representation for an
+edge with no target, so `gebra snapshot` and `gebra diff` decline such a document and report a
+tool error rather than a comparison.
 
 Finally, two version-like things that are never the same thing (§8). `ir_version` is the
 format. The V.S.F.E `version` in the envelope is *the workflow's* evolution, derived by

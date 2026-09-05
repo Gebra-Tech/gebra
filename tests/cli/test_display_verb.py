@@ -209,7 +209,7 @@ def test_an_unknown_major_is_refused_before_any_model_runs(run_cli: RunCli) -> N
     result = run_cli("display", "pass.ir.yaml", "--report", "future.json")
     assert result.exit_code == 2
     assert "a MAJOR this build does not know" in result.stderr
-    assert "'1.1'" in result.stderr
+    assert "'1.2'" in result.stderr
 
 
 def test_a_minor_this_build_does_not_read_is_refused_naming_the_one_it_does(
@@ -225,7 +225,7 @@ def test_a_minor_this_build_does_not_read_is_refused_naming_the_one_it_does(
 def test_a_known_format_that_is_not_a_run_report_is_refused_by_the_model(
     run_cli: RunCli,
 ) -> None:
-    Path("hollow.json").write_text('{"report_format": "1.1"}', encoding="utf-8")
+    Path("hollow.json").write_text('{"report_format": "1.2"}', encoding="utf-8")
     result = run_cli("display", "pass.ir.yaml", "--report", "hollow.json")
     assert result.exit_code == 2
     assert "not a valid run report" in result.stderr

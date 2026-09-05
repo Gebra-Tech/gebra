@@ -62,7 +62,7 @@ def test_a_report_about_another_workflow_is_refused() -> None:
 
 def _subjectless_tool_error() -> RunReport:
     return RunReport(
-        report_format="1.1",
+        report_format="1.2",
         tool=Tool(name="gebra", version=gebra.__version__),
         subject=None,
         properties=(),
@@ -298,7 +298,7 @@ def test_a_subject_bearing_tool_error_report_overlays_as_a_statement() -> None:
     ir = fixture_ir(PASSING_FIXTURE)
     digest = graph_version(ir)
     report = RunReport(
-        report_format="1.1",
+        report_format="1.2",
         tool=Tool(name="gebra", version=gebra.__version__),
         subject=Subject(
             input_mode="ir-document",

@@ -84,7 +84,8 @@ def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
         store: The store to check against. A store that does not exist reads as an empty one,
             so a project that has never snapshotted gets
             :attr:`~gebra.audit.models.Freshness.UNSNAPSHOTTED` rather than an error — for a
-            document this build can compare at all, which an ir 1.1 one is not (see Raises).
+            document this build can compare at all, which a ``dynamic``-bearing one is not
+            (see Raises; the test is on the construct, not on the ``ir_version`` stamp).
 
     Returns:
         The :class:`~gebra.audit.models.FreshnessOutcome`: which of the three states holds,

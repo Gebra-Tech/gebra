@@ -379,7 +379,7 @@ def test_the_report_format_is_the_one_the_spec_pins() -> None:
         encoding="utf-8"
     )
 
-    assert REPORT_FORMAT == "1.1"
+    assert REPORT_FORMAT == "1.2"
     assert f'"report_format": "{REPORT_FORMAT}"' in spec
     assert f'report_format: Literal["{REPORT_FORMAT}"]' in spec
 
@@ -1146,18 +1146,16 @@ def test_an_ir_with_no_digest_is_a_tool_error_before_any_property_runs(
     assert report.properties == ()
 
 
-def test_an_ir_1_1_document_is_a_tool_error_rather_than_a_verdict() -> None:
-    """§2.4 ``ir-validation``: "the IR document did not validate against ``ir_version`` 1.0".
+def test_an_ir_1_1_document_reaches_a_verdict_with_its_stamp_in_the_subject() -> None:
+    """The wedge five read a ``dynamic``-bearing document (DEC-28; VAL-14) — no tool error.
 
-    ir 1.1 added the ``dynamic`` edge kind (ratified — DEC-28, 2026-08-09) and with it a set of
-    validator semantics this build does not carry: the P-01/P-02/P-04/P-06 skip branches, P-01's
-    condition-(i) over-approximation, and two optional diagnostics, all of which DEC-28 assigns
-    to a paired validator regression card. Running the 1.0 rules over such a document would
-    report ``node-unreachable-from-start`` for every node only the router reaches — a FATAL the
-    ruling forbids by name — so the run stops before any property is dispatched.
-
-    Exit ``2`` with no subject and no outcomes, which is what "no verdict was reached" means:
-    an honest absence, and specifically **not** exit ``1``, which would be a verdict.
+    ir 1.1 added the ``dynamic`` edge kind (ratified — DEC-28, 2026-08-09). This build carries
+    the validator semantics it needs — the P-01/P-02/P-04/P-06 Step-0 skips through the shared
+    model, P-01's condition-(i) over-approximation and the two optional diagnostics — so the run
+    is dispatched like any other and ``subject.ir_version`` carries the document's own stamp,
+    which is inside the ``graph_version`` hash scope and so part of the identity reported (§1.2).
+    The refusal this replaced was exit ``2`` with no subject; the semantics themselves are pinned
+    in ``tests/verify/test_dynamic_edges.py``.
     """
     clean = _clean()
     document = WorkflowIR(
@@ -1172,21 +1170,20 @@ def test_an_ir_1_1_document_is_a_tool_error_rather_than_a_verdict() -> None:
 
     report = verify(document)
 
-    assert (report.gate.exit_code, report.gate.outcome) == (2, "tool-error")
-    assert report.error is not None and report.error.stage == "ir-validation"
-    assert "1.1" in report.error.detail
-    assert "paired validator regression card" in report.error.detail
-    assert report.subject is None
-    assert report.properties == ()
-    assert report.gate.snapshot_eligible is False
+    assert report.error is None
+    assert report.gate.exit_code in (0, 1)
+    assert report.subject is not None and report.subject.ir_version == "1.1"
+    assert len(report.properties) == 13
+    assert report.subject.graph_version == graph_version(document)
 
 
-def test_the_1_1_refusal_never_fires_on_a_1_0_document() -> None:
-    """The guard is a version test and nothing else — every 1.0 document still reaches a verdict.
+def test_the_subject_carries_a_1_0_document_s_stamp_unchanged() -> None:
+    """Every 1.0 document still reaches a verdict and is reported at its own version.
 
-    Worth its own test rather than left to the rest of the file: a guard placed before the subject
-    is built is exactly where an over-broad condition would silently turn the whole suite's
-    verdicts into exit ``2``, and a suite of tool-error runs can look green from a distance.
+    Worth its own test rather than left to the rest of the file: the subject is built before any
+    property runs, which is exactly where an over-broad condition would silently turn the whole
+    suite's verdicts into exit ``2``, and a suite of tool-error runs can look green from a
+    distance.
     """
     report = verify(_clean())
 

@@ -427,7 +427,7 @@ REPORT-FORMAT-SPEC §2.4 stage it maps to:
 | Importing the module raised | `input` |
 | A `--report` overlay file is unreadable, is not a valid run report, or carries a `report_format` MAJOR this build does not know (§4.4) | `input` |
 | `extract()` raised `ExtractionError` | `extraction` |
-| An IR document did not validate against `ir_version` 1.0 | `ir-validation` |
+| An IR document did not validate against the IR model (`ir_version` 1.0 or 1.1), or has no canonical form | `ir-validation` |
 | A wedge validator is not registered, or a validator answered for another property | `dispatch` |
 
 Reach: `ir-validation` applies to every verb that loads an IR document; `dispatch` is reached
@@ -1002,7 +1002,9 @@ a format nothing ever emitted per §1.6's amendment log), then refuses a subject
 error that preceded IR identity records no `graph_version` for the provenance check and
 holds no findings to paint — the "overlays name their own graph" rule applied to the one
 report shape that names none) and a digest mismatch; a `dynamic`-bearing ir 1.1 document
-is declined as the `ir-validation` §2.6 row, exactly as `verify()` declines it. The
+is declined as the `ir-validation` §2.6 row, as `verify()` declined it at the time (see the
+VAL-14 note below: `verify` now reaches a verdict on such a document; `display`'s own decline
+stands on the diagram representation, DIAGRAM-STYLE-GUIDE §3.4). The
 diagram is plain Mermaid text on stdout on every color setting; conformance is
 parse-checked by `tools/mermaid_check.py` (the guide's §9 checker) across the corpus in
 `tests/display/` and `tests/cli/test_display_verb.py`.
@@ -1038,6 +1040,21 @@ to prevent), OI-4 and OI-5 closed as Phase-0 decisions with the capability re-ro
 OI-2, OI-3 and OI-6 re-routed to Phase-1 cards, and OI-7 and OI-9 reaffirmed as already
 closed. No `src/` change rides this card: promotion is a documentation and governance event,
 and the surface it stamps is exactly what CLI-04…CLI-07 merged.
+
+**VAL-14 (the `dynamic` edge's validator semantics) — landed 2026-09-04**, a post-final landing
+note under §6 item 3 of the promotion record (a card plus a note here; no contract of this
+document moves). `verify()` reads an `ir_version` 1.1 document — one carrying a `dynamic` edge
+(DEC-28) — under PROPERTY-CATALOG-SPEC §0.3's ruled convention and reaches a verdict, so
+`gebra verify` exits `0` or `1` on such a document where it exited `2` before, and its run report
+is `report_format` `1.2` (REPORT-FORMAT-SPEC §1.6). The §2.6 `ir-validation` row above reads
+accordingly. What still declines, and why, is unchanged in kind: `snapshot` and `diff` refuse a
+`dynamic`-bearing document because the topology diff has no ruled representation for a headless
+edge (§3.2's `snapshot` row: "the store refused the write" — the eligibility run now *does* reach
+a verdict, so the refusal is the recorder's own, reported as `nothing was recorded`), and
+`display` refuses it on DIAGRAM-STYLE-GUIDE §3.4. One consumer-side consequence of the `1.2`
+bump lands on `display --report`: a `1.1` report file written by the previous release is refused
+naming the version this build reads (§4.4; REPORT-FORMAT-SPEC §1.6's MAY), and re-running
+`verify` produces a `1.2` one.
 
 ---
 

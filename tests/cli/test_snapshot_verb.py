@@ -183,8 +183,10 @@ def test_an_invalid_document_is_exit_2_at_ir_validation(run_cli: RunCli, project
 def test_an_ir_1_1_document_is_declined_before_the_store_exists(
     run_cli: RunCli, project_dir: Path
 ) -> None:
-    """DEC-28 carried through: the eligibility run reaches no verdict on a ``dynamic``
-    document, so the answer is exit ``2`` and the store is never created."""
+    """The recorder's own decline (SD-12; PD-044 D11), carried through: since VAL-14 the
+    eligibility run *does* reach a verdict on a ``dynamic`` document, so what refuses is the
+    store call — a headless edge has no ruled diff representation — and the answer is still exit
+    ``2`` with the store never created."""
     dynamic = WorkflowIR(
         ir_version="1.1",
         entry="plan",
@@ -198,7 +200,8 @@ def test_an_ir_1_1_document_is_declined_before_the_store_exists(
     result = run_cli("snapshot", "dynamic.ir.yaml", "--store", ".gebra")
 
     assert result.exit_code == 2
-    assert "no verdict" in result.stderr
+    assert "nothing was recorded" in result.stderr
+    assert "the snapshot recorder has no semantics for the `dynamic` edge kind" in result.stderr
     assert store_bytes(project_dir) == {}
 
 

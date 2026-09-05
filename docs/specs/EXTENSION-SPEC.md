@@ -71,7 +71,7 @@ Nothing in this outline is a new decision. Every constraint below is inherited:
 | Honest-claims copy discipline | **WA-06**; PROPERTY-CATALOG-SPEC §0.1's claim classes; the banned-phrase list at `tools/honest-claims-phrases.txt` |
 | Never-invokes | **WA-07**; INTROSPECTION-SPEC §1 — reached only through the CLI, which owns the one opt-in (`--call`, CLI-SPEC §2.4) |
 | The command surface it wraps | **CLI-SPEC** (final at the D-12 promotion) |
-| The artifact it renders verdicts from | **REPORT-FORMAT-SPEC** (final; `report_format` `1.1`) |
+| The artifact it renders verdicts from | **REPORT-FORMAT-SPEC** (final; `report_format` `1.2`) |
 | How a graph is drawn | **DIAGRAM-STYLE-GUIDE** (final) |
 
 Where this outline and any of those disagree, they win and the disagreement is a defect to
@@ -117,7 +117,7 @@ An extension would read them and nothing else:
 |---|---|---|
 | Draw the graph | `gebra display --format mermaid` | DIAGRAM-STYLE-GUIDE; CLI-SPEC §4.4 |
 | Overlay verification results on the graph | `gebra display --report <run-report.json>` | DIAGRAM-STYLE-GUIDE §4; CLI-SPEC §4.4 |
-| List findings (severity, claim class, condition ID, location) and pass witnesses | `gebra verify --format json` | REPORT-FORMAT-SPEC §1 (`report_format` `1.1`) |
+| List findings (severity, claim class, condition ID, location) and pass witnesses | `gebra verify --format json` | REPORT-FORMAT-SPEC §1 (`report_format` `1.2`) |
 | Gate a workspace the way CI would | the exit codes `0` / `1` / `2` | PROPERTY-CATALOG-SPEC §0.2 via CLI-SPEC §3 |
 | Show what moved between two versions | `gebra diff` | CLI-SPEC §4.3; `gebra.diff.WorkflowDiff` |
 | Show the version history of a store | `gebra history --format json` | CLI-SPEC §4.5; `gebra.lineage.dump_lineage` |

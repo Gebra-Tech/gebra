@@ -18,6 +18,16 @@ its own directed edge, keeps parallel edges and self-loops distinct (a multigrap
 **resolves nothing into existence**: a reference naming no node contributes no vertex and no
 edge, and is recorded in :attr:`GraphModel.unresolved` for the validator that owns it.
 
+**The ``dynamic`` edge (ir 1.1 — DEC-28) is read here once, for all four.** §0.3 states "one
+convention for every graph builder": a ``dynamic`` edge contributes NO member to $G$ — its
+targets are Runtime-only — while its source participates for P-01's conditions (ii)/(iii),
+P-01's condition (i) runs under DEC-28's over-approximation, and P-02/P-04/P-06 skip the edge
+in their Step-0 dispatches. The builder realizes the first half by inserting nothing and the
+second by recording the source in :attr:`GraphModel.dynamic_sources`; each validator's own
+section decides what that membership means for it, and
+:meth:`GraphModel.reachable_dynamic_sources` is the one shared test of "a reachable ``dynamic``
+edge exists". On an ir 1.0 document the set is empty and nothing else differs.
+
 **The P-01-clean precondition, which is why "one shared graph" is not "one shared answer".**
 §0.3: topology-consuming validators "have results **normatively defined only over P-01-clean
 topology**", and each section documents its own local degradation convention — P-01 drops
@@ -60,12 +70,13 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Final, Literal, TypeAlias
 
-from gebra.ir import ConditionalEdge, WorkflowIR, refuse_dynamic_edges
+from gebra.ir import ConditionalEdge, DynamicEdge, WorkflowIR
 
 __all__ = [
     "END_VERTEX",
     "SENTINEL_VERTICES",
     "START_VERTEX",
+    "AuthoredEdgeKind",
     "Components",
     "EdgeKind",
     "EdgeOrigin",
@@ -93,8 +104,17 @@ END_VERTEX: Final = "__end__"
 #: Both sentinels, in the order :func:`build_graph_model` materializes them.
 SENTINEL_VERTICES: Final[tuple[str, str]] = (START_VERTEX, END_VERTEX)
 
-#: The three edge kinds of ledger §4 (``kind`` defaults to ``normal`` on the surface).
+#: The three edge kinds that contribute members to the model (ledger §4; ``kind`` defaults to
+#: ``normal`` on the surface). The fourth kind, ``dynamic``, never becomes an
+#: :class:`ExpandedEdge` — it contributes no member to $G$ (PROPERTY-CATALOG-SPEC §0.3,
+#: ratified DEC-28) — so it is deliberately absent here and present in :data:`AuthoredEdgeKind`.
 EdgeKind: TypeAlias = Literal["normal", "conditional", "send"]
+
+#: Every kind an authored ``ir.edges`` member can carry (IR-SPEC §2.4, as amended at DEC-28).
+#: This is the type of a *reference* fact — :attr:`UnresolvedReference.kind` — because a
+#: ``dynamic`` edge's ``from`` is resolved and checked like any other edge's even though the edge
+#: itself inserts nothing.
+AuthoredEdgeKind: TypeAlias = Literal["normal", "conditional", "send", "dynamic"]
 
 #: Where an expanded edge came from. ``"edges"`` is a member of ``ir.edges``; ``"entry"``
 #: and ``"finish"`` are the implicit sentinel wirings of IR-SPEC §4.2 (m1)/(m2). The
@@ -219,7 +239,9 @@ class UnresolvedReference:
         index: Position in ``ir.edges``, or in the ``entry``/``finish`` list form.
         label: The ``path_map`` label, for ``role="path-map-target"``; ``None`` otherwise.
         kind: The authored edge's kind, when the reference sits on an edge; ``None`` for
-            ``entry``/``finish``.
+            ``entry``/``finish``. ``"dynamic"`` is reachable here and nowhere else in the
+            model: a ``dynamic`` edge's ``from`` is checked (P-01 §1.4 Step 1, "``e.from ∈ V``
+            already checked above") even though the edge inserts no member.
     """
 
     role: ReferenceRole
@@ -227,7 +249,7 @@ class UnresolvedReference:
     source: str
     index: int
     label: str | None = None
-    kind: EdgeKind | None = None
+    kind: AuthoredEdgeKind | None = None
 
 
 # ── Strongly connected components ────────────────────────────────────────────────────────
@@ -323,6 +345,16 @@ class GraphModel:
             which is exactly what makes the shortcut look safe.
         carried: Unresolved references that were nonetheless materialized as vertices,
             empty unless ``carry_unresolved_references=True`` was asked for.
+        dynamic_sources: The vertices that are the ``from`` of a ``dynamic`` edge (IR-SPEC
+            §2.4, DEC-28). **The one shared convention for every graph builder**
+            (PROPERTY-CATALOG-SPEC §0.3): such an edge contributes no member to :attr:`edges`
+            — its targets are Runtime-only — while its source *participates*: wired for P-01's
+            condition (iii), never a dead end for condition (ii), and the trigger of condition
+            (i)'s dynamic-dispatch over-approximation when statically reachable. Only a source
+            that is a vertex of this model is a member: an unresolved ``from`` is recorded in
+            :attr:`unresolved` instead (P-01 §1.4 Step 1 checks it before the ``dynamic``
+            branch), and joins here only when the caller's convention carries it as a phantom.
+            Empty on every ir 1.0 document.
     """
 
     vertices: tuple[str, ...]
@@ -330,6 +362,7 @@ class GraphModel:
     edges: tuple[ExpandedEdge, ...]
     unresolved: tuple[UnresolvedReference, ...] = ()
     carried: frozenset[str] = frozenset()
+    dynamic_sources: frozenset[str] = frozenset()
 
     # ── Adjacency ────────────────────────────────────────────────────────────────────────
 
@@ -553,6 +586,21 @@ class GraphModel:
     def _descendant_cache(self) -> dict[str, frozenset[str]]:
         return {}
 
+    def reachable_dynamic_sources(self) -> frozenset[str]:
+        """The ``dynamic``-edge sources that are statically reachable from ``__start__``.
+
+        The trigger of DEC-28 clause 1's over-approximation, asked once and shared: P-01 §1.4
+        Step 3 tests ``dynamic_sources ∩ reachable ≠ ∅`` to suppress condition (i), and P-04
+        §4.4 Step 0's ``outside_static_coverage`` diagnostic is conditioned on "a document with
+        a reachable ``dynamic`` edge" — the same set. A source is a node, never ``__start__``
+        itself, so :meth:`descendants`' exclusion of its own source cannot hide one.
+
+        A dispatcher that is *not* statically reachable triggers nothing: the dispatch can
+        never run, so static unreachability stays a DEFENSIBLE claim about every node, and
+        condition (i) runs as written. Empty on every ir 1.0 document.
+        """
+        return self.dynamic_sources & self.descendants(START_VERTEX)
+
     def subgraph(self, vertices: Iterable[str]) -> GraphModel:
         """The subgraph induced on ``vertices`` — ``G.subgraph(K)`` of both pseudocodes.
 
@@ -577,6 +625,7 @@ class GraphModel:
             node_ids=self.node_ids & kept,
             edges=tuple(edge for edge in self.edges if edge.source in kept and edge.target in kept),
             carried=self.carried & kept,
+            dynamic_sources=self.dynamic_sources & kept,
         )
 
     def anchor_cycle(self, vertex: str) -> tuple[str, ...]:
@@ -713,17 +762,22 @@ def build_graph_model(ir: WorkflowIR, *, carry_unresolved_references: bool = Fal
     is mirrored rather than smoothed so the record list stays one-to-one with the findings
     P-01 emits.
 
-    **``ir_version`` 1.1 is declined here, not defaulted.** A ``dynamic`` edge (DEC-28,
-    2026-08-09) contributes no member to $G$ while its source still participates for P-01's
-    conditions (ii)/(iii), and P-01's condition (i) runs under a ruled over-approximation —
-    all of which DEC-28 assigns to a paired validator regression card. Dropping the edge
-    *quietly* would be the false FATAL that ruling forbids by name, so a ``dynamic``-bearing
-    document raises :class:`~gebra.ir.models.DynamicEdgeUnsupportedError` instead. ``verify()``
-    refuses such a document one layer earlier, with an ``ir-validation`` tool error, so this is
-    the guard for a direct single-property call.
+    **A ``dynamic`` edge contributes no member and its source participates** — the one
+    convention PROPERTY-CATALOG-SPEC §0.3 states for every graph builder (ratified — DEC-28,
+    2026-08-09; PD-041). Its ``from`` is resolved and checked exactly as any other edge's
+    (P-01 §1.4 Step 1: an unresolved ``from`` is an ``edge-target-undefined`` record and the
+    edge is skipped *before* the ``dynamic`` branch), no edge enters the model because the
+    targets are Runtime-only, and the resolved source is recorded in
+    :attr:`GraphModel.dynamic_sources` so that P-01's conditions (ii)/(iii) count it as wired
+    and never a dead end, P-01's condition (i) runs under DEC-28 clause 1's over-approximation,
+    and P-02/P-04/P-06 skip the edge in their Step-0 dispatches — all four by reading this one
+    model rather than each re-deciding it. Nothing in the multigraph key moves: an
+    :class:`ExpandedEdge`'s ``index`` stays the *authored* ``ir.edges`` position, so a
+    conditional guard after a ``dynamic`` edge is still found by P-02 at the index it was
+    authored at. On an ir 1.0 document the set is empty and every result is what it was.
 
     Args:
-        ir: A validated ``ir_version`` 1.0 workflow.
+        ir: A validated workflow at ``ir_version`` ``"1.0"`` or ``"1.1"``.
         carry_unresolved_references: Materialize each unresolved reference as a vertex and
             insert the incidence anyway, the way an ``nx`` ``add_edge`` auto-vivifies.
 
@@ -742,15 +796,12 @@ def build_graph_model(ir: WorkflowIR, *, carry_unresolved_references: bool = Fal
     Returns:
         The model. Equal inputs give equal models: emission order is authored order and every
         derived ordering is the ledger §6 comparator.
-
-    Raises:
-        DynamicEdgeUnsupportedError: if the document carries a ``dynamic`` edge (above).
     """
-    static_edges = refuse_dynamic_edges(ir.edges, consumer="the shared validator graph model")
     node_ids = frozenset(node.id for node in ir.nodes)
     edges: list[ExpandedEdge] = []
     unresolved: list[UnresolvedReference] = []
     carried: set[str] = set()
+    dynamic_sources: set[str] = set()
 
     def record(reference: UnresolvedReference) -> bool:
         """Log an unresolved reference; report whether it should still be wired.
@@ -779,11 +830,20 @@ def build_graph_model(ir: WorkflowIR, *, carry_unresolved_references: bool = Fal
         if wired:
             edges.append(ExpandedEdge(finish_id, END_VERTEX, "normal", "finish", position))
 
-    for index, edge in enumerate(static_edges):
+    for index, edge in enumerate(ir.edges):
         source = edge.from_
         source_ok = source in node_ids or record(
             UnresolvedReference("edge-source", source, source, index, kind=edge.kind)
         )
+        if isinstance(edge, DynamicEdge):
+            # §0.3's convention, and P-01 §1.4 Step 1's `elif e.kind == dynamic` branch: no
+            # member enters G — the targets are Runtime-only — and the source, once resolved
+            # (or carried under the caller's convention), participates. The `from` check above
+            # ran first, as the pseudocode's own order has it, so an unresolved dispatcher is a
+            # recorded reference and not a participant.
+            if source_ok:
+                dynamic_sources.add(source)
+            continue
         if isinstance(edge, ConditionalEdge):
             for label, target in edge.path_map.items():
                 if target == _END_LITERAL:
@@ -829,6 +889,7 @@ def build_graph_model(ir: WorkflowIR, *, carry_unresolved_references: bool = Fal
         edges=tuple(edges),
         unresolved=tuple(unresolved),
         carried=frozenset(carried),
+        dynamic_sources=frozenset(dynamic_sources),
     )
 
 

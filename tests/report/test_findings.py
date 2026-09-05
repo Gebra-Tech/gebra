@@ -118,3 +118,17 @@ def test_p04_extras_are_carried_as_evidence() -> None:
     assert evidence
     assert any("gebra/writersOnOtherPaths" in bag for bag in evidence)
     assert any("gebra/downstreamWriters" in bag for bag in evidence)
+
+
+def test_the_dec_28_p04_diagnostic_is_carried_as_evidence() -> None:
+    """DEC-28 clause 2's third diagnostic (report_format 1.2) rides the primary P-04 finding of
+    the dynamic-dispatch failure case, keyed for the SARIF property bag like the other two."""
+    report = next(case.report for case in CASES if case.name == "dynamic-dispatch-dataflow-failure")
+    evidence = [
+        finding.evidence
+        for outcome in report.properties
+        if isinstance(outcome, PropertyReport)
+        for finding in findings_of(outcome)
+        if finding.evidence
+    ]
+    assert evidence == [{"gebra/outsideStaticCoverage": ["book_leg"]}]

@@ -1606,10 +1606,10 @@ def _render_run(
     if error is not None:
         # The §8 warnings come **before** the §2.4 early return, not after it. A run that
         # reached no verdict is exactly the run whose extraction warnings are the most
-        # diagnostic thing it has — a hintless conditional router warns `unsupported-construct`
-        # and stamps `ir_version 1.1`, which `verify()` then refuses as an ir-validation tool
-        # error, so "warned and reached no verdict" is that path's normal outcome. §8's
-        # "warnings are never silently droppable" has no exception for it.
+        # diagnostic thing it has — an extraction that warned `unsupported-construct` on the
+        # way to a document with no canonical form, say, has told the reader where the
+        # document went partial before the run tells them it stopped. §8's "warnings are never
+        # silently droppable" has no exception for a tool-error run.
         lines.extend(_render_run_notes(verification))
         lines.append(f"  no verdict was reached — {error.stage}: {error.detail}")
         lines.append("  exit 2 — a tool error is never a verification result (§2.4).")

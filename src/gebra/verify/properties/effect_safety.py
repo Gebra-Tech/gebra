@@ -27,6 +27,14 @@ sweep, Phase 3's region rule, Phase 4's lattice, Phase 5's packaging — and one
 (:func:`_structural_retry_regions`) that reads the shared model's edge list and component map
 rather than building a graph of its own.
 
+**The ``dynamic`` edge (ir 1.1 — ratified DEC-28) is §6.4 Phase 0's ``elif e.kind == dynamic:
+continue`` — "no member of G" — realized once in the shared model.** No member means no cycle
+membership, no retry re-entry and no ``send`` closure through it: a trigger-tagged node whose only
+route back is a dynamic router is in an ``acyclic`` region here, with ``none_required``, and its
+dispatcher is simply a node with one fewer out-edge. Static cycles and retry regions beside such an
+edge are unchanged. The ``fanout`` evidence reads ``send`` in-edges only, which a ``dynamic`` edge
+never is.
+
 **Where §6.4's Phase 0 and the shared model differ in spelling, on P-01-clean topology, never in
 answer.** Two of the differences are pure spelling. Phase 0 builds a sentinel-free graph and
 ``continue``s past a ``path_map`` label valued ``"END"``; the shared model materializes

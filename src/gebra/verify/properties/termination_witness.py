@@ -92,6 +92,15 @@ each reading the shared model rather than building a graph of its own (the P-06
 ``_structural_retry_regions`` precedent): the iterative Cooper–Harvey–Kennedy dominator pass
 behind DEC-23 Q4's natural loops (§2.4 Step 1b), and the abort-capped census.
 
+**The ``dynamic`` edge (ir 1.1 — ratified DEC-28) is §2.4 Step 0's ``elif e.kind == dynamic:
+continue`` — "no member of G; a dynamic edge forms no static cycle" — and it is realized in the
+shared model, not here.** The builder inserts nothing for it, so a route that closes only through
+a dynamic router is not a cycle of $G$, needs no witness, and appears in no census; the form-(a)
+scan below reads ``ConditionalEdge`` instances only, and the multigraph key stays the authored
+``ir.edges`` index, so a counter guard declared after a ``dynamic`` edge is found where it was
+authored. A static cycle beside such an edge is still exactly as witnessed or unwitnessed as it
+was: the skip adds no coverage and removes none.
+
 **The P-01-clean precondition, and the hard model boundary on dirty topology.** §0.3 defines
 P-02 results only over P-01-clean topology; its named degradation convention is "P-02's
 ``resolve`` would carry a dangling vertex", which is ``carry_unresolved_references=True`` —

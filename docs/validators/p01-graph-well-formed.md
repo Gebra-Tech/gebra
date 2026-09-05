@@ -488,6 +488,25 @@ topology; the interior of a compiled subgraph is P-10's subject, and this releas
 implement P-10 — a run answers for it with a structured not-implemented marker, never a silent
 pass.
 
+**A `dynamic` router makes condition (i) stand down, and the witness says which nodes that
+cost.** A `dynamic` edge — the `ir_version` 1.1 kind for a router whose destinations are
+computed rather than declared (DEC-28) — contributes no edge to the graph, while its source
+still counts as wired for condition (iii) and is never a dead end for condition (ii): a
+dispatcher has a runtime out-route the document cannot name. The one genuinely new rule is
+condition (i)'s. When such a router is itself reachable from `START`, it may target *any* node
+at runtime, so "unreachable" stops being a claim the definition supports, and P-01 does not
+report `node-unreachable-from-start` for any node of that document — the false FATAL the
+ruling exists to forbid. The price is stated on the witness rather than hidden: a pass on such
+a document carries a sixth key, `dynamic_dependent`, the sorted nodes that no declared edge
+reaches from `START` and that were not flagged only because the router exists. A genuinely
+disconnected island lands in that list, not in a finding, so read it before reading the pass —
+and note that `reachable_from_start` still lists every node, exactly as the specification's
+pseudocode writes it, because every node is *possibly* reachable once a dynamic dispatcher is.
+The key is absent when the list would be empty, so a 1.0 document's witness is the five-key form
+above, byte for byte.
+[The extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+shows the key on a real document, beside P-04's companion diagnostic for the same nodes.
+
 **When P-01 fails, three other reports become diagnostics.** P-02, P-04 and P-06 all reason over
 the same topology, and the specification defines their results only over P-01-clean graphs
 (§0.3). A run that fails P-01 names them in its `best_effort` list, and the honest reading of a

@@ -2,8 +2,9 @@
 
 **Acceptance box 1 of CLI-04 lives here**: exit codes ``0``/``1``/``2`` on constructed
 cases, including tool-error ``2`` at every §2.6 stage the verb can reach — ``input``,
-``extraction``, ``ir-validation`` (both the CLI's own mapping and ``verify()``'s ir-1.1
-refusal), and ``dispatch``. Alongside it: §3.3's strict forms through the whole shell,
+``extraction``, ``ir-validation`` (the CLI's own mapping; ``verify()``'s former ir-1.1
+refusal is gone since VAL-14, and a ``dynamic``-bearing document now reaches a verdict here),
+and ``dispatch``. Alongside it: §3.3's strict forms through the whole shell,
 §3.4's usage errors with §5.3's one-diagnostic rule, §3.5's format invariance, and §5.2's
 stream discipline (stdout carries the artifact and nothing else).
 """
@@ -121,17 +122,23 @@ def test_an_invalid_document_is_exit_2_stage_ir_validation(
     assert "stage: ir-validation" in result.stderr
 
 
-def test_an_ir_1_1_document_is_exit_2_stage_ir_validation(
+def test_an_ir_1_1_document_reaches_a_verdict(
     run_cli: RunCli, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """verify()'s own DEC-28 refusal, carried through the CLI unchanged: the 1.1 semantics
-    are the paired validator card's, so no verdict is reported over a dynamic document."""
+    """DEC-28's validator semantics landed (VAL-14): a ``dynamic``-bearing document is verified
+    like any other, its stamp is reported in the subject, and the nodes only the router reaches
+    are surfaced on P-01's witness rather than reported unreachable. Until VAL-14 this was
+    ``verify()``'s own ``ir-validation`` refusal at exit ``2``."""
     monkeypatch.chdir(tmp_path)
     write_ir(_dynamic_document(), Path("dynamic.ir.yaml"))
-    result = run_cli("verify", "dynamic.ir.yaml")
-    assert result.exit_code == 2
-    assert "stage: ir-validation" in result.stderr
-    assert "1.1" in result.stderr
+    result = run_cli("verify", "dynamic.ir.yaml", "--format", "json")
+    assert result.exit_code == 0
+    assert result.stderr == ""
+    document = json.loads(result.stdout)
+    assert document["subject"]["ir_version"] == "1.1"
+    assert document["gate"]["outcome"] == "pass"
+    p01 = next(o for o in document["properties"] if o["property"] == "graph-well-formed")
+    assert p01["witness"]["dynamic_dependent"] == ["book_leg", "collect"]
 
 
 def test_a_dispatch_failure_is_exit_2_reported_by_the_run_report(

@@ -376,10 +376,13 @@ class DynamicEdgeUnsupportedError(NotImplementedError):
     """A 1.0-vocabulary consumer was handed a document carrying a ``dynamic`` edge.
 
     ``NotImplementedError`` by inheritance because that is exactly the fact: the construct is
-    ratified and emitted, and *this consumer* has no semantics for it yet. Anything that
-    catches broadly — ``gebra verify`` turns any escaping exception into a §2.4 tool error —
-    therefore reports "no verdict was reached" rather than a verdict, which is the only honest
-    outcome available before the semantics land.
+    ratified and emitted, the validators read it (``gebra.verify`` reaches a verdict on such a
+    document), and *this consumer* — the topology diff, the store and the freshness check built
+    on it, or the display emitter — has no ruled representation for an edge with no target yet.
+    The CLI verbs that reach those consumers (``gebra snapshot``, ``gebra diff``, ``gebra
+    display``) catch it and report a tool error — "nothing was recorded", "no comparison was
+    made", "no diagram was emitted" — which is the only honest outcome available before that
+    representation is ruled.
     """
 
 
@@ -393,23 +396,25 @@ StaticEdge: TypeAlias = NormalEdge | ConditionalEdge | SendEdge
 def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[StaticEdge, ...]:
     """Decline a ``dynamic``-bearing edge set on behalf of a consumer with no 1.1 semantics.
 
-    One decline, one wording, every consumer that needs it — the shared validator graph model,
-    the topology-diff graph, and (SD-12) the snapshot recorder and the freshness check, each of
-    which declines on both the document handed in and the one the store already holds. The
-    reason is the same in all of them, so a reader who meets it in one place recognizes it in
-    the next; the call sites are deliberately not counted here, because the count is the part
-    that goes stale.
+    One decline, one wording, every consumer that still needs it — the topology-diff graph,
+    the two surfaces built on it (SD-12: the snapshot recorder and the freshness check, each
+    declining on both the document handed in and the one the store already holds), and the
+    display emitter. The reason is the same in all of them, so a reader who meets it in one
+    place recognizes it in the next; the call sites are deliberately not counted here, because
+    the count is the part that goes stale. **The validators are no longer among them:** the
+    shared validator graph model reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC §0.3's
+    ruled convention — no member of $G$, a participating source — so ``gebra.verify`` reaches a
+    verdict on such a document (the paired validator card DEC-28 mandated).
 
-    **Why a decline rather than a default.** A ``dynamic`` edge contributes no member to the
-    graph $G$ (PROPERTY-CATALOG-SPEC §0.3, ratified — DEC-28), and *silently* dropping it is
-    the one thing that must not happen: P-01's condition (i) would then report
-    ``node-unreachable-from-start`` for every node reachable only through the router — the
-    false FATAL DEC-28 clause 1 forbids in terms — and the topology diff would report "no
-    change" between two documents whose ``graph_version``s differ. Both consumers' correct
-    behaviour is ruled and neither is implemented here: DEC-28 assigns the validator skip
-    branches, P-01's over-approximation and the two optional diagnostics to a paired validator
-    regression card, and the diff's representation of a headless edge is unruled altogether.
-    So both decline until then.
+    **Why a decline rather than a default, where one remains.** A ``dynamic`` edge contributes
+    no member to the graph $G$ (§0.3, ratified — DEC-28), and *silently* dropping it is the one
+    thing that must not happen: the topology diff's edge universe *is* the ``graph_version``
+    topology slice, so two documents whose digests differ would diff as unchanged, and a
+    materialized pseudo-head would be the phantom-vertex class DEC-26 closed. What a headless
+    edge should look like in an ``nx`` representation, or in a diagram, is **unruled** — it needs
+    its own decision record before any of these consumers can choose — so they decline rather
+    than choosing, and the store above them neither extends nor compares such a document
+    (SD-12's interim ruling, revisited when the representation is ruled).
 
     Args:
         edges: The document's edge set.
@@ -431,11 +436,14 @@ def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[Stati
         raise DynamicEdgeUnsupportedError(
             f"{consumer} has no semantics for the `dynamic` edge kind, and edges[{index}] "
             f"(from {edge.from_!r}) is one. The kind is ratified (ir 1.1 — DEC-28, "
-            "2026-08-09) and `gebra.extract()` emits it for a router whose target set is not "
-            "statically known; its consumer-side semantics land with the paired validator "
-            "regression card. Declining is deliberate: a `dynamic` edge contributes no member "
-            "to the graph, so reading this document under 1.0 rules would answer with a "
-            "verdict or a diff that is wrong rather than absent."
+            "2026-08-09), `gebra.extract()` emits it for a router whose target set is not "
+            "statically known, and `gebra.verify` reads it — the validators reach a verdict on "
+            "this document. What is unruled is how a headless edge is represented in a topology "
+            "diff or a diagram: a `dynamic` edge contributes no member to the graph, so dropping "
+            "it would compare two documents with different digests as unchanged, and inventing "
+            "a head would name a vertex the document does not declare. Declining is deliberate, "
+            "and lifting it needs a decision record on that representation (a follow-on "
+            "traceability card), not a default chosen here."
         )
     return tuple(static)
 

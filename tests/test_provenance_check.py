@@ -669,7 +669,7 @@ def test_a_provenance_row_edit_fails_the_scoped_run_too(
     root, manifest_path, doc = companion_sandbox
     original = doc.read_text(encoding="utf-8")
     edited = original.replace(
-        "`09-RnD-Docs/R-06/drafts/IR-SPEC.draft.md` | `9955ec8`",
+        "`09-RnD-Docs/R-06/drafts/IR-SPEC.draft.md` | `39e44b6`",
         "`09-RnD-Docs/R-06/drafts/IR-SPEC.draft.md` | `0000000`",
         1,
     )

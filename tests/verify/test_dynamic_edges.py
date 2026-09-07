@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from gebra.extraction.base import ObjectFamily
 from gebra.extraction.envelope import ExtractedFrom, ExtractionEnvelope
@@ -678,15 +679,18 @@ def test_a_dynamic_dependent_reader_reaches_the_run_report_as_a_diagnostic_not_a
 def test_verify_and_the_store_both_key_on_the_construct_not_the_stamp(tmp_path: Path) -> None:
     """SD-12 disclosed that ``verify()`` keyed on the declared stamp while the store keyed on the
     construct. Neither keys on the stamp now: a hand-authored ``"1.1"`` with no ``dynamic`` edge
-    is verified and recorded alike, and a mis-stamped ``"1.0"`` carrying one is verified under
-    the dynamic semantics and declined by the store — on the construct, in both.
+    is verified and recorded alike, and the document that carries the construct is verified
+    under the dynamic semantics and declined by the store — on the construct, in both.
 
-    The second half pins an **interim** reading, not a settled one. IR-SPEC §2.4 ties kind
-    ``dynamic`` to ``ir_version`` ≥ 1.1 but names no enforcement site, so such a document loads
-    and is reported at its own stamp; whether ``WorkflowIR`` should refuse it is a
-    validation-requiredness change on the frozen IR surface and takes IR-MODELS-FREEZE §4's DEC
-    route — filed as PD-055 at VAL-14's ir-contract pre-review. When that ruling lands, the
-    ``mis_stamped`` half of this test is the one that moves."""
+    The ``mis_stamped`` half is the one PD-055 named, and it has moved as that record said it
+    would. IR-SPEC §2.4 tied kind ``dynamic`` to ``ir_version`` ≥ 1.1 but named no enforcement
+    site, so a ``"1.0"`` document carrying one used to load and be reported at its own stamp;
+    §2.5 note 7 now floors the stamp at the loader (ratified — DEC-34, 2026-09-06), so that
+    document does not load at all and there is nothing left here to report verbatim. What
+    remains true, and is what this test was always about, is that neither ``verify()`` nor the
+    store consults the stamp: the correctly stamped twin below reaches the same verdict and the
+    same decline that the mis-stamped one used to, and the over-stamped document above is
+    admitted by both — the stamp moves neither answer."""
     stamped_only = _ir(
         nodes=[_node("plan"), _node("collect")],
         edges=[_normal("plan", "collect")],
@@ -700,22 +704,33 @@ def test_verify_and_the_store_both_key_on_the_construct_not_the_stamp(tmp_path: 
     )
     assert outcome.recorded
 
-    mis_stamped = _ir(
+    under_stamped: dict[str, Any] = {
+        "ir_version": "1.0",
+        "entry": "plan",
+        "finish": "collect",
+        "nodes": [_node("plan"), _node("book_leg"), _node("collect")],
+        "edges": [_dynamic("plan"), _normal("book_leg", "collect")],
+    }
+    with pytest.raises(ValidationError) as raised:
+        WorkflowIR.model_validate_json(json.dumps(under_stamped))
+    (error,) = raised.value.errors()
+    assert error["loc"] == ("edges",)
+    assert "below the lowest minor" in error["msg"] and "DEC-34" in error["msg"]
+
+    twin = _ir(
         nodes=[_node("plan"), _node("book_leg"), _node("collect")],
         edges=[_dynamic("plan"), _normal("book_leg", "collect")],
-        ir_version="1.0",
+        ir_version="1.1",
     )
-    verified = verify(mis_stamped)
+    verified = verify(twin)
     assert verified.error is None and verified.subject is not None
-    assert verified.subject.ir_version == "1.0"  # reported verbatim, never re-derived
+    assert verified.subject.ir_version == "1.1"  # reported verbatim, never re-derived
     p01 = verified.outcome_for("graph-well-formed")
     assert isinstance(p01, PropertyReport) and isinstance(p01.witness, WellFormednessWitness)
     assert p01.witness.dynamic_dependent == ("book_leg", "collect")
 
     with pytest.raises(DynamicEdgeUnsupportedError):
-        record(
-            envelope_of(mis_stamped), store=SnapshotStore.for_project(tmp_path / "b"), source="x"
-        )
+        record(envelope_of(twin), store=SnapshotStore.for_project(tmp_path / "b"), source="x")
 
 
 # ── Nothing else moved ───────────────────────────────────────────────────────────────────

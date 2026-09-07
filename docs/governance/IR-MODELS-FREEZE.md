@@ -69,6 +69,14 @@ DEC-22 amended IR-SPEC §2.1 and not the vendored fixture schema. It is authoriz
 accidental, and it leaves the §1 lockstep comparison untouched (that check compares field-name
 vocabulary, which neither side changed).
 
+A third of the same class joined them with card IR-08 (below): the model refuses a document
+stamped `ir_version` `"1.0"` that carries a `dynamic` edge, which `schema.yaml` v2.3 still
+admits (it types `ir_version` as a bare `type: string`, and the `dynamic` enum row carries the
+relation only as the comment `ir_version >= 1.1 (DEC-28)`), because DEC-34 amended IR-SPEC §2.4,
+§2.5 and §8 and not the vendored fixture schema — a fixture-schema revision routes through R-05
+sign-off (WA-04). Authorized rather than accidental, and again invisible to the §1 lockstep
+comparison: a cross-field validator adds nothing to `model_json_schema()`.
+
 **Ruled enforcement, anticipated here and since landed (card IR-07, 2026-09-04):**
 `WorkflowIR` now rejects a document declaring one node `id` twice, at validation, naming the
 repeated id — DEC-22's constraint, on the surface this document freezes. It is a ruled change
@@ -80,6 +88,22 @@ vendored corpus payload and every committed golden still loads, and every canoni
 length and digest is unchanged (`tests/ir/test_node_id_uniqueness.py`). The frozen export set
 in §1 is unchanged — the constraint adds no symbol, and it stays out of
 `model_json_schema()`, so the IR-05 lockstep check sees the same vocabulary as before.
+
+**Ruled enforcement, landed (card IR-08, 2026-09-06):** `WorkflowIR` now rejects a document
+whose `ir_version` is below the lowest minor its constructs require — today, `"1.0"` carrying a
+`dynamic` edge — at validation, naming the stamp, the lowest sufficient minor and the offending
+edge. That is IR-SPEC §2.5 note 7's stamp floor (ratified — DEC-34, 2026-09-06, resolving the
+PD-055 spec defect), on the surface this document freezes; a document stamped *above* the floor
+stays admitted, because §8's minimal-stamping MUST binds emitters and is not a validity
+condition. It is a ruled change that this freeze anticipates rather than contradicts, and §4's
+every-change-needs-a-bump blanket defers to DEC-34's own no-bump ruling for exactly this
+constraint, on the DEC-22 precedent recorded above: it adds no field, moves no member's
+requiredness — `ir_version` stays REQUIRED with the same `Literal["1.0", "1.1"]` — and rejects
+only documents §2.4 already described as outside the kind's version. Measured rather than
+asserted: every vendored corpus payload and every committed golden still loads, and every
+canonical byte length and digest is unchanged, pinned against the same pre-IR-07 capture
+(`tests/ir/test_ir_version_stamp_floor.py`). The frozen export set in §1 is unchanged — the
+constraint adds no symbol, and like IR-07's it stays out of `model_json_schema()`.
 
 ## 2. Validator-consumer sign-off — "the IR gives validators what they need"
 
@@ -169,6 +193,17 @@ operative rule for this freeze, not superseded by it:
 Additive, non-shape-changing work is unaffected — an internal refactor of `gebra.ir`
 that does not move any name, alias, requiredness, discriminator, or digest byte in §1
 needs no DEC/bump, exactly as before this freeze.
+
+So is one further class, named here rather than re-reconciled each time it recurs: **a validity
+constraint that only rejects documents the spec already describes as non-conforming — DEC, no
+bump (DEC-22, DEC-34)**. The bullet above is the DEC-09/IR-SPEC §8 rule for changes to the
+*field surface*, which its own enumeration ("added, renamed, removed, retyped, or
+re-semanticized") and its major row's "changing requiredness" — a member's REQUIRED/OPTIONAL
+status, §2.5 note 6's own word — make plain. A cross-field or cross-element validity rule is
+none of those: no field moves, no member's requiredness moves, and no canonical byte or digest
+of a document that loads today and still loads moves. The decision record is still required and
+still names the class; only the bump is not, and each such ruling says so on its own terms
+(DEC-22 for node-id uniqueness, DEC-34 §4 for the `ir_version` stamp floor).
 
 ## 5. D-12 promotion eligibility
 

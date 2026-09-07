@@ -98,6 +98,54 @@ def test_application_options_are_value_less() -> None:
         )
 
 
+# ── §2.6: one stage for one loader refusal, across every verb that reads a file ──────────
+
+
+@pytest.mark.parametrize(
+    ("verb", "argv"),
+    [
+        ("verify", ("verify", "under-stamped.ir.yaml")),
+        ("snapshot", ("snapshot", "under-stamped.ir.yaml")),
+        ("display", ("display", "under-stamped.ir.yaml")),
+        ("diff", ("diff", "under-stamped.ir.yaml", "under-stamped.ir.yaml")),
+    ],
+)
+def test_an_under_stamped_document_is_exit_2_stage_ir_validation_on_every_verb(
+    verb: str,
+    argv: tuple[str, ...],
+    run_cli: RunCli,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """IR-SPEC §2.5 note 7's stamp floor is a *loader* rule, so it lands in one stage (IR-08).
+
+    A document stamped ``"1.0"`` that carries a ``dynamic`` edge does not validate (ratified —
+    DEC-34, 2026-09-06), and every verb that reads a file therefore reports the same
+    ``ir-validation`` stage at exit ``2``, before any property runs — CLI-SPEC §2.6's existing
+    row ("did not validate against the IR model") covers it, and no new stage or diagnostic was
+    added. Written as YAML text rather than dumped from a model, because the model that would
+    dump it can no longer be loaded back (the IR-07 precedent).
+    """
+    monkeypatch.chdir(tmp_path)
+    Path("under-stamped.ir.yaml").write_text(
+        "ir_version: '1.0'\n"
+        "entry: plan\n"
+        "finish: collect\n"
+        "nodes:\n"
+        "  - id: plan\n"
+        "  - id: collect\n"
+        "edges:\n"
+        "  - {kind: dynamic, from: plan}\n",
+        encoding="utf-8",
+    )
+
+    result = run_cli(*argv)
+
+    assert result.exit_code == 2, verb
+    assert "stage: ir-validation" in result.stderr, verb
+    assert "below the lowest minor" in result.stderr, verb
+
+
 # ── §3.4: interrupts and crashes ─────────────────────────────────────────────────────────
 
 

@@ -61,6 +61,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   representation, filed as follow-on traceability work. `gebra snapshot` on such a document
   therefore now reports the recorder's own refusal (`nothing was recorded: …`) rather than a
   no-verdict eligibility run, still at exit `2` with nothing written.
+- **A workflow document stamped below the `ir_version` its own constructs require no longer
+  loads** (card IR-08; `gebra.ir.WorkflowIR`). IR-SPEC §2.5 note 7 makes the stamp a floor and
+  words it at the loader — "`ir_version` MUST be ≥ the lowest minor its constructs require
+  (today: `"1.1"` iff any `dynamic` edge); loaders MUST reject a document stamped below it, and
+  never re-stamp it" (ratified DEC-34, resolving spec-defect record PD-055) — and the model now
+  enforces it: `WorkflowIR` raises a `ValidationError` at `edges` naming the stamp, the lowest
+  sufficient minor and the offending edge, through every ingestion path (`load_yaml`,
+  `load_json`, `read_ir`, `model_validate`, `model_validate_json`, the constructor). Before
+  this, a hand-authored `"1.0"` document carrying a `dynamic` edge loaded, canonicalized to a
+  digest differing from its correctly stamped twin's, and was verified and reported at its own
+  stamp. `gebra verify`, `snapshot`, `diff` and `display` on such a file now report
+  `stage: ir-validation` at exit `2`, before any property runs — CLI-SPEC §2.6's existing
+  `ir-validation` row ("did not validate against the IR model") already covers it, so no new
+  exit row or diagnostic is added.
+  **Over-stamping is unchanged and still admitted.** A `"1.1"` document carrying no `dynamic`
+  edge loads, verifies, records and digests exactly as before: the minimal-stamping rule is a
+  MUST on *emitters* (promoted from the indicative at DEC-34), not a condition on documents, and
+  a document that stamps above its floor uses no construct its loader lacks. The loader also
+  never re-stamps an under-stamped document into a conforming one — `ir_version` is inside the
+  hashed payload, so raising it would move the `graph_version` of the document its author wrote.
+  **Nothing that conformed before changed.** No emitted digest moves and `ir_version` stays
+  `1.0` (`IrVersion` stays `Literal["1.0", "1.1"]`): every vendored corpus payload and every
+  committed golden still loads, with every canonical byte length and digest identical to what
+  this build produced before *either* of the two identity constraints (pinned in
+  `tests/ir/test_ir_version_stamp_floor.py` against IR-07's own pre-constraint capture).
+  `gebra.extract()` is unaffected — every emitter already stamps through
+  `gebra.ir.lowest_ir_version`, so no extraction path could produce the refused form.
+  The rule is stated generally rather than as a `dynamic` special case: the construct → minor
+  map lives only in `lowest_ir_version`, so a future minor carried by an edge kind inherits the
+  floor without a second ruling.
 - **A workflow document that declares one node `id` twice no longer loads** (card IR-07;
   `gebra.ir.WorkflowIR`). IR-SPEC §2.1 makes node-`id` uniqueness a MUST and words it at the
   loader — "a duplicate id has no meaning under §5.3's identity rules and loaders MUST reject

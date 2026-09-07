@@ -144,9 +144,11 @@ new bytes, which is precisely the reviewable event.
 
 1. **Rule it in the vault.** Land the change in
    `Gebra-Tech/initial-documents` with its decision record (`DEC-NN`, or an
-   addendum). An IR-affecting change carries an `ir_version` bump. A fixture
-   corpus change routes through fixture review sign-off first — a
-   validator/fixture mismatch is a logged decision, never a quiet edit.
+   addendum). An IR-affecting change carries an `ir_version` bump (or the
+   DEC-22/DEC-34 class: a validity rule that rejects only already-non-conforming
+   documents — no bump). A fixture corpus change routes through fixture review
+   sign-off first — a validator/fixture mismatch is a logged decision, never a
+   quiet edit.
 2. **Copy the bytes.** Replace the local file with the new vault copy verbatim,
    including its vendored-snapshot banner. No local deltas, no reformatting —
    the editor configuration already excludes the corpus from whitespace rules

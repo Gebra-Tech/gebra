@@ -701,14 +701,14 @@ def _subject(ir: WorkflowIR, reference: SubjectRef | None) -> Subject:
     construct, which is also what :mod:`gebra.snapshot` and :mod:`gebra.audit` key their own
     declines on — one predicate, not two.
 
-    One consequence is interim rather than settled. IR-SPEC §2.4 ties kind ``dynamic`` to
-    ``ir_version`` ≥ 1.1 but names no enforcement site for that constraint, so a hand-authored
-    document stamped ``"1.0"`` that carries a ``dynamic`` edge loads, is verified under the
-    dynamic semantics, and is reported here at its own stamp. Policing the stamp against the
-    constructs is a validation-requiredness change on ``WorkflowIR``'s frozen surface and takes
-    IR-MODELS-FREEZE §4's DEC route (filed as PD-055 at VAL-14); until it is ruled, verbatim
-    reporting is the reading the frozen text supports, not a decision that the under-stamp is
-    acceptable.
+    Keying on the construct does not mean the stamp goes unchecked — it means it is checked
+    once, earlier, and never here. §2.5 note 7 floors ``ir_version`` at the lowest minor a
+    document's constructs require (ratified — DEC-34, 2026-09-06, resolving the PD-055 spec
+    defect this docstring used to disclose as interim), so an under-stamped document — ``"1.0"``
+    carrying a ``dynamic`` edge — never reaches :func:`verify`: it is a ``ValidationError`` at
+    :class:`~gebra.ir.WorkflowIR`, which the CLI reports as ``stage: ir-validation``. What
+    arrives here is therefore stamped at or above its floor, and the stamp is carried into the
+    report as the document's own declaration, never re-derived from the constructs.
 
     Raises:
         CanonicalizationError: if the IR has no digest, which :func:`verify` turns into a

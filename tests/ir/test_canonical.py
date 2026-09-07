@@ -64,7 +64,13 @@ def load_ir(payload: dict[str, Any]) -> WorkflowIR:
 
 
 def minimal(**overrides: Any) -> dict[str, Any]:
-    """The smallest valid document, with per-test overrides applied on top."""
+    """The smallest valid document, with per-test overrides applied on top.
+
+    The stamp is ``"1.0"``, so a test that adds a ``dynamic`` edge must override
+    ``ir_version="1.1"`` as well: IR-SPEC §2.5 note 7 floors the stamp at the lowest minor the
+    document's constructs require (ratified — DEC-34, 2026-09-06), and the three tests below
+    that build such an edge exercise §6 canonicalization of the kind, not the stamp.
+    """
     payload: dict[str, Any] = {
         "ir_version": "1.0",
         "entry": "a",
@@ -1109,6 +1115,7 @@ def test_a_dynamic_edge_canonicalizes_to_from_kind_and_its_guard() -> None:
     it is a discriminating value rather than the one omit-normalized default (§6.3).
     """
     payload = minimal(
+        ir_version="1.1",
         nodes=[{"id": "a"}],
         edges=[{"kind": "dynamic", "from": "a", "condition": "route_legs"}],
     )
@@ -1121,7 +1128,7 @@ def test_a_dynamic_edge_canonicalizes_to_from_kind_and_its_guard() -> None:
 
 def test_a_dynamic_edge_omits_a_guard_it_does_not_have() -> None:
     """``condition`` is OPTIONAL on the kind, and absence is absence (§6.3 omit-normalization)."""
-    payload = minimal(edges=[{"kind": "dynamic", "from": "a"}])
+    payload = minimal(ir_version="1.1", edges=[{"kind": "dynamic", "from": "a"}])
 
     assert json.loads(bytes_of(payload))["edges"][0] == {"from": "a", "kind": "dynamic"}
 
@@ -1135,6 +1142,7 @@ def test_a_dynamic_edge_sorts_with_the_others_by_its_own_canonical_bytes() -> No
     order below is by source and not by kind. Pinned because it is inside the digest.
     """
     payload = minimal(
+        ir_version="1.1",
         nodes=[{"id": "a"}, {"id": "b"}, {"id": "c"}],
         edges=[
             {"kind": "dynamic", "from": "c"},

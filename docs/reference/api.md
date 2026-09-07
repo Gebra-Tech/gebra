@@ -1066,7 +1066,7 @@ class WorkflowIR(IRModel):
     nodes: Annotated[
         tuple[Node, ...], Field(min_length=1), AfterValidator(_require_unique_node_ids)
     ]
-    edges: tuple[Edge, ...]
+    edges: Annotated[tuple[Edge, ...], AfterValidator(_require_sufficient_ir_version)]
     runtime: Runtime | None = None
 ```
 
@@ -1081,6 +1081,8 @@ START and END are implicit sentinels: `entry` names the node(s) wired from START
 The five REQUIRED members carry no model default (§2.5 note 6), so omit-normalization can never strip them — a workflow with no edges carries an explicitly authored `edges` of length zero.
 
 **Node ids are unique within a document** — §2.1's MUST, ratified DEC-22 — so a document declaring one `id` twice is a validation error naming the repeated id and both positions that declare it, not a document with two nodes of one identity. See the `nodes` field below for why the check lives there and what it deliberately does not constrain.
+
+**The `ir_version` stamp is floored by the document's own constructs** — §2.5 note 7's MUST, ratified DEC-34 — so a document stamped `"1.0"` that carries a `dynamic` edge is a validation error naming the stamp, the lowest sufficient minor and the offending edge. A document stamped *above* the floor is admitted unchanged. See the `edges` field below.
 
 #### `gebra.ir.lowest_ir_version`
 

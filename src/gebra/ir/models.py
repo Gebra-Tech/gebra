@@ -34,9 +34,10 @@ validators and to canonicalization, neither of which is part of this module. Kee
 out of model validity is deliberate: a document that violates one has to *load* before
 anything can report it.
 
-**Two rules are model validity**, and both are about identity, because identity is the one
-thing no later stage can report on its own behalf: the condition-ID registry has no finding
-for a malformed or repeated id, and canonicalization would hash the document either way.
+**Three rules are model validity**, and each is here for the same reason: no later stage is
+specified to report it on its own behalf — the condition-ID registry has no finding for a
+malformed id, a repeated one or a mis-stamped document, and canonicalization would hash the
+document either way.
 
 1. The node-identity grammar on ``nodes[].id``, where §2.3 writes "``id`` MUST satisfy the
    §5 grammar"; the implementation is :mod:`gebra.ir.identity` and the annotation is
@@ -44,10 +45,19 @@ for a malformed or repeated id, and canonicalization would hash the document eit
 2. **Node-id uniqueness across ``nodes[]``** — §2.1's ``nodes`` row, whose MUST is worded
    at the loader ("a duplicate id has no meaning under §5.3's identity rules and loaders
    MUST reject it"; ratified — DEC-22, 2026-08-04, resolving the PD-032 spec defect). It is
-   the one rule here that reads more than one member at once, and it is model validity for
-   the same reason the grammar is: §6.2's ``nodes[]`` sort is total only *because* ids are
-   unique, so on a document that repeats one the canonical form is not canonical
-   (:func:`_require_unique_node_ids`).
+   model validity for the same reason the grammar is: §6.2's ``nodes[]`` sort is total only
+   *because* ids are unique, so on a document that repeats one the canonical form is not
+   canonical (:func:`_require_unique_node_ids`).
+3. **The ``ir_version`` stamp floor** — §2.5 note 7, carried at §2.1, §2.4 and §8: the stamp
+   MUST be at least the lowest minor the document's constructs require (today, ``"1.1"`` iff
+   some edge is ``dynamic``), and "loaders MUST reject a document stamped below it, and never
+   re-stamp it" (ratified — DEC-34, 2026-09-06, resolving the PD-055 spec defect).
+   Over-stamping stays admitted: §8's minimal-stamping MUST binds emitters, not documents
+   (:func:`_require_sufficient_ir_version`).
+
+The first two are about identity and the third about the format declaration. The first is a
+per-element rule — one id violates the grammar on its own — while the last two read across
+members that no single element carries.
 
 Reference-role strings (``entry``, ``finish``, ``from``, ``to``, ``path_map`` values,
 ``interrupts``, ``compensation.hook``) stay unconstrained here: §2.3 states the MUST on the
@@ -60,7 +70,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Annotated, Any, Final, Literal, TypeAlias
 
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field, ValidationInfo
 
 from gebra.ir.base import IRModel
 from gebra.ir.identity import NodeIdStr
@@ -353,16 +363,32 @@ Edge: TypeAlias = Annotated[
 def lowest_ir_version(edges: Iterable[Edge]) -> IrVersion:
     """The lowest ``ir_version`` sufficient for an edge set (IR-SPEC §8; ratified DEC-28).
 
-    §8's stamping policy, general rather than per-construct: "emitters stamp the LOWEST minor
-    sufficient for the document's constructs — ``"1.1"`` iff a ``dynamic`` edge is present,
-    ``"1.0"`` otherwise". Three properties come with that choice, and they are why the policy
-    is a function of content rather than of the writing build's version:
+    §8's stamping policy, general rather than per-construct: "emitters **MUST** stamp the
+    LOWEST minor sufficient for the document's constructs — ``"1.1"`` iff a ``dynamic`` edge
+    is present, ``"1.0"`` otherwise" (the RFC 2119 keyword promoted at DEC-34, 2026-09-06,
+    where the indicative had stood since DEC-28). Three properties come with that choice, and
+    they are why the policy is a function of content rather than of the writing build's
+    version:
 
     * **Deterministic.** Two conforming emitters given equal content stamp equal versions.
     * **Zero golden churn.** Nothing that carried ``"1.0"`` starts carrying ``"1.1"``, so no
       committed golden and no vendored fixture moves (the byte-diff EX-03 owes is the check).
     * **Honest.** A document using no 1.1 construct does not advertise a feature it makes no
       use of, so a 1.0-only consumer is never turned away from a document it can read.
+
+    The MUST binds **emitters**, and the loader's own rule is only half of it: §2.5 note 7
+    refuses a document stamped *below* this value and admits one stamped above it
+    (:func:`_require_sufficient_ir_version`). So this function is what gebra writes, and the
+    floor — not equality with it — is what gebra reads.
+
+    **Two properties the floor check depends on**, recorded here because they are this
+    function's to keep rather than the validator's to rediscover. (1) The result is the
+    **maximum** of the per-edge floors, so ``lowest_ir_version(edges)`` exceeds a stamp only
+    if some single edge does — which is how the validator names the offender. A future minor
+    floored by a *combination* of edges rather than by any one of them would break that
+    decomposition and needs the search re-sited, not just this function extended. (2) The
+    scan is over **edges**: a minor introduced by a non-edge construct (a ``runtime``
+    sub-slot, an annotation) cannot be taught here at all.
 
     ``edges`` is consumed once, so a generator is fine.
     """
@@ -548,6 +574,82 @@ def _require_unique_node_ids(nodes: tuple[Node, ...]) -> tuple[Node, ...]:
     return nodes
 
 
+def _require_sufficient_ir_version(
+    edges: tuple[Edge, ...], info: ValidationInfo
+) -> tuple[Edge, ...]:
+    """Refuse a document stamped below the minor its constructs need (§2.5 note 7; DEC-34).
+
+    The rule is worded at the loader — "``ir_version`` MUST be ≥ the lowest minor its
+    constructs require (today: ``"1.1"`` iff any ``dynamic`` edge — §8); loaders MUST reject
+    a document stamped below it, and never re-stamp it" — so this is where it is enforced,
+    beside the §2.1 uniqueness MUST it was ratified on the precedent of (DEC-22/IR-07).
+
+    **Stated generally, so a future minor carried by an edge kind inherits it without a
+    second ruling.** The construct → minor map lives in exactly one place,
+    :func:`lowest_ir_version`, and this check is a comparison against it over
+    :data:`IR_VERSIONS`' ascending order — no kind is named here. The offending edge is found
+    the same way, as the first whose own one-edge floor exceeds the stamp, so adding an edge
+    kind to §8's per-minor event bullets teaches both halves at once. The two limits of that
+    generality are recorded on :func:`lowest_ir_version`: the search assumes the floor
+    decomposes per edge, and a minor introduced by a non-edge construct needs the check
+    re-sited rather than extended.
+
+    **Never re-stamps.** ``edges`` comes back unchanged: ``ir_version`` is inside the §6.4
+    hash scope, so silently raising it would move the ``graph_version`` of a document its
+    author wrote, and the twin stamped correctly is a *different* document, not the same one
+    repaired.
+
+    **Over-stamping is admitted** and is not an oversight here: §8's minimal-stamping MUST
+    binds emitters, so a ``"1.1"`` document with no ``dynamic`` edge uses no construct its
+    loader lacks and is loaded, verified and recorded exactly as before (DEC-34 §3).
+
+    Args:
+        edges: The validated ``edges`` array, in authored order.
+        info: Pydantic's field-validation context. ``ir_version`` is declared before
+            ``edges``, so ``info.data`` already carries the validated stamp; when it does
+            not — the stamp itself failed, or a caller validated ``edges`` on its own — the
+            check stands down rather than guessing, leaving pydantic's own ``ir_version``
+            error to stand alone. The ``in``/``index`` comparisons below are ``str``'s own
+            only because :data:`IrVersion` is a ``Literal``: pydantic returns the stored
+            canonical value, never the caller's ``str`` subclass. Widening that annotation to
+            a bare ``str`` would make those two operations dispatch to a subclass's reflected
+            ``__eq__``, which the unbound-``str`` calls in the message do **not** cover —
+            they guard the formatting, not the comparison
+            (``tests/ir/test_ir_version_stamp_floor.py`` pins the coercion for that reason).
+
+    Returns:
+        ``edges`` unchanged — this validator refuses, and never rewrites.
+
+    Raises:
+        ValueError: naming the stamp, the lowest sufficient minor and the offending edge. A
+            ``ValueError`` because that is what pydantic renders as an ordinary
+            ``ValidationError``, here at ``loc = ("edges",)``.
+    """
+    stamp = info.data.get("ir_version")
+    if stamp not in IR_VERSIONS:
+        return edges
+    floor = lowest_ir_version(edges)
+    if IR_VERSIONS.index(floor) <= IR_VERSIONS.index(stamp):
+        return edges
+
+    index, offender = next(
+        (index, edge)
+        for index, edge in enumerate(edges)
+        if IR_VERSIONS.index(lowest_ir_version((edge,))) > IR_VERSIONS.index(stamp)
+    )
+    raise ValueError(
+        f"ir_version {str.__repr__(str.__str__(stamp))} is below the lowest minor this "
+        f"document's constructs require: edges[{index}] is of kind "
+        f"{str.__repr__(str.__str__(offender.kind))}, which IR-SPEC §8 introduces at "
+        f"{str.__repr__(str.__str__(floor))}, so {str.__repr__(str.__str__(floor))} is the "
+        "lowest sufficient minor. A document stamped below it is non-conforming and loaders "
+        "MUST reject it (§2.5 note 7; §2.4; ratified — DEC-34, 2026-09-06). A loader never "
+        "re-stamps one instead: `ir_version` is inside the §6.4 hash scope, so raising it "
+        "here would move the graph_version of the document you wrote. Stamp the document "
+        f"ir_version {str.__repr__(str.__str__(floor))}"
+    )
+
+
 class WorkflowIR(IRModel):
     """A workflow definition in ``ir_version`` 1.0 — the seven fields of IR-SPEC §2.1.
 
@@ -571,15 +673,27 @@ class WorkflowIR(IRModel):
     declaring one ``id`` twice is a validation error naming the repeated id and both positions
     that declare it, not a document with two nodes of one identity. See the ``nodes`` field
     below for why the check lives there and what it deliberately does not constrain.
+
+    **The ``ir_version`` stamp is floored by the document's own constructs** — §2.5 note 7's
+    MUST, ratified DEC-34 — so a document stamped ``"1.0"`` that carries a ``dynamic`` edge is
+    a validation error naming the stamp, the lowest sufficient minor and the offending edge.
+    A document stamped *above* the floor is admitted unchanged. See the ``edges`` field below.
     """
 
     ir_version: IrVersion
     """``"1.0"``, or ``"1.1"`` for a document carrying a ``dynamic`` edge (§8; DEC-28).
 
-    The member is the document's own declaration and is validated as *shape* only: this model
-    does not require the stamp to be the lowest sufficient one, because a document is authored
-    as well as emitted and §8's minimal-stamping policy binds **emitters**. What gebra writes
-    goes through :func:`lowest_ir_version`; what gebra reads is admitted at either version.
+    The member is the document's own declaration, and the model floors it against that
+    document's constructs (§2.5 note 7; ratified — DEC-34, 2026-09-06): a stamp *below* the
+    lowest sufficient minor is a validation error, reported at ``edges`` where the construct
+    that raises the floor lives (:func:`_require_sufficient_ir_version`). A stamp *above* it
+    is admitted — §8's minimal-stamping MUST binds **emitters**, and a document is authored as
+    well as emitted, so an over-stamped document uses no construct its loader lacks. What
+    gebra writes is therefore exactly :func:`lowest_ir_version`; what gebra reads is anything
+    at or above it.
+
+    The loader never re-stamps: the member is inside the §6.4 hash scope, so correcting it
+    would move the ``graph_version`` of a document its author wrote.
     """
 
     entry: NodeReference | tuple[str, ...]
@@ -602,5 +716,23 @@ class WorkflowIR(IRModel):
     IR-05's lockstep check compares against.
     """
 
-    edges: tuple[Edge, ...]
+    edges: Annotated[tuple[Edge, ...], AfterValidator(_require_sufficient_ir_version)]
+    """The kinded edge set $E$ (§2.4), and the constructs that floor ``ir_version``.
+
+    The §2.5 note 7 stamp floor is checked here rather than in a
+    ``model_validator(mode="after")``, for the reason IR-07 put the uniqueness MUST on
+    ``nodes``: a model-after validator runs only once *every* field has validated, so a
+    document that is also missing ``nodes`` would report the missing member alone and the
+    author would fix one fault to discover the next. A field validator with a
+    ``ValidationInfo`` reads the already-validated ``ir_version`` out of ``info.data`` —
+    ``ir_version`` is declared first, and §2.1's field order is the spec's, not a convenience
+    — so both faults come back together and the error lands at ``loc = ("edges",)``, on the
+    array holding the construct that raises the floor.
+
+    Like ``nodes``' constraint it is an ``AfterValidator``, which adds nothing to
+    ``model_json_schema()``: the rule is a relation between two members that JSON Schema's
+    vocabulary does not express, and IR-05's lockstep check compares the generated schema
+    against the vendored ``schema.yaml``, which carries no such rule either.
+    """
+
     runtime: Runtime | None = None

@@ -80,26 +80,45 @@ class WellFormednessWitness(ReportModel):
     filled ``failure`` instead — so the declared types stay the general ones of the §0.3
     stub rather than an empty-tuple type.
 
-    The sixth member is the optional diagnostic DEC-28 clause 1 mandates (§1.4 Step 3, ir 1.1):
-    on a document with a statically reachable ``dynamic`` edge, condition (i) MUST NOT fire —
-    the dispatcher may target any node at runtime, so static unreachability stops being a
-    DEFENSIBLE claim — and the nodes it would otherwise have named are surfaced here instead.
-    Emitted only when non-empty (DEC-11 optional-diagnostic discipline), never verdict-bearing,
-    and the PC-4 profile drops the ``None``, so a 1.0 witness serializes exactly as before.
+    Two optional members follow the five keys, each omitted when empty and never
+    verdict-bearing (DEC-11 optional-diagnostic discipline), so the five-key form is
+    byte-identical whenever both are empty — every ir 1.0 document with flat ids, which is every
+    corpus fixture. ``dynamic_dependent`` is DEC-28 clause 1's (§1.4 Step 3, ir 1.1): on a
+    document with a statically reachable ``dynamic`` edge, condition (i) MUST NOT fire — the
+    dispatcher may target any node at runtime, so static unreachability stops being a
+    DEFENSIBLE claim — and the top-level nodes it would otherwise have named are surfaced here
+    instead. ``contained_nodes`` is DEC-33's (§0.3 containment convention; §1.4 Step 5): the
+    nodes whose id has a proper path prefix that is itself a node, which conditions (i)–(iii)
+    therefore did not evaluate — their containment root answers for their structural position.
+
+    **On every pass the three lists partition $V$** (§1.3; ratified — DEC-33, 2026-09-06;
+    PD-056): ``reachable_from_start`` ⊎ ``dynamic_dependent`` ⊎ ``contained_nodes`` $= V$, an
+    absent member reading as empty. ``reachable_from_start`` keeps its name's plain meaning —
+    the static ``START``-closure, restricted to top-level nodes — and asserts neither
+    reachability nor unreachability for a member of the other two lists. ``terminal_nodes`` is
+    not a partition member: it is read off $G$, which the convention leaves whole, so it may
+    name a contained ``finish`` id that ``contained_nodes`` lists too.
     """
 
     kind: Literal["well-formedness"]
-    #: Sorted, UTF-16 code-unit order (ledger §6).
+    #: The static ``START``-closure ∩ $V_{top}$, sorted in UTF-16 code-unit order (ledger §6);
+    #: equal to $V_{top}$ iff ``dynamic_dependent`` is empty (§1.4 Step 5; DEC-33, PD-056).
     reachable_from_start: tuple[NodeId, ...]
-    #: Predecessors of ``__end__``, sorted.
+    #: Predecessors of ``__end__``, sorted — read off $G$, so it may name a contained id.
     terminal_nodes: tuple[NodeId, ...]
     orphan_nodes: tuple[NodeId, ...]
     unresolved_targets: tuple[str, ...]
-    #: Nodes not statically reachable from START, unflagged only because a reachable
-    #: ``dynamic`` edge exists (DEC-28 clause 1; §1.4 Step 3). Sorted; absent when empty. The
-    #: coverage the over-approximation costs, surfaced rather than silent: a genuinely
-    #: disconnected island on such a document appears here, not as a finding.
+    #: $V_{top}$ ∖ the static ``START``-closure on a dynamic-bearing pass, unflagged only because
+    #: a reachable ``dynamic`` edge exists (DEC-28 clause 1; §1.4 Step 3, narrowed to $V_{top}$
+    #: at DEC-33). Sorted; absent when empty. The coverage the over-approximation costs,
+    #: surfaced rather than silent: a genuinely disconnected top-level island on such a
+    #: document appears here, not as a finding. Disjoint from ``reachable_from_start``.
     dynamic_dependent: tuple[NodeId, ...] | None = None
+    #: $V ∖ V_{top}$ — the contained nodes (§0.3 containment convention; ratified — DEC-33,
+    #: 2026-09-06; §1.4 Step 5). Sorted; absent when empty. The coverage the convention costs,
+    #: surfaced rather than silent: conditions (i)–(iii) evaluated none of these, and nothing
+    #: here is claimed about the interior of a containment root (P-10's territory, §1.2).
+    contained_nodes: tuple[NodeId, ...] | None = None
 
 
 # ── P-02 termination-witness (§2.3; TERMINATION-WITNESS-SPEC §6.2/§6.3) ──────────────────
@@ -339,12 +358,18 @@ class DataflowCoverage(ReportModel):
 class DataflowWitness(ReportModel):
     """P-04's pass witness — one coverage entry per reachable (reader, read key).
 
-    ``outside_static_coverage`` is the optional diagnostic DEC-28 clause 2 mandates (§4.4 Step
-    0, ir 1.1). P-04's quantification stays over START→n paths of the *static* graph — a
-    ``dynamic`` edge contributes no path — so a node reachable only through dynamic dispatch
-    generates no obligation, and with P-01's condition (i) over-approximation-silenced no
-    analysis covers its declared reads. That absence is never silent: the nodes are named here.
-    Emitted only when non-empty; never verdict-bearing; the PC-4 profile drops the ``None``.
+    Two optional coverage-cost diagnostics follow ``coverage`` (§4.3; §4.4 Step 2), each
+    emitted only when non-empty, never verdict-bearing, and dropped by the PC-4 profile when
+    absent. Both name readers outside P-04's static ``Reach`` that therefore raised no
+    obligation and whose declared reads no analysis in the run covers; they are disjoint by
+    construction and distinct members because the remedy differs. ``outside_static_coverage``
+    is DEC-28 clause 2's: the **top-level** readers on a document with a statically reachable
+    ``dynamic`` edge — a ``dynamic`` edge contributes no path, and with P-01's condition (i)
+    over-approximation-silenced nobody names them (restricted to $V_{top}$ at DEC-33 §3.4
+    clause 3). ``contained_readers`` is DEC-33's: the **contained** readers (§0.3 containment
+    convention) — outside conditions (i)–(iii) by that convention, so again nobody would name
+    them — answered by their containment root, not by a dispatcher. "Declared reads" is
+    ``annotations.input`` as declared, Σ-membership aside (PD-057 D3).
     """
 
     kind: Literal["dataflow"]
@@ -352,10 +377,16 @@ class DataflowWitness(ReportModel):
         tuple[DataflowCoverage, ...],
         SetCompared("PROPERTY-CATALOG-SPEC §4.3: coverage order is not normative"),
     ]
-    #: Nodes with declared reads that no START-path of the static graph reaches, on a document
-    #: with a statically reachable ``dynamic`` edge (DEC-28 clause 2). Sorted; absent when
-    #: empty. Their reads are covered by no analysis in this run.
+    #: Top-level nodes ($V_{top}$, §0.3) with declared reads that no START-path of the static
+    #: graph reaches, on a document with a statically reachable ``dynamic`` edge (DEC-28 clause
+    #: 2; DEC-33 §3.4 clause 3). Sorted; absent when empty. Their reads are covered by no
+    #: analysis in this run.
     outside_static_coverage: tuple[NodeId, ...] | None = None
+    #: Contained nodes ($V ∖ V_{top}$, §0.3) with declared reads that no START-path of the static
+    #: graph reaches (ratified — DEC-33, 2026-09-06; §4.4 Step 2). Sorted; absent when empty.
+    #: Their reads are covered by no analysis in this run; a contained reader *inside* ``Reach``
+    #: keeps its obligation and never appears here. Disjoint from ``outside_static_coverage``.
+    contained_readers: tuple[NodeId, ...] | None = None
 
 
 # ── P-06 effect-safety (§6.3) ────────────────────────────────────────────────────────────

@@ -1,17 +1,16 @@
-gebra <gebra-version> — travel_booking:build_graph (extracted)
-  identity                ir_version 1.1 | graph_version sha256:e10cdc0550c540b6... | extractor 
-<gebra-version> | strict off
+gebra <gebra-version> — travel_booking:build_graph (ir-document)
+  identity                ir_version 1.0 | graph_version sha256:e4d28e405f3278e8... | strict off
 
 P-01 graph-well-formed — pass  [DEFENSIBLE]
-  witness                 1 node reachable from START | 1 terminal node | no orphan nodes | no 
-unresolved targets | 2 dynamic-dependent nodes
-    reachable from START    1 node: plan
-    terminal nodes          collect
+  witness                 2 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets | 2 contained nodes
+    reachable from START    2 nodes: %seq[0], %seq[1]
+    terminal nodes          %seq[1]
     orphan check            evaluated — no node stands outside every edge
     reference check         evaluated — every edge and path_map target resolves
-    dynamic-dependent       2 top-level nodes beside the list above that no declared START-path 
-reaches: a reachable dynamic router may dispatch to them, so their reachability is neither claimed 
-nor denied here, and P-04 generates no obligation for their reads: book_leg, collect
+    contained nodes         2 nodes contained under another node's id path, answered by that 
+containment root: conditions (i)-(iii) did not evaluate them, and this report says nothing about the
+root's interior: %seq[1]/%map[docs], %seq[1]/%map[query]
 
 P-02 termination-witness — pass  [DEFENSIBLE]
   witness                 0 declared witnesses in the inventory | acyclicity certificate present
@@ -29,12 +28,13 @@ Verification-Properties §2 authoritative). No verdict was reached — this is n
 
 P-04 dataflow-completeness — fail  (1 finding: 1 fatal)
   fatal: read-key-never-written-on-path  [P-04 dataflow-completeness | DEFENSIBLE-A]
-    state key               legs
-    reading node            plan
-    shortest path           START -> plan
+    state key               query
+    reading node            %seq[1]
+    shortest path           START -> %seq[0] -> %seq[1]
     finding                 State key is read on a path where nothing writes it
-    outside static coverage book_leg — top-level readers no declared START-path reaches (reachable 
-only through a dynamic router); no analysis in this run covers their reads
+    contained readers       %seq[1]/%map[docs] — contained readers no declared START-path reaches, 
+answered by their containment root rather than by a dynamic router; no obligation was raised and no 
+analysis in this run covers their reads
 
 P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
   status                  no verdict was reached — this is not a pass, and it is outside the Phase-0

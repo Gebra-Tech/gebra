@@ -113,14 +113,18 @@ __all__ = [
 ]
 
 
-#: The ``report_format`` this build produces and reads. ``1.2`` under §1.6's MINOR rows, on the
-#: post-final route (VAL-14; DEC-28's two optional diagnostics): three optional members join
-#: shapes that did not carry them at ``1.1`` — ``WellFormednessWitness.dynamic_dependent``,
-#: ``DataflowWitness.outside_static_coverage`` and ``P04Failure.outside_static_coverage`` — and
-#: ``Subject.ir_version`` admits ``"1.1"``, the stamp a ``dynamic``-bearing document carries.
-#: ``1.1`` (VAL-11) added ``Promotion.property_condition`` on a witness-note promotion and
-#: ``RunReport.best_effort``; Phase-0 shipped at it.
-REPORT_FORMAT: Final = "1.2"
+#: The ``report_format`` this build produces and reads. ``1.3`` under §1.6's new-optional-member
+#: row, on the post-final route (VAL-15; DEC-33's containment convention and witness partition):
+#: three optional members join shapes that did not carry them at ``1.2`` —
+#: ``WellFormednessWitness.contained_nodes``, ``DataflowWitness.contained_readers`` and
+#: ``P04Failure.contained_readers`` — each emitted only when non-empty and never verdict-bearing;
+#: the restated value rules (``reachable_from_start`` as the static START-closure ∩ V_top, the
+#: V_top narrowing of ``dynamic_dependent`` and ``outside_static_coverage``) are catalog-driven
+#: and carry no bump of their own. ``1.2`` (VAL-14; DEC-28) added ``dynamic_dependent`` and
+#: ``outside_static_coverage`` and let ``Subject.ir_version`` admit ``"1.1"``; ``1.1`` (VAL-11)
+#: added ``Promotion.property_condition`` on a witness-note promotion and
+#: ``RunReport.best_effort``; Phase-0 shipped at ``1.1``.
+REPORT_FORMAT: Final = "1.3"
 
 #: The topology-consuming wedge properties: §0.3 defines their results **only over P-01-clean
 #: topology**, and where P-01 fails their reports are best-effort diagnostics rather than
@@ -338,7 +342,7 @@ PropertyOutcome: TypeAlias = Annotated[
 class RunReport(RunReportModel):
     """The run-level wrapper (§1.2; PROPERTY-CATALOG-SPEC §0.3's scope boundary)."""
 
-    report_format: Literal["1.2"]
+    report_format: Literal["1.3"]
     tool: Tool
     #: Absent only when a tool error preceded IR identity.
     subject: Subject | None = None

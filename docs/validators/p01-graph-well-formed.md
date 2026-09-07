@@ -1,8 +1,11 @@
 # P-01 `graph-well-formed`
 
-P-01 answers one question about a workflow definition: **is the graph wired up?** Every node
-reachable from `START`, every node with nowhere left to go wired to `END`, no node standing
-outside every edge, and every reference naming a node that exists.
+P-01 answers one question about a workflow definition: **is the graph wired up?** Every
+top-level node reachable from `START`, every top-level node with nowhere left to go wired to
+`END`, no top-level node standing outside every edge, and every reference naming a node that
+exists. "Top-level" is doing real work in three of those four: a node whose id sits under
+another node's id path is that node's constituent, not a vertex of its own, and
+[its own section](#a-contained-node-is-answered-by-its-root) below says what follows from that.
 
 It is the property with the narrowest claim and the sharpest consequence. Every P-01 finding is
 **FATAL** and **DEFENSIBLE**: fatal because a dangling target or an unwired sink strands
@@ -20,13 +23,17 @@ checks, what each field of its witness and its failure record means, and where t
 
 !!! note "Following along"
 
-    Five of the six examples here run over the vendored property-fixture corpus in this
+    Five of the seven examples here run over the vendored property-fixture corpus in this
     repository, `tests/fixtures/properties/` — one YAML document per fixture, carrying an IR
-    and the verdict the specification expects for it; the sixth writes a one-node IR document by
-    hand. To run them yourself, clone the repository and put its root on `PYTHONPATH` — the
-    corpus is located from `tests.__file__`, so an example works from any directory. Nothing
-    here builds or compiles a LangGraph graph: a fixture is data, and the illustrative builder
-    code some fixtures carry is an inert string that is never compiled or run.
+    and the verdict the specification expects for it; one writes a one-node IR document by
+    hand, and one reads a committed extractor-conformance golden,
+    `tests/extraction/golden/conformance/lcel-composite.canonical.json` — the canonical
+    serialization of an extracted LCEL fragment, read here as data. To run them yourself, clone
+    the repository and put its root on `PYTHONPATH` — both directories are located from
+    `tests.__file__`, so an example works from any directory. Nothing here builds, compiles or
+    invokes a LangGraph graph or an LCEL runnable: a fixture and a golden are data, and the
+    illustrative builder code some fixtures carry is an inert string that is never compiled or
+    run.
 
 ## What P-01 checks
 
@@ -38,10 +45,17 @@ which are the catalog's, numbered as it numbers them:
 
 | Condition | What it requires | Condition ID | Anchor |
 |---|---|---|---|
-| **(i)** | every node is reachable from `START` | `node-unreachable-from-start` | the node |
-| **(ii)** | every node has somewhere to go — an outgoing edge, or membership in `finish` | `dead-end-node-not-wired-to-end` | the node |
-| **(iii)** | every node participates in at least one edge | `orphan-node` | the node |
+| **(i)** | every top-level node is reachable from `START` | `node-unreachable-from-start` | the node |
+| **(ii)** | every top-level node has somewhere to go — an outgoing edge, or membership in `finish` | `dead-end-node-not-wired-to-end` | the node |
+| **(iii)** | every top-level node participates in at least one edge | `orphan-node` | the node |
 | **(iv)** | every reference names a node that exists | `path-map-target-undefined` for a `path_map` value; `edge-target-undefined` for an `entry` id, a `finish` id, an edge's `from`, or a `normal`/`send` edge's `to` | the edge |
+
+Conditions (i)–(iii) quantify over the document's **top-level** nodes — everything not nested
+under another node's id path, the projection the specification calls $V_{top}$ — and condition
+(iv) over every reference in the document, resolved against every node (§0.3's containment
+convention; DEC-33). On the corpus fixtures the distinction is invisible, because no fixture
+nests one id under another; [the section on contained
+nodes](#a-contained-node-is-answered-by-its-root) is where it shows.
 
 Those five strings are the whole P-01 vocabulary. All of them are in the frozen condition-ID
 registry and emittable by this release (§0.4) — a validator may not emit a string the registry
@@ -109,8 +123,13 @@ the sentinel wiring adds two more; the witness is what the check over that graph
 **`kind`** is the discriminator. The envelope's witness type is a union with one member per
 property, and every consumer reads `kind` before anything else (§0.3).
 
-**`reachable_from_start`** is every node in the document. On a pass it always is — that is what
-condition (i) means — sorted in the IR's own UTF-16 code-unit order, which is why
+**`reachable_from_start`** is the top-level nodes the declared edges reach from `START` — the
+static closure, restricted to the nodes condition (i) quantifies over (§1.4 Step 5; DEC-33). On
+a flat document with no `dynamic` router, like this one, that is every node in the document, and
+on a pass it always is — that is what condition (i) means there. A pass lists fewer in exactly
+two cases, a `dynamic` router ([below](#what-a-pass-does-not-claim)) and a contained node
+([its own section](#a-contained-node-is-answered-by-its-root)), and in both the witness names
+the nodes it left out. The list is sorted in the IR's own UTF-16 code-unit order, which is why
 `handle_general` precedes `handle_technical` here rather than the order the fixture authored.
 This is the re-checkable half of the witness: walk the document's edges yourself and compare.
 
@@ -124,6 +143,14 @@ conditions (iii) and (iv) are part of this one verdict rather than a separate re
 pinned this five-key form over both a compact four-key variant and a bare pass bit, on the
 ground that the compact forms lose the orphan and unresolved-reference tuples that make a pass
 witness re-checkable at all.
+
+**Two optional keys can follow the five**, each present only when it has something to say —
+which is why this fixture's witness is the five-key form byte for byte. `dynamic_dependent`
+appears when a `dynamic` router silences condition (i) for some top-level nodes, and
+`contained_nodes` when the document nests one node's id under another's. On any pass the three
+node lists — `reachable_from_start`, `dynamic_dependent`, `contained_nodes` — are pairwise
+disjoint and together are exactly the document's nodes (§1.3; DEC-33). Both keys have their
+own sections below.
 
 **The last line is the corpus's own claim, re-run.** `models_equivalent` is §0.3's comparison —
 model equality, with multiset comparison on the fields the specification marks order-free. The
@@ -369,6 +396,125 @@ node an orphan, the fix is to wire it *or* to declare it an entry or a finish; a
 handler you reach by a router but never wire onward needs to be in `finish`, or condition (ii)
 will say so.
 
+## A contained node is answered by its root
+
+Node ids are paths (IR-SPEC §5): `research/tools/web_search` is one segment per nesting level,
+and an LCEL fragment's constituents get synthetic segments — `%seq[1]/%map[digest]` is the
+`digest` branch of a `RunnableParallel` that is the second step of a sequence. When the
+extractor emits such a fragment, the children are first-class entries in `nodes[]` and their
+containment is carried **only** in the id path: the parent keeps its edges, and no edge is
+invented between a parent and its children (INTROSPECTION-SPEC §5, "containment, not
+replacement"). Read as flat vertices, every such child has no edge of its own, so P-01's three
+node conditions would fire on all of them at once — twenty-seven findings on the fragment below,
+none of them about a defect anyone could fix.
+
+The catalog's rule is the one it already had for a mounted subgraph: a mounted composite is
+**one opaque vertex** here, and its interior is P-10's territory. A node whose id has a proper
+path prefix that is itself a node is **contained**; its **containment root** is the shortest
+such prefix; and conditions (i)–(iii) quantify over the **top-level** nodes only — a contained
+node's structural position is answered by its root (§0.3's containment convention, ratified as
+DEC-33). The rule keys on the prefix being a *declared node*, never on the `/` alone: `x/y`
+declared without `x` is an ordinary top-level node with a two-segment id.
+
+<!-- gebra:example id=a-contained-node-is-answered-by-its-root -->
+```python
+from pathlib import Path
+
+import tests
+from gebra.ir import WorkflowIR, load_json
+from gebra.verify import run_property, to_data, verify
+
+GOLDEN = Path(tests.__file__).parent / "extraction" / "golden" / "conformance"
+text = (GOLDEN / "lcel-composite.canonical.json").read_text(encoding="utf-8")
+ir = load_json(WorkflowIR, text)
+
+declared = {node.id for node in ir.nodes}
+
+
+def contained(node_id: str) -> bool:
+    """Some proper prefix of the id's segments is itself a declared node (§0.3)."""
+    segments = node_id.split("/")
+    return any("/".join(segments[:depth]) in declared for depth in range(1, len(segments)))
+
+
+nested = [node.id for node in ir.nodes if contained(node.id)]
+print(f"document  {len(ir.nodes)} nodes, {len(ir.edges)} authored edges")
+print(f"wiring    entry {ir.entry}, finish {ir.finish}")
+print(f"nested    {len(nested)} ids carry another node's id as a path prefix")
+
+report = run_property("graph-well-formed", ir)
+witness = to_data(report.witness)
+print(f"P-01      {report.result}")
+print(f"  reachable_from_start  {witness['reachable_from_start']}")
+print(f"  terminal_nodes        {witness['terminal_nodes']}")
+print(f"  contained_nodes       {len(witness['contained_nodes'])} ids:")
+for node_id in witness["contained_nodes"]:
+    print(f"                          {node_id}")
+
+run = verify(ir)
+gate = run.gate
+print(f"verify    {gate.outcome}, exit {gate.exit_code}, best_effort {list(run.best_effort)}")
+```
+
+<!-- gebra:output id=a-contained-node-is-answered-by-its-root -->
+```text
+document  12 nodes, 2 authored edges
+wiring    entry %seq[0], finish %seq[2]
+nested    9 ids carry another node's id as a path prefix
+P-01      pass
+  reachable_from_start  ['%seq[0]', '%seq[1]', '%seq[2]']
+  terminal_nodes        ['%seq[2]']
+  contained_nodes       9 ids:
+                          %seq[1]/%map[digest]
+                          %seq[1]/%map[digest]/%lambda[0]
+                          %seq[1]/%map[prose]
+                          %seq[1]/%map[prose]/%branch[0]
+                          %seq[1]/%map[prose]/%branch[1]
+                          %seq[1]/%map[tagged]
+                          %seq[1]/%map[tagged]/%bind[0]
+                          %seq[1]/%map[verbatim]
+                          %seq[2]/%retry[0]
+verify    pass, exit 0, best_effort []
+```
+
+That document is the canonical serialization the extractor produced from a three-step LCEL
+chain whose middle step fans out into four parallel branches. Three things to read off the
+transcript.
+
+**The three top-level steps are the whole of the enclosing control flow, and they are what the
+conditions checked.** `%seq[0] → %seq[1] → %seq[2]` with the entry and finish wiring is a
+well-formed chain, so P-01 passes and the run reaches exit `0` with an empty `best_effort` —
+which is what makes the other properties' verdicts on this document contract-bearing rather
+than best-effort diagnostics (§0.3).
+
+**`contained_nodes` is the coverage cost, stated.** The nine constituents were not evaluated by
+conditions (i)–(iii), and the witness says so rather than leaving you to notice; the key is
+present only when the list is non-empty, so a document with no nested id keeps the five-key form.
+Nothing here is a claim about the *interior* of `%seq[1]` — whether its branches are wired
+sensibly among themselves is P-10's question, and this release does not implement P-10. What the
+convention costs is that a defect inside a fragment is not a P-01 finding; today the only interior
+edge an extractor emits is a `seq` frame's generated chain between siblings, which no user
+authors, and that is the ruling's own pricing of the cost.
+
+**The three lists partition the document.** `reachable_from_start`, `dynamic_dependent` (absent
+here) and `contained_nodes` are pairwise disjoint and together are exactly the twelve nodes.
+`terminal_nodes` is outside the partition — it is read off the graph, which the convention leaves
+whole — so a contained node listed in `finish` would appear there *and* in `contained_nodes`.
+
+Two consequences are worth stating, because the convention changes the quantification and
+nothing else. **The graph is untouched.** A contained node's own edges still enter the graph —
+the sibling edge a `seq` frame emits between `n/%seq[0]` and `n/%seq[1]` resolves exactly as it
+did, so it is not a condition-(iv) finding — and a reference *to* a contained id resolves against
+every node. A dangling reference sourced *at* a contained node is still `edge-target-undefined`,
+anchored at that edge: condition (iv) quantifies over references, not nodes. **And a hand-written
+document can lean on the rule.** Nothing stops you declaring `plan`, wiring it, and then
+declaring `plan/x` and `plan/y` with no edges at all; P-01 passes and names both under
+`contained_nodes`. No extractor emits that shape, and the ruling records the exposure rather than
+defending against it — the witness naming the exempted ids is the whole of the defence. The same
+reading reaches P-04: a contained node outside the reachable graph raises no dataflow obligation,
+and if it declares a read, P-04's report names it under `contained_readers` so that gap is never
+silent either ([P-04's page](p04-dataflow-completeness.md#what-a-pass-does-not-claim)).
+
 ## What P-01 reads
 
 P-01 is topology-only. It reads `entry`, `finish`, `nodes[].id` and each edge's
@@ -483,10 +629,12 @@ condition read literally, and the wider reading was considered and left out so t
 cycle-adjacent defects stay P-02's — one root cause, one report. The limit is recorded as an
 open item in the specification (§1.7), not closed quietly here.
 
-**A mounted subgraph is one opaque node.** `positive-03` in the sweep above passes on its parent
-topology; the interior of a compiled subgraph is P-10's subject, and this release does not
-implement P-10 — a run answers for it with a structured not-implemented marker, never a silent
-pass.
+**A mounted subgraph is one opaque node, and so is a mounted fragment.** `positive-03` in the
+sweep above passes on its parent topology; the interior of a compiled subgraph is P-10's subject,
+and this release does not implement P-10 — a run answers for it with a structured
+not-implemented marker, never a silent pass. An LCEL fragment's children are the same relation
+carried in the id path rather than in a compiled object, which is what
+[the contained-node section](#a-contained-node-is-answered-by-its-root) above is about.
 
 **A `dynamic` router makes condition (i) stand down, and the witness says which nodes that
 cost.** A `dynamic` edge — the `ir_version` 1.1 kind for a router whose destinations are
@@ -497,13 +645,14 @@ condition (i)'s. When such a router is itself reachable from `START`, it may tar
 at runtime, so "unreachable" stops being a claim the definition supports, and P-01 does not
 report `node-unreachable-from-start` for any node of that document — the false FATAL the
 ruling exists to forbid. The price is stated on the witness rather than hidden: a pass on such
-a document carries a sixth key, `dynamic_dependent`, the sorted nodes that no declared edge
-reaches from `START` and that were not flagged only because the router exists. A genuinely
-disconnected island lands in that list, not in a finding, so read it before reading the pass —
-and note that `reachable_from_start` still lists every node, exactly as the specification's
-pseudocode writes it, because every node is *possibly* reachable once a dynamic dispatcher is.
-The key is absent when the list would be empty, so a 1.0 document's witness is the five-key form
-above, byte for byte.
+a document carries the optional key `dynamic_dependent`, the sorted top-level nodes that no
+declared edge reaches from `START` and that were not flagged only because the router exists. A
+genuinely disconnected island lands in that list, not in a finding, so read it before reading
+the pass. `reachable_from_start` and `dynamic_dependent` are disjoint: the first is the top-level
+nodes the declared edges do reach, the second the top-level nodes they do not, and neither list
+claims anything about which of them the router will in fact dispatch to (§1.4 Step 5; DEC-33 —
+before that ruling the first list named every node). The key is absent when the list would be
+empty, so a document with no `dynamic` router carries no such key.
 [The extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
 shows the key on a real document, beside P-04's companion diagnostic for the same nodes.
 
@@ -525,6 +674,7 @@ corpus's own frozen `expected:` block —
 
 The frozen contract behind this page is PROPERTY-CATALOG-SPEC §1 with the shared envelope of
 §0, and the shapes it pins were ratified in decision records DEC-11 (the five-key witness, the
-orphan reading) and DEC-12 (`edge-target-undefined`'s scope and the ordering of condition-(iv)
-findings). `gebra.verify.properties.graph_well_formed` and its tests are where that contract is
-implemented and pinned in this repository.
+orphan reading), DEC-12 (`edge-target-undefined`'s scope and the ordering of condition-(iv)
+findings), DEC-28 (`dynamic_dependent`) and DEC-33 (the containment convention, the partition
+of the pass witness and `contained_nodes`). `gebra.verify.properties.graph_well_formed` and its
+tests are where that contract is implemented and pinned in this repository.

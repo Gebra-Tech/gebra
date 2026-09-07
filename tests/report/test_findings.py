@@ -132,3 +132,19 @@ def test_the_dec_28_p04_diagnostic_is_carried_as_evidence() -> None:
         if finding.evidence
     ]
     assert evidence == [{"gebra/outsideStaticCoverage": ["book_leg"]}]
+
+
+def test_the_dec_33_p04_diagnostic_is_carried_as_evidence() -> None:
+    """DEC-33 §3.4's fourth diagnostic (report_format 1.3) rides the primary P-04 finding of the
+    contained-fragment failure case, keyed for the SARIF property bag like the other three."""
+    report = next(
+        case.report for case in CASES if case.name == "contained-fragment-dataflow-failure"
+    )
+    evidence = [
+        finding.evidence
+        for outcome in report.properties
+        if isinstance(outcome, PropertyReport)
+        for finding in findings_of(outcome)
+        if finding.evidence
+    ]
+    assert evidence == [{"gebra/containedReaders": ["%seq[1]/%map[docs]"]}]

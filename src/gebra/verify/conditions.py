@@ -190,8 +190,12 @@ _ENTRIES: Final[tuple[ConditionEntry, ...]] = (
         ratified_by="PROPERTY-CATALOG-SPEC §0.4 RATIFIED (DEC-05)",
         precedent="graph-well-formed/negative-01; mixed/04",
         note=(
-            "P-01 owns unreachable code entirely (DEC-05 D2): a downstream dataflow gap "
-            "under an unreachable node is subsumed here, never double-blamed."
+            "P-01 owns unreachable top-level code (DEC-05 D2, qualified at DEC-33 by §0.3's "
+            "containment convention): a downstream dataflow gap under an unreachable "
+            "top-level node is subsumed here, never double-blamed. The two carve-outs are "
+            "surfaced, never silent — a contained node's reads outside P-04's static Reach ride "
+            "P-04's `contained_readers`, and on a document with a reachable `dynamic` edge the "
+            "silenced case rides its `outside_static_coverage` (DEC-28)."
         ),
     ),
     ConditionEntry(

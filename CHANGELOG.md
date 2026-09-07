@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **P-01's node conditions quantify over the top-level nodes, so an extracted LCEL fragment
+  with a nested frame reaches a verdict** (card VAL-15; `gebra.verify`). A node whose id has a
+  proper path prefix that is itself a node — an LCEL fragment's children, which mount by path
+  containment and never by edge — is **contained**: a constituent of its containment root, not a
+  vertex of the enclosing control flow (PROPERTY-CATALOG-SPEC §0.3's containment convention,
+  ratified DEC-33, 2026-09-06). P-01's conditions (i), (ii) and (iii) now quantify over the
+  top-level nodes only; condition (iv), the graph and every other property read the document
+  exactly as before, so a contained node's own edge still resolves and a dangling reference
+  sourced at one is still `edge-target-undefined`. The two LCEL conformance documents that
+  failed P-01 as written — 27 and 3 FATALs, every one on a contained child no author could have
+  wired — reach `pass`, and `gebra verify` exits `0` on them with an empty `best_effort`, which
+  makes P-02/P-04/P-06's verdicts on a nested fragment contract-bearing for the first time. The
+  cost is surfaced, never silent, on the DEC-28 pattern: P-01's pass witness gains the optional
+  `contained_nodes` (the contained ids, present only when non-empty, never part of the verdict),
+  and P-04's report gains `contained_readers` — the contained nodes outside the static
+  `START`-closure that declare a read, whose reads no analysis in the run covers — on the pass
+  witness or on the primary finding. A contained node on a declared `START`-path keeps its P-04
+  obligation exactly as before. No condition ID is added, and every corpus verdict is byte-unchanged:
+  no corpus fixture nests an id (machine-checked on every load), so neither new member reaches the
+  wire on any of them. The human rendering carries both as labelled evidence lines; the SARIF
+  projection carries the P-04 one as the `gebra/containedReaders` property. The shared graph model
+  exposes the split once for every validator (`GraphModel.contained_nodes`, `top_level_nodes`,
+  `containment_root`).
 - **`verify()` reads an `ir_version` 1.1 document — one carrying a `dynamic` edge — and reaches
   a verdict** (card VAL-14; `gebra.verify`). The `dynamic` edge kind (ratified DEC-28,
   2026-08-09) represents a router whose target set is not statically known — a bare-`Send`
@@ -36,6 +59,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`report_format` is `1.3`** (card VAL-15; `gebra.verify.REPORT_FORMAT`,
+  `docs/specs/REPORT-FORMAT-SPEC.md` §1.6). The three optional members above join envelope
+  shapes that did not carry them at `1.2` — `WellFormednessWitness.contained_nodes`,
+  `DataflowWitness.contained_readers`, `P04Failure.contained_readers` — the new-optional-member
+  MINOR row of §1.6's bump table, travelled by the same post-final route as `1.2` (a card of its
+  own, an amendment-log row, this entry). Two consumer-side consequences, as at `1.2`: a strict
+  `1.2` consumer (`extra="forbid"`) refuses a `1.3` report that carries one of the new members,
+  which is the intended failure §1.6 asks consumers to read `report_format` for; and `gebra
+  display --report` in this build refuses a `1.2` report file written by the previous build,
+  naming the version it reads — re-running `gebra verify` produces a `1.3` report, and a store's
+  `.gebra/reports/` audit exports are re-exported the same way. Exit-code derivation, the finding
+  set and strict-mode reach are untouched.
+- **P-01's `reachable_from_start` is the static `START`-closure of the top-level nodes, and on a
+  pass the witness's three node lists partition the document** (card VAL-15; PROPERTY-CATALOG-SPEC
+  §1.4 Step 5 as ratified at DEC-33, resolving PD-056). Since `1.2` a pass on a document with a
+  reachable `dynamic` router listed *every* node under `reachable_from_start` and then named some
+  of them again under `dynamic_dependent`; the member now keeps its name's plain meaning, and
+  `reachable_from_start` ⊎ `dynamic_dependent` ⊎ `contained_nodes` is exactly the node set.
+  `dynamic_dependent` and P-04's `outside_static_coverage` narrow to the top-level nodes, so a
+  contained node is listed by `contained_nodes`/`contained_readers` alone and never twice. These
+  are value rules PROPERTY-CATALOG-SPEC owns, recorded in §1.6's `1.3` row as catalog-driven
+  rather than as a bump of their own. The human `dynamic-dependent` line no longer says "of these"
+  (false under the partition); it states that the list sits beside the reachable list and still
+  claims neither reachability nor unreachability. The two `dynamic-dispatch*` report goldens and
+  their human renderings moved accordingly, with this ruling as the justification; and the SARIF
+  rules catalog's condition-(i) description reads "every top-level node of the workflow
+  definition", PROPERTY-CATALOG-SPEC Appendix C.2's amended copy — display prose that no
+  fingerprint reads, so no result identity moved.
 - **`report_format` is `1.2`** (card VAL-14; `gebra.verify.REPORT_FORMAT`,
   `docs/specs/REPORT-FORMAT-SPEC.md` §1.6). The three optional members above join envelope
   shapes that did not carry them at `1.1`, and `subject.ir_version` admits `"1.1"`, the stamp a

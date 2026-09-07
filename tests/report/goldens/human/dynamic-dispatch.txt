@@ -2,15 +2,15 @@ gebra <gebra-version> — travel_booking:build_graph (ir-document)
   identity                ir_version 1.1 | graph_version sha256:e10cdc0550c540b6... | strict off
 
 P-01 graph-well-formed — pass  [DEFENSIBLE]
-  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+  witness                 1 node reachable from START | 1 terminal node | no orphan nodes | no 
 unresolved targets | 2 dynamic-dependent nodes
-    reachable from START    3 nodes: book_leg, collect, plan
+    reachable from START    1 node: plan
     terminal nodes          collect
     orphan check            evaluated — no node stands outside every edge
     reference check         evaluated — every edge and path_map target resolves
-    dynamic-dependent       of these, 2 nodes depend on a dynamic router: no declared START-path 
-reaches them, so their reachability is neither claimed nor denied here, and P-04 generates no 
-obligation for their reads: book_leg, collect
+    dynamic-dependent       2 top-level nodes beside the list above that no declared START-path 
+reaches: a reachable dynamic router may dispatch to them, so their reachability is neither claimed 
+nor denied here, and P-04 generates no obligation for their reads: book_leg, collect
 
 P-02 termination-witness — pass  [DEFENSIBLE]
   witness                 0 declared witnesses in the inventory | acyclicity certificate present
@@ -30,9 +30,9 @@ P-04 dataflow-completeness — pass  [DEFENSIBLE-A]
   witness                 1 (reader, key) obligation covered | 2 readers outside static coverage
     coverage                1 (reader, key) obligation covered
     covered                 plan reads legs <- covered by START (boundary source)
-    outside static coverage 2 nodes with declared reads that no START-path of the static graph 
-reaches — reachable only through a dynamic router, so no analysis in this run covers those reads: 
-book_leg, collect
+    outside static coverage 2 top-level nodes with declared reads that no START-path of the static 
+graph reaches — reachable only through a dynamic router, so no analysis in this run covers those 
+reads: book_leg, collect
 
 P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
   status                  no verdict was reached — this is not a pass, and it is outside the Phase-0

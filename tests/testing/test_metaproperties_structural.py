@@ -500,11 +500,17 @@ def test_emptying_entry_unreaches_exactly_every_declared_node(mutation: Mutation
     of condition (iii) under Reading A. The emission order is ledger §6 over $V$, so the primary
     is the ledger-least node; ``sorted(...)`` here is the same comparator §1.4 Steps 2–4 iterate.
     """
-    declared = [node.id for node in mutation.ir.nodes]
+    declared = {node.id for node in mutation.ir.nodes}
+    top_level = sorted(declared - _contained(declared), key=ledger_sort_key)
     findings = _findings(check_graph_well_formed(mutation.ir))
 
-    assert [condition for condition, _ in findings] == [NODE_UNREACHABLE_FROM_START] * len(declared)
-    assert [location.node for _, location in findings] == sorted(declared, key=ledger_sort_key)
+    # Exactly V_top, not V: a draw may nest one id under another (`a` and `a/b` both declared),
+    # and condition (i) quantifies over the top-level projection (§0.3 containment convention,
+    # DEC-33) — the contained node is its root's constituent, not a second unreachable vertex.
+    assert [condition for condition, _ in findings] == [NODE_UNREACHABLE_FROM_START] * len(
+        top_level
+    )
+    assert [location.node for _, location in findings] == top_level
     assert findings[0][1] == mutation.location
 
 
@@ -547,22 +553,31 @@ def test_the_pass_witness_is_exactly_the_graph_it_describes(ir: WorkflowIR) -> N
     """MP-01-8. Witness validity: every field re-derived from the surface, not trusted.
 
     Every draw is P-01 clean, so every run here is a pass and the witness is the whole output.
-    ``reachable_from_start`` is ``sorted(V)`` — §1.4 Step 5 writes it with the comment "==
-    reachable on pass", and it is, because a non-reachable id would have filled the finding list
-    instead. ``terminal_nodes`` is re-derived here as the two ways a document reaches ``__end__``
+    ``reachable_from_start`` is the static ``START``-closure ∩ $V_{top}$ — §1.4 Step 5 as
+    ratified at DEC-33 (PD-056) — which on a clean draw is exactly ``sorted(V_top)``, because a
+    non-reachable top-level id would have filled the finding list instead; the ids a draw nests
+    under another declared id ride ``contained_nodes`` (absent when there are none), and the two
+    partition $V$ — a draw carries no ``dynamic`` edge, so the third list is never present.
+    Containment is re-derived here from the ids alone (:func:`_contained`), never read off the
+    shared model. ``terminal_nodes`` is re-derived as the two ways a document reaches ``__end__``
     — ``finish`` membership (m2) and a ``path_map`` label valued ``"END"`` (m3) — rather than
-    read back off the same model the validator used. The two empty lists are empty by
+    read back off the same model the validator used; it is read off $G$, which the convention
+    leaves whole, so it may name a contained ``finish`` id too. The two empty lists are empty by
     construction on this path.
 
-    The last assertion is DEC-12's phantom hole, closed from the other side: **every id the
+    The last assertions are DEC-12's phantom hole, closed from the other side: **every id the
     witness names is a declared node**. An unresolved reference emits and inserts nothing, so
     there is no phantom to leak — and the way that guarantee would break is a witness naming an
     id no ``nodes[]`` entry declares, which is what this checks.
     """
     declared = {node.id for node in ir.nodes}
+    contained = _contained(declared)
     witness = _witness(check_graph_well_formed(ir))
 
-    assert witness.reachable_from_start == tuple(sorted(declared, key=ledger_sort_key))
+    assert witness.reachable_from_start == tuple(sorted(declared - contained, key=ledger_sort_key))
+    assert witness.contained_nodes == (tuple(sorted(contained, key=ledger_sort_key)) or None)
+    assert witness.dynamic_dependent is None
+    assert set(witness.reachable_from_start) | set(witness.contained_nodes or ()) == declared
     assert witness.terminal_nodes == tuple(sorted(_terminals(ir), key=ledger_sort_key))
     assert witness.orphan_nodes == ()
     assert witness.unresolved_targets == ()
@@ -1173,11 +1188,19 @@ def _by_hand(ir: WorkflowIR) -> list[tuple[ConditionId, str]]:
       ``"END"`` literal *is* an outgoing edge (m3), which is why targets are counted before they
       are filtered to declared ids.
 
+    All three quantify over the **top-level projection** $V_{top}$ (§0.3 containment convention;
+    ratified — DEC-33, 2026-09-06): a declared id with a proper path prefix that is itself
+    declared is a constituent of that root and is outside (i)–(iii). :func:`_contained` derives
+    the split from the ids alone, so this is a second opinion on the shared model's split too.
+    Participation and reachability are still computed over the whole of $V$ — a contained node's
+    own edge is real topology — only the quantification narrows.
+
     Every caller quantifies only over operators that leave references resolvable, so the
     ``& declared`` intersections below never drop anything the validator would have kept; they
     are there because the derivation should be total rather than rely on that.
     """
     declared = {node.id for node in ir.nodes}
+    top_level = declared - _contained(declared)
     entry = set(_wired(ir.entry)) & declared
     finish = set(_wired(ir.finish)) & declared
     participates = entry | finish
@@ -1198,7 +1221,7 @@ def _by_hand(ir: WorkflowIR) -> list[tuple[ConditionId, str]]:
         reachable.add(vertex)
         frontier.extend(out[vertex] & declared)
 
-    order = sorted(declared, key=ledger_sort_key)
+    order = sorted(top_level, key=ledger_sort_key)
     return [
         *[(ORPHAN_NODE, node_id) for node_id in order if node_id not in participates],
         *[(NODE_UNREACHABLE_FROM_START, node_id) for node_id in order if node_id not in reachable],
@@ -1208,6 +1231,22 @@ def _by_hand(ir: WorkflowIR) -> list[tuple[ConditionId, str]]:
             if not out[node_id] and node_id not in finish
         ],
     ]
+
+
+def _contained(declared: set[str]) -> set[str]:
+    """$V \\setminus V_{top}$ from the ids alone — §0.3's containment convention, re-derived.
+
+    A declared id is contained iff some proper prefix of its ``/``-split segments, re-joined, is
+    itself declared (IR-SPEC §5.1 makes ``split("/")`` context-free; §7 (H3)). Written here
+    rather than imported from :mod:`gebra.verify.graph` so that agreement with the validator's
+    ``contained_nodes`` is evidence about the shared model and not a restatement of it.
+    """
+    contained: set[str] = set()
+    for node_id in declared:
+        segments = node_id.split("/")
+        if any("/".join(segments[:depth]) in declared for depth in range(1, len(segments))):
+            contained.add(node_id)
+    return contained
 
 
 def _assert_real_cycle(model: GraphModel, cycle: tuple[str, ...]) -> None:

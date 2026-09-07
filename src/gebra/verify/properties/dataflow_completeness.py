@@ -18,23 +18,34 @@ satisfies its own read — which is the runtime fact that the first iteration of
 entry-at-reader loop sees the key unwritten.
 
 **Scope is `START`-paths only (DEC-05 D2).** An unreachable node generates **no** P-04
-obligation and its reads are P-01's findings exclusively — one root cause, one report, no
-double-blame; where a run-level report surfaces the interaction it does so with
-``subsumed_by: "P-01"`` on the record (``mixed/04`` is the pinned precedent). ⊤-initialization
-plus the reachable-only obligation loop of :func:`_obligations` is what mechanizes that
-(memo A8 T4): the reads of an unreachable node are never enumerated, so there is nothing for
-this validator to package.
+obligation — one root cause, one report, no double-blame; where a run-level report surfaces the
+interaction it does so with ``subsumed_by: "P-01"`` on the record (``mixed/04`` is the pinned
+precedent). For a **top-level** node on a document with no reachable ``dynamic`` edge its reads
+are P-01's findings exclusively (§4.1 as amended at DEC-33: the qualifier is §0.3's containment
+convention, the other carve-out DEC-28's silenced case, both below). ⊤-initialization plus the
+reachable-only obligation loop of :func:`_obligations` is what mechanizes the subsumption (memo
+A8 T4): the reads of an unreachable node are never enumerated, so there is nothing for this
+validator to package.
 
-**The ``dynamic`` edge (ir 1.1 — ratified DEC-28, 2026-08-09) contributes no path** — §4.4
-Step 0's ``elif e.kind == dynamic: continue``, realized once in the shared model (§0.3's one
-convention for every graph builder). The quantification stays over START→n paths of the
-*static* graph, so a node reachable only through dynamic dispatch generates no obligation, and
-because P-01's condition (i) is over-approximation-silenced on such a document (DEC-28 clause
-1) no analysis covers its reads. DEC-28 clause 2 rules that this absence must never be
-silent: the report gains the optional ``outside_static_coverage`` diagnostic — the nodes with
-declared reads outside the static START closure, on a document with a reachable ``dynamic``
-edge — emitted only when non-empty (DEC-11 discipline), never verdict-bearing, on the pass
-witness and on the primary failure alike (:func:`_outside_static_coverage`).
+**Two coverage-cost diagnostics name the readers that scope leaves to nobody** (§4.4 Step 2;
+:func:`_coverage_diagnostics`) — each emitted only when non-empty (DEC-11 discipline), never
+verdict-bearing, on the pass witness and on the primary failure alike (PD-057 D2), and disjoint
+by construction. **The ``dynamic`` edge (ir 1.1 — ratified DEC-28, 2026-08-09) contributes no
+path** — §4.4 Step 0's ``elif e.kind == dynamic: continue``, realized once in the shared model
+(§0.3's one convention for every graph builder). The quantification stays over START→n paths of
+the *static* graph, so a node reachable only through dynamic dispatch generates no obligation,
+and because P-01's condition (i) is over-approximation-silenced on such a document (DEC-28
+clause 1) no analysis covers its reads. DEC-28 clause 2 rules that this absence must never be
+silent: ``outside_static_coverage`` names the **top-level** nodes with declared reads outside the
+static START closure, on a document with a reachable ``dynamic`` edge (restricted to $V_{top}$
+at DEC-33 §3.4 clause 3, so the two diagnostics never list one node). **A contained node**
+(§0.3's containment convention — some proper path prefix of its id is itself a node; ratified —
+DEC-33, 2026-09-06) is outside P-01's conditions (i)–(iii) by that convention, so a contained
+reader outside the closure is again nobody's finding: ``contained_readers`` names it. The remedy
+differs — a containment root rather than a dispatcher — which is why they are distinct members
+(DEC-05 D4 applied to a diagnostic). A contained reader *inside* the closure — wired from a
+reachable node, or listed in ``entry`` — keeps its Step-4 obligation exactly as any other
+reachable reader and never appears in either list.
 
 **The algorithm is the MFP fixpoint** of §4.4 Step 3 — the gen-only, ⊤-initialized,
 ∩-meet forward framework of §4.1, whose iterative solution equals the meet-over-all-paths
@@ -249,9 +260,10 @@ def check_dataflow_completeness(
         :class:`~gebra.verify.witnesses.DataflowWitness` carrying one coverage entry per
         (reachable reader, read key), or ``fail`` with the ledger-§6-first finding as the
         primary :class:`~gebra.verify.report.P04Failure` and every further finding as a
-        same-property ``co_failure`` (§0.3 packaging; findings are never dropped). On a
-        document with a statically reachable ``dynamic`` edge either carries the optional
-        ``outside_static_coverage`` diagnostic when it is non-empty (DEC-28 clause 2).
+        same-property ``co_failure`` (§0.3 packaging; findings are never dropped). Either
+        carries the two optional coverage-cost diagnostics when they are non-empty:
+        ``outside_static_coverage`` on a document with a statically reachable ``dynamic`` edge
+        (DEC-28 clause 2) and ``contained_readers`` on one with contained nodes (DEC-33).
 
     Raises:
         ValueError: if ``model`` was built without P-04's degradation convention.
@@ -262,7 +274,7 @@ def check_dataflow_completeness(
     # Step 2 — D2 scope. The union is not decoration: `descendants` excludes its own source
     # (VAL-03 mirrors `nx.descendants` there), and START is a member of its own closure here.
     reach = graph.descendants(START_VERTEX) | {START_VERTEX}
-    outside = _outside_static_coverage(graph, reach, contracts)
+    outside, contained = _coverage_diagnostics(graph, reach, contracts)
 
     inn = _fixpoint(graph, reach, contracts)
     coverage, findings = _obligations(graph, reach, contracts, inn)
@@ -285,9 +297,11 @@ def check_dataflow_completeness(
                 # than a decorated variant of it.
                 writers_on_other_paths=primary.writers_on_other_paths or None,
                 downstream_writers=primary.downstream_writers or None,
-                # DEC-28 clause 2's report-level diagnostic rides the primary — the one carrier
-                # a failing report has — beside the two per-finding ones (see `P04Failure`).
+                # The two report-level coverage-cost diagnostics ride the primary — the one
+                # carrier a failing report has — beside the two per-finding ones (see
+                # `P04Failure`; DEC-28 clause 2, DEC-33 §3.4; PD-057 D2).
                 outside_static_coverage=outside or None,
+                contained_readers=contained or None,
                 co_failures=co_failures or None,
             ),
         )
@@ -295,37 +309,59 @@ def check_dataflow_completeness(
     return PropertyReport.passing(
         PROPERTY_SLUG,
         DataflowWitness(
-            kind="dataflow", coverage=tuple(coverage), outside_static_coverage=outside or None
+            kind="dataflow",
+            coverage=tuple(coverage),
+            outside_static_coverage=outside or None,
+            contained_readers=contained or None,
         ),
     )
 
 
-def _outside_static_coverage(
+def _coverage_diagnostics(
     graph: GraphModel, reach: frozenset[str] | set[str], contracts: _Contracts
-) -> tuple[str, ...]:
-    """DEC-28 clause 2's diagnostic: readers no analysis covers on a dynamic-bearing document.
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """§4.4 Step 2's two coverage-cost diagnostics: ``(outside_static_coverage, contained_readers)``.
 
-    §4.4 Step 0's ``dynamic`` branch, in its own words: P-04's "quantification stays over
-    START→n paths of the STATIC graph; nodes reachable only via dynamic dispatch generate no
-    P-04 obligations — and with (i) over-approximation-silenced, no analysis covers their
-    reads. NEVER silent". So, exactly when a ``dynamic`` edge's source is statically reachable
-    (the same trigger P-01 §1.4 Step 3 keys on — :meth:`GraphModel.reachable_dynamic_sources`),
-    every declared node outside ``Reach`` that declares at least one read is named, in ledger
-    §6 order and report-side spelling. "Declared reads" is ``annotations.input`` as declared,
-    Σ-membership aside: a read of a key outside Σ is P-03's finding, but it is still a read
+    Both start from the same set — ``readers_outside := { v ∈ V : v ∉ Reach and reads(v) ≠ ∅ }``,
+    the declared nodes outside the static ``START`` closure that declare at least one read —
+    and split it on the shared model's §0.3 containment convention, in ledger §6 order and
+    report-side spelling. "Declared reads" is ``annotations.input`` as declared, Σ-membership
+    aside (PD-057 D3): a read of a key outside Σ is P-03's finding, but it is still a read
     nothing here covers.
 
-    When no dispatcher is reachable the list is empty and the unreachable reader is P-01's
-    finding alone (DEC-05 D2) — the D2 scope in :func:`_obligations` is untouched either way;
-    this function adds a diagnostic, never an obligation. Empty on every ir 1.0 document.
+    * ``outside_static_coverage`` is DEC-28 clause 2's, over $V_{top}$ (DEC-33 §3.4 clause 3 —
+      "the P-04 twin of P-01 Step 3's $V_{top}$ narrowing"). §4.4 Step 0's ``dynamic`` branch,
+      in its own words: P-04's "quantification stays over START→n paths of the STATIC graph;
+      nodes reachable only via dynamic dispatch generate no P-04 obligations — and with (i)
+      over-approximation-silenced, no analysis covers their reads. NEVER silent". So it is
+      filled exactly when a ``dynamic`` edge's source is statically reachable — the same
+      trigger P-01 §1.4 Step 3 keys on, :meth:`GraphModel.reachable_dynamic_sources` — and is
+      empty otherwise, when the unreachable top-level reader is P-01's finding alone (DEC-05
+      D2). Empty on every ir 1.0 document.
+    * ``contained_readers`` is DEC-33 §3.4's, over $V \\setminus V_{top}$: a contained node is
+      outside P-01's conditions (i)–(iii) by §0.3's convention, so without this member its
+      reads outside the closure would be nobody's finding — the silence class PD-041 clause 2
+      closed for dynamic dispatch. No dispatcher condition: it is filled on any document with a
+      contained reader outside ``Reach``. Empty on every flat document.
+
+    ``outside_static_coverage ∩ contained_readers = ∅`` by construction (§4.4 Step 2's stated
+    invariant). The D2 scope in :func:`_obligations` is untouched either way — this function
+    adds diagnostics, never an obligation — and a contained reader *inside* ``Reach`` keeps its
+    obligation there and appears in neither list.
     """
-    if not graph.reachable_dynamic_sources():
-        return ()
-    return tuple(
-        to_display(vertex)
+    readers_outside = [
+        vertex
         for vertex in graph.vertices
         if vertex in graph.node_ids and vertex not in reach and contracts.reads[vertex]
+    ]
+    top_level = graph.top_level_nodes
+    outside = (
+        tuple(to_display(vertex) for vertex in readers_outside if vertex in top_level)
+        if graph.reachable_dynamic_sources()
+        else ()
     )
+    contained = tuple(to_display(vertex) for vertex in readers_outside if vertex not in top_level)
+    return outside, contained
 
 
 def _model_for(ir: WorkflowIR, model: GraphModel | None) -> GraphModel:

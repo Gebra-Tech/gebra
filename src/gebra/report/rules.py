@@ -66,9 +66,9 @@ _COPY: Final[Mapping[ConditionId, RuleCopy]] = MappingProxyType(
         "node-unreachable-from-start": RuleCopy(
             short_description="Node unreachable from START",
             full_description=(
-                "P-01 graph-well-formed, condition (i): every node of the workflow definition "
-                "is reachable from START in the sentinel-augmented graph. This node is not, so "
-                "nothing in the definition routes into it."
+                "P-01 graph-well-formed, condition (i): every top-level node of the workflow "
+                "definition is reachable from START in the sentinel-augmented graph. This node "
+                "is not, so nothing in the definition routes into it."
             ),
             help_text=(
                 "Wire an edge — or a conditional path_map label — into the node, or remove the "

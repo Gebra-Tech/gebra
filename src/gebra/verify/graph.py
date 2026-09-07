@@ -28,6 +28,19 @@ section decides what that membership means for it, and
 :meth:`GraphModel.reachable_dynamic_sources` is the one shared test of "a reachable ``dynamic``
 edge exists". On an ir 1.0 document the set is empty and nothing else differs.
 
+**H3 containment (IR-SPEC §7) is read here once, for the two sections that quantify over it
+(ratified — DEC-33, 2026-09-06).** §0.3's second "one convention for every graph builder": a node whose id has a
+proper path prefix, segment-wise over the §5.1 split-safe ``/`` delimiter, that is itself a
+member of $V$ is *contained* — a constituent of its containment root, not a vertex of the
+enclosing control flow. The model records the split as :attr:`GraphModel.contained_nodes` and
+its complement :attr:`GraphModel.top_level_nodes` ($V_{top}$); $V$ and the edge set stay whole,
+because §0.3 changes what P-01's node-quantified conditions (i)–(iii) *quantify over* and not
+the graph they run on — a contained node's own explicit edge or ``entry``/``finish`` membership
+still enters $G^*$, and condition (iv) still resolves a reference naming a contained id against
+the whole of $V$. P-04 reads the same split for its ``contained_readers`` diagnostic and the
+$V_{top}$ restriction of ``outside_static_coverage`` (§4.4 Step 2). On a flat document — every
+corpus fixture — both sets are what they always were: $V_{top} = V$ and nothing is contained.
+
 **The P-01-clean precondition, which is why "one shared graph" is not "one shared answer".**
 §0.3: topology-consuming validators "have results **normatively defined only over P-01-clean
 topology**", and each section documents its own local degradation convention — P-01 drops
@@ -331,7 +344,9 @@ class GraphModel:
             IR this is $V \\cup \\{$``__start__``, ``__end__``$\\}$, plus any carried
             references (see :func:`build_graph_model`).
         node_ids: $V$ — the ids declared in ``ir.nodes``, without sentinels and without
-            carried references. The set P-01's conditions (i)–(iii) quantify over.
+            carried references. P-01's conditions (i)–(iii) quantify over its top-level
+            projection :attr:`top_level_nodes`, never over the whole set (§0.3 containment
+            convention — DEC-33); condition (iv) resolves references against all of it.
         edges: Every expanded edge, in emission order: the ``entry`` wirings, the ``finish``
             wirings, then ``ir.edges`` in authored order with each router's ``path_map``
             labels in authored order. Emission order is *not* a normative order — every
@@ -370,6 +385,61 @@ class GraphModel:
     def vertex_set(self) -> frozenset[str]:
         """:attr:`vertices` as a set, for O(1) membership."""
         return frozenset(self.vertices)
+
+    # ── The §0.3 containment convention (ratified — DEC-33, 2026-09-06) ─────────────────
+
+    @cached_property
+    def contained_nodes(self) -> frozenset[str]:
+        """$V \\setminus V_{top}$ — every declared id with a proper path prefix that is itself declared.
+
+        PROPERTY-CATALOG-SPEC §0.3's containment convention, read over IR-SPEC §7's (H3)
+        relation: a node is **contained** iff some proper segment-prefix of its id, over the
+        §5.1 split-safe ``/`` delimiter, is a member of :attr:`node_ids`. The predicate is
+        membership of the *prefix*, never the presence of a ``/`` — ``a/b`` declared without
+        ``a`` is a top-level node with a two-segment id, and an escaped ``%2F`` never splits.
+        Computed once per model, $O(|V| \\cdot s)$ prefix lookups for a maximum segment depth
+        $s$ (§1.5's added term), and read by P-01 §1.4 Steps 2–5 and P-04 §4.4 Step 2.
+
+        A contained node is a constituent of its :meth:`containment_root`, not a vertex of the
+        enclosing control flow: it is outside P-01's node-quantified conditions (i)–(iii) and
+        is named on the pass witness's ``contained_nodes`` instead. It is **still** a vertex of
+        this model — its own edges and sentinel memberships entered :attr:`edges` exactly as
+        any other node's — so nothing about the graph moves; only the quantification does.
+
+        The split is a fact about the *document*: a :meth:`subgraph` recomputes it over the ids
+        it kept, which is well-defined but not the document's convention, and no validator
+        reads containment off an induced piece.
+        """
+        return frozenset(vertex for vertex in self.node_ids if _is_contained(vertex, self.node_ids))
+
+    @cached_property
+    def top_level_nodes(self) -> frozenset[str]:
+        """$V_{top}$ — the declared ids that are not :attr:`contained_nodes` (§0.3; DEC-33).
+
+        The domain of P-01's conditions (i), (ii) and (iii) and of P-04's
+        ``outside_static_coverage`` diagnostic. Equal to :attr:`node_ids` on every document
+        whose ids share no proper prefix, which is every corpus fixture.
+        """
+        return self.node_ids - self.contained_nodes
+
+    def containment_root(self, vertex: str) -> str:
+        """The containment root of ``vertex`` — the shortest declared proper prefix of its id.
+
+        §0.3: "the member of $V$ that is a prefix of it and has no proper prefix of its own in
+        $V$ — unique, because a given id's prefixes-in-$V$ are linearly ordered by length, so
+        the shortest is the only one". A top-level node is its own root.
+
+        Raises:
+            KeyError: if ``vertex`` is not a declared node id of this model.
+        """
+        if vertex not in self.node_ids:
+            raise KeyError(f"{vertex!r} is not a declared node of this model")
+        segments = vertex.split("/")
+        for depth in range(1, len(segments)):
+            prefix = "/".join(segments[:depth])
+            if prefix in self.node_ids:
+                return prefix
+        return vertex
 
     @cached_property
     def _out(self) -> dict[str, tuple[ExpandedEdge, ...]]:
@@ -727,6 +797,18 @@ _END_LITERAL: Final = "END"
 def _as_ids(wired: str | tuple[str, ...]) -> tuple[str, ...]:
     """The ``entry``/``finish`` surface, scalar or list form, as a tuple (ledger §1)."""
     return (wired,) if isinstance(wired, str) else wired
+
+
+def _is_contained(node_id: str, declared: frozenset[str]) -> bool:
+    """Whether some proper segment-prefix of ``node_id`` is itself a member of ``declared``.
+
+    ``str.split("/")`` is the §5.1 split: the grammar escapes a literal ``/`` as ``%2F``, so
+    "``node_id.split("/")`` is always correct with no context" (IR-SPEC §5.1) and
+    :func:`gebra.ir.identity.split_node_id` documents the equality on every admitted id. The
+    ids here have already been through the grammar at IR load.
+    """
+    segments = node_id.split("/")
+    return any("/".join(segments[:depth]) in declared for depth in range(1, len(segments)))
 
 
 def build_graph_model(ir: WorkflowIR, *, carry_unresolved_references: bool = False) -> GraphModel:

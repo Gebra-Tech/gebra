@@ -67,8 +67,11 @@ what its predecessors left. On a loop that is the difference between a pass and 
 
 One scope rule follows, and it is why a P-04 report can be quieter than you expect: **the
 quantification is over `START`-paths only.** A node no path from `START` reaches raises no P-04
-obligation at all — its reads are P-01's finding and not this property's (§4.1; decision record
-DEC-05). That has [its own section](#the-p-01-boundary) too.
+obligation at all — for a top-level node on a document with no `dynamic` router, its reads are
+P-01's finding and not this property's (§4.1; decision record DEC-05, qualified at DEC-33), and
+the two cases that qualifier carves out are named on the report rather than left silent
+([`outside_static_coverage` and `contained_readers`](#what-a-pass-does-not-claim), below). That
+has [its own section](#the-p-01-boundary) too.
 
 P-04 has exactly one thing to say when a document does not satisfy the rule:
 
@@ -598,19 +601,23 @@ missing `booking_id` leads and `notify`'s missing `confirmation_ref` follows.
 **A co-failure carries its own property, condition, location, severity and claim class** — enough
 to act on, and each is graded on its own account rather than inheriting the primary's.
 
-**A co-failure does not carry the two diagnostics.** `downstream_writers` names `book` on the
+**A co-failure does not carry the diagnostics.** `downstream_writers` names `book` on the
 primary; `notify`'s finding would have named `book` too, and the co-failure model has no field for
 it and admits no extras (§0.3). If you are triaging from the co-failures alone, the diagnostics are on
-the primary or nowhere.
+the primary or nowhere — and that goes for the two report-level ones too, `outside_static_coverage`
+and `contained_readers`, which ride the primary finding because it is the one carrier a failing
+report has ([below](#what-a-pass-does-not-claim)).
 
 ## The P-01 boundary
 
 P-04 and P-01 both walk the topology, and where they meet there is one rule and one caveat.
 
-The rule is scope: **a node no path from `START` reaches raises no P-04 obligation.** Its reads are
-owned by P-01's unreachable-node finding — one root cause, one report, no double-blame (§4.1;
-DEC-05). The document below is that rule from both sides: a compliance node that reads a key nobody
-writes, first with nothing routing to it and then with one edge added.
+The rule is scope: **a node no path from `START` reaches raises no P-04 obligation.** For a
+top-level node its reads are owned by P-01's unreachable-node finding — one root cause, one
+report, no double-blame (§4.1; DEC-05; the top-level qualifier is DEC-33's, and the section on
+[what a pass does not claim](#what-a-pass-does-not-claim) says what happens to a reader P-01 does
+not quantify over). The document below is that rule from both sides: a compliance node that reads
+a key nobody writes, first with nothing routing to it and then with one edge added.
 
 <!-- gebra:example id=an-unreachable-reader-is-p-01s -->
 ```python
@@ -882,23 +889,46 @@ statement about the definition in front of you, not a prediction about a run. Th
 the check: the branch nobody exercised is exactly the branch a per-path rule reaches, and it
 reaches it before anything runs.
 
-Two smaller limits worth keeping straight. **A pass is about reachable readers** — the
-[boundary section](#the-p-01-boundary) above is the whole of that story. **And "reachable"
-means reachable by declared edges.** A `dynamic` edge — the `ir_version` 1.1 kind for a router
+Three smaller limits worth keeping straight, two of which the report names on the record so
+they are never silent. **A pass is about reachable readers** — the
+[boundary section](#the-p-01-boundary) above is the whole of that story. **"Reachable" means
+reachable by declared edges.** A `dynamic` edge — the `ir_version` 1.1 kind for a router
 whose destinations are computed rather than declared — contributes no path to the graph P-04
 quantifies over (§4.4 Step 0; DEC-28), so a node only such a router can reach generates no
 obligation, and because P-01 does not report it unreachable on such a document (its condition
 (i) is deliberately silenced there — a router that may target any node makes static
 unreachability an unsafe claim), no analysis covers that node's reads at all. The report does
 not let that pass silently: on a document with a reachable `dynamic` edge it carries
-`outside_static_coverage`, the sorted list of nodes with declared reads that no declared
-START-path reaches — on the pass witness, or on the primary finding when the reachable part of
-the graph fails — emitted only when non-empty and never a finding in its own right. Read a pass
-beside that list as "every read on a declared path is covered; these readers were not
-analysed", and declare the router's targets (a `path_map`, a `Literal[...]` return hint, or
-`destinations=`) when you want them to be.
+`outside_static_coverage`, the sorted list of **top-level** nodes with declared reads that no
+declared START-path reaches — on the pass witness, or on the primary finding when the
+reachable part of the graph fails — emitted only when non-empty and never a finding in its own
+right. Read a pass beside that list as "every read on a declared path is covered; these readers
+were not analysed", and declare the router's targets (a `path_map`, a `Literal[...]` return
+hint, or `destinations=`) when you want them to be.
 [The extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
 shows the field on a real document.
+
+**And a contained node is answered by the node that contains it.** A node whose id has another
+node's id as a proper path prefix — `%seq[1]/%map[docs]` under `%seq[1]`, which is how an LCEL
+fragment's children are emitted (mounted by path containment, never by edge) — is a constituent
+of that **containment root**, not a vertex of the enclosing control flow, and P-01's three
+node-quantified conditions do not evaluate it (§0.3's containment convention; DEC-33 — the
+[P-01 page](p01-graph-well-formed.md#a-contained-node-is-answered-by-its-root) walks through
+it). So a contained node outside the static `START`-closure is a reader P-01 will never call
+unreachable, and if it declares a read there would be nobody to say so. The report says so:
+`contained_readers` is the sorted list of contained nodes with declared reads that no declared
+START-path reaches — on the pass witness, or on the primary finding when the reachable part of
+the graph fails — emitted only when non-empty, never a finding in its own right, and saying
+nothing about the interior of the root (§4.4 Step 2). It is a separate member from
+`outside_static_coverage` because the remedy is different — a containment root to look at,
+rather than a router to declare targets for — and the two never list the same node: since
+DEC-33 `outside_static_coverage` is restricted to top-level nodes, so a contained reader on a
+document that also has a `dynamic` router appears in `contained_readers` alone. A contained
+node that *is* on a declared START-path — wired from a reachable node, or listed in `entry` — is
+an ordinary reachable reader: it appears in `coverage` or as a finding, exactly as any other node
+does, and never in this list. The fragment the P-01 page verifies declares no reads on its
+children, so its P-04 witness carries no `contained_readers` at all; the member appears only
+when there is something to say.
 
 ## Where this page is checked
 
@@ -911,7 +941,8 @@ the mechanism.
 The frozen contract behind this page is PROPERTY-CATALOG-SPEC §4 with the shared envelope of §0;
 the shapes it pins were ratified in decision records DEC-11 (the coverage-map witness and the two
 kept diagnostics) and DEC-05 (the `START`-path scope), with DEC-26 fixing what a location may name
-on ill-formed topology. `gebra.verify.properties.dataflow_completeness` and its tests are where
+on ill-formed topology, DEC-28 adding `outside_static_coverage` and DEC-33 adding
+`contained_readers` and restricting the former to top-level nodes. `gebra.verify.properties.dataflow_completeness` and its tests are where
 that contract is implemented and pinned in this repository. The other written explainers are
 [P-01 `graph-well-formed`](p01-graph-well-formed.md),
 [P-02 `termination-witness`](p02-termination-witness.md),

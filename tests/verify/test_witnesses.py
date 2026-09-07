@@ -130,9 +130,11 @@ def test_union_is_closed_to_the_declared_kinds() -> None:
 # ── P-01: the 5-key form (DEC-11 pin 1) ──────────────────────────────────────────────────
 
 
-def test_wellformedness_witness_is_the_five_key_form_plus_the_dec_28_diagnostic() -> None:
-    """DEC-11 pin 1's five keys, in order, and after them the one optional slot DEC-28 clause 1
-    mandates — ``dynamic_dependent``, absent unless a reachable ``dynamic`` edge exists."""
+def test_wellformedness_witness_is_the_five_key_form_plus_the_two_optional_diagnostics() -> None:
+    """DEC-11 pin 1's five keys, in order, and after them the two optional slots the rulings
+    mandate — ``dynamic_dependent`` (DEC-28 clause 1; absent unless a reachable ``dynamic`` edge
+    exists) and then ``contained_nodes`` (DEC-33 §3.1; absent unless some node's id is a proper
+    path prefix of another's), in that order (PROPERTY-CATALOG-SPEC §1.3 as amended)."""
     assert list(WellFormednessWitness.model_fields) == [
         "kind",
         "reachable_from_start",
@@ -140,18 +142,47 @@ def test_wellformedness_witness_is_the_five_key_form_plus_the_dec_28_diagnostic(
         "orphan_nodes",
         "unresolved_targets",
         "dynamic_dependent",
+        "contained_nodes",
     ]
-    field = WellFormednessWitness.model_fields["dynamic_dependent"]
-    assert not field.is_required()
-    assert field.default is None
+    for name in ("dynamic_dependent", "contained_nodes"):
+        field = WellFormednessWitness.model_fields[name]
+        assert not field.is_required()
+        assert field.default is None
 
 
-def test_the_five_key_payload_still_validates_and_serializes_without_the_sixth() -> None:
-    """A 1.0 witness carries no ``dynamic_dependent`` member on the wire (PC-4 drops the None)."""
+def test_the_five_key_payload_still_validates_and_serializes_without_either_optional() -> None:
+    """A flat 1.0 witness carries neither ``dynamic_dependent`` nor ``contained_nodes`` on the
+    wire (PC-4 drops the None) — the five-key form, byte for byte."""
     witness = validate_witness(WITNESS_PAYLOADS[WellFormednessWitness])
     assert isinstance(witness, WellFormednessWitness)
-    assert witness.dynamic_dependent is None
-    assert "dynamic_dependent" not in to_data(witness)
+    assert witness.dynamic_dependent is None and witness.contained_nodes is None
+    assert list(to_data(witness)) == [
+        "kind",
+        "reachable_from_start",
+        "terminal_nodes",
+        "orphan_nodes",
+        "unresolved_targets",
+    ]
+
+
+def test_dataflow_witness_carries_the_two_optional_coverage_diagnostics_after_coverage() -> None:
+    """§4.3's stub as amended at DEC-33: ``outside_static_coverage`` (DEC-28 clause 2) then
+    ``contained_readers`` (DEC-33 §3.4) after ``coverage``, both optional, both dropped from the
+    wire when absent."""
+    assert list(DataflowWitness.model_fields) == [
+        "kind",
+        "coverage",
+        "outside_static_coverage",
+        "contained_readers",
+    ]
+    for name in ("outside_static_coverage", "contained_readers"):
+        field = DataflowWitness.model_fields[name]
+        assert not field.is_required()
+        assert field.default is None
+    witness = validate_witness(WITNESS_PAYLOADS[DataflowWitness])
+    assert isinstance(witness, DataflowWitness)
+    assert witness.outside_static_coverage is None and witness.contained_readers is None
+    assert list(to_data(witness)) == ["kind", "coverage"]
 
 
 def test_wellformedness_witness_requires_all_five_keys() -> None:

@@ -8,7 +8,7 @@
     "input_mode": "ir-document",
     "source": "travel_booking:build_graph",
     "ir_version": "1.0",
-    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6"
+    "graph_version": "sha256:e4d28e405f3278e8f53d182160723111f8469442a0b868cb82211829dd31fb64"
   },
   "properties": [
     {
@@ -17,15 +17,18 @@
       "witness": {
         "kind": "well-formedness",
         "reachable_from_start": [
-          "book_flight",
-          "check_availability",
-          "send_confirmation"
+          "%seq[0]",
+          "%seq[1]"
         ],
         "terminal_nodes": [
-          "send_confirmation"
+          "%seq[1]"
         ],
         "orphan_nodes": [],
-        "unresolved_targets": []
+        "unresolved_targets": [],
+        "contained_nodes": [
+          "%seq[1]/%map[docs]",
+          "%seq[1]/%map[query]"
+        ]
       }
     },
     {
@@ -58,12 +61,15 @@
         "kind": "dataflow",
         "coverage": [
           {
-            "node": "send_confirmation",
-            "key": "booking_id",
+            "node": "%seq[1]",
+            "key": "query",
             "satisfied_by": [
-              "book_flight"
+              "START"
             ]
           }
+        ],
+        "contained_readers": [
+          "%seq[1]/%map[docs]"
         ]
       }
     },

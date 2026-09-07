@@ -231,19 +231,26 @@ def _finding_lines(finding: Finding) -> list[Text]:
     return lines
 
 
-#: The P-04 diagnostics §4.4 asks to be shown as what they are. The third (DEC-28 clause 2)
-#: carries its own gloss in the value, so a reader does not take it for a finding: it names
-#: readers no analysis covered, not a second violation.
+#: The P-04 diagnostics §4.4 asks to be shown as what they are. The third (DEC-28 clause 2) and
+#: the fourth (DEC-33 §3.4) carry their own gloss in the value, so a reader does not take
+#: either for a finding: each names readers no analysis covered, not a second violation, and
+#: says where the answer lives — a dynamic router for one, a containment root for the other.
 _EVIDENCE_LABELS: Final[dict[str, str]] = {
     "gebra/writersOnOtherPaths": "writers on other paths",
     "gebra/downstreamWriters": "writers wired after the reader",
     "gebra/outsideStaticCoverage": "outside static coverage",
+    "gebra/containedReaders": "contained readers",
 }
 
 _EVIDENCE_GLOSS: Final[dict[str, str]] = {
     "gebra/outsideStaticCoverage": (
-        " — readers no declared START-path reaches (reachable only through a dynamic router); "
-        "no analysis in this run covers their reads"
+        " — top-level readers no declared START-path reaches (reachable only through a dynamic "
+        "router); no analysis in this run covers their reads"
+    ),
+    "gebra/containedReaders": (
+        " — contained readers no declared START-path reaches, answered by their containment "
+        "root rather than by a dynamic router; no obligation was raised and no analysis in "
+        "this run covers their reads"
     ),
 }
 

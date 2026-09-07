@@ -254,9 +254,11 @@ def test_the_map_reduce_document_yields_no_node_unreachable_from_start() -> None
     assert isinstance(witness, WellFormednessWitness)
     # The nodes only the router reaches are surfaced, not flagged.
     assert witness.dynamic_dependent == ("book_leg", "collect")
-    # §1.4 Step 5 as written: `sorted(V)` — every node is possibly reachable, and the ones that
-    # depend on the dispatch for it are named beside the list rather than left to inference.
-    assert witness.reachable_from_start == ("book_leg", "collect", "plan")
+    # §1.4 Step 5 (ratified — DEC-33, 2026-09-06; PD-056 option 1): `reachable_from_start` is
+    # the static START-closure ∩ V_top, disjoint from `dynamic_dependent` — the two partition
+    # the node set here (no node is contained), and the member keeps its name's plain meaning.
+    assert witness.reachable_from_start == ("plan",)
+    assert witness.contained_nodes is None
     assert witness.terminal_nodes == ("collect",)
     assert witness.orphan_nodes == () and witness.unresolved_targets == ()
 
@@ -646,7 +648,7 @@ def test_verify_reaches_a_verdict_and_the_report_round_trips() -> None:
     assert report.subject is not None
     assert report.subject.ir_version == "1.1"
     assert report.subject.graph_version == graph_version(document)
-    assert report.report_format == "1.2"
+    assert report.report_format == "1.3"
     assert len(report.properties) == 13 and report.best_effort == ()
     assert RunReport.model_validate_json(to_json(report)) == report
     witness = report.outcome_for("graph-well-formed")
@@ -761,11 +763,22 @@ _CORPUS_IRS: list[tuple[str, WorkflowIR]] = [
 def test_neither_diagnostic_reaches_the_wire_on_any_corpus_document(
     label: str, ir: WorkflowIR
 ) -> None:
-    """The corpus carries no ``dynamic`` edge (``tests/ir/test_canonical.py`` machine-checks it),
-    so the shared model records no source and neither optional member is emitted — every
-    corpus verdict serializes byte-for-byte as it did before the slots existed."""
+    """The corpus carries no ``dynamic`` edge (``tests/ir/test_canonical.py`` machine-checks it)
+    and no containment id — not one of its node ids contains a ``/`` at all (DEC-33 §5 row 5,
+    re-measured here on every load) — so the shared model records no source and no contained
+    node, and none of the four optional members is emitted: every corpus verdict serializes
+    byte-for-byte as it did before the slots existed (DEC-28's two at ``1.2``, DEC-33's two at
+    ``1.3``)."""
+    assert all("/" not in node.id for node in ir.nodes), label
     model: GraphModel = build_graph_model(ir)
     assert model.dynamic_sources == frozenset()
+    assert model.contained_nodes == frozenset() and model.top_level_nodes == model.node_ids
     for slug in ("graph-well-formed", "dataflow-completeness"):
         text = to_json(_report(slug, ir))
-        assert "dynamic_dependent" not in text and "outside_static_coverage" not in text, label
+        for member in (
+            "dynamic_dependent",
+            "outside_static_coverage",
+            "contained_nodes",
+            "contained_readers",
+        ):
+            assert member not in text, (label, member)

@@ -36,7 +36,7 @@ exports re-exported from `gebra.verify.__init__`), specifically:
 
 This is the **Python callable/model surface** — signatures, field sets, and the registry
 contract ("slug → callable → claim class → severity" per brief D-09's Deliverable 2) —
-not the wire-format document version. `report_format` (currently `1.2`, REPORT-FORMAT-SPEC
+not the wire-format document version. `report_format` (currently `1.3`, REPORT-FORMAT-SPEC
 §1.6) is that document's own governance and is explicit that it is "stamped final at the
 D-12 promotion" (REPORT-FORMAT-SPEC front matter, Appendix B OI-4) — that stamping is
 CLI-08's event, not this one. Freezing the validator-result API here does not itself
@@ -123,6 +123,28 @@ move the surface in §1 need no R-05 routing, exactly as before.
   surface to every future IR minor, by design. No condition ID was added, renamed or
   reclassified; no validator signature changed; no property moved off `DeferredToPhase1`. The
   wire-format consequence is REPORT-FORMAT-SPEC §1.6's `1.2` row.
+- **VAL-15 (2026-09-07) — DEC-33's containment convention, witness partition and
+  `contained_readers`.** The R-05-routed decision is DEC-33 itself (ratified 2026-09-06 by the
+  product owner acting as R-05 authority, vendored in the development-process repository's
+  `docs/decisions/`; PROPERTY-CATALOG-SPEC re-vendored at vault `39e44b6` in the same commit),
+  whose ruling text names every field added on the frozen surface and every value rule
+  restated, so no PD-057-style latitude record is owed. Fields added:
+  `WellFormednessWitness.contained_nodes` (§3.1 — "gains an optional member
+  `contained_nodes: tuple[NodeId, ...] | None = None`"), `DataflowWitness.contained_readers` and
+  `P04Failure.contained_readers` (§3.4 clause 2 — "carried on the pass `DataflowWitness` and, on
+  a fail, on the primary `P04Failure`"), all optional, default absent, present iff non-empty,
+  never verdict-bearing. Value rules restated by the same record: `reachable_from_start` is the
+  static `START`-closure ∩ $V_{top}$ (§3.2; PD-056 option 1 in its third reading),
+  `dynamic_dependent` is $V_{top} ∖ \text{reachable}$ (§3.3 hunk 7, DEC-33 (F)), and
+  `outside_static_coverage` is restricted to $V_{top}$ (§3.4 clause 3) — on every P-01 pass the
+  three witness lists partition the node set. P-01's conditions (i)–(iii) quantify over
+  $V_{top}$; condition (iv), the graph and Step 1 are unchanged. No condition ID was added,
+  removed, renamed or reclassified (the three node-condition IDs keep their strings, severity
+  and claim class with their domain narrowed); no validator signature changed; no run-level
+  model retyped; no property moved off `DeferredToPhase1`. The containment split itself lives in
+  the shared graph model (`GraphModel.contained_nodes` / `top_level_nodes`), an additive
+  derived property outside §1's frozen surface. The wire-format consequence is REPORT-FORMAT-SPEC
+  §1.6's `1.3` row.
 
 ## 5. D-12 promotion eligibility
 

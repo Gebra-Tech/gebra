@@ -457,11 +457,13 @@ _P04_FAILURE = PropertyReport.failing(
 
 #: P-01 on a dynamic-bearing document: condition (i) over-approximation-silenced, the nodes only
 #: the router reaches surfaced on the witness rather than flagged (DEC-28 clause 1).
+#: ``reachable_from_start`` is the static START-closure ∩ V_top — ``plan`` alone — disjoint from
+#: ``dynamic_dependent`` (§1.4 Step 5 as ratified at DEC-33, PD-056; the value moved at `1.3`).
 _P01_DYNAMIC_PASS = PropertyReport.passing(
     "graph-well-formed",
     WellFormednessWitness(
         kind="well-formedness",
-        reachable_from_start=("book_leg", "collect", "plan"),
+        reachable_from_start=("plan",),
         terminal_nodes=("collect",),
         orphan_nodes=(),
         unresolved_targets=(),
@@ -490,6 +492,66 @@ _P04_DYNAMIC_FAILURE = PropertyReport.failing(
         severity="fatal",
         claim_class="defensible-a",
         outside_static_coverage=("book_leg",),
+    ),
+)
+
+# ── The `1.3` variants: DEC-33's containment convention (§4.3/§4.4; VAL-15) ──────────────
+
+#: An LCEL-shaped ir 1.0 subject: ``%seq[1]`` contains a ``map`` frame whose children mount by
+#: path containment and never by edge (INTROSPECTION-SPEC §5 rule 4) — the shape whose contained
+#: nodes made P-01 fail as written and reach a verdict under DEC-33. The stubbed validators
+#: ignore it like the other two; what it decides is the subject line's identity.
+_CONTAINED_IR_DOCUMENT: Final[dict[str, Any]] = {
+    "ir_version": "1.0",
+    "entry": "%seq[0]",
+    "finish": "%seq[1]",
+    "state": {"query": "str", "context": "str"},
+    "nodes": [
+        {"id": "%seq[0]"},
+        {"id": "%seq[1]"},
+        {"id": "%seq[1]/%map[docs]", "annotations": {"input": ["context"]}},
+        {"id": "%seq[1]/%map[query]"},
+    ],
+    "edges": [{"kind": "normal", "from": "%seq[0]", "to": "%seq[1]"}],
+}
+
+CONTAINED_IR: Final[WorkflowIR] = _ir(_CONTAINED_IR_DOCUMENT)
+
+#: P-01 on a nested fragment: the two top-level nodes are the static START-closure, the two
+#: contained children ride ``contained_nodes`` — the three lists partition V (DEC-33 §3.2).
+_P01_CONTAINED_PASS = PropertyReport.passing(
+    "graph-well-formed",
+    WellFormednessWitness(
+        kind="well-formedness",
+        reachable_from_start=("%seq[0]", "%seq[1]"),
+        terminal_nodes=("%seq[1]",),
+        orphan_nodes=(),
+        unresolved_targets=(),
+        contained_nodes=("%seq[1]/%map[docs]", "%seq[1]/%map[query]"),
+    ),
+)
+
+#: P-04's pass witness naming the contained reader outside its static Reach (DEC-33 §3.4).
+_P04_CONTAINED_PASS = PropertyReport.passing(
+    "dataflow-completeness",
+    DataflowWitness(
+        kind="dataflow",
+        coverage=(DataflowCoverage(node="%seq[1]", key="query", satisfied_by=("START",)),),
+        contained_readers=("%seq[1]/%map[docs]",),
+    ),
+)
+
+#: The same diagnostic on the fail path, riding the primary finding (§4.4).
+_P04_CONTAINED_FAILURE = PropertyReport.failing(
+    "dataflow-completeness",
+    P04Failure(
+        property_condition="read-key-never-written-on-path",
+        location=DataflowLocation(
+            kind="state-key", key="query", node="%seq[1]", path=("START", "%seq[0]", "%seq[1]")
+        ),
+        severity="fatal",
+        claim_class="defensible-a",
+        contained_readers=("%seq[1]/%map[docs]",),
     ),
 )
 
@@ -871,6 +933,33 @@ def _build_cases() -> tuple[Case, ...]:
                 ir=DYNAMIC_IR,
             ),
             covers="§4.4's `1.2` row: outside_static_coverage riding a primary P04Failure",
+        ),
+        Case(
+            name="contained-fragment",
+            report=case_report(
+                {
+                    "graph-well-formed": _P01_CONTAINED_PASS,
+                    "dataflow-completeness": _P04_CONTAINED_PASS,
+                },
+                input_mode="ir-document",
+                extractor_version=None,
+                ir=CONTAINED_IR,
+            ),
+            covers="§4.3's `1.3` rows: contained_nodes and contained_readers on the pass "
+            "witnesses of a nested-fragment document",
+        ),
+        Case(
+            name="contained-fragment-dataflow-failure",
+            report=case_report(
+                {
+                    "graph-well-formed": _P01_CONTAINED_PASS,
+                    "dataflow-completeness": _P04_CONTAINED_FAILURE,
+                },
+                input_mode="ir-document",
+                extractor_version=None,
+                ir=CONTAINED_IR,
+            ),
+            covers="§4.4's `1.3` row: contained_readers riding a primary P04Failure",
         ),
     )
 

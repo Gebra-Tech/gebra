@@ -15,14 +15,14 @@
 > **Status: FINAL.** Ratified as CLI-01's artifact, and **stamped final at the D-12 promotion
 > on 2026-08-31** (card CLI-08; the record is
 > [docs/governance/D-12-PROMOTION.md](../governance/D-12-PROMOTION.md), which also
-> dispositions every item in Appendix B). **`report_format` is `1.2`.** `1.1` is the version
+> dispositions every item in Appendix B). **`report_format` is `1.3`.** `1.1` is the version
 > Phase-0 shipped at (v0.0.1) and was stamped final for Phase-0 at the promotion; `1.0` was this
-> document's shape before VAL-11 built it and was never emitted. The two MINOR amendments since
-> `1.0` are recorded in §1.6 — `1.1` at VAL-11, and `1.2` at VAL-14 under the post-final route
-> the stamp itself fixes: its own card, its own amendment-log row, its CHANGELOG entry. §1.6's
-> bump table — including the value-rule row added at the promotion — is the route any later
-> change travels. Final means no Phase-0 card amends this contract further; editorial
-> corrections and landing records are not amendments.
+> document's shape before VAL-11 built it and was never emitted. The three MINOR amendments
+> since `1.0` are recorded in §1.6 — `1.1` at VAL-11, then `1.2` at VAL-14 and `1.3` at VAL-15
+> under the post-final route the stamp itself fixes: its own card, its own amendment-log row,
+> its CHANGELOG entry. §1.6's bump table — including the value-rule row added at the promotion —
+> is the route any later change travels. Final means no Phase-0 card amends this contract
+> further; editorial corrections and landing records are not amendments.
 
 ---
 
@@ -118,7 +118,7 @@ adding one is a scope change, not a schema change.
 
 ```json
 {
-  "report_format": "1.2",
+  "report_format": "1.3",
   "tool": { "name": "gebra", "version": "0.0.1.dev0" },
   "subject": {
     "input_mode": "extracted",
@@ -291,7 +291,7 @@ PropertyOutcome = Annotated[
 class RunReport(RunReportModel):
     """The run-level wrapper (PROPERTY-CATALOG-SPEC §0.3 scope boundary)."""
 
-    report_format: Literal["1.2"]
+    report_format: Literal["1.3"]
     tool: Tool
     subject: Optional[Subject] = None  # absent only when a ToolError preceded IR identity
     properties: tuple[PropertyOutcome, ...] = ()
@@ -443,9 +443,9 @@ Phase-0 shipped at `1.1` and no Phase-0 card moved it: before the stamp an amend
 ordinary edit to this file by whichever card found the need — that is how `1.1` landed at
 VAL-11 — and after it, a bump needs its own card, its own row in the amendment log, and the
 CHANGELOG entry that always went with one. `1.2` is the first amendment to travel that route
-(VAL-14, below). The two value-rule rows above were added by the promotion itself and are
-not a bump: they classify future changes without making one, on this table's own
-"editorial change, clarified prose" row.
+(VAL-14, below) and `1.3` the second (VAL-15). The two value-rule rows above were added by the
+promotion itself and are not a bump: they classify future changes without making one, on this
+table's own "editorial change, clarified prose" row.
 
 **Amendment log.**
 
@@ -454,6 +454,7 @@ not a bump: they classify future changes without making one, on this table's own
 | `1.0` | The shape as first specified. Never emitted by anything: no `RunReport` existed in code until VAL-11 built one. | — | CLI-01 |
 | `1.1` | Two members join shapes that did not carry them at `1.0`: `Promotion.property_condition` on a `witness-note` promotion (§2.3), and `RunReport.best_effort` (§1.3). Two invariants `1.0` stated only in prose become model validators — §2.2's "the two never disagree" on `GateOutcome`, and `Promotion`'s own present-iff rules. | MINOR — `best_effort` on the new-optional-member row; `property_condition` on the present-iff row, which this amendment added because it was the class OI-7 flagged as unrowed and this is an instance of it (its field declaration is unchanged; what widened is when it is populated) | VAL-11, 2026-08-06 |
 | `1.2` | The `dynamic` edge's validator semantics land (DEC-28 clauses 1–3; PROPERTY-CATALOG-SPEC §0.3). Three optional members join envelope shapes that did not carry them at `1.1`, each emitted only when non-empty and never verdict-bearing: `WellFormednessWitness.dynamic_dependent` (§4.3), `DataflowWitness.outside_static_coverage` (§4.3) and `P04Failure.outside_static_coverage` (§4.4). `subject.ir_version` admits `"1.1"` — the stamp a `dynamic`-bearing document carries — so a document `1.1` refused as an `ir-validation` tool error now reaches a verdict (§1.3, §2.4). Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added and no new record carries a severity. | MINOR — the three members on the new-optional-member row; `ir_version` on the same row's "new member joining a closed vocabulary" clause (its `Literal` gained the token `"1.1"`; a strict `1.1` consumer's `Literal["1.0"]` refuses a `"1.1"` subject, which is §1.6's own MAY). Both are MINOR and no MAJOR row applies. The run-level model retype is recorded against VALIDATOR-API-FREEZE §4 in PD-057, since that note separates the Python model surface from this document's wire-format version. | VAL-14, 2026-09-04 |
+| `1.3` | PROPERTY-CATALOG-SPEC §0.3's containment convention and the P-01 witness partition land (DEC-33 §3.1–§3.4, ratified 2026-09-06; PD-058 + PD-056). Three optional members join envelope shapes that did not carry them at `1.2`, each emitted only when non-empty and never verdict-bearing: `WellFormednessWitness.contained_nodes` (§4.3 — the nodes whose id has a proper path prefix that is itself a node, which P-01's conditions (i)–(iii) no longer evaluate), `DataflowWitness.contained_readers` (§4.3) and `P04Failure.contained_readers` (§4.4 — the contained readers outside P-04's static `Reach`, whose reads no analysis covers). Three value rules move with the ruling and are recorded here as **catalog-driven**, not as bumps of this document's own: `reachable_from_start` is restated as the static `START`-closure ∩ $V_{top}$ (it was `sorted(V)` — every node — and on a dynamic-bearing pass since `1.2` listed the very nodes `dynamic_dependent` named), and `dynamic_dependent` and `outside_static_coverage` narrow to $V_{top}$ so that neither ever lists a contained node. On every P-01 pass `reachable_from_start` ⊎ `dynamic_dependent` ⊎ `contained_nodes` is the whole node set. Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added, removed, renamed or reclassified, and no new record carries a severity — the two LCEL conformance documents that failed P-01 with 27 and 3 FATALs as written now reach `pass`, which is the ruling's verdict change, not a derivation change. | MINOR — the three members on the new-optional-member row, which is what makes it MINOR. The restated `reachable_from_start` value rule is one the value-rule rows above **do not reach**: its value is fixed by PROPERTY-CATALOG-SPEC §1.4 Step 5, so it changes "only by catalog addendum under WA-03, never by a bump here" — DEC-33 is that addendum, and this row records it. The $V_{top}$ narrowing of the two `1.2` diagnostics is a value rule "narrowed or merely made precise" and carries no bump of its own. No MAJOR row applies (no member removed, retyped, renamed or made required; §2's derivation, §2.1's finding set and §2.3's reach untouched). Consumer consequence: a strict `1.2` consumer (`extra="forbid"`) refuses a `1.3` report that carries one of the new members — §1.6's own MAY — and `gebra display --report` in this build refuses a `1.2` report file written by the previous build, naming the version it reads. | VAL-15, 2026-09-07 |
 
 The `1.1` amendment is recorded rather than folded in because §1.6's rule is applied
 literally, on the CLI-02 precedent (its `subject.source` amendment was measured against this
@@ -465,7 +466,14 @@ document a consumer holds is still a document it can read, while a strict `1.1` 
 this build's own models read exactly the version they were built against, `gebra display
 --report` in this build refuses a `1.1` report file written by the previous release, naming the
 version it reads. Re-running `gebra verify` produces a `1.2` report; the `.gebra/reports/`
-audit exports a store already holds are re-exported the same way.
+audit exports a store already holds are re-exported the same way. The `1.3` amendment is the
+same shape of event one version on: every `1.2` document is still readable, a strict `1.2`
+consumer refuses a `1.3` report carrying `contained_nodes` or `contained_readers`, and `gebra
+display --report` in this build refuses a `1.2` file naming `1.3` — re-running `gebra verify`
+produces a `1.3` report. What is *not* a compatibility event is the restated value of
+`reachable_from_start`: a consumer built against `1.2` parses a `1.3` witness unchanged, and
+the list it reads is now exactly what its name says, the static `START`-closure of the
+top-level nodes, where a `1.2` witness on a dynamic-bearing document listed every node.
 
 ---
 
@@ -760,8 +768,9 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 
 | Variant | Native JSON | Human — facts that must appear | SARIF |
 |---|---|---|---|
-| `WellFormednessWitness` (`kind: "well-formedness"`) | as serialized | how many nodes are reachable from START; the terminal nodes; that the orphan check and the unresolved-target check were evaluated and found empty — the two empty tuples are evidence, not padding, and a rendering that drops them loses the claim | does not project |
-| ↳ `dynamic_dependent` (added at `1.2`; DEC-28 clause 1) | as serialized when non-empty | which members of `reachable_from_start` depend on a `dynamic` router for it — no declared START-path reaches them — and **why** they are not findings: a reachable router may dispatch to them at runtime, so their reachability is neither claimed nor denied, and P-04 generates no obligation for their reads. Never worded "unreachable" (the claim the ruling withdraws) and never "reachable" without the qualification; the gap stated is condition (i)'s and P-04's, not every analysis's | does not project |
+| `WellFormednessWitness` (`kind: "well-formedness"`) | as serialized | how many top-level nodes the static `START`-closure reaches (`reachable_from_start` is the closure ∩ $V_{top}$ — PROPERTY-CATALOG-SPEC §1.4 Step 5 as ratified at DEC-33; on a flat document with no `dynamic` edge that is every node, as it always was); the terminal nodes; that the orphan check and the unresolved-target check were evaluated and found empty — the two empty tuples are evidence, not padding, and a rendering that drops them loses the claim | does not project |
+| ↳ `dynamic_dependent` (added at `1.2`; DEC-28 clause 1; value restated at `1.3`, DEC-33 (F)) | as serialized when non-empty | the **top-level** nodes outside the static `START`-closure — $V_{top} ∖ \text{reachable}$, **disjoint from `reachable_from_start`** (before `1.3` this row read "which members of `reachable_from_start` …", which the partition makes false) — and **why** they are not findings: a reachable router may dispatch to them at runtime, so their reachability is neither claimed nor denied, and P-04 generates no obligation for their reads. Never worded "unreachable" (the claim the ruling withdraws), never "reachable" without the qualification, and never "of these" against the list above; the gap stated is condition (i)'s and P-04's, not every analysis's | does not project |
+| ↳ `contained_nodes` (added at `1.3`; DEC-33 §3.1) | as serialized when non-empty | the nodes whose id has a proper path prefix that is itself a node (PROPERTY-CATALOG-SPEC §0.3's containment convention — an LCEL fragment's children, mounted by path containment and never by edge), that P-01's conditions (i)–(iii) therefore did not evaluate, and that their **containment root** answers for their structural position; that the list is disjoint from `reachable_from_start` and `dynamic_dependent`, the three partitioning the node set on a pass. Never worded as reachable or unreachable, and never as a statement about the root's interior (P-10's territory) | does not project |
 | `TerminationWitness` (`kind: "termination"`) | as serialized | the inventory size and the form of each entry; that a re-checkable acyclicity certificate is present; every note (below); the census when present. Wording is **witness presence** only (§4.6) | does not project |
 | ↳ `WitnessInventoryEntry` form `a` (`CounterGuardSource`, `GuardEdgeRef`) | as serialized | the guard edge as `<source> --<label>-->`; the counter key; the declared bound; what it discharges | — |
 | ↳ `WitnessInventoryEntry` form `b` (`RecursionLimitSource`, `RecursionLimitDecl`) | as serialized | that the cover is the graph-level `recursion_limit`, its value and its declared justification; that it is a blanket over the edge set rather than a per-loop bound | — |
@@ -775,7 +784,8 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 | ↳ `CycleCensus` | as serialized | that the census is exhaustive under the cap, and the cycles it lists | — |
 | `DataflowWitness` (`kind: "dataflow"`) | as serialized; `coverage` order is not normative (`SetCompared`) | how many (reader, key) obligations were covered; on request, the per-obligation writers | does not project |
 | ↳ `DataflowCoverage` | as serialized | the reading node, the key, and the covering writers — with `START` shown as the boundary source, not as a node | — |
-| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2) | as serialized when non-empty | the nodes with declared reads that no START-path of the static graph reaches, and that **no analysis in the run covers their reads** — the pass above them is a statement about the static graph only. Never rendered as covered, and never as a finding | does not project |
+| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2; restricted to $V_{top}$ at `1.3`, DEC-33 §3.4 clause 3) | as serialized when non-empty | the **top-level** nodes with declared reads that no START-path of the static graph reaches, on a document with a reachable `dynamic` router, and that **no analysis in the run covers their reads** — the pass above them is a statement about the static graph only. A contained reader is never listed here (it is `contained_readers`', below); the two are disjoint. Never rendered as covered, and never as a finding | does not project |
+| ↳ `contained_readers` (added at `1.3`; DEC-33 §3.4) | as serialized when non-empty | the **contained** nodes (§0.3 containment convention) with declared reads that no START-path of the static graph reaches, that no obligation was raised for them, and that **no analysis in the run covers their reads** — and that the place to look is their containment root, not a dynamic router (the remedy is what makes this a distinct member). A contained reader inside the static closure keeps its obligation and appears in `coverage` or as a finding, never here. Never rendered as covered, never as a finding, and never as a statement about the root's interior | does not project |
 | `EffectSafetyWitness` (`kind: "effect-safety"`) | as serialized | the cycle inventory; one line per effect record (below) | does not project |
 | ↳ `P06EffectRecord`, `region: "retry"` | as serialized | the node, its declared effect tags, that the region is a retry region, and the binding protection | — |
 | ↳ `P06EffectRecord`, `region: "cycle"` | as serialized | as above, plus the anchor cycle | — |
@@ -799,7 +809,8 @@ Every member of the §0.3 `Witness` union, and every substructure under it.
 | `P04Failure` | as serialized | everything a `Failure` shows, plus the optional diagnostics when present | as `Failure`; the extras ride `result.properties` |
 | ↳ `writers_on_other_paths` | as serialized when non-empty | that writers exist on *other* paths, listed — this is what makes the finding legible rather than baffling | property bag |
 | ↳ `downstream_writers` | as serialized when non-empty | that the writers are wired **after** the reader, listed | property bag |
-| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2) | as serialized when non-empty, on the **primary** finding — the one carrier a failing report has | the readers no declared START-path reaches (reachable only through a `dynamic` router), and that no analysis in the run covers their reads — report-level context riding the primary, not a fact about this finding's key, and never a second finding | property bag (`gebra/outsideStaticCoverage`) |
+| ↳ `outside_static_coverage` (added at `1.2`; DEC-28 clause 2; restricted to $V_{top}$ at `1.3`, DEC-33 §3.4 clause 3) | as serialized when non-empty, on the **primary** finding — the one carrier a failing report has | the top-level readers no declared START-path reaches (reachable only through a `dynamic` router), and that no analysis in the run covers their reads — report-level context riding the primary, not a fact about this finding's key, and never a second finding; a contained reader is never listed here | property bag (`gebra/outsideStaticCoverage`) |
+| ↳ `contained_readers` (added at `1.3`; DEC-33 §3.4) | as serialized when non-empty, on the **primary** finding — the same one carrier | the contained readers no declared START-path reaches (§0.3 containment convention), answered by their containment root rather than by a router, and that no obligation was raised for them and no analysis in the run covers their reads — report-level context riding the primary, not a fact about this finding's key, and never a second finding; disjoint from `outside_static_coverage` | property bag (`gebra/containedReaders`) |
 | `CoFailure` | as serialized under the primary | its own severity **and** claim class (never inherited from the primary); its condition id; its location; its `note` when present | one `result` of its own |
 | ↳ `CoFailure` with `subsumed_by` | as serialized | as above, plus the upstream owner — shown as context, not as a second charge | property bag |
 | `Advisory` | as serialized under the primary | its own `warning` severity and claim class; the property it **belongs to** (which is not the host report's); its condition id and anchor location | one `result` of its own, at `level: "warning"` |
@@ -1046,7 +1057,7 @@ last paragraph anticipated.
 
 `check_profile` makes **four** refusals for §6.2's three obligations, and the arithmetic is
 worth stating here because it is a gap in §6.2 rather than in the implementation. Obligation 3
-is held by construction (the `report_format` Literal — `"1.2"` as of VAL-14 — plus `verify()`'s
+is held by construction (the `report_format` Literal — `"1.3"` as of VAL-15 — plus `verify()`'s
 own stamp), so two of the three are checkable at all. The fourth refusal is one §6.2 does not ask for: **an exit-2 run is not this
 profile.** Every one of §6.2's obligations is about *identity*, and a `dispatch`-stage tool
 error carries a full subject — `verify()` builds the subject before dispatching — so an exit-2
@@ -1096,6 +1107,16 @@ optional envelope members (§4.3/§4.4) and the widened `subject.ir_version` (§
 producer and consumer in this repository moved together — `verify()`, the audit export, the
 `--format json` surface, the human and SARIF renderings, the CLI and plugin goldens — and the
 one consumer-visible consequence for a report written by the previous release is stated in §1.6.
+
+**VAL-15 (P-01's containment convention and witness partition; P-04's `contained_readers`)** —
+the second amendment through the post-final route. **Landed 2026-09-07**: `report_format` `1.3`
+(§1.6's amendment log), three optional envelope members (§4.3/§4.4) and the catalog-driven
+restatement of `reachable_from_start`'s value rule, with `dynamic_dependent` and
+`outside_static_coverage` narrowed to the top-level nodes (DEC-33, ratified 2026-09-06). Every
+producer and consumer moved together as at `1.2`; the two LCEL conformance documents that failed
+P-01 as written reach a verdict; and the SARIF rules catalog's condition-(i) description now
+reads "every top-level node" (PROPERTY-CATALOG-SPEC Appendix C.2 as amended — display prose,
+never a fingerprint input, so no result identity moved).
 
 **Notes for consumers.** (1) Read `report_format` before anything else (§1.6). (2) Branch on
 structured fields only; prose fields are display-only (§4.6 rule 7). (3) A marker is not a

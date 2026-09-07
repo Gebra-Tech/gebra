@@ -328,8 +328,8 @@
       },
       "results": [],
       "properties": {
-        "gebra/graphVersion": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
-        "gebra/exitCode": 2
+        "gebra/graphVersion": "sha256:e4d28e405f3278e8f53d182160723111f8469442a0b868cb82211829dd31fb64",
+        "gebra/exitCode": 0
       }
     }
   ]

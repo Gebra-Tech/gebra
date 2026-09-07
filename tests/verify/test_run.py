@@ -379,7 +379,7 @@ def test_the_report_format_is_the_one_the_spec_pins() -> None:
         encoding="utf-8"
     )
 
-    assert REPORT_FORMAT == "1.2"
+    assert REPORT_FORMAT == "1.3"
     assert f'"report_format": "{REPORT_FORMAT}"' in spec
     assert f'report_format: Literal["{REPORT_FORMAT}"]' in spec
 

@@ -1948,7 +1948,7 @@ Built by `build_graph_model()`; a subgraph by `subgraph()`. Immutable and hashab
 **Attributes**
 
 - `vertices` — Every vertex, sorted by `ledger_sort_key()`. For a model built from an IR this is V ∪ {`__start__`, `__end__`}, plus any carried references (see `build_graph_model()`).
-- `node_ids` — V — the ids declared in `ir.nodes`, without sentinels and without carried references. The set P-01's conditions (i)–(iii) quantify over.
+- `node_ids` — V — the ids declared in `ir.nodes`, without sentinels and without carried references. P-01's conditions (i)–(iii) quantify over its top-level projection `top_level_nodes`, never over the whole set (§0.3 containment convention — DEC-33); condition (iv) resolves references against all of it.
 - `edges` — Every expanded edge, in emission order: the `entry` wirings, the `finish` wirings, then `ir.edges` in authored order with each router's `path_map` labels in authored order. Emission order is *not* a normative order — every consumer sorts its own output by the ledger §6 comparator — but it is stable, so two builds of one IR are equal values.
 - `unresolved` — Every declared reference naming no node, in the same emission order. Emission order is **not** P-01's F_iv order: catalog §1.4 Step 5, as amended by DEC-12, sorts F_iv by a leading key that puts resolvable anchors first, and only then does `findings[0]` name the primary. Do not read `unresolved[0]` as the primary finding — `mixed/04` happens to come out right under emission order, which is exactly what makes the shortcut look safe.
 - `carried` — Unresolved references that were nonetheless materialized as vertices, empty unless `carry_unresolved_references=True` was asked for.
@@ -2482,7 +2482,7 @@ Check every reachable node's declared reads against §4's every-path rule (§4.4
 - `ir` — A validated workflow IR. Only the fields §4.3 lists are read.
 - `model` — A pre-built model of the *same* `ir`, when a caller already has one — `verify()` builds one model per convention and hands it to every topology-facing validator, and two builds of one IR are equal values, so sharing changes no result. It must be built with `carry_unresolved_references=True`, which is P-04's own §0.3 degradation convention; a model built the other way is P-01's or P-06's and is refused rather than silently mis-analysed.
 
-**Returns** — One `PropertyReport`: `pass` with a `DataflowWitness` carrying one coverage entry per (reachable reader, read key), or `fail` with the ledger-§6-first finding as the primary `P04Failure` and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped). On a document with a statically reachable `dynamic` edge either carries the optional `outside_static_coverage` diagnostic when it is non-empty (DEC-28 clause 2).
+**Returns** — One `PropertyReport`: `pass` with a `DataflowWitness` carrying one coverage entry per (reachable reader, read key), or `fail` with the ledger-§6-first finding as the primary `P04Failure` and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped). Either carries the two optional coverage-cost diagnostics when they are non-empty: `outside_static_coverage` on a document with a statically reachable `dynamic` edge (DEC-28 clause 2) and `contained_readers` on one with contained nodes (DEC-33).
 
 **Raises**
 
@@ -2560,7 +2560,7 @@ Check the four §1 conditions over `ir`'s sentinel-augmented graph (§1.4).
 - `ir` — A validated workflow IR at `ir_version` `"1.0"` or `"1.1"`. Only `entry`, `finish`, `nodes[].id` and `edges[].{from,to,kind,path_map}` are read (§1.3); `edges[].kind` distinguishes `dynamic` (no target fields) from the other three.
 - `model` — A pre-built model of the *same* `ir`, when a caller already has one — `verify()` builds one model and hands it to every topology-facing validator, and two builds of one IR are equal values, so sharing changes no result. It must be built with `carry_unresolved_references=False`, which is P-01's own §0.3 degradation convention; a model carrying phantoms is P-02's or P-04's and is refused rather than silently mis-analysed.
 
-**Returns** — One `PropertyReport`: `pass` with the 5-key `WellFormednessWitness`, or `fail` with the root-cause-ordered primary finding and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped).
+**Returns** — One `PropertyReport`: `pass` with the 5-key `WellFormednessWitness` plus its two optional members when they are non-empty, or `fail` with the root-cause-ordered primary finding and every further finding as a same-property `co_failure` (§0.3 packaging; findings are never dropped).
 
 **Raises**
 
@@ -2965,19 +2965,21 @@ class P04Failure(Failure):
     writers_on_other_paths: tuple[NodeId, ...] | None = None
     downstream_writers: tuple[NodeId, ...] | None = None
     outside_static_coverage: tuple[NodeId, ...] | None = None
+    contained_readers: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.report`.
 
 P-04's concrete failure subtype (§4.3).
 
-It exists because `extra="forbid"` means the base cannot carry P-04's optional diagnostics. Two are DEC-11 pin 3's: `writers_on_other_paths` (writers that cover *other* paths) and `downstream_writers` (writers wired after the reader). The third is DEC-28 clause 2's (ir 1.1): `outside_static_coverage` — the nodes with declared reads that no START-path of the static graph reaches, on a document with a reachable `dynamic` edge, whose reads no analysis in the run covers. It is report-level context rather than a fact about this one finding, and it rides the **primary** failure because that is the one carrier a failing P-04 report has (a co-failure is a plain `CoFailure`); on a passing report the same list rides `DataflowWitness`. All three are diagnostic context, emitted only when non-empty, and never part of the verdict.
+It exists because `extra="forbid"` means the base cannot carry P-04's optional diagnostics. Two are DEC-11 pin 3's: `writers_on_other_paths` (writers that cover *other* paths) and `downstream_writers` (writers wired after the reader). The other two are report-level coverage-cost diagnostics rather than facts about this one finding, and they ride the **primary** failure because that is the one carrier a failing P-04 report has (a co-failure is a plain `CoFailure`; PD-057 D2); on a passing report the same lists ride `DataflowWitness`. `outside_static_coverage` is DEC-28 clause 2's (ir 1.1): the top-level nodes with declared reads that no START-path of the static graph reaches, on a document with a reachable `dynamic` edge. `contained_readers` is DEC-33's (§0.3 containment convention; §4.4 Step 2): the contained nodes with declared reads outside that closure. Neither's reads are covered by any analysis in the run; the two are disjoint by construction. All four are diagnostic context, emitted only when non-empty, and never part of the verdict.
 
 The narrowed `location` is what makes the subtype recognisable. Resolving on the optional extras alone would leave a P-04 failure that happens to carry none of them loading as a base `Failure` while the validator constructs a `P04Failure` — and pydantic equality is class-sensitive, so the PC-6 fixture-vs-output identity would break on exactly the fixtures that need it least. A `DataflowLocation` (`kind: "state-key"` with a required `node` and `path`) resolves *every* P-04 failure here, extras or not.
 
 **Fields**
 
-- `outside_static_coverage` — DEC-28 clause 2 (ir 1.1): nodes with declared reads outside the static graph's START closure, on a document with a reachable `dynamic` edge. Sorted; absent when empty.
+- `outside_static_coverage` — DEC-28 clause 2 (ir 1.1): top-level nodes (V_{top}, §0.3) with declared reads outside the static graph's START closure, on a document with a reachable `dynamic` edge (restricted to V_{top} at DEC-33 §3.4 clause 3). Sorted; absent when empty.
+- `contained_readers` — DEC-33 (§0.3 containment convention; §4.4 Step 2): contained nodes (V ∖ V_{top}) with declared reads outside the static graph's START closure. Sorted; absent when empty; disjoint from `outside_static_coverage`.
 
 #### `gebra.verify.PropertyReport`
 
@@ -3092,12 +3094,12 @@ The four origins, for a consumer that enumerates them.
 #### `gebra.verify.REPORT_FORMAT`
 
 ```python
-REPORT_FORMAT: Final = "1.2"
+REPORT_FORMAT: Final = "1.3"
 ```
 
 *constant*, defined in `gebra.verify.run`.
 
-The `report_format` this build produces and reads. `1.2` under §1.6's MINOR rows, on the post-final route (VAL-14; DEC-28's two optional diagnostics): three optional members join shapes that did not carry them at `1.1` — `WellFormednessWitness.dynamic_dependent`, `DataflowWitness.outside_static_coverage` and `P04Failure.outside_static_coverage` — and `Subject.ir_version` admits `"1.1"`, the stamp a `dynamic`-bearing document carries. `1.1` (VAL-11) added `Promotion.property_condition` on a witness-note promotion and `RunReport.best_effort`; Phase-0 shipped at it.
+The `report_format` this build produces and reads. `1.3` under §1.6's new-optional-member row, on the post-final route (VAL-15; DEC-33's containment convention and witness partition): three optional members join shapes that did not carry them at `1.2` — `WellFormednessWitness.contained_nodes`, `DataflowWitness.contained_readers` and `P04Failure.contained_readers` — each emitted only when non-empty and never verdict-bearing; the restated value rules (`reachable_from_start` as the static START-closure ∩ V_top, the V_top narrowing of `dynamic_dependent` and `outside_static_coverage`) are catalog-driven and carry no bump of their own. `1.2` (VAL-14; DEC-28) added `dynamic_dependent` and `outside_static_coverage` and let `Subject.ir_version` admit `"1.1"`; `1.1` (VAL-11) added `Promotion.property_condition` on a witness-note promotion and `RunReport.best_effort`; Phase-0 shipped at `1.1`.
 
 #### `gebra.verify.STRICT_ALL`
 
@@ -3219,7 +3221,7 @@ Deliberately two fields and no more. Strict mode is the one policy §0.2 gives t
 
 ```python
 class RunReport(RunReportModel):
-    report_format: Literal["1.2"]
+    report_format: Literal["1.3"]
     tool: Tool
     subject: Subject | None = None
     properties: tuple[PropertyOutcome, ...] = ()
@@ -3445,17 +3447,19 @@ class DataflowWitness(ReportModel):
         SetCompared("PROPERTY-CATALOG-SPEC §4.3: coverage order is not normative"),
     ]
     outside_static_coverage: tuple[NodeId, ...] | None = None
+    contained_readers: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.witnesses`.
 
 P-04's pass witness — one coverage entry per reachable (reader, read key).
 
-`outside_static_coverage` is the optional diagnostic DEC-28 clause 2 mandates (§4.4 Step 0, ir 1.1). P-04's quantification stays over START→n paths of the *static* graph — a `dynamic` edge contributes no path — so a node reachable only through dynamic dispatch generates no obligation, and with P-01's condition (i) over-approximation-silenced no analysis covers its declared reads. That absence is never silent: the nodes are named here. Emitted only when non-empty; never verdict-bearing; the PC-4 profile drops the `None`.
+Two optional coverage-cost diagnostics follow `coverage` (§4.3; §4.4 Step 2), each emitted only when non-empty, never verdict-bearing, and dropped by the PC-4 profile when absent. Both name readers outside P-04's static `Reach` that therefore raised no obligation and whose declared reads no analysis in the run covers; they are disjoint by construction and distinct members because the remedy differs. `outside_static_coverage` is DEC-28 clause 2's: the **top-level** readers on a document with a statically reachable `dynamic` edge — a `dynamic` edge contributes no path, and with P-01's condition (i) over-approximation-silenced nobody names them (restricted to V_{top} at DEC-33 §3.4 clause 3). `contained_readers` is DEC-33's: the **contained** readers (§0.3 containment convention) — outside conditions (i)–(iii) by that convention, so again nobody would name them — answered by their containment root, not by a dispatcher. "Declared reads" is `annotations.input` as declared, Σ-membership aside (PD-057 D3).
 
 **Fields**
 
-- `outside_static_coverage` — Nodes with declared reads that no START-path of the static graph reaches, on a document with a statically reachable `dynamic` edge (DEC-28 clause 2). Sorted; absent when empty. Their reads are covered by no analysis in this run.
+- `outside_static_coverage` — Top-level nodes (V_{top}, §0.3) with declared reads that no START-path of the static graph reaches, on a document with a statically reachable `dynamic` edge (DEC-28 clause 2; DEC-33 §3.4 clause 3). Sorted; absent when empty. Their reads are covered by no analysis in this run.
+- `contained_readers` — Contained nodes (V ∖ V_{top}, §0.3) with declared reads that no START-path of the static graph reaches (ratified — DEC-33, 2026-09-06; §4.4 Step 2). Sorted; absent when empty. Their reads are covered by no analysis in this run; a contained reader *inside* `Reach` keeps its obligation and never appears here. Disjoint from `outside_static_coverage`.
 
 #### `gebra.verify.DeterminismClaim`
 
@@ -3660,6 +3664,7 @@ class WellFormednessWitness(ReportModel):
     orphan_nodes: tuple[NodeId, ...]
     unresolved_targets: tuple[str, ...]
     dynamic_dependent: tuple[NodeId, ...] | None = None
+    contained_nodes: tuple[NodeId, ...] | None = None
 ```
 
 *model*, defined in `gebra.verify.witnesses`.
@@ -3668,13 +3673,16 @@ P-01's pass witness — the 5-key form (ratified at walkthrough #2, DEC-11 pin 1
 
 The two empty tuples are not padding: they are the re-checkable evidence that conditions (iii) and (iv) were evaluated and found clean, which a compact pass bit would lose. Both are empty by construction on a pass — a non-empty one would have filled `failure` instead — so the declared types stay the general ones of the §0.3 stub rather than an empty-tuple type.
 
-The sixth member is the optional diagnostic DEC-28 clause 1 mandates (§1.4 Step 3, ir 1.1): on a document with a statically reachable `dynamic` edge, condition (i) MUST NOT fire — the dispatcher may target any node at runtime, so static unreachability stops being a DEFENSIBLE claim — and the nodes it would otherwise have named are surfaced here instead. Emitted only when non-empty (DEC-11 optional-diagnostic discipline), never verdict-bearing, and the PC-4 profile drops the `None`, so a 1.0 witness serializes exactly as before.
+Two optional members follow the five keys, each omitted when empty and never verdict-bearing (DEC-11 optional-diagnostic discipline), so the five-key form is byte-identical whenever both are empty — every ir 1.0 document with flat ids, which is every corpus fixture. `dynamic_dependent` is DEC-28 clause 1's (§1.4 Step 3, ir 1.1): on a document with a statically reachable `dynamic` edge, condition (i) MUST NOT fire — the dispatcher may target any node at runtime, so static unreachability stops being a DEFENSIBLE claim — and the top-level nodes it would otherwise have named are surfaced here instead. `contained_nodes` is DEC-33's (§0.3 containment convention; §1.4 Step 5): the nodes whose id has a proper path prefix that is itself a node, which conditions (i)–(iii) therefore did not evaluate — their containment root answers for their structural position.
+
+**On every pass the three lists partition V** (§1.3; ratified — DEC-33, 2026-09-06; PD-056): `reachable_from_start` ⊎ `dynamic_dependent` ⊎ `contained_nodes` = V, an absent member reading as empty. `reachable_from_start` keeps its name's plain meaning — the static `START`-closure, restricted to top-level nodes — and asserts neither reachability nor unreachability for a member of the other two lists. `terminal_nodes` is not a partition member: it is read off G, which the convention leaves whole, so it may name a contained `finish` id that `contained_nodes` lists too.
 
 **Fields**
 
-- `reachable_from_start` — Sorted, UTF-16 code-unit order (ledger §6).
-- `terminal_nodes` — Predecessors of `__end__`, sorted.
-- `dynamic_dependent` — Nodes not statically reachable from START, unflagged only because a reachable `dynamic` edge exists (DEC-28 clause 1; §1.4 Step 3). Sorted; absent when empty. The coverage the over-approximation costs, surfaced rather than silent: a genuinely disconnected island on such a document appears here, not as a finding.
+- `reachable_from_start` — The static `START`-closure ∩ V_{top}, sorted in UTF-16 code-unit order (ledger §6); equal to V_{top} iff `dynamic_dependent` is empty (§1.4 Step 5; DEC-33, PD-056).
+- `terminal_nodes` — Predecessors of `__end__`, sorted — read off G, so it may name a contained id.
+- `dynamic_dependent` — V_{top} ∖ the static `START`-closure on a dynamic-bearing pass, unflagged only because a reachable `dynamic` edge exists (DEC-28 clause 1; §1.4 Step 3, narrowed to V_{top} at DEC-33). Sorted; absent when empty. The coverage the over-approximation costs, surfaced rather than silent: a genuinely disconnected top-level island on such a document appears here, not as a finding. Disjoint from `reachable_from_start`.
+- `contained_nodes` — V ∖ V_{top} — the contained nodes (§0.3 containment convention; ratified — DEC-33, 2026-09-06; §1.4 Step 5). Sorted; absent when empty. The coverage the convention costs, surfaced rather than silent: conditions (i)–(iii) evaluated none of these, and nothing here is claimed about the interior of a containment root (P-10's territory, §1.2).
 
 #### `gebra.verify.Witness`
 

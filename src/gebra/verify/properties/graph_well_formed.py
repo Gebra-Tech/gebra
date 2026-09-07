@@ -4,21 +4,38 @@
 registry at emission, never restated here. P-01 asserts well-formedness of the **definition**
 only — no behavioural claim (§1.4's closing note; D-018: Gebra verifies,
 LangGraph runs). What it checks is the catalog's four conditions over the sentinel-augmented
-graph $G^*$:
+graph $G^*$ — the three node-quantified ones over the **top-level projection** $V_{top}$ (§0.3
+containment convention; ratified — DEC-33, 2026-09-06), the reference-quantified one over the
+whole of $V$:
 
-* **(i)** every node is reachable from ``START`` — ``node-unreachable-from-start``;
-* **(ii)** ``END`` is reachable from every node that has *no outgoing edge* —
+* **(i)** every top-level node is reachable from ``START`` — ``node-unreachable-from-start``;
+* **(ii)** ``END`` is reachable from every top-level node that has *no outgoing edge* —
   ``dead-end-node-not-wired-to-end``. Sinks only, catalog-literal: a *trap component* (every
   member with ``out_degree > 0``, none able to reach ``__end__``) is deliberately out of
   scope, ruled at PD-007 Q1 / VAL-D1 so that cycle-adjacent structural defects stay P-02's
   (one root cause, one report — DEC-05 D2);
-* **(iii)** no orphan nodes, under **Reading A** (ratified — walkthrough #2, DEC-11):
+* **(iii)** no orphan top-level nodes, under **Reading A** (ratified — walkthrough #2, DEC-11):
   membership in ``entry``/``finish`` *is* edge participation, so a finish-only node with no
   explicit edge is wired, not an orphan — ``orphan-node``;
 * **(iv)** every reference names a node that exists — ``path-map-target-undefined`` for a
   ``path_map`` value, ``edge-target-undefined`` for the other four sites (``entry`` ids,
   ``finish`` ids, an edge's ``from``, a ``normal``/``send`` edge's ``to``), which is DEC-12's
-  ratified scope.
+  ratified scope. A reference naming a *contained* id resolves like any other, and a dangling
+  target sourced at a contained node is still this condition's finding, anchored at that edge.
+
+**A contained node answers through its containment root** (§0.3; ratified — DEC-33, 2026-09-06;
+PD-058). A node whose id has a proper path prefix, segment-wise over IR-SPEC §5.1's split-safe
+``/``, that is itself a member of $V$ is a constituent of that root — an LCEL fragment's
+children mount by path containment and never by edge (INTROSPECTION-SPEC §5 rule 4), exactly as
+§1.2 already scopes a mounted subgraph to "one opaque vertex" — so conditions (i)–(iii) quantify
+over $V_{top} = \\{ n \\in V : n \\text{ is not contained} \\}$ and report nothing for a contained
+node, whose interior well-formedness is P-10's territory. The split is the shared model's
+(:attr:`~gebra.verify.graph.GraphModel.top_level_nodes`), read here and by P-04 alike; $V$, $G^*$
+and Step 1 stay whole, which is why a mounted fragment's own sibling edge is not a condition-(iv)
+finding. The coverage cost is surfaced, never silent: the pass witness's optional
+``contained_nodes`` lists $V \\setminus V_{top}$, and on every pass ``reachable_from_start`` ⊎
+``dynamic_dependent`` ⊎ ``contained_nodes`` $= V$ (§1.3; PD-056 — ``reachable_from_start`` is the
+static ``START``-closure restricted to $V_{top}$, keeping its name's plain meaning).
 
 **The ``dynamic`` edge (ir 1.1 — ratified DEC-28, 2026-08-09; PD-041) is read under the ruled
 semantics, never dropped.** §0.3's one convention: the edge contributes no member to $G^*$ —
@@ -36,8 +53,9 @@ unresolved dispatcher is not a participant: Step 1 checks ``e.from ∈ V`` befor
 branch, so it is an ``edge-target-undefined`` finding and nothing more.
 
 **P-01 is cycle-agnostic and never enumerates cycles** (§1.1, §1.5). The whole check is one
-graph build, one forward BFS and two degree scans, plus the ledger §6 sorts — O(|V| log |V| +
-|E*|), independent of |Σ|. Nothing here touches the shared module's SCC, condensation or
+graph build, one forward BFS and two degree scans, plus the ledger §6 sorts and one segment
+split per id for $V_{top}$ — O(|V| log |V| + |E*| + |V|·s) for a maximum segment depth $s$,
+independent of |Σ|. Nothing here touches the shared module's SCC, condensation or
 anchor-cycle machinery, and ``tests/verify/test_graph_well_formed.py`` asserts that
 structurally rather than by inspection: those derivations are memoized, so their *absence* from
 a model P-01 has run over is direct evidence none was asked for. A second test counts every
@@ -135,7 +153,9 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
     Reading A (Step 2); one forward BFS for condition (i) — or, on a document with a reachable
     ``dynamic`` edge, DEC-28's over-approximation and the witness's ``dynamic_dependent``
     diagnostic (Step 3); one out-degree scan for condition (ii) (Step 4); and the root-cause
-    ordering (iv)→(iii)→(i)→(ii) that names the primary (Step 5).
+    ordering (iv)→(iii)→(i)→(ii) that names the primary, or the pass witness whose three node
+    lists partition $V$ (Step 5). Steps 2–4 quantify over the shared model's $V_{top}$ (§0.3
+    containment convention — DEC-33); Steps 1 and 5's graph reads are over the whole of $V$.
 
     Args:
         ir: A validated workflow IR at ``ir_version`` ``"1.0"`` or ``"1.1"``. Only ``entry``,
@@ -150,15 +170,15 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
 
     Returns:
         One :class:`~gebra.verify.report.PropertyReport`: ``pass`` with the 5-key
-        :class:`~gebra.verify.witnesses.WellFormednessWitness`, or ``fail`` with the
-        root-cause-ordered primary finding and every further finding as a same-property
-        ``co_failure`` (§0.3 packaging; findings are never dropped).
+        :class:`~gebra.verify.witnesses.WellFormednessWitness` plus its two optional members
+        when they are non-empty, or ``fail`` with the root-cause-ordered primary finding and
+        every further finding as a same-property ``co_failure`` (§0.3 packaging; findings are
+        never dropped).
 
     Raises:
         ValueError: if ``model`` carries phantom vertices for unresolved references.
     """
     graph = _model_for(ir, model)
-    node_ids = graph.node_ids
     unreachable, dynamic_dependent = _condition_i(graph)
 
     findings: list[_Finding] = [
@@ -179,28 +199,31 @@ def check_graph_well_formed(ir: WorkflowIR, *, model: GraphModel | None = None) 
             emit_failure(PROPERTY_SLUG, condition, location, co_failures=co_failures or None),
         )
 
+    # §1.4 Step 5 (ratified — DEC-33, 2026-09-06; PD-056): `reachable_from_start` is the static
+    # START-closure ∩ V_top — the member keeps its name's plain meaning — and the three node
+    # lists partition V on every pass: reachable_from_start ⊎ dynamic_dependent ⊎
+    # contained_nodes == V. Statically, every top-level node outside the closure would have
+    # filled F_i; under DEC-28's over-approximation it is `dynamic_dependent` instead (Step 3);
+    # a contained node is `contained_nodes` whether or not the closure reaches it — the ∩ V_top
+    # is what keeps the three lists disjoint. `descendants` is memoized, so Step 3's BFS is not
+    # run twice, and `graph.vertices` is already the ledger §6 order.
+    reachable = graph.descendants(START_VERTEX)
     return PropertyReport.passing(
         PROPERTY_SLUG,
         WellFormednessWitness(
             kind="well-formedness",
-            # §1.4 Step 5 writes `sorted(V)`, with the comment "== reachable on pass". On a
-            # static pass it is, because a non-reachable id would have filled F_i and there
-            # would be no witness to write. Under DEC-28's over-approximation the operative
-            # line is followed as written — every node is *possibly* reachable, since the
-            # dispatcher may target any of them — and the members that depend on the dispatch
-            # for it are named in `dynamic_dependent` beside this list, so a reader is never
-            # left to infer the static picture. The comment's equality no longer holds on that
-            # case and Step 5 was not amended with Step 3: a WA-03 clarification of whether
-            # this list is V or the static START-closure is filed as PD-056; the literal line
-            # is the reading until it is ruled. `graph.vertices` is already the ledger §6 order.
-            reachable_from_start=_ids(graph, node_ids),
+            reachable_from_start=_ids(graph, reachable & graph.top_level_nodes),
+            # Read off G, which the containment convention leaves whole — so a contained
+            # `finish` id lands here *and* in `contained_nodes` (§1.3: not a partition member).
             terminal_nodes=tuple(to_display(v) for v in graph.predecessors(END_VERTEX)),
             # Empty by construction: a non-empty one would have filled `failure` instead.
             orphan_nodes=(),
             unresolved_targets=(),
-            # "Emitted only when non-empty" (DEC-28 clause 1; DEC-11 discipline). The PC-4
-            # profile drops the `None`, so a 1.0 witness serializes exactly as it always has.
+            # Both "emitted only when non-empty" (DEC-28 clause 1; DEC-33; DEC-11 discipline).
+            # The PC-4 profile drops the `None`, so a flat 1.0 witness serializes exactly as it
+            # always has — the five-key form, byte for byte.
             dynamic_dependent=dynamic_dependent or None,
+            contained_nodes=_ids(graph, graph.contained_nodes) or None,
         ),
     )
 
@@ -306,10 +329,15 @@ def _condition_iii(graph: GraphModel) -> list[_Finding]:
     participates. A dispatcher with no other edge and no sentinel wiring is therefore *not* an
     orphan — which is exactly the false FATAL edge-omission would have produced (PD-041
     rationale 3).
+
+    The loop is ``for id in sorted(V_top)`` (DEC-33): a contained node with no edge of its own
+    — every constituent an extractor emits, since a fragment mounts by containment and never by
+    edge — is not an orphan; its containment root answers for its wiring. The ``negative-04``
+    orphan is a top-level id and fails here exactly as before.
     """
     return [
         (ORPHAN_NODE, NodeLocation(kind="node", node=vertex))
-        for vertex in _sorted_nodes(graph)
+        for vertex in _sorted_top_level(graph)
         if graph.degree(vertex, origins=("edges",)) == 0
         and graph.degree(vertex, origins=("entry", "finish")) == 0
         and vertex not in graph.dynamic_sources
@@ -335,9 +363,14 @@ def _condition_i(graph: GraphModel) -> tuple[list[_Finding], tuple[NodeId, ...]]
     surfaced rather than silent. When no dispatcher is reachable the dispatch can never run,
     and (i) runs as written with an empty second member. Exactly one of the two is non-empty,
     and on an ir 1.0 document the second always is.
+
+    Both quantifications are over $V_{top}$ (DEC-33 (F), narrowing DEC-28's ``V ∖ reachable``
+    deliberately): the diagnostic tracks the domain of the condition whose cost it prices, so a
+    contained node is neither a finding nor a ``dynamic_dependent`` member — it is the witness's
+    ``contained_nodes``, and the three lists stay disjoint.
     """
     reachable = graph.descendants(START_VERTEX)
-    unreachable = tuple(vertex for vertex in _sorted_nodes(graph) if vertex not in reachable)
+    unreachable = tuple(vertex for vertex in _sorted_top_level(graph) if vertex not in reachable)
     if graph.reachable_dynamic_sources():
         return [], tuple(to_display(vertex) for vertex in unreachable)
     return [
@@ -359,7 +392,9 @@ def _condition_ii(graph: GraphModel) -> list[_Finding]:
 
     Step 4's ``id ∉ dynamic_sources`` is DEC-28's: "a dynamic edge's source has a runtime
     out-route and is never a dead end". Its out-degree in $G^*$ is what the static edges make
-    it — possibly zero — so the exclusion is by membership, not by degree.
+    it — possibly zero — so the exclusion is by membership, not by degree. The comprehension's
+    domain is $V_{top}$ (DEC-33 (G)): a contained sink — the last child of a ``seq`` frame's
+    generated chain, say — is interior to its root and is not a dead end of the enclosing flow.
 
     Trap components are **not** checked here. §1.7 open item 4 names the gap, PD-007 Q1
     (VAL-D1, ratified 2026-07-24) disposed it, and DEC-12's closing line confirms it in the
@@ -371,7 +406,7 @@ def _condition_ii(graph: GraphModel) -> list[_Finding]:
     """
     return [
         (DEAD_END_NODE_NOT_WIRED_TO_END, NodeLocation(kind="node", node=vertex))
-        for vertex in _sorted_nodes(graph)
+        for vertex in _sorted_top_level(graph)
         if not graph.out_edges(vertex) and vertex not in graph.dynamic_sources
     ]
 
@@ -379,14 +414,18 @@ def _condition_ii(graph: GraphModel) -> list[_Finding]:
 # ── Helpers ──────────────────────────────────────────────────────────────────────────────
 
 
-def _sorted_nodes(graph: GraphModel) -> tuple[str, ...]:
-    """$V$ in ledger §6 order — the ``sorted(V)`` every one of Steps 2–4 iterates.
+def _sorted_top_level(graph: GraphModel) -> tuple[str, ...]:
+    """$V_{top}$ in ledger §6 order — the ``sorted(V_top)`` every one of Steps 2–4 iterates.
 
-    Read off :attr:`~gebra.verify.graph.GraphModel.vertices`, which is already sorted by that
-    comparator, so the O(|V| log |V|) term of §1.5 is paid once by the model rather than three
-    times here.
+    §1.4 Step 2 opens with ``V_top ← { n ∈ V : no proper segment-prefix of n is in V }`` (§0.3
+    containment convention; ratified — DEC-33, 2026-09-06) and Steps 2–4 quantify over it; the
+    set itself is the shared model's, :attr:`~gebra.verify.graph.GraphModel.top_level_nodes`,
+    computed once per document. Read off :attr:`~gebra.verify.graph.GraphModel.vertices`, which
+    is already sorted by that comparator, so the O(|V| log |V|) term of §1.5 is paid once by the
+    model rather than three times here.
     """
-    return tuple(vertex for vertex in graph.vertices if vertex in graph.node_ids)
+    top_level = graph.top_level_nodes
+    return tuple(vertex for vertex in graph.vertices if vertex in top_level)
 
 
 def _ids(graph: GraphModel, wanted: frozenset[str]) -> tuple[NodeId, ...]:

@@ -129,14 +129,17 @@ class P04Failure(Failure):
 
     It exists because ``extra="forbid"`` means the base cannot carry P-04's optional
     diagnostics. Two are DEC-11 pin 3's: ``writers_on_other_paths`` (writers that cover
-    *other* paths) and ``downstream_writers`` (writers wired after the reader). The third is
-    DEC-28 clause 2's (ir 1.1): ``outside_static_coverage`` — the nodes with declared reads that
-    no START-path of the static graph reaches, on a document with a reachable ``dynamic`` edge,
-    whose reads no analysis in the run covers. It is report-level context rather than a fact
-    about this one finding, and it rides the **primary** failure because that is the one
-    carrier a failing P-04 report has (a co-failure is a plain :class:`CoFailure`); on a passing
-    report the same list rides :class:`~gebra.verify.witnesses.DataflowWitness`. All three are
-    diagnostic context, emitted only when non-empty, and never part of the verdict.
+    *other* paths) and ``downstream_writers`` (writers wired after the reader). The other two
+    are report-level coverage-cost diagnostics rather than facts about this one finding, and
+    they ride the **primary** failure because that is the one carrier a failing P-04 report has
+    (a co-failure is a plain :class:`CoFailure`; PD-057 D2); on a passing report the same lists
+    ride :class:`~gebra.verify.witnesses.DataflowWitness`. ``outside_static_coverage`` is DEC-28
+    clause 2's (ir 1.1): the top-level nodes with declared reads that no START-path of the
+    static graph reaches, on a document with a reachable ``dynamic`` edge. ``contained_readers``
+    is DEC-33's (§0.3 containment convention; §4.4 Step 2): the contained nodes with declared
+    reads outside that closure. Neither's reads are covered by any analysis in the run; the two
+    are disjoint by construction. All four are diagnostic context, emitted only when non-empty,
+    and never part of the verdict.
 
     The narrowed ``location`` is what makes the subtype recognisable. Resolving on the
     optional extras alone would leave a P-04 failure that happens to carry none of them
@@ -150,9 +153,14 @@ class P04Failure(Failure):
     location: DataflowLocation
     writers_on_other_paths: tuple[NodeId, ...] | None = None
     downstream_writers: tuple[NodeId, ...] | None = None
-    #: DEC-28 clause 2 (ir 1.1): nodes with declared reads outside the static graph's START
-    #: closure, on a document with a reachable ``dynamic`` edge. Sorted; absent when empty.
+    #: DEC-28 clause 2 (ir 1.1): top-level nodes ($V_{top}$, §0.3) with declared reads outside
+    #: the static graph's START closure, on a document with a reachable ``dynamic`` edge
+    #: (restricted to $V_{top}$ at DEC-33 §3.4 clause 3). Sorted; absent when empty.
     outside_static_coverage: tuple[NodeId, ...] | None = None
+    #: DEC-33 (§0.3 containment convention; §4.4 Step 2): contained nodes ($V ∖ V_{top}$) with
+    #: declared reads outside the static graph's START closure. Sorted; absent when empty;
+    #: disjoint from ``outside_static_coverage``.
+    contained_readers: tuple[NodeId, ...] | None = None
 
 
 #: What ``PropertyReport.failure`` carries: the wedge's concrete failure subtypes, then the

@@ -952,6 +952,25 @@ with the substrate, the HTTP and LLM clients and `networkx` absent from the impo
 `tests/verify/test_graph.py`'s source-level check still finds no graph library in the shared model,
 which is the module the `dynamic` branch landed in.
 
+### VAL-15 — the containment convention, and a documentation example that reads a committed golden
+
+`tests/verify/test_containment.py` is data-only in the same sense as the VAL-14 file above:
+every document is a hand-built `WorkflowIR` through the JSON-mode ingestion path, one of the two
+committed extractor-conformance goldens
+(`tests/extraction/golden/conformance/lcel-{composite,tool-bound}.canonical.json`) read as text
+and validated — never re-extracted — or a vendored property-fixture document loaded through
+`gebra.testing`'s YAML loaders (`load_corpus` for the partition sweep, `load_fixture` for the
+`negative-04` control); there is no node body to run, no extraction, no model, no socket. The containment split itself (`GraphModel.contained_nodes`) is a string split over ids the
+IR grammar already validated, and the P-01/P-04 changes are set operations over it. No extraction
+path is added, so INTROSPECTION-SPEC §1 rule 4 owes no new tripwire. The one new documentation
+example (`docs/validators/p01-graph-well-formed.md`, `a-contained-node-is-answered-by-its-root`)
+reads the same `lcel-composite` golden through `gebra.ir.load_json` and runs
+`run_property`/`verify` over it under the harness guard — the guarded child in which compiling a
+graph, invoking a runnable, resolving a hostname or opening a connection all raise — and its
+ledger sweep has nothing to sweep, because the example imports no sample-workflow module and
+writes none. The two new rendering variants (`tests/report/variants.py`, `contained-fragment*`)
+are stubbed reports over a hand-built document, as every other variant is.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

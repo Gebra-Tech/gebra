@@ -1,5 +1,5 @@
 {
-  "report_format": "1.2",
+  "report_format": "1.3",
   "tool": {
     "name": "gebra",
     "version": "<gebra-version>"
@@ -17,8 +17,6 @@
       "witness": {
         "kind": "well-formedness",
         "reachable_from_start": [
-          "book_leg",
-          "collect",
           "plan"
         ],
         "terminal_nodes": [

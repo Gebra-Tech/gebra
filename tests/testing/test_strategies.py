@@ -205,8 +205,11 @@ def test_p01_passes_on_every_draw(ir: WorkflowIR) -> None:
 
     This is the load-bearing property of the whole module: "well-formed" is not this suite's
     definition but PROPERTY-CATALOG-SPEC §1's, and VAL-05 implements it. The witness is read
-    rather than only the verdict, so a *vacuous* pass — one whose ``reachable_from_start``
-    omitted a node — would fail here too.
+    rather than only the verdict, so a *vacuous* pass — one whose node lists omitted a node —
+    would fail here too. A draw may nest one id under another (``a`` and ``a/b`` both declared),
+    in which case the nested id rides ``contained_nodes`` rather than ``reachable_from_start``
+    (§0.3 containment convention, DEC-33); the two lists are disjoint and together are exactly
+    the declared set, which is the partition §1.3 states for every pass.
 
     Mutating a draw to break one of the four conditions is deliberately not done here; that is
     TE-09's card, and it is what this property is the baseline for.
@@ -217,7 +220,11 @@ def test_p01_passes_on_every_draw(ir: WorkflowIR) -> None:
     assert report.property == PROPERTY_SLUG
     witness = report.witness
     assert isinstance(witness, WellFormednessWitness)
-    assert set(witness.reachable_from_start) == {node.id for node in ir.nodes}
+    reachable = set(witness.reachable_from_start)
+    contained = set(witness.contained_nodes or ())
+    assert not reachable & contained
+    assert reachable | contained == {node.id for node in ir.nodes}
+    assert witness.dynamic_dependent is None
     assert witness.orphan_nodes == ()
     assert witness.unresolved_targets == ()
 
@@ -852,7 +859,12 @@ def _assert_well_formed(ir: WorkflowIR) -> None:
     report = check_graph_well_formed(ir)
     assert report.result == "pass", report.failure
     assert isinstance(report.witness, WellFormednessWitness)
-    assert set(report.witness.reachable_from_start) == declared
+    # The pass witness partitions the declared set (§1.3, DEC-33): the top-level closure plus
+    # the ids nested under another declared id, disjoint, and nothing else.
+    reachable = set(report.witness.reachable_from_start)
+    contained = set(report.witness.contained_nodes or ())
+    assert not reachable & contained
+    assert reachable | contained == declared
 
     keys = set(ir.state or {})
     for contract in _contracts(ir):

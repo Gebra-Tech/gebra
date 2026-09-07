@@ -1056,6 +1056,18 @@ bump lands on `display --report`: a `1.1` report file written by the previous re
 naming the version this build reads (§4.4; REPORT-FORMAT-SPEC §1.6's MAY), and re-running
 `verify` produces a `1.2` one.
 
+**VAL-15 (P-01's containment convention and witness partition) — landed 2026-09-07**, the second
+post-final landing note under §6 item 3 of the promotion record (a card plus a note here; no
+contract of this document moves). P-01's node-quantified conditions now quantify over the
+top-level nodes (PROPERTY-CATALOG-SPEC §0.3's containment convention, DEC-33), so `gebra verify`
+exits `0` on an extracted LCEL fragment with a nested frame where it exited `1` with a FATAL
+`orphan-node` cascade before; the run report is `report_format` `1.3` (REPORT-FORMAT-SPEC §1.6),
+carrying the optional `contained_nodes` and `contained_readers` members when they are non-empty,
+and its `reachable_from_start` lists the static `START`-closure of the top-level nodes. No verb,
+flag or exit-code rule of this document changes. The same consumer-side consequence as at `1.2`
+lands on `display --report`, one version on: a `1.2` report file is refused naming `1.3`, and
+re-running `verify` produces a `1.3` one.
+
 ---
 
 ## Appendix A — the consolidated flag table

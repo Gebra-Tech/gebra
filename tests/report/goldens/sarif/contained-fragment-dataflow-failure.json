@@ -326,10 +326,68 @@
       "automationDetails": {
         "id": "gebra/verify/travel-booking-build-graph"
       },
-      "results": [],
+      "results": [
+        {
+          "ruleId": "read-key-never-written-on-path",
+          "level": "error",
+          "rank": 100.0,
+          "message": {
+            "text": "State key is read on a path where nothing writes it — state key query read by node %seq[1]. P-04 dataflow-completeness, FATAL. No snapshot is recorded for a run carrying it (PROPERTY-CATALOG-SPEC §0.2)."
+          },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "kind": "variable",
+                  "name": "query",
+                  "fullyQualifiedName": "state:query"
+                }
+              ]
+            }
+          ],
+          "relatedLocations": [
+            {
+              "logicalLocations": [
+                {
+                  "kind": "function",
+                  "fullyQualifiedName": "node:START"
+                }
+              ]
+            },
+            {
+              "logicalLocations": [
+                {
+                  "kind": "function",
+                  "fullyQualifiedName": "node:%seq[0]"
+                }
+              ]
+            },
+            {
+              "logicalLocations": [
+                {
+                  "kind": "function",
+                  "fullyQualifiedName": "node:%seq[1]"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "gebraConditionHash/v1": "7eac7368e8c098b7905b342500f05bcd2451a36b84933bb9b36cc1bba62437c5",
+            "gebraGraphVersion/v1": "sha256:e4d28e405f3278e8f53d182160723111f8469442a0b868cb82211829dd31fb64"
+          },
+          "properties": {
+            "gebra/severity": "FATAL",
+            "gebra/claimClass": "DEFENSIBLE-A",
+            "gebra/property": "dataflow-completeness",
+            "gebra/containedReaders": [
+              "%seq[1]/%map[docs]"
+            ]
+          }
+        }
+      ],
       "properties": {
-        "gebra/graphVersion": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
-        "gebra/exitCode": 2
+        "gebra/graphVersion": "sha256:e4d28e405f3278e8f53d182160723111f8469442a0b868cb82211829dd31fb64",
+        "gebra/exitCode": 1
       }
     }
   ]

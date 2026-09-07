@@ -96,19 +96,39 @@ def _well_formedness_lines(witness: WellFormednessWitness) -> list[tuple[str, st
         ),
     ]
     if witness.dynamic_dependent:
-        # §4.3's `dynamic_dependent` row (DEC-28 clause 1): the nodes condition (i) did not name
-        # because a reachable `dynamic` edge may dispatch to them. The line states its relation
-        # to the list above it, claims neither reachability nor unreachability (gebra observes
-        # no dispatch), and scopes the coverage gap to what DEC-28 prices — condition (i) and
+        # §4.3's `dynamic_dependent` row (DEC-28 clause 1; restated at DEC-33 §3.2): the
+        # top-level nodes condition (i) did not name because a reachable `dynamic` edge may
+        # dispatch to them. The list is disjoint from `reachable_from_start` — the two partition
+        # the top-level nodes with `contained_nodes` completing V — so the line says "beside",
+        # never "of these"; it claims neither reachability nor unreachability (gebra observes no
+        # dispatch), and scopes the coverage gap to what DEC-28 prices — condition (i) and
         # P-04's obligations — rather than to "every analysis".
         lines.append(
             (
                 "dynamic-dependent",
                 (
-                    f"of these, {_plural(len(witness.dynamic_dependent), 'node')} depend on a "
-                    "dynamic router: no declared START-path reaches them, so their reachability "
-                    "is neither claimed nor denied here, and P-04 generates no obligation for "
-                    f"their reads: {_listed(witness.dynamic_dependent)}"
+                    f"{_plural(len(witness.dynamic_dependent), 'top-level node')} beside the "
+                    "list above that no declared START-path reaches: a reachable dynamic router "
+                    "may dispatch to them, so their reachability is neither claimed nor denied "
+                    "here, and P-04 generates no obligation for their reads: "
+                    f"{_listed(witness.dynamic_dependent)}"
+                ),
+            )
+        )
+    if witness.contained_nodes:
+        # §4.3's `contained_nodes` row (DEC-33 §3.1): the nodes conditions (i)–(iii) did not
+        # evaluate because another node's id is a proper prefix of theirs — constituents of
+        # that containment root, not vertices of the enclosing flow. The line claims neither
+        # reachability nor unreachability for them and nothing about the root's interior
+        # (P-10's territory); it names the split and where the answer lives.
+        lines.append(
+            (
+                "contained nodes",
+                (
+                    f"{_plural(len(witness.contained_nodes), 'node')} contained under another "
+                    "node's id path, answered by that containment root: conditions (i)-(iii) "
+                    "did not evaluate them, and this report says nothing about the root's "
+                    f"interior: {_listed(witness.contained_nodes)}"
                 ),
             )
         )
@@ -268,11 +288,13 @@ def _dataflow_lines(witness: DataflowWitness) -> list[tuple[str, str]]:
                 _outside_static_coverage_phrase(witness.outside_static_coverage),
             )
         )
+    if witness.contained_readers:
+        lines.append(("contained readers", _contained_readers_phrase(witness.contained_readers)))
     return lines
 
 
 def _outside_static_coverage_phrase(readers: tuple[str, ...]) -> str:
-    """§4.3's `outside_static_coverage` row (DEC-28 clause 2), on the pass witness.
+    """§4.3's `outside_static_coverage` row (DEC-28 clause 2; over V_top since DEC-33), on the pass witness.
 
     The same fact rides a failing P-04 report's primary finding as evidence (§4.4), where
     :func:`gebra.report.human._evidence_label` words it; the two spellings say one thing —
@@ -280,9 +302,25 @@ def _outside_static_coverage_phrase(readers: tuple[str, ...]) -> str:
     them is a statement about the static graph only.
     """
     return (
-        f"{_plural(len(readers), 'node')} with declared reads that no START-path of the static "
-        "graph reaches — reachable only through a dynamic router, so no analysis in this run "
-        f"covers those reads: {_listed(readers)}"
+        f"{_plural(len(readers), 'top-level node')} with declared reads that no START-path of "
+        "the static graph reaches — reachable only through a dynamic router, so no analysis in "
+        f"this run covers those reads: {_listed(readers)}"
+    )
+
+
+def _contained_readers_phrase(readers: tuple[str, ...]) -> str:
+    """§4.3's `contained_readers` row (DEC-33 §3.4), on the pass witness.
+
+    The containment twin of the phrase above, and the same discipline: the readers' declared
+    reads were covered by no analysis in this run, no obligation was raised for them, and the
+    place to look is the node that contains them — never a dispatcher, and never a claim about
+    the root's interior. The failure-side spelling is :mod:`gebra.report.human`'s gloss.
+    """
+    return (
+        f"{_plural(len(readers), 'contained node')} with declared reads that no START-path of "
+        "the static graph reaches — answered by the containment root, not by a dynamic router, "
+        f"so no obligation was raised and no analysis in this run covers those reads: "
+        f"{_listed(readers)}"
     )
 
 
@@ -395,10 +433,15 @@ def witness_summary(witness: Witness) -> str:
             if witness.dynamic_dependent
             else ""
         )
+        contained = (
+            f" | {_plural(len(witness.contained_nodes), 'contained node')}"
+            if witness.contained_nodes
+            else ""
+        )
         return (
             f"{_plural(len(witness.reachable_from_start), 'node')} reachable from START | "
             f"{_plural(len(witness.terminal_nodes), 'terminal node')} | {orphans} | "
-            f"{unresolved}{dynamic}"
+            f"{unresolved}{dynamic}{contained}"
         )
     if isinstance(witness, TerminationWitness):
         notes = f" | {_plural(len(witness.notes), 'note')}" if witness.notes else ""
@@ -412,7 +455,15 @@ def witness_summary(witness: Witness) -> str:
             if witness.outside_static_coverage
             else ""
         )
-        return f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered{outside}"
+        contained = (
+            f" | {_plural(len(witness.contained_readers), 'contained reader')}"
+            if witness.contained_readers
+            else ""
+        )
+        return (
+            f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered"
+            f"{outside}{contained}"
+        )
     if isinstance(witness, EffectSafetyWitness):
         return (
             f"{_plural(len(witness.cycles), 'cycle')} | "

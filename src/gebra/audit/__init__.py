@@ -32,15 +32,21 @@ the store currently points at::
     outcome.moved                       # (Component.S, Component.F)
     print(outcome.summary())
 
-It answers in three states rather than two — fresh, stale, and a store that holds nothing at
-all, which is not the same event and does not want the same words. It never writes, and it
-grades nothing: P-12 ``evolution-safety`` is deferred out of Phase 0 (SOW §8, PD-006 R4), so a
-stale outcome reports that the content moved and which of S/F/E moved with it, and stops.
+It answers in four states rather than two — fresh, stale, a store that holds nothing at all,
+which is not the same event and does not want the same words, and *restamped*: a working
+definition that is the stored content under another ``ir_version`` stamp, which moves the
+digest and no V.S.F.E counter and which the recorder refuses to record (PD-059 D7b), so the
+outcome names both stamps and the remedy the recorder honours rather than calling it stale. It
+never writes, and it grades nothing: P-12 ``evolution-safety`` is deferred out of Phase 0 (SOW
+§8, PD-006 R4), so a stale outcome reports that the content moved and which of S/F/E moved
+with it, and stops.
 
 **In CI**, the check runs through the pytest harness (D-11 deliverable 6) as
-``@pytest.mark.gebra_freshness``, which fails its item when the store is stale, and as the
-``gebra_freshness`` fixture for a suite that would rather assert on the outcome itself. Both
-are :mod:`gebra.pytest_plugin`'s surface over this engine.
+``@pytest.mark.gebra_freshness``, which fails its item when the store is stale or holds
+nothing and passes it with a warning when the store is merely restamped (the definition did
+not change — PD-059 D7b (ii)), and as the ``gebra_freshness`` fixture for a suite that would
+rather assert on the outcome itself. Both are :mod:`gebra.pytest_plugin`'s surface over this
+engine.
 
 **Nothing here imports langgraph, opens a socket, or executes anything (WA-07)**, and unlike
 :mod:`gebra.snapshot` that holds for the whole package: :func:`~gebra.audit.freshness.freshness`

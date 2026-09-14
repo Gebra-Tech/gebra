@@ -403,12 +403,12 @@ class DynamicEdgeUnsupportedError(NotImplementedError):
 
     ``NotImplementedError`` by inheritance because that is exactly the fact: the construct is
     ratified and emitted, the validators read it (``gebra.verify`` reaches a verdict on such a
-    document), and *this consumer* — the topology diff, the store and the freshness check built
-    on it, or the display emitter — has no ruled representation for an edge with no target yet.
-    The CLI verbs that reach those consumers (``gebra snapshot``, ``gebra diff``, ``gebra
-    display``) catch it and report a tool error — "nothing was recorded", "no comparison was
-    made", "no diagram was emitted" — which is the only honest outcome available before that
-    representation is ruled.
+    document), the topology diff and the store and freshness check built on it read it (card
+    SD-13, PD-059 — a headless edge is carried on its source and reported with no target), and
+    *this consumer* — the display emitter, the one that remains — has no ruled representation
+    for an edge with no target in a **drawing** yet (DIAGRAM-STYLE-GUIDE §3.4). The CLI verb
+    that reaches it (``gebra display``) catches it and reports a tool error — "no diagram was
+    emitted" — which is the only honest outcome available before that representation is ruled.
     """
 
 
@@ -422,25 +422,24 @@ StaticEdge: TypeAlias = NormalEdge | ConditionalEdge | SendEdge
 def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[StaticEdge, ...]:
     """Decline a ``dynamic``-bearing edge set on behalf of a consumer with no 1.1 semantics.
 
-    One decline, one wording, every consumer that still needs it — the topology-diff graph,
-    the two surfaces built on it (SD-12: the snapshot recorder and the freshness check, each
-    declining on both the document handed in and the one the store already holds), and the
-    display emitter. The reason is the same in all of them, so a reader who meets it in one
-    place recognizes it in the next; the call sites are deliberately not counted here, because
-    the count is the part that goes stale. **The validators are no longer among them:** the
-    shared validator graph model reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC §0.3's
-    ruled convention — no member of $G$, a participating source — so ``gebra.verify`` reaches a
-    verdict on such a document (the paired validator card DEC-28 mandated).
+    One decline, one wording, every consumer that still needs it. **One remains: the display
+    emitter** (DIAGRAM-STYLE-GUIDE §3.4). The validators left this list at VAL-14 — the shared
+    validator graph model reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC §0.3's ruled
+    convention (no member of $G$, a participating source), so ``gebra.verify`` reaches a
+    verdict on such a document — and the topology-diff graph, the snapshot recorder and the
+    freshness check left it at SD-13, under PD-059: the diff carries a headless edge on its
+    source vertex and reports it with no target, so the store above it extends and compares a
+    1.1 document like any other. The call sites are deliberately not counted here, because the
+    count is the part that goes stale.
 
     **Why a decline rather than a default, where one remains.** A ``dynamic`` edge contributes
     no member to the graph $G$ (§0.3, ratified — DEC-28), and *silently* dropping it is the one
-    thing that must not happen: the topology diff's edge universe *is* the ``graph_version``
-    topology slice, so two documents whose digests differ would diff as unchanged, and a
-    materialized pseudo-head would be the phantom-vertex class DEC-26 closed. What a headless
-    edge should look like in an ``nx`` representation, or in a diagram, is **unruled** — it needs
-    its own decision record before any of these consumers can choose — so they decline rather
-    than choosing, and the store above them neither extends nor compares such a document
-    (SD-12's interim ruling, revisited when the representation is ruled).
+    thing that must not happen; inventing a head for it would name a vertex the document does
+    not declare — the phantom-vertex class DEC-26 closed. A diff descriptor can say "no target"
+    in so many words; a drawing cannot, because an arrow needs a head, so what a headless edge
+    should look like in a diagram is **unruled** — it needs its own decision record before the
+    emitter can choose (PD-059 D8 names the CLI-track card that owns it) — and the emitter
+    declines rather than choosing.
 
     Args:
         edges: The document's edge set.
@@ -463,13 +462,14 @@ def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[Stati
             f"{consumer} has no semantics for the `dynamic` edge kind, and edges[{index}] "
             f"(from {edge.from_!r}) is one. The kind is ratified (ir 1.1 — DEC-28, "
             "2026-08-09), `gebra.extract()` emits it for a router whose target set is not "
-            "statically known, and `gebra.verify` reads it — the validators reach a verdict on "
-            "this document. What is unruled is how a headless edge is represented in a topology "
-            "diff or a diagram: a `dynamic` edge contributes no member to the graph, so dropping "
-            "it would compare two documents with different digests as unchanged, and inventing "
-            "a head would name a vertex the document does not declare. Declining is deliberate, "
-            "and lifting it needs a decision record on that representation (a follow-on "
-            "traceability card), not a default chosen here."
+            "statically known, `gebra.verify` reads it — the validators reach a verdict on "
+            "this document — and `gebra.snapshot`, `gebra diff` and the freshness check read "
+            "it too (PD-059: the edge is carried on its source and reported with no target). "
+            "What is unruled is how a headless edge is drawn: a `dynamic` edge contributes no "
+            "member to the graph, and inventing a head for it would name a vertex the "
+            "document does not declare. Declining is deliberate, and lifting it needs a "
+            "decision record on the diagram representation (DIAGRAM-STYLE-GUIDE §3.4, a "
+            "CLI-track card), not a default chosen here."
         )
     return tuple(static)
 

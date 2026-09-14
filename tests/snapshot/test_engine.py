@@ -30,7 +30,6 @@ import pytest
 from pydantic import ValidationError as PydanticValidationError
 
 from gebra.diff import WorkflowDiff, workflow_diff
-from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.ir.canonical import graph_version
 from gebra.ir.models import DynamicEdge, Node, WorkflowIR
 from gebra.lineage import lineage
@@ -775,8 +774,11 @@ def test_an_empty_document_source_is_refused(store: SnapshotStore) -> None:
     assert not store.exists
 
 
-def test_a_dynamic_document_is_declined_at_the_document_mouth(store: SnapshotStore) -> None:
-    """The DEC-28 decline covers the third entry point on the same terms as the other two."""
+def test_a_dynamic_document_records_through_the_document_mouth(store: SnapshotStore) -> None:
+    """The third entry point reads an ir 1.1 document on the same terms as the other two:
+    since SD-13 (PD-059) a ``dynamic`` edge is diffed, not declined, so the document records
+    and reads back equal — the seam's own suite (``tests/test_dynamic_document_seam.py``)
+    states the rest."""
     dynamic = WorkflowIR(
         ir_version="1.1",
         entry="plan",
@@ -785,6 +787,11 @@ def test_a_dynamic_document_is_declined_at_the_document_mouth(store: SnapshotSto
         edges=(DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route"),),
     )
 
-    with pytest.raises(DynamicEdgeUnsupportedError):
-        record_document(dynamic, store=store, source="build/dynamic.ir.yaml", extracted_at=MOMENT)
-    assert not store.exists
+    outcome = record_document(
+        dynamic, store=store, source="build/dynamic.ir.yaml", extracted_at=MOMENT
+    )
+
+    assert outcome.action is SnapshotAction.RECORDED
+    assert outcome.version == "1.0.0.0"
+    assert store.read("1.0.0.0").ir == dynamic
+    assert store.read("1.0.0.0").extracted_from.source == "build/dynamic.ir.yaml"

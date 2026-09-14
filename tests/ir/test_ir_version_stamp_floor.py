@@ -507,15 +507,19 @@ def test_the_field_order_the_check_depends_on_is_the_specs_own() -> None:
     assert order == ("ir_version", "entry", "finish", "state", "nodes", "edges", "runtime")
 
 
-def test_a_model_copy_can_still_build_one_so_the_construct_declines_stay_load_bearing() -> None:
-    """Why the engine-level ``dynamic`` declines are kept rather than downgraded.
+def test_a_model_copy_can_still_build_one_so_the_engine_floor_stays_load_bearing() -> None:
+    """Why an engine-level floor is kept beside the loader's rather than downgraded.
 
     DEC-34 §3 records the same boundary DEC-22/IR-07 did: ``model_construct`` is banned on the
     frozen base (A6 PC-6), but ``model_copy(update=...)`` is public pydantic API and skips
     validation by design — so an under-stamped model is still *constructible*, just no longer
-    loadable. The construct-keyed declines (``gebra.ir.refuse_dynamic_edges`` in the diff, the
-    store, the freshness check and the pytest gate — SD-12) therefore stay in place, and they
-    key on the edge kind rather than on the stamp, so they are unmoved either way.
+    loadable. DEC-34 named the construct-keyed declines (``gebra.ir.refuse_dynamic_edges`` in
+    the diff, the store, the freshness check and the pytest gate — SD-12) as the floor that
+    reaches such a model; card SD-13 lifted those declines (a ``dynamic`` edge is diffed and
+    recorded now — PD-059) and kept the floor, re-keyed on the stamp the loader keys on:
+    :func:`gebra.diff.topology.resolve_subject` refuses a model stamped below the minor its
+    edges require, from either side (``tests/diff/test_topology.py``). This test holds the
+    model half — the document is buildable and not loadable — so that floor stays reachable.
     """
     twin = WorkflowIR.model_validate_json(CORRECTLY_STAMPED)
     lowered = twin.model_copy(update={"ir_version": IR_VERSION})

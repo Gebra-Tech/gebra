@@ -21,15 +21,32 @@ empty ``path_map`` router added — leave the routing graph identical and the ca
 different. The graph diff is right to report nothing; the S counter is right to move, because
 S counts the ``edges`` field. Without this flag the derivation would silently drop that case.
 
-**And one document class is refused rather than reported.** The deltas mirror their slices on
-every document whose node ids are unique — which IR-SPEC §2.1 makes a MUST (ratified DEC-22),
-with §6.2's sort totality following from it. A document repeating an id has no total canonical
-node order, so the tied entries' authored order reaches the digest (which §6.4 excludes), and
-every delta here is keyed by id, so reporting one would collapse it and under-report both S
-and F. :func:`~gebra.diff.topology.resolve_subject` refuses it before anything else runs.
-That check is a floor rather than the enforcement point: DEC-22's constraint is on the model
-itself since card IR-07, so no *loaded* document can violate it — the floor covers a model
-built past validation with ``model_copy(update=...)``, which this engine can still be handed.
+**And two document classes are refused rather than reported.** The deltas mirror their slices
+on every document whose node ids are unique — which IR-SPEC §2.1 makes a MUST (ratified
+DEC-22), with §6.2's sort totality following from it. A document repeating an id has no total
+canonical node order, so the tied entries' authored order reaches the digest (which §6.4
+excludes), and every delta here is keyed by id, so reporting one would collapse it and
+under-report both S and F. :func:`~gebra.diff.topology.resolve_subject` refuses it before
+anything else runs, and refuses on the same terms a document stamped below the ``ir_version``
+its constructs require (§2.5 note 7, DEC-34). Both checks are floors rather than the
+enforcement point: each constraint is on the model itself (cards IR-07 and IR-08), so no
+*loaded* document can violate either — the floors cover a model built past validation with
+``model_copy(update=...)``, which this engine can still be handed.
+
+**A ``dynamic`` edge is diffed, not declined.** The ir 1.1 kind (DEC-28) has no target, and
+its descriptor says so — :class:`~gebra.diff.models.EdgeRef` with ``target=None`` — so two
+documents differing only in such an edge report it under ``topology.edges`` and bump S, never
+diffing as unchanged (PD-059, card SD-13; the decline it replaced was PD-044 D11's interim
+posture).
+
+**And one hash-scope member is outside every slice: the ``ir_version`` stamp.** IR-SPEC §8 keeps
+format migrations out of the V.S.F.E label ("two migration regimes, never conflated"), so a
+working definition that differs from a stored one in its stamp alone — an over-stamped twin,
+admitted at the loader by DEC-34 — moves the digest and no counter. That pair is the one
+exception to ``has_changes == not identical``: :attr:`WorkflowDiff.stamp_only` names it, both
+anchors carry the stamps, and every surface above this engine reports it as what it is rather
+than as a change (the recorder's ``no-version-movement``, ``gebra diff``'s stamp line, the
+freshness check's ``restamped`` state — PD-059 D7b as ratified).
 
 **What this diff never says is whether a change is safe.** P-12 ``evolution-safety`` is out of
 Phase-0 scope (SOW §8), a deferral ratified in PD-006 R4 with the owner's signature, and
@@ -84,8 +101,10 @@ class WorkflowDiff:
     F and E cover the whole canonical document except ``ir_version``, which IR-SPEC §8 puts in
     the other migration regime entirely ("two migration regimes, never conflated" — a format
     migration is not a workflow migration). The three *deltas* mirror those slices on every
-    document this engine accepts (see the module docstring on the one it refuses), and that is
-    what makes :attr:`has_changes` and ``not`` :attr:`identical` the same answer here.
+    document this engine accepts (see the module docstring on the two it refuses), and that is
+    what makes :attr:`has_changes` and ``not`` :attr:`identical` the same answer here — with
+    exactly one exception, the member the slices leave out: a pair differing in the
+    ``ir_version`` stamp alone is not identical and has no changes. :attr:`stamp_only` names it.
 
     Attributes:
         topology: Nodes, edges and START/END wiring — SD-04's diff, over networkx.
@@ -168,17 +187,42 @@ class WorkflowDiff:
 
     @property
     def has_changes(self) -> bool:
-        """Whether anything at all moved — equivalently, whether any counter bumps.
+        """Whether anything the counters count moved — equivalently, whether any counter bumps.
 
         Unlike :attr:`TopologyDiff.has_changes <gebra.diff.models.TopologyDiff.has_changes>`,
-        which is silent about contracts and Σ, this one is total over the hash scope: it is
-        ``False`` exactly when :attr:`identical` is ``True``, on every document this engine
-        accepts. That agreement is checked over generated pairs, not assumed — it is the
-        diff-level face of the version engine's covering property, and the document class
-        where it would fail is refused at the boundary rather than reported (module
-        docstring).
+        which is silent about contracts and Σ, this one is total over the three V.S.F.E
+        slices: it is ``False`` exactly when :attr:`identical` is ``True`` — except on a pair
+        that differs in the ``ir_version`` stamp alone, the one hash-scope member outside every
+        slice, where it is ``False`` while the digests differ (:attr:`stamp_only`). That
+        agreement, and its one exception, are checked over constructed and generated pairs,
+        not assumed — the diff-level face of the version engine's covering property.
         """
         return bool(self.bump_class)
+
+    @property
+    def stamp_only(self) -> bool:
+        """Whether the two sides differ in their ``ir_version`` stamp and in nothing else.
+
+        The one case :attr:`identical` and :attr:`has_changes` are both ``False``: the digests
+        differ (the stamp is inside IR-SPEC §6.4's scope) while no V.S.F.E counter moves (§8
+        keeps format migrations out of the label). Every surface above this engine reports the
+        pair as a stamp move and nothing more — the recorder refuses it as
+        ``no-version-movement``, ``gebra diff`` renders one line naming both stamps, the
+        freshness check answers ``restamped`` with the remedy the recorder honours (PD-059 D7b
+        as ratified). The two stamps are on :attr:`before` and :attr:`after`, and the answer
+        reads them: it is ``True`` only when they differ, which is what the anchors carry them
+        for. The three deltas mirror their slices (held by test against
+        :func:`~gebra.versioning.classify.changed_components`), so on every pair this engine
+        accepts the stamps differ exactly when the digests differ and no delta does; were that
+        covering property ever to fail, the pair would show as neither identical nor changed
+        nor stamp-only — the coverage defect the recorder already names, never a stamp move
+        reported over two equal stamps.
+        """
+        return (
+            not self.identical
+            and not self.has_changes
+            and self.before.ir_version != self.after.ir_version
+        )
 
 
 def workflow_diff(before: DiffSubject, after: DiffSubject) -> WorkflowDiff:

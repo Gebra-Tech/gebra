@@ -117,15 +117,15 @@ gebra.snapshot           7
 gebra.store             31
 gebra.versioning        13
 gebra.lineage           11
-gebra.diff              33
+gebra.diff              34
 gebra.audit             11
 gebra.report            31
 gebra.display            4
 gebra.testing           29
-gebra.pytest_plugin     33
+gebra.pytest_plugin     34
 gebra.cli                2
                       ----
-exported names         572
+exported names         574
 ```
 
 | Package | What it owns | Where it is documented |

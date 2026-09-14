@@ -387,10 +387,12 @@ def test_every_condition_id_the_page_prints_is_the_registrys(
     assert f"{condition} [{severity} · {claim_class}]" in page_text
 
 
-def test_the_three_freshness_states_are_the_engines(prose: str) -> None:
-    """The page's three-states-rather-than-two claim is read off the enum it is about."""
-    assert len(Freshness) == 3
-    assert "It answers in three states rather than two" in prose
+def test_the_four_freshness_states_are_the_engines(prose: str) -> None:
+    """The page's four-states-rather-than-two claim is read off the enum it is about."""
+    assert len(Freshness) == 4
+    assert {state.value for state in Freshness} == {"fresh", "stale", "unsnapshotted", "restamped"}
+    assert "It answers in four states rather than two" in prose
+    assert "restamped" in prose
 
 
 # ── The CLI behaviour the page documents ─────────────────────────────────────────────────

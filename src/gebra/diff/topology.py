@@ -19,17 +19,22 @@ How the comparison runs:
    diff is empty by construction and neither graph is built.
 3. **Compare the graphs.** Declared node ids as sets (identity is the id, nothing else);
    ``entry``/``finish`` wired sets; expanded edges as a **multiset** of descriptors — the
-   canonical form keeps duplicate edge objects, so multiplicity is content.
+   canonical form keeps duplicate edge objects, so multiplicity is content. A ``dynamic``
+   edge (ir 1.1 — DEC-28) is read off the source vertex that carries it
+   (:data:`~gebra.diff.graph.DYNAMIC_ATTRIBUTE`, PD-059) into a descriptor with no target,
+   so it is one member of the multiset like any other edge in the hash scope.
 4. **Fold exact identity matches into changes.** After multiset subtraction, an unmatched
    before/after pair collapses into one :class:`~gebra.diff.models.EdgeChanged` when a
    persisting authored identity carries it and the pairing is unambiguous — exactly one
    unmatched edge on each side under a conditional routing slot ``(source, label)`` or a
-   ``normal``/``send`` source ``(kind, source)``. Everything else stays removed/added.
+   ``normal``/``send``/``dynamic`` source ``(kind, source)``. Everything else stays
+   removed/added. A ``dynamic`` pairing can only ever report a moved ``condition``: the kind
+   has no target to move.
 5. **Derive rewired nodes.** A node declared on both sides that is incident to any wiring
    or edge delta kept its identity while its connections moved. A conditional target
    spelled ``"END"`` is the END sentinel (m3), so it never marks a node — not even one
    named ``END`` — while the same spelling on a ``normal``/``send`` edge is an ordinary
-   reference (PD-007) and does.
+   reference (PD-007) and does. A ``dynamic`` edge marks its source and nothing else.
 
 What the result never says: whether a change is safe. P-12 ``evolution-safety`` is deferred
 out of Phase 0 (SOW §8); this engine reports structure, and the S bump class is derived from
@@ -53,7 +58,7 @@ from typing import TypeAlias
 
 import networkx as nx
 
-from gebra.diff.graph import END_LITERAL, topology_graph
+from gebra.diff.graph import DYNAMIC_ATTRIBUTE, END_LITERAL, topology_graph
 from gebra.diff.models import (
     DiffAnchor,
     EdgeChanged,
@@ -65,7 +70,7 @@ from gebra.diff.models import (
     ledger_sort_key,
 )
 from gebra.ir.canonical import graph_version
-from gebra.ir.models import WorkflowIR
+from gebra.ir.models import IR_VERSIONS, WorkflowIR, lowest_ir_version
 from gebra.store.models import Snapshot
 
 __all__ = [
@@ -195,15 +200,29 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
     constraint before DEC-22, and SD-05's IR-spec pre-review reproduced two canonical
     forms — two digests — for one node set. Record: PD-032.)
 
+    **The second floor is the ``ir_version`` stamp** (IR-SPEC §2.5 note 7 — ratified DEC-34,
+    2026-09-06 — landed on the model by card IR-08): a document stamped below the lowest minor
+    its constructs require is non-conforming, and it is refused here for the same reason and
+    at the same site as the repeated id. It replaced the construct-keyed decline the diff, the
+    store and the freshness check used to make on every ``dynamic``-bearing document (SD-12;
+    lifted by SD-13 under PD-059): what those engines must never do is record or compare a
+    model their own loader would refuse to read back, and since DEC-34 the loader keys on the
+    stamp, not on the construct. A model built past validation is the only way such a
+    document can still be held (DEC-34 §3).
+
     Public because every engine in this package resolves its two sides the same way and a
     second implementation of the step-9 recompute would be a second opinion about which IR a
     diff is actually about (:mod:`gebra.diff.workflow` is the other caller).
 
     Raises:
         ValueError: if a ``Snapshot``'s stored ``graph_version`` is not the digest of its own
-            IR (IR-SPEC §6.1 step 9), or if the IR declares one node id twice (§2.1, DEC-22).
+            IR (IR-SPEC §6.1 step 9), if the IR declares one node id twice (§2.1, DEC-22), or
+            if its ``ir_version`` is below the lowest minor its edges require (§2.5 note 7,
+            DEC-34).
     """
-    _refuse_repeated_node_ids(subject.ir if isinstance(subject, Snapshot) else subject)
+    ir = subject.ir if isinstance(subject, Snapshot) else subject
+    _refuse_repeated_node_ids(ir)
+    _refuse_under_stamped(ir)
     if isinstance(subject, Snapshot):
         digest = graph_version(subject.ir)
         if digest != subject.graph_version:
@@ -212,8 +231,10 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
                 f"{subject.graph_version!r}, but its IR digests to {digest!r} "
                 "(IR-SPEC §6.1 step 9); refusing to diff under a wrong anchor"
             )
-        return subject.ir, DiffAnchor(graph_version=digest, version=subject.version)
-    return subject, DiffAnchor(graph_version=graph_version(subject))
+        return subject.ir, DiffAnchor(
+            graph_version=digest, version=subject.version, ir_version=subject.ir.ir_version
+        )
+    return subject, DiffAnchor(graph_version=graph_version(subject), ir_version=subject.ir_version)
 
 
 def _refuse_repeated_node_ids(ir: WorkflowIR) -> None:
@@ -238,6 +259,37 @@ def _refuse_repeated_node_ids(ir: WorkflowIR) -> None:
         seen.add(node.id)
 
 
+def _refuse_under_stamped(ir: WorkflowIR) -> None:
+    """Refuse a document stamped below the minor its edges require — see :func:`resolve_subject`.
+
+    The same comparison :class:`~gebra.ir.models.WorkflowIR` makes at validation (IR-SPEC §2.5
+    note 7; DEC-34), restated over :func:`~gebra.ir.models.lowest_ir_version` so the floor
+    inherits a future minor from the one place that defines it. Named apart from the model's
+    own validator, which enforces the rule on a different contract, so a search on either
+    name returns one function with one signature.
+    """
+    floor = lowest_ir_version(ir.edges)
+    stamp = ir.ir_version
+    if stamp not in IR_VERSIONS:
+        raise ValueError(
+            f"the document is stamped ir_version {stamp!r}, which is not a version this build "
+            f"reads (it reads {', '.join(IR_VERSIONS)}). `WorkflowIR` refuses such a stamp at "
+            "validation, so this one was built past validation — `model_copy(update=...)` is "
+            "the way in. Refused rather than recorded or compared: a store must never hold a "
+            "snapshot its own loader would refuse to read back"
+        )
+    if IR_VERSIONS.index(floor) <= IR_VERSIONS.index(stamp):
+        return
+    raise ValueError(
+        f"the document is stamped ir_version {stamp!r} but its edges require {floor!r}: a "
+        "document stamped below the lowest minor its constructs require is non-conforming and "
+        "loaders MUST reject it (IR-SPEC §2.5 note 7, ratified DEC-34). `WorkflowIR` refuses "
+        "such a document at validation, so this one was built past validation — "
+        "`model_copy(update=...)` is the way in. Refused rather than recorded or compared: a "
+        "store must never hold a snapshot its own loader would refuse to read back"
+    )
+
+
 def _collect(
     graph: nx.MultiDiGraph,
 ) -> tuple[Counter[EdgeRef], frozenset[str], frozenset[str], frozenset[str]]:
@@ -246,7 +298,10 @@ def _collect(
     Wired members and targets come from edge attributes (the authored spellings) and the
     edge source from the tail vertex, whose name is the authored ``from`` verbatim. The
     head vertices — the one place sentinel mapping lives — are never read at all, so the
-    graph's vertex-naming conventions cannot leak into the comparison.
+    graph's vertex-naming conventions cannot leak into the comparison. A ``dynamic`` edge has
+    no ``nx`` edge to read; it is read off the vertex that carries it
+    (:data:`~gebra.diff.graph.DYNAMIC_ATTRIBUTE`, PD-059), the vertex name being its authored
+    ``from`` verbatim as any tail is.
     """
     edges: Counter[EdgeRef] = Counter()
     entry: set[str] = set()
@@ -267,6 +322,9 @@ def _collect(
                     condition=data["condition"],
                 )
             ] += 1
+    for source, carried in graph.nodes(data=DYNAMIC_ATTRIBUTE):
+        for condition in carried or ():
+            edges[EdgeRef(kind="dynamic", source=source, target=None, condition=condition)] += 1
     declared = frozenset(vertex for vertex, role in graph.nodes(data="role") if role == "node")
     return edges, frozenset(entry), frozenset(finish), declared
 
@@ -275,9 +333,9 @@ def _pair(removed: Counter[EdgeRef], added: Counter[EdgeRef]) -> list[EdgeChange
     """Collapse unambiguous before/after pairs into changes, consuming them from the counters.
 
     Two passes over disjoint kinds, so neither can steal the other's candidates: conditional
-    routing slots first, then ``normal``/``send`` sources. Keys are visited in ledger §6
-    order — order only matters for determinism of the (already order-free) result, since a
-    pairing is made only when it is the unique one for its key.
+    routing slots first, then ``normal``/``send``/``dynamic`` sources. Keys are visited in
+    ledger §6 order — order only matters for determinism of the (already order-free) result,
+    since a pairing is made only when it is the unique one for its key.
     """
     changed: list[EdgeChanged] = []
     _pair_exact(removed, added, _slot_key, changed)
@@ -293,10 +351,12 @@ def _slot_key(ref: EdgeRef) -> _PairKey | None:
 
 
 def _route_key(ref: EdgeRef) -> _PairKey | None:
-    """The ``normal``/``send`` anchor ``(kind, source)`` — one remaining out-edge of that
-    kind on a persisting source. Kind is in the key, so a re-kinded edge never pairs: a
-    ``send`` is a fan-out template (T-W-SPEC §1), a different edge rather than a changed
-    one."""
+    """The ``normal``/``send``/``dynamic`` anchor ``(kind, source)`` — one remaining out-edge
+    of that kind on a persisting source. Kind is in the key, so a re-kinded edge never pairs:
+    a ``send`` is a fan-out template (T-W-SPEC §1), a different edge rather than a changed
+    one, and a ``dynamic`` edge is a declaration that the target set is unknown rather than
+    a route to one. On a ``dynamic`` pairing the only member that can differ is the
+    ``condition`` (PD-059)."""
     if ref.kind == "conditional":
         return None
     return (ref.kind, ref.source)
@@ -361,18 +421,19 @@ def _touched(edges: EdgesDelta, entry: WiringDelta, finish: WiringDelta) -> set[
 
     A conditional target spelled ``"END"`` is the m3 sentinel, never a node reference; on
     ``normal``/``send`` edges the same spelling is an ordinary reference (PD-007), so it
-    stays. The caller intersects with the declared-on-both-sides set, which is what turns
+    stays. A ``dynamic`` edge has no target to touch — its source is the one reference it
+    carries. The caller intersects with the declared-on-both-sides set, which is what turns
     references into nodes.
     """
     touched: set[str] = set()
     for ref in (*edges.added, *edges.removed):
         touched.add(ref.source)
-        if not (ref.kind == "conditional" and ref.target == END_LITERAL):
+        if ref.target is not None and not (ref.kind == "conditional" and ref.target == END_LITERAL):
             touched.add(ref.target)
     for change in edges.changed:
         touched.add(change.source)
         for target in (change.target_before, change.target_after):
-            if not (change.kind == "conditional" and target == END_LITERAL):
+            if target is not None and not (change.kind == "conditional" and target == END_LITERAL):
                 touched.add(target)
     touched.update(entry.added, entry.removed, finish.added, finish.removed)
     return touched

@@ -180,13 +180,14 @@ def test_an_invalid_document_is_exit_2_at_ir_validation(run_cli: RunCli, project
     assert store_bytes(project_dir) == {}
 
 
-def test_an_ir_1_1_document_is_declined_before_the_store_exists(
+def test_an_ir_1_1_document_records_and_re_records_under_a_derived_label(
     run_cli: RunCli, project_dir: Path
 ) -> None:
-    """The recorder's own decline (SD-12; PD-044 D11), carried through: since VAL-14 the
-    eligibility run *does* reach a verdict on a ``dynamic`` document, so what refuses is the
-    store call — a headless edge has no ruled diff representation — and the answer is still exit
-    ``2`` with the store never created."""
+    """A ``dynamic``-bearing document reaches a recording (card SD-13, PD-059): the eligibility
+    run reaches a verdict (VAL-14), the recorder no longer declines the headless edge (its diff
+    representation is ruled), and a later edit to the same document is labelled by the diff —
+    here the router's guard, an S move. Until SD-13 this was exit ``2`` with the store never
+    created (SD-12's interim posture)."""
     dynamic = WorkflowIR(
         ir_version="1.1",
         entry="plan",
@@ -197,12 +198,25 @@ def test_an_ir_1_1_document_is_declined_before_the_store_exists(
     )
     write_ir(dynamic, project_dir / "dynamic.ir.yaml")
 
-    result = run_cli("snapshot", "dynamic.ir.yaml", "--store", ".gebra")
+    first = run_cli("snapshot", "dynamic.ir.yaml", "--store", ".gebra")
 
-    assert result.exit_code == 2
-    assert "nothing was recorded" in result.stderr
-    assert "the snapshot recorder has no semantics for the `dynamic` edge kind" in result.stderr
-    assert store_bytes(project_dir) == {}
+    assert first.exit_code == 0, first.stderr
+    assert "recorded 1.0.0.0" in first.stdout
+    assert first.stderr == ""
+    store = SnapshotStore(project_dir / ".gebra")
+    assert store.read("1.0.0.0").ir == dynamic
+
+    reguarded = dynamic.model_copy(
+        update={"edges": (DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route_v2"),)}
+    )
+    write_ir(reguarded, project_dir / "dynamic.ir.yaml")
+
+    second = run_cli("snapshot", "dynamic.ir.yaml", "--store", ".gebra")
+
+    assert second.exit_code == 0, second.stderr
+    assert "recorded 1.1.0.0" in second.stdout
+    assert store.versions() == ("1.0.0.0", "1.1.0.0")
+    assert store.check().ok
 
 
 def test_a_document_repeating_a_node_id_is_refused_at_ir_validation(

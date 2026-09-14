@@ -1,7 +1,7 @@
 """The networkx representation the topology diff runs over — IR-SPEC §4.1 as a multigraph.
 
 Brief D-11 asks for "graph-structural diff algorithms over networkx representations of the
-Gebra IR"; :func:`topology_graph` is that representation. It realizes the §4.1 model view —
+Gebra IR"; :func:`topology_graph` is that representation. It realizes the §4.2 model view —
 sentinels materialized, labels expanded — with one deliberate difference from the shared
 validator model (:mod:`gebra.verify.graph`), stated up front:
 
@@ -15,7 +15,7 @@ attribute keeps a declared node distinguishable from a bare reference), and the 
 universe is exactly the ``graph_version`` hash scope's topology slice: two IRs with one
 digest build graphs with one descriptor multiset.
 
-The §4.1 equivalences, as built here:
+The §4.2 equivalences, as built here:
 
 * **(m1)/(m2)** — each member of the ``entry``/``finish`` *wired set* becomes a ``normal``
   edge from ``__start__`` / to ``__end__``, carrying ``origin="entry"``/``"finish"``. The
@@ -26,12 +26,11 @@ The §4.1 equivalences, as built here:
   ``target`` attribute keeps the authored ``"END"`` spelling. The blessing is positional
   and unconditional (ledger §1/§4): it applies even when a node happens to be *named*
   ``END``, which is why that node can never be a router target.
-* **(m4)** — not adopted, per PD-007 Q2: ``to: "END"`` on a ``normal``/``send`` edge is an
-  ordinary reference, wired verbatim to a vertex named ``END`` (a declared node of that
-  name, or a bare reference vertex). Note that IR-SPEC §4.1's own (m4) sentence still reads
-  it as a sentinel incidence: neither PD-007 nor DEC-12 amended the spec text, so the two
-  disagree on paper and the ruling is what this module follows — as the shared validator
-  model does.
+* **(m4)** — *not* a sentinel incidence, per IR-SPEC §4.2 (m4) as corrected at DEC-27
+  (2026-08-09; PD-042 — confirming the reading PD-007 Q2 and DEC-12 had already taken):
+  ``to: "END"`` on a ``normal``/``send`` edge is an ordinary reference, wired verbatim to a
+  vertex named ``END`` (a declared node of that name, or a bare reference vertex) — as the
+  shared validator model does.
 * **(m5)** — ``__start__``/``__end__`` are materialized once and never appear in
   ``nodes[]`` (the §5 grammar refuses the reserved segments, so the sentinel names cannot
   collide with a declared node). A *reference* spelling a reserved segment — ``entry:
@@ -47,6 +46,25 @@ head vertex except on a finish wiring and an m3 expansion). A tail vertex name i
 authored ``from`` verbatim, so a consumer reads authored facts off attributes and tails and
 never reconstructs them from the sentinel-mapped heads.
 
+**A ``dynamic`` edge is carried on its source vertex, never as an ``nx`` edge** (ruled —
+PD-059, card SD-13). The kind (ir 1.1 — DEC-28) has no head at all: it declares that a
+router's target set is not statically known, and an ``nx`` edge needs two endpoints. The
+graph adopts PROPERTY-CATALOG-SPEC §0.3's convention — "a ``dynamic`` edge contributes NO
+member to $G$; its source participates" — for this builder by PD-059 (§0.3 itself binds the
+catalog's builders of $G$, which this graph is not), the way the shared validator model
+applies it (:attr:`gebra.verify.graph.GraphModel.dynamic_sources` — the convention, not the
+structure: the diff carries each edge's ``condition`` with multiplicity, hash-scope content the
+validators never read): the
+source vertex is materialized exactly as any edge endpoint is (``role="reference"`` when
+nothing declared it), and the edge's whole hash-scope content — its ``condition``, which
+with ``from`` and ``kind`` is everything IR-SPEC §6.4's ``edges[]`` row digests of it — is
+recorded in the vertex's :data:`DYNAMIC_ATTRIBUTE` as a tuple in authored order, one member
+per edge (two hintless routers on one node are two members). Nothing is dropped, so two
+documents whose digests differ by such an edge cannot build one descriptor multiset (DEC-28
+clause 1); and no head is invented, because a vertex the document does not declare would be
+exactly the phantom class DEC-26 closed. The attribute is present only on a vertex that
+sources one, so every ir 1.0 document builds the graph it always built.
+
 Nothing here imports langgraph, opens a socket, or executes anything (WA-07): the input is
 a validated IR model, the output a networkx graph of plain strings. networkx itself is in
 reach by design — it is the representation the brief mandates — and the WA-07 tripwire for
@@ -61,9 +79,10 @@ from typing import Final, Literal, TypeAlias
 import networkx as nx
 
 from gebra.diff.models import ledger_sort_key
-from gebra.ir import ConditionalEdge, WorkflowIR, refuse_dynamic_edges
+from gebra.ir import ConditionalEdge, DynamicEdge, WorkflowIR
 
 __all__ = [
+    "DYNAMIC_ATTRIBUTE",
     "END_LITERAL",
     "END_VERTEX",
     "START_VERTEX",
@@ -93,6 +112,12 @@ EdgeOrigin: TypeAlias = Literal["entry", "finish", "edges"]
 #: *should* resolve is P-01's question, never this engine's).
 VertexRole: TypeAlias = Literal["start", "end", "node", "reference"]
 
+#: The vertex attribute carrying the ``dynamic`` edges sourced at a vertex: a
+#: ``tuple[str | None, ...]`` of their authored ``condition`` members, in authored order, one
+#: member per edge (PD-059). Present only on a vertex that sources at least one, so a graph
+#: built from an ir 1.0 document carries it nowhere.
+DYNAMIC_ATTRIBUTE: Final = "dynamic"
+
 
 def wired_set(value: str | tuple[str, ...]) -> tuple[str, ...]:
     """The ``entry``/``finish`` wired set: duplicates collapsed, ledger §6 order.
@@ -115,25 +140,16 @@ def topology_graph(ir: WorkflowIR) -> nx.MultiDiGraph:
     docstring.
 
     Equal IRs build graphs with equal vertex/attribute sets and equal edge-descriptor
-    multisets. Iteration *order* over an ``nx`` graph follows insertion, which follows the
-    authored document — so consumers that need a canonical order sort, as the diff does;
-    none of the diff's output depends on it.
+    multisets — the vertex-carried ``dynamic`` descriptors included (module docstring).
+    Iteration *order* over an ``nx`` graph follows insertion, which follows the authored
+    document — so consumers that need a canonical order sort, as the diff does; none of the
+    diff's output depends on it.
 
-    **A ``dynamic``-bearing document is declined, and totality is the reason.** A ``dynamic``
-    edge (DEC-28, 2026-08-09) has no head at all, and this graph's contract is that its
-    edge-descriptor universe *is* the ``graph_version`` topology slice — so dropping such an
-    edge would make two documents with different digests diff as unchanged, which is the one
-    failure mode a review tool must not have. What a headless edge should look like in an
-    ``nx`` representation is unruled (a materialized pseudo-head would be exactly the phantom
-    vertex DEC-26 closed elsewhere), so this refuses rather than choosing. The test is on the
-    construct, never on the ``ir_version`` stamp: a hand-authored ``"1.1"`` document with no
-    ``dynamic`` edge builds like any other. The validators read such a document since VAL-14;
-    ruling the representation here is follow-on traceability work.
-
-    Raises:
-        DynamicEdgeUnsupportedError: if the document carries a ``dynamic`` edge (above).
+    A ``dynamic``-bearing document (ir 1.1 — DEC-28) builds: each such edge lands in its
+    source vertex's :data:`DYNAMIC_ATTRIBUTE` and inserts no ``nx`` edge, per PD-059. The
+    test is on the construct, never on the ``ir_version`` stamp: a hand-authored ``"1.1"``
+    document with no ``dynamic`` edge builds exactly as a ``"1.0"`` one does.
     """
-    static_edges = refuse_dynamic_edges(ir.edges, consumer="the topology-diff graph")
     graph = nx.MultiDiGraph()
     graph.add_node(START_VERTEX, role="start")
     graph.add_node(END_VERTEX, role="end")
@@ -166,8 +182,16 @@ def topology_graph(ir: WorkflowIR) -> nx.MultiDiGraph:
             condition=None,
             target=member,
         )
-    for edge in static_edges:
+    for edge in ir.edges:
         source = vertex(edge.from_)
+        if isinstance(edge, DynamicEdge):
+            # PROPERTY-CATALOG-SPEC §0.3's convention, as PD-059 applies it here: no member,
+            # a participating source, the edge's content carried on that source. The tuple
+            # is rebuilt rather than appended in place so the attribute is a value, never a
+            # list a consumer could mutate under the graph.
+            carried: tuple[str | None, ...] = graph.nodes[source].get(DYNAMIC_ATTRIBUTE, ())
+            graph.nodes[source][DYNAMIC_ATTRIBUTE] = (*carried, edge.condition)
+            continue
         if isinstance(edge, ConditionalEdge):
             for label, target in edge.path_map.items():
                 head = END_VERTEX if target == END_LITERAL else vertex(target)

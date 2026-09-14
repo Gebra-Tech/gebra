@@ -36,7 +36,15 @@ from gebra.diff import (
     topology_diff,
 )
 from gebra.ir.canonical import graph_version
-from gebra.ir.models import Annotations, ConditionalEdge, NormalEdge, SendEdge, WorkflowIR
+from gebra.ir.models import (
+    Annotations,
+    ConditionalEdge,
+    DynamicEdge,
+    Edge,
+    NormalEdge,
+    SendEdge,
+    WorkflowIR,
+)
 from gebra.store import ExtractedFrom, Snapshot
 from tests.versioning.workflows import EDGES, NODES, node, with_contract, workflow
 
@@ -54,6 +62,23 @@ def routed(path_map: dict[str, str] | None = None, condition: str | None = "rout
     """The base workflow with its ``plan → work`` edge replaced by a router."""
     labels = {"go": "work", "skip": "report"} if path_map is None else path_map
     return workflow(edges=(router(labels, condition), EDGES[1]))
+
+
+def dynamic(source: str = "plan", condition: str | None = "route_legs") -> DynamicEdge:
+    """A ``dynamic`` edge (ir 1.1 — DEC-28): a router whose target set is not statically known."""
+    return DynamicEdge(kind="dynamic", **{"from": source}, condition=condition)
+
+
+def dispatching(*edges: Edge) -> WorkflowIR:
+    """The base workflow at ``ir_version`` 1.1 with ``edges`` in place of the straight line —
+    the base every ``dynamic`` case edits. Stamped ``"1.1"`` because the model refuses the
+    kind under ``"1.0"`` (IR-SPEC §2.5 note 7, DEC-34)."""
+    return workflow(ir_version="1.1", edges=edges)
+
+
+def _dynamic_ref(source: str = "plan", condition: str | None = "route_legs") -> EdgeRef:
+    """The descriptor a ``dynamic`` edge diffs as: its kind, its source, no target (PD-059)."""
+    return EdgeRef("dynamic", source, None, condition=condition)
 
 
 class Expected(NamedTuple):
@@ -476,6 +501,162 @@ PAIRS: list[tuple[str, Callable[[], WorkflowIR], Callable[[], WorkflowIR], Expec
             ),
         ),
     ),
+    # ── ir 1.1: the `dynamic` kind — in the universe, with no target (PD-059) ─────────────
+    (
+        # The acceptance sentence, first clause: a document differing only in a dynamic
+        # edge's *presence* diffs as an added edge with no target, its source rewired — and
+        # never as unchanged, since the edge is inside the §6.4 hash scope.
+        "a dynamic edge added",
+        workflow,
+        lambda: dispatching(*EDGES, dynamic()),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan"]),
+            edges=EdgesDelta.of(added=[_dynamic_ref()]),
+        ),
+    ),
+    (
+        "a dynamic edge removed",
+        lambda: dispatching(*EDGES, dynamic("work")),
+        workflow,
+        Expected(
+            nodes=NodesDelta.of(rewired=["work"]),
+            edges=EdgesDelta.of(removed=[_dynamic_ref("work")]),
+        ),
+    ),
+    (
+        # Second clause: the *source* is in the pairing key, so a moved source is a removal
+        # and an addition — both sources rewired, nothing guessed.
+        "a dynamic edge's source moved",
+        lambda: dispatching(*EDGES, dynamic("plan")),
+        lambda: dispatching(*EDGES, dynamic("work")),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan", "work"]),
+            edges=EdgesDelta.of(added=[_dynamic_ref("work")], removed=[_dynamic_ref("plan")]),
+        ),
+    ),
+    (
+        # Third clause: the one unmatched dynamic edge of a persisting source pairs under
+        # (kind, source), and the only thing a dynamic pairing can report is the guard —
+        # both targets are None by construction, so `rewired` is never true here.
+        "a dynamic edge's guard rewritten",
+        lambda: dispatching(*EDGES, dynamic(condition="route_legs")),
+        lambda: dispatching(*EDGES, dynamic(condition="route_legs_v2")),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan"]),
+            edges=EdgesDelta.of(
+                changed=[
+                    EdgeChanged(
+                        kind="dynamic",
+                        source="plan",
+                        label=None,
+                        target_before=None,
+                        target_after=None,
+                        condition_before="route_legs",
+                        condition_after="route_legs_v2",
+                    )
+                ]
+            ),
+        ),
+    ),
+    (
+        "a dynamic edge's guard dropped",
+        lambda: dispatching(*EDGES, dynamic(condition="route_legs")),
+        lambda: dispatching(*EDGES, dynamic(condition=None)),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan"]),
+            edges=EdgesDelta.of(
+                changed=[
+                    EdgeChanged(
+                        kind="dynamic",
+                        source="plan",
+                        label=None,
+                        target_before=None,
+                        target_after=None,
+                        condition_before="route_legs",
+                        condition_after=None,
+                    )
+                ]
+            ),
+        ),
+    ),
+    (
+        # Kind is in the key: declaring a router's targets (a `send` template) where a
+        # dynamic edge stood is a different edge, not a changed one — as a re-kinded static
+        # edge is.
+        "a dynamic edge re-kinded to a declared template is a removal and an addition",
+        lambda: dispatching(*EDGES, dynamic()),
+        lambda: workflow(edges=(*EDGES, SendEdge(kind="send", **{"from": "plan"}, to="work"))),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan", "work"]),
+            edges=EdgesDelta.of(added=[EdgeRef("send", "plan", "work")], removed=[_dynamic_ref()]),
+        ),
+    ),
+    (
+        # Two dynamic routers on one node: the (kind, source) key names two unmatched edges
+        # on one side, so nothing pairs — the same refusal to guess the static kinds get.
+        "two dynamic routers on one node are ambiguous and never guessed",
+        lambda: dispatching(*EDGES, dynamic(condition="a"), dynamic(condition="b")),
+        lambda: dispatching(*EDGES, dynamic(condition="c")),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan"]),
+            edges=EdgesDelta.of(
+                added=[_dynamic_ref(condition="c")],
+                removed=[_dynamic_ref(condition="a"), _dynamic_ref(condition="b")],
+            ),
+        ),
+    ),
+    (
+        # Multiset semantics reach the fourth kind: a second identical dynamic edge is one
+        # more member, not a no-op.
+        "a parallel copy of a dynamic edge added",
+        lambda: dispatching(*EDGES, dynamic()),
+        lambda: dispatching(*EDGES, dynamic(), dynamic()),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan"]),
+            edges=EdgesDelta.of(added=[_dynamic_ref()]),
+        ),
+    ),
+    (
+        # A dynamic edge beside a static edit leaves the static delta exactly what it was:
+        # the two are read off the graph independently.
+        "a dynamic edge persists while a static edge is retargeted",
+        lambda: dispatching(*EDGES, dynamic("work")),
+        lambda: dispatching(
+            NormalEdge(kind="normal", **{"from": "plan"}, to="report"), EDGES[1], dynamic("work")
+        ),
+        Expected(
+            nodes=NodesDelta.of(rewired=["plan", "report", "work"]),
+            edges=EdgesDelta.of(
+                changed=[
+                    EdgeChanged(
+                        kind="normal",
+                        source="plan",
+                        label=None,
+                        target_before="work",
+                        target_after="report",
+                    )
+                ]
+            ),
+        ),
+    ),
+    (
+        # Totality for the fourth kind: an undeclared source still carries its edge, and is
+        # not a node, so nothing is rewired by it.
+        "a dynamic edge from an undeclared reference added",
+        workflow,
+        lambda: dispatching(*EDGES, dynamic("ghost")),
+        Expected(edges=EdgesDelta.of(added=[_dynamic_ref("ghost")])),
+    ),
+    (
+        # The stamp alone is outside this diff's universe (IR-SPEC §8 — a format migration):
+        # an over-stamped twin diffs to nothing here while its digest differs, which is the
+        # one case `has_changes` and `not identical` part company on, and it is not a
+        # dynamic-edge case at all.
+        "an over-stamped twin is not a topology change",
+        workflow,
+        lambda: workflow(ir_version="1.1"),
+        Expected(),
+    ),
 ]
 
 
@@ -660,16 +841,66 @@ def test_a_snapshot_whose_digest_disagrees_with_its_ir_is_refused() -> None:
         topology_diff(tampered, workflow())
 
 
+# ── The second document floor: the ir_version stamp (IR-SPEC §2.5 note 7, DEC-34) ────────
+
+
+def test_a_model_stamped_below_its_floor_is_refused_from_either_side() -> None:
+    """DEC-34 §3 names what the loader floor does not reach — a model built past validation —
+    and names the engine-level declines as that floor. SD-13 lifted the construct-keyed
+    decline (a ``dynamic`` edge is diffed now, PD-059) and kept the floor, keyed on the same
+    fact the loader keys on: a document stamped below the minor its edges require is refused
+    from either side, before the identity short-circuit, so no store can hold a snapshot its
+    own loader would refuse to read back."""
+    lowered = dispatching(*EDGES, dynamic()).model_copy(update={"ir_version": "1.0"})
+
+    with pytest.raises(ValueError, match="below the lowest minor") as before_side:
+        topology_diff(lowered, workflow())
+    with pytest.raises(ValueError, match="below the lowest minor"):
+        topology_diff(workflow(), lowered)
+    with pytest.raises(ValueError, match="below the lowest minor"):
+        topology_diff(lowered, lowered)  # identical digests — refused before the short-circuit
+    assert "DEC-34" in str(before_side.value)
+    assert "model_copy" in str(before_side.value)
+
+
+def test_a_stamp_this_build_does_not_read_is_named_as_such_not_as_below_the_floor() -> None:
+    """PD-059 close-out item 5: a ``model_copy``-built stamp outside ``IR_VERSIONS`` (``"2.0"``)
+    is refused by the same floor, with a message that says what is true — the build does not
+    read that version — rather than "below the lowest minor", which it is not."""
+    unread = workflow().model_copy(update={"ir_version": "2.0"})
+
+    with pytest.raises(ValueError, match="not a version this build reads") as caught:
+        topology_diff(unread, workflow())
+    assert "below" not in str(caught.value)
+    assert "1.0, 1.1" in str(caught.value)
+
+
+def test_the_anchors_carry_each_sides_stamp() -> None:
+    """``DiffAnchor.ir_version`` is set by ``resolve_subject`` on both arms — a bare IR and a
+    snapshot — so the one hash-scope member outside every V.S.F.E slice is nameable by the
+    surfaces above the engine (PD-059 D7b)."""
+    bare = topology_diff(workflow(), workflow(ir_version="1.1"))
+    wrapped = topology_diff(
+        _snapshot(workflow(), "1.0.0.0"), _snapshot(workflow(ir_version="1.1"), "1.0.0.1")
+    )
+
+    assert (bare.before.ir_version, bare.after.ir_version) == ("1.0", "1.1")
+    assert (wrapped.before.ir_version, wrapped.after.ir_version) == ("1.0", "1.1")
+    assert (wrapped.before.version, wrapped.after.version) == ("1.0.0.0", "1.0.0.1")
+    assert not bare.has_changes and not bare.identical
+
+
 # ── Determinism across interpreter runs (acceptance: deterministic across runs) ──────────
 
 _ACROSS_RUNS = """\
 import hashlib
 
 from gebra.diff import topology_diff
-from gebra.ir.models import ConditionalEdge, NormalEdge, SendEdge
+from gebra.ir.models import ConditionalEdge, DynamicEdge, NormalEdge, SendEdge
 from tests.versioning.workflows import EDGES, NODES, node, workflow
 
 before = workflow(
+    ir_version="1.1",
     nodes=(*NODES, node("π/κόμβος", None), node("𝕏", None)),
     edges=(
         *EDGES,
@@ -681,9 +912,12 @@ before = workflow(
         ),
         NormalEdge(kind="normal", **{"from": "𝕏"}, to="work"),
         EDGES[0],
+        DynamicEdge(kind="dynamic", **{"from": "𝕏"}, condition="διανομή"),
+        DynamicEdge(kind="dynamic", **{"from": "work"}),
     ),
 )
 after = workflow(
+    ir_version="1.1",
     nodes=(*NODES, node("π/κόμβος", None), node("audit", None)),
     edges=(
         *EDGES,
@@ -694,6 +928,8 @@ after = workflow(
             path_map={"α": "END", "go": "work", "retry": "audit"},
         ),
         SendEdge(kind="send", **{"from": "plan"}, to="audit"),
+        DynamicEdge(kind="dynamic", **{"from": "work"}, condition="route_legs"),
+        DynamicEdge(kind="dynamic", **{"from": "audit"}),
     ),
     finish=("report", "audit"),
 )
@@ -706,7 +942,9 @@ print(hashlib.sha256(rendering.encode("utf-8")).hexdigest())
 def test_diff_output_is_one_value_across_interpreter_runs() -> None:
     """Four child interpreters under four ``PYTHONHASHSEED`` values diff a pair that leans
     on everything order could leak through — non-BMP ids for the UTF-16 comparator, router
-    labels, parallels, both END spellings — and must print one digest of one rendering."""
+    labels, parallels, both END spellings, and (since SD-13) ``dynamic`` edges on a non-BMP
+    source, a persisting source whose guard moved and a source that left — and must print one
+    digest of one rendering."""
     runs = {
         seed: subprocess.run(
             [sys.executable, "-c", _ACROSS_RUNS],

@@ -365,7 +365,11 @@ list object throughout. A guarded subprocess is **not** claimed here and is not 
 adds no extraction path (it calls `gebra.snapshot.snapshot()` and nothing else), and the refusals
 it adds reach no live object and trigger no extraction of their own — on the `snapshot()` path
 extraction runs *first* and the decline is what stops the document being stored, never what stops
-it being read.
+it being read. *(The refusals this paragraph describes were lifted at SD-13 — below — and the
+file now states the surfaces' agreement the other way round; the ledger discipline and the two
+live-object reaches are unchanged, while the SD-12 test named above is renamed
+`test_snapshot_records_a_live_map_reduce_workflow` and asserts a recording — see the SD-13
+paragraph.)*
 
 `tests/plugin/test_gating.py` (card TE-07, the three gate flags) carries the **same** ledger
 assertion on entry to and exit from every test in it, on the same in-process terms — and with
@@ -970,6 +974,66 @@ graph, invoking a runnable, resolving a hostname or opening a connection all rai
 ledger sweep has nothing to sweep, because the example imports no sample-workflow module and
 writes none. The two new rendering variants (`tests/report/variants.py`, `contained-fragment*`)
 are stubbed reports over a hand-built document, as every other variant is.
+
+### SD-13 — the `dynamic` edge in the topology diff, and the four declines lifted
+
+The diff-side change is data over data: `gebra.diff.graph.topology_graph` records a `dynamic`
+edge's `condition` on its source vertex instead of raising, `gebra.diff.topology._collect` reads
+it back into an `EdgeRef` with no target, and the recorder, the freshness check, the pytest gate
+and the two CLI verbs stop catching an exception that is no longer raised. No module under
+`src/gebra/diff/`, `src/gebra/snapshot/`, `src/gebra/audit/` or `src/gebra/pytest_plugin.py`
+gained a module in its import closure (the two new names — `DynamicEdge` in `graph.py`,
+`IR_VERSIONS`/`lowest_ir_version` in `topology.py` — come from `gebra.ir`, already resident), a
+socket, a subprocess or a call into user code; the one new refusal (`resolve_subject`'s stamp
+floor) is an integer comparison over `IR_VERSIONS`. No extraction path is added, so
+INTROSPECTION-SPEC §1 rule 4 owes no new tripwire.
+
+`tests/test_dynamic_document_seam.py` is rewritten to state the lift and keeps exactly the two
+live-object tests the SD-12 and VAL-14 paragraphs above account for —
+`test_snapshot_records_a_live_map_reduce_workflow` (the renamed SD-12 test: `gebra.snapshot()` over
+`sentinel_routing.build_dynamic_send_hinted_graph()`, the same shipped entry point and no new
+path, now asserting a recording rather than a decline) and
+`test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow` (unchanged) — under the same
+autouse fixture, which still clears and asserts both ledgers (`sentinel_routing.TRIPPED` for the
+router, `sentinel_graph.TRIPPED` for the two node bodies). Every other document in the file, in
+`tests/diff/`, in `tests/snapshot/test_engine.py` and in the two CLI verb tests is a hand-built
+`WorkflowIR`, and the file's `pytester` sessions remain in-process. The new hypothesis property in
+`tests/diff/test_workflow.py` draws documents from `gebra.testing.strategies.workflow_irs` and adds
+a `dynamic` edge through the model constructor — generated data, nothing to run. The one new
+documentation example (`docs/guides/snapshot-diff-and-evolution.md`,
+`a-router-with-no-declared-targets`) builds two `WorkflowIR` documents with the model constructors,
+writes them with `gebra.ir.write_ir` and runs `gebra diff` over the files under the harness guard;
+it imports no sample-workflow module, so its ledger sweep has nothing to sweep.
+
+The ratification close-out (PD-059 D7b as amended) adds no path either. `tests/audit/test_freshness.py`
+gains the fourth freshness state over hand-built `WorkflowIR` twins (`tests/versioning/workflows.restamped`,
+the constructor over the same fields); `tests/audit/test_freshness_gate.py` gains one more
+in-process `pytester` session whose inner file extracts the sentinel-guarded travel-booking agent
+through the shipped `gebra.extract()` — the same builder and the same entry point the file's other
+sessions already use, under the same autouse ledger assertion — and re-stamps the *document*
+through the constructor; `tests/cli/test_diff_verb.py` gains two stamp-only rows over hand-built
+documents and a hand-assembled store (`SnapshotStore.write`). The library side of the close-out —
+`DiffAnchor.ir_version`, `WorkflowDiff.stamp_only`, `Freshness.RESTAMPED`, the `gebra diff` stamp
+line and the gate's footer — is data and strings; no module gained anything in its import closure.
+
+PD-059's second-pass ratification adds two dispositions and no path. In the plugin, a restamped
+item now passes and issues `GebraFreshnessWarning` through the item's own `warn` (a `UserWarning`
+subclass defined in the plugin; `warnings` is the standard library, and the plugin's `pytest` +
+stdlib module-scope closure claim is unchanged — `tests/plugin/test_hermeticity.py`); the footer
+reads `FreshnessOutcome.working_stamp_is_higher` (a property over the outcome's own two stamps
+and `gebra.ir.IR_VERSIONS` — an index comparison; its one function-local import, `gebra.ir`, is
+already resident in the audit closure). In `gebra.cli.diff`, the coverage-defect residue is refused on stderr at exit 2 before
+rendering. `tests/audit/test_freshness_gate.py` gains two more in-process `pytester` sessions —
+the stored-higher direction, and a `-W error` promotion of the working-higher one (round 2's
+session, re-asserted as a pass with a warning) — over the same sentinel-guarded builder and the
+same shipped `gebra.extract()`; the stored-higher fixture records the re-stamped *document*
+through `record_document` (no extraction runs on that path beyond the one `extract()` read in
+the helper the test body calls, under the file's autouse `tb.TRIPPED` assertion); the
+`gebra.audit` guarded child reads the restamped answer's `summary()` too, so the direction code
+runs under the guard;
+`tests/cli/test_diff_verb.py`'s residue row monkeypatches the verb's `workflow_diff` name to
+return a hand-built `WorkflowDiff` — nothing is constructed or run beyond the two hand-written
+documents the fixture already holds.
 
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 

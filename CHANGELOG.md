@@ -59,6 +59,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A `dynamic` edge is diffed, snapshotted and freshness-checked like any other edge; the four
+  declines VAL-14 left in place are lifted** (card SD-13; `gebra.diff`, `gebra.snapshot`,
+  `gebra.audit.freshness`, the `@pytest.mark.gebra_freshness` gate, `gebra snapshot`, `gebra
+  diff`). The ir 1.1 edge kind (DEC-28) declares a router whose target set is not statically
+  known, and the topology diff's edge universe is the `graph_version` hash scope's topology
+  slice — so it could neither drop the edge (two documents with different digests would diff as
+  unchanged) nor invent a head for it (a vertex the document does not declare, the phantom
+  class DEC-26 closed). PD-059 rules the representation: `gebra.diff.graph.topology_graph`
+  carries a `dynamic` edge on its **source vertex** (the `DYNAMIC_ATTRIBUTE` attribute, a tuple
+  of the edges' `condition` members in authored order) and inserts no `nx` edge —
+  PROPERTY-CATALOG-SPEC §0.3's convention, adopted for the diff's builder by PD-059 — and the
+  diff reports it as an `EdgeRef` of kind `"dynamic"` with `target=None`. Two documents differing only in such
+  an edge now diff as what moved and never as unchanged: its presence is an added or removed
+  edge with the source rewired, a moved source is a removal and an addition, a moved
+  `condition` is an `EdgeChanged` whose targets are both `None`; the bump class is `S` in every
+  case, and the version engine's own canonical-slice comparison agrees (held by the constructed
+  table and by a hypothesis property over generated documents). With the representation ruled,
+  `record`/`snapshot`/`record_document` record a `dynamic`-bearing document, a store whose
+  current snapshot is one **extends and compares** — SD-12's interim ruling that such a store
+  errors with guidance is superseded; nothing is migrated because nothing needs to be, the
+  stored bytes never move — `freshness` answers the three content states over one (`restamped`
+  cannot arise for a `dynamic`-bearing document, whose only admissible stamp is `"1.1"`), and the pytest gate
+  reports a stale 1.1 store as stale. `gebra snapshot` exits `0` with a recording and `gebra
+  diff` exits `0` with a comparison where both exited `2`; a `dynamic` edge renders as `edge
+  plan -> (targets not statically known) [dynamic] guard route_legs`, and a persisting router
+  whose guard moved as `edge plan [dynamic]: guard route_legs -> route_v2` — the guard alone,
+  since the kind has no target to report as unchanged. **API:** `EdgeKind` gains `"dynamic"`,
+  `EdgeRef.target` and `EdgeChanged.target_before`/`target_after` are `str | None` (the engine
+  emits `None` on, and only on, a `dynamic` edge), `gebra.diff` exports `DYNAMIC_ATTRIBUTE`,
+  `DiffAnchor` gains `ir_version` (each side's stamp, set by `resolve_subject`) and
+  `WorkflowDiff` gains `stamp_only`. The engine floor DEC-34 §3 named — reachable only for a
+  model built past validation — is kept and re-keyed on the stamp: `resolve_subject` refuses a
+  document whose `ir_version` is below the minor its edges require (and names a stamp this build
+  does not read as such), as a `ValueError` the CLI and the gate already report as a refusal.
+  **The stamp-only pair gets one answer on every surface** (PD-059 D7b as ratified): a working
+  definition that differs from the current snapshot in its `ir_version` stamp alone — an
+  over-stamped twin, admitted by DEC-34 — moves the digest and no V.S.F.E counter (IR-SPEC §8:
+  a format migration is not a workflow migration). The recorder's `no-version-movement` now
+  says so and names the stamp instead of calling it a diff-engine defect; `gebra diff` renders
+  one line naming both stamps and exits `0` with or without `--exit-code` (before this it crashed
+  on the pair with an unhandled assertion); and the freshness check answers a new fourth state,
+  `Freshness.RESTAMPED` — never `stale` — whose summary names both stamps, says only the stamp
+  moved, and prescribes the remedy the recorder honours (re-stamp the working definition to the
+  stored stamp, or record it after a real change — leading with whichever the direction admits,
+  `FreshnessOutcome.working_stamp_is_higher`, since an extraction never over-stamps). The
+  `@pytest.mark.gebra_freshness` item **passes** on a restamped store, because the definition
+  did not change, and surfaces that summary as a `GebraFreshnessWarning` attributed to the
+  marked function (promotable with `-W error::gebra.pytest_plugin.GebraFreshnessWarning`) — so
+  the gate never fails without a remedy, and it and `gebra diff --exit-code` give the pair one
+  answer (`FreshnessOutcome.stamps` carries the pair; `WorkflowDiff`'s docstrings name the
+  exception to `has_changes == not identical`). The one shape that is neither identical, changed
+  nor stamp-only — digests differ, no delta, equal stamps, a coverage defect the engine's slices
+  make unreachable today — is guarded rather than assumed away: `gebra diff` reports it on
+  stderr as the build defect it would be and exits `2` with or without `--exit-code`, never as a
+  clean run (CLI-SPEC §3.2, §3.4). **What still declines:** `gebra display`
+  and `gebra.display.render_mermaid`, on DIAGRAM-STYLE-GUIDE §3.4 — a diff descriptor can say
+  "no target" in so many words, a drawn arrow cannot — the one remaining caller of
+  `gebra.ir.refuse_dynamic_edges`, whose message now names it as such; the drawing question is
+  deliberately kept apart from the diff's (PD-059 D8) and owned by a CLI-track card. No 1.0
+  snapshot, diff or freshness answer changes: a 1.0 document builds the graph it always built
+  (the attribute is present only on a vertex that sources a `dynamic` edge), and the snapshot,
+  diff, audit, lineage and DoD suites pass with their existing expectations unchanged.
 - **`report_format` is `1.3`** (card VAL-15; `gebra.verify.REPORT_FORMAT`,
   `docs/specs/REPORT-FORMAT-SPEC.md` §1.6). The three optional members above join envelope
   shapes that did not carry them at `1.2` — `WellFormednessWitness.contained_nodes`,

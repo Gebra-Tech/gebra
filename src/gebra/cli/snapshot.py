@@ -50,7 +50,6 @@ from gebra.cli.resolve import (
     resolve_ir_document,
     store_for,
 )
-from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.report import TerminalOptions, write
 from gebra.verify import STRICT_OFF, RunPolicy, RunReport, verify
 from gebra.versioning import Component
@@ -281,11 +280,12 @@ def _record(request: SnapshotRequest, subject: ResolvedSubject, report: RunRepor
             return 1
         _write_diagnostic(f"nothing was recorded: {error}")
         return 2
-    except (ValueError, DynamicEdgeUnsupportedError) as error:
-        # The engine's whole refusal channel: StoreError, VersionFormatError and the
-        # duplicate-node-id refusal are ValueErrors; the DEC-28 decline is a
-        # NotImplementedError. A §3.2 exit 2 either way — the store refused the write —
-        # and anything outside these two families is a crash §3.4 owns, not a refusal.
+    except ValueError as error:
+        # The engine's whole refusal channel: StoreError, VersionFormatError and the diff
+        # engine's two document refusals (a repeated node id; an under-stamped document) are
+        # ValueErrors. A §3.2 exit 2 — the store refused the write — and anything outside this
+        # family is a crash §3.4 owns, not a refusal. (A `dynamic`-bearing document records
+        # since SD-13; the DEC-28 decline this clause once caught by name is lifted — PD-059.)
         _write_diagnostic(f"nothing was recorded: {error}")
         return 2
 

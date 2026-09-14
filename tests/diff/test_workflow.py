@@ -38,10 +38,13 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from gebra.diff import (
     EVOLUTION_SAFETY_DEFERRED,
     ContractsDelta,
+    EdgeRef,
     KeyDeclaration,
     NodeContractChanged,
     NodeContractRef,
@@ -55,6 +58,8 @@ from gebra.ir.canonical import graph_version
 from gebra.ir.models import (
     Annotations,
     ConditionalEdge,
+    DynamicEdge,
+    Edge,
     NormalEdge,
     Runtime,
     StateField,
@@ -62,6 +67,7 @@ from gebra.ir.models import (
     WorkflowIR,
 )
 from gebra.store import ExtractedFrom, Snapshot
+from gebra.testing.strategies import workflow_irs
 from gebra.versioning import Component, Version, changed_components
 from tests.diff.test_contracts import RUNTIME_KEPT, WORK, contracts_of, edited
 from tests.versioning.workflows import EDGES, NODES, STATE, node, with_contract, workflow
@@ -154,6 +160,16 @@ def audited() -> WorkflowIR:
         edges=(*EDGES, NormalEdge(kind="normal", **{"from": "report"}, to="audit")),
         finish="audit",
     )
+
+
+def dynamic(source: str = "plan", condition: str | None = "route_legs") -> DynamicEdge:
+    """A ``dynamic`` edge (ir 1.1 — DEC-28): a router whose target set is not statically known."""
+    return DynamicEdge(kind="dynamic", **{"from": source}, condition=condition)
+
+
+def dispatching(*edges: Edge) -> WorkflowIR:
+    """The base workflow at ``ir_version`` 1.1 with ``edges`` in place of the straight line."""
+    return workflow(ir_version="1.1", edges=edges)
 
 
 class Case(NamedTuple):
@@ -324,6 +340,37 @@ CASES: list[Case] = [
         F,
         E,
     ),
+    # ── S: the ir 1.1 `dynamic` kind, in the hash scope and so in the class (PD-059) ────
+    case("a dynamic edge added", workflow, lambda: dispatching(*EDGES, dynamic()), S),
+    case("a dynamic edge removed", lambda: dispatching(*EDGES, dynamic()), workflow, S),
+    case(
+        "a dynamic edge's source moved",
+        lambda: dispatching(*EDGES, dynamic("plan")),
+        lambda: dispatching(*EDGES, dynamic("work")),
+        S,
+    ),
+    case(
+        "a dynamic edge's guard rewritten",
+        lambda: dispatching(*EDGES, dynamic(condition="route_legs")),
+        lambda: dispatching(*EDGES, dynamic(condition="route_legs_v2")),
+        S,
+    ),
+    case(
+        "a dynamic edge added and a key added",
+        workflow,
+        lambda: workflow(
+            ir_version="1.1",
+            edges=(*EDGES, dynamic()),
+            state={**STATE, "receipt": "str"},
+        ),
+        S,
+        E,
+    ),
+    case(
+        "the same dynamic-bearing workflow",
+        lambda: dispatching(*EDGES, dynamic()),
+        lambda: dispatching(*EDGES, dynamic()),
+    ),
 ]
 
 
@@ -436,6 +483,119 @@ def test_regrouped_is_about_the_edges_array_and_nothing_else() -> None:
     assert diff.topology.has_changes
     assert diff.regrouped is False
     assert diff.bump_class == frozenset({S})
+
+
+def test_a_dynamic_edge_reports_through_the_topology_delta_never_as_a_regrouping() -> None:
+    """The ruled representation reaches the bump class the way every edge does: a dynamic edge
+    that arrives is in ``topology.edges.added`` with no target, S moves, and ``regrouped``
+    stays false — the diff saw the edge, it did not need the array to notice it (PD-059)."""
+    diff = workflow_diff(workflow(), dispatching(*EDGES, dynamic()))
+
+    assert diff.topology.edges.added == (EdgeRef("dynamic", "plan", None, condition="route_legs"),)
+    assert diff.topology.nodes.rewired == ("plan",)
+    assert diff.regrouped is False
+    assert diff.bump_class == frozenset({S})
+    assert diff.has_changes and not diff.identical
+
+
+# ── The one hash-scope member with no component: the stamp (IR-SPEC §8) ──────────────────
+
+
+def test_a_stamp_only_difference_moves_no_counter_and_is_not_identical() -> None:
+    """IR-SPEC §8 keeps format migrations out of the V.S.F.E label, and ``ir_version`` is the
+    one hash-scope member with no component (``FIELD_COMPONENTS``). An over-stamped twin —
+    admitted by DEC-34 — therefore differs in digest and in nothing the counters count: this
+    is the one case ``has_changes`` and ``not identical`` part company, named rather than
+    papered over, and the snapshot recorder reports it as no version movement."""
+    diff = workflow_diff(workflow(), workflow(ir_version="1.1"))
+
+    assert not diff.identical
+    assert not diff.has_changes
+    assert diff.stamp_only
+    assert (
+        diff.bump_class == frozenset() == changed_components(workflow(), workflow(ir_version="1.1"))
+    )
+    assert not diff.topology.has_changes and diff.regrouped is False
+    assert not diff.contracts and not diff.state
+    # The anchors carry the two stamps, so a surface above the engine can name them (D7b).
+    assert (diff.before.ir_version, diff.after.ir_version) == ("1.0", "1.1")
+
+
+def test_stamp_only_is_false_whenever_anything_the_counters_count_moved() -> None:
+    """``stamp_only`` names exactly one pair: not the identical one (nothing moved at all) and
+    not a pair whose stamp moved *together* with content — that one is an ordinary change whose
+    bump class carries the content's counters, the stamp riding along uncounted (IR-SPEC §8)."""
+    assert not workflow_diff(workflow(), workflow()).stamp_only
+    assert not workflow_diff(workflow(), workflow(entry="work")).stamp_only
+    with_content = workflow_diff(workflow(), workflow(ir_version="1.1", entry="work"))
+    assert not with_content.stamp_only
+    assert with_content.has_changes and with_content.bump_class == frozenset({S})
+    assert (with_content.before.ir_version, with_content.after.ir_version) == ("1.0", "1.1")
+
+
+def test_stamp_only_reads_the_stamps_the_anchors_carry() -> None:
+    """The predicate rests on the anchors' stamps, not on the covering property alone (ir-contract
+    pre-review, round 2): a hand-built diff whose digests differ with no delta and *equal* stamps
+    — the shape the engine never produces, since its deltas mirror the slices — is neither
+    identical, nor changed, nor stamp-only. The verb renders that residue as the coverage defect
+    it would be, never as a stamp move over two equal stamps."""
+    from gebra.diff import DiffAnchor, TopologyDiff
+
+    residue = WorkflowDiff(
+        topology=TopologyDiff(
+            before=DiffAnchor("sha256:" + "a" * 64, ir_version="1.0"),
+            after=DiffAnchor("sha256:" + "b" * 64, ir_version="1.0"),
+        )
+    )
+
+    assert not residue.identical and not residue.has_changes
+    assert not residue.stamp_only
+
+
+# ── The bridge property over generated documents, with a dynamic edge on one side ────────
+
+
+def _with_a_dynamic_edge(ir: WorkflowIR, condition: str | None) -> WorkflowIR:
+    """``ir`` with one ``dynamic`` edge sourced at its first declared node, stamped ``"1.1"``.
+
+    Built with the constructor rather than ``model_copy`` so the document is validated — the
+    stamp floor (DEC-34) is met, not skipped.
+    """
+    return WorkflowIR(
+        ir_version="1.1",
+        entry=ir.entry,
+        finish=ir.finish,
+        state=ir.state,
+        nodes=ir.nodes,
+        edges=(
+            *ir.edges,
+            DynamicEdge(kind="dynamic", **{"from": ir.nodes[0].id}, condition=condition),
+        ),
+        runtime=ir.runtime,
+    )
+
+
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(ir=workflow_irs(), condition=st.none() | st.text(min_size=1, max_size=8))
+def test_adding_a_dynamic_edge_to_any_generated_document_bumps_exactly_s(
+    ir: WorkflowIR, condition: str | None
+) -> None:
+    """The acceptance sentence at scale: over generated well-formed 1.0 documents, adding one
+    ``dynamic`` edge is a topology change the diff reports (the edge, with no target, and its
+    source rewired), the bump class is exactly S, and the version engine's own canonical-slice
+    comparison agrees — the S-slice bridge holding for the fourth kind."""
+    after = _with_a_dynamic_edge(ir, condition)
+    diff = workflow_diff(ir, after)
+
+    assert not diff.identical and diff.has_changes
+    assert diff.bump_class == frozenset({S}) == changed_components(ir, after)
+    assert (
+        EdgeRef("dynamic", ir.nodes[0].id, None, condition=condition) in diff.topology.edges.added
+    )
+    assert ir.nodes[0].id in diff.topology.nodes.rewired
+    assert diff.regrouped is False
+    # And the same document twice is one value with no delta at all.
+    assert workflow_diff(after, after).identical
 
 
 # ── Box 2: the deferred-P-12 marker, and no safe/breaking claim in the output ─────────────

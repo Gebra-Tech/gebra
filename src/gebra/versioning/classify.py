@@ -36,8 +36,11 @@ this card had to take, because the frozen text does not decide them:
 * **``ir_version`` → no component.** IR-SPEC §8: "Two migration regimes, never conflated.
   P-12 ``evolution-safety`` classifies **workflow migrations** … This section governs
   **format migrations** — diffs between IR *schemas*." A V.S.F.E label counts changes to a
-  workflow, so an IR-format bump is not one of its business. (In ``ir_version`` 1.0 the
-  field is a ``Literal["1.0"]``, so the row is unreachable rather than merely unused.)
+  workflow, so an IR-format bump is not one of its business. (The row was unreachable while
+  the field was a ``Literal["1.0"]``; since DEC-28 widened it to admit ``"1.1"`` a pair can
+  differ in the stamp alone — an over-stamped twin of the same content — and then the
+  digests differ while no counter moves, which is the one case the covering property below
+  names rather than covers. The snapshot recorder reports it as no version movement.)
 * **Bumps are derived from canonical field slices, not "via P-12 diff classes"** — the route
   IR-SPEC §4.1's parenthetical and the field ledger §7 gloss for ``version``. P-12
   ``evolution-safety`` is out of Phase-0 scope (SOW §8), so its classes do not exist to
@@ -61,9 +64,10 @@ order away and §6.3 normalizes representations (a singleton ``entry`` list to a
 bare state type-string and its object form onto one shape, an empty optional array onto
 absence), so reusing the §6 walk rather than re-deriving it buys the property that matters:
 **two IRs with equal ``graph_version`` change no component, and two IRs with different
-``graph_version`` change at least one.** A version engine that disagreed with the digest in
-the second direction would put two workflow contents under one label — and since PD-012
-makes the label a file name, under one file.
+``graph_version`` change at least one — unless the only differing byte is the ``ir_version``
+stamp, the one hash-scope member with no component (above).** A version engine that
+disagreed with the digest in the second direction would put two workflow contents under one
+label — and since PD-012 makes the label a file name, under one file.
 
 That second direction is why the comparison is by bytes. IR-SPEC §1.2 makes the canonical
 bytes the identity of content ("a single differing byte in canonical form is

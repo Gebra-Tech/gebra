@@ -5,8 +5,10 @@ output shows the S/F/E class** (a ``bump class`` line read off ``WorkflowDiff.bu
 asserted per constructed pair), and **the deferred-P-12 marker is rendered honestly** —
 *not checked* with its status on every outcome, with no ``safe``/``breaking`` labelling
 anywhere in the captured output. Exit codes: ``0`` on a completed comparison whatever it
-found, ``1`` only under ``--exit-code`` when the sides differ, ``2`` when a side fails to
-resolve or a stored snapshot fails its digest check.
+found (a stamp-only pair included, even under ``--exit-code``), ``1`` only under
+``--exit-code`` when the sides differ in content, ``2`` when a side fails to resolve, a stored
+snapshot fails its digest check, or the engine reports neither a delta nor a stamp move for
+two differing digests — the coverage-defect residue, a build defect refused on stderr.
 """
 
 from __future__ import annotations
@@ -18,7 +20,10 @@ import pytest
 
 from gebra.ir import write_ir
 from gebra.ir.models import DynamicEdge, Node, WorkflowIR
+from gebra.store import Snapshot, SnapshotStore
 from tests.cli.conftest import RunCli
+from tests.lineage.stores import STAGES, provenance
+from tests.versioning.workflows import restamped
 
 #: The evolved store's labels (derived by the diff engine — tests/lineage/stores.py).
 OLDEST, AUDIT_ADDED, ESCALATED, RECEIPT_ADDED, NEWEST = (
@@ -187,23 +192,136 @@ def test_a_tampered_snapshot_fails_its_digest_check(run_cli: RunCli, evolved_pro
     assert "digest" in result.stderr
 
 
-def test_an_ir_1_1_document_side_is_declined(run_cli: RunCli, evolved_project: Path) -> None:
-    """PD-044 D11 / DEC-28: the diff engine declines a ``dynamic`` document; the verb
-    reports the decline as exit ``2`` rather than dropping the edge."""
-    dynamic = WorkflowIR(
-        ir_version="1.1",
-        entry="plan",
-        finish="collect",
-        state={"legs": "list[str]"},
-        nodes=(Node(id="plan"), Node(id="collect")),
-        edges=(DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route"),),
+def test_an_ir_1_1_document_side_reaches_a_comparison(
+    run_cli: RunCli, evolved_project: Path
+) -> None:
+    """A ``dynamic``-bearing side compares (card SD-13, PD-059): the edge is rendered with its
+    absent target spelled out rather than dropped or given an invented head, and a pair that
+    differs only in the router's guard renders the persisting identity's moved guard. Until
+    SD-13 the engine declined the document and the verb reported exit ``2``."""
+
+    def dynamic(condition: str) -> WorkflowIR:
+        return WorkflowIR(
+            ir_version="1.1",
+            entry="plan",
+            finish="collect",
+            state={"legs": "list[str]"},
+            nodes=(Node(id="plan"), Node(id="collect")),
+            edges=(DynamicEdge(kind="dynamic", **{"from": "plan"}, condition=condition),),
+        )
+
+    write_ir(dynamic("route"), evolved_project / "dynamic.ir.yaml")
+    write_ir(dynamic("route_v2"), evolved_project / "dynamic-v2.ir.yaml")
+
+    against_stored = run_cli("diff", OLDEST, "dynamic.ir.yaml", "--store", ".gebra")
+    reguarded = run_cli("diff", "dynamic.ir.yaml", "dynamic-v2.ir.yaml", "--store", ".gebra")
+
+    # The renderer wraps a long line at the terminal width, so the phrases are compared on
+    # whitespace-normalized text — the words and their order are the claim, not the folding.
+    assert against_stored.exit_code == 0, against_stored.stderr
+    assert "+ edge plan -> (targets not statically known) [dynamic] guard route" in " ".join(
+        against_stored.stdout.split()
     )
-    write_ir(dynamic, evolved_project / "dynamic.ir.yaml")
+    assert re.search(r"bump class\s+S", against_stored.stdout)
+    assert reguarded.exit_code == 0, reguarded.stderr
+    # A dynamic pairing carries the guard alone: the kind has no target, and a "target …
+    # (unchanged)" clause beside "targets not statically known" would read as a claim about
+    # the runtime set (PD-059 close-out item 4).
+    assert "~ edge plan [dynamic]: guard route -> route_v2" in " ".join(reguarded.stdout.split())
+    assert "(unchanged)" not in reguarded.stdout
+    assert re.search(r"bump class\s+S\n", reguarded.stdout)
+    assert "no comparison was made" not in reguarded.stderr
 
-    result = run_cli("diff", OLDEST, "dynamic.ir.yaml", "--store", ".gebra")
 
-    assert result.exit_code == 2
-    assert "no comparison was made" in result.stderr
+# ── The stamp-only pair: named at exit 0, never a crash and never a difference (D7b) ──────
+
+
+def test_a_pair_differing_in_the_stamp_alone_is_named_and_is_not_a_difference(
+    run_cli: RunCli, evolved_project: Path
+) -> None:
+    """PD-059 D7b as ratified, on the verb: two IR-document sides that differ in their
+    ``ir_version`` stamp and in nothing else (an over-stamped twin, admitted by DEC-34) render one
+    line naming both stamps and stating that no counter moves, at exit ``0`` — and ``--exit-code``
+    stays ``0``, because no content differs. Until the close-out this pair crashed the verb (an
+    assertion that the case was unreachable; CLI-SPEC §3.4's traceback, exit 2)."""
+    write_ir(restamped(STAGES[0].build(), "1.1"), evolved_project / "stamped.ir.yaml")
+
+    plain = run_cli("diff", "base.ir.yaml", "stamped.ir.yaml", "--store", ".gebra")
+    signalled = run_cli(
+        "diff", "base.ir.yaml", "stamped.ir.yaml", "--store", ".gebra", "--exit-code"
+    )
+    reversed_pair = run_cli("diff", "stamped.ir.yaml", "base.ir.yaml", "--store", ".gebra")
+    reversed_signalled = run_cli(
+        "diff", "stamped.ir.yaml", "base.ir.yaml", "--store", ".gebra", "--exit-code"
+    )
+
+    assert plain.exit_code == 0, plain.stderr
+    assert plain.stderr == ""
+    assert "only the ir_version stamp moved: 1.0 -> 1.1" in " ".join(plain.stdout.split())
+    assert "no content differs and no V.S.F.E counter moves" in " ".join(plain.stdout.split())
+    assert re.search(r"bump class\s+none — the counters do not move", plain.stdout)
+    assert "Traceback" not in plain.stderr and "crash" not in plain.stderr
+    assert signalled.exit_code == 0, signalled.stderr
+    assert reversed_pair.exit_code == 0, reversed_pair.stderr
+    assert "only the ir_version stamp moved: 1.1 -> 1.0" in " ".join(reversed_pair.stdout.split())
+    assert reversed_signalled.exit_code == 0, reversed_signalled.stderr
+
+
+def test_a_diff_with_neither_delta_nor_stamp_move_is_a_build_defect_at_exit_2(
+    run_cli: RunCli, evolved_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The residue the assertion used to guard — digests differ, no delta, equal stamps — is a
+    shape the engine never produces (its three slices cover every canonical member but the
+    stamp), so it is constructed and fed to the verb in the engine's place. Were it ever to
+    arise, a comparison over it would be a known build defect: CLI-SPEC §3.4 makes that exit
+    ``2`` with the fact on stderr, never a clean run — with or without ``--exit-code``, and
+    never rendered as a diff or as a stamp move (PD-059, second-pass ratification)."""
+    import gebra.cli.diff as verb
+    from gebra.diff import DiffAnchor, TopologyDiff, WorkflowDiff
+
+    residue = WorkflowDiff(
+        topology=TopologyDiff(
+            before=DiffAnchor("sha256:" + "a" * 64, ir_version="1.0"),
+            after=DiffAnchor("sha256:" + "b" * 64, ir_version="1.0"),
+        )
+    )
+    monkeypatch.setattr(verb, "workflow_diff", lambda before, after: residue)
+
+    plain = run_cli("diff", "base.ir.yaml", "final.ir.yaml", "--store", ".gebra")
+    signalled = run_cli("diff", "base.ir.yaml", "final.ir.yaml", "--store", ".gebra", "--exit-code")
+
+    for result in (plain, signalled):
+        assert result.exit_code == 2
+        assert result.stdout == ""
+        assert "coverage defect in the diff engine, not a workflow change" in result.stderr
+        assert "please report it" in result.stderr
+        assert "sha256:" + "a" * 64 in result.stderr and "sha256:" + "b" * 64 in result.stderr
+        assert "only the ir_version stamp moved" not in result.stderr
+        assert "Traceback" not in result.stderr
+
+
+def test_a_stored_pair_differing_in_the_stamp_alone_is_named_too(
+    run_cli: RunCli, evolved_project: Path
+) -> None:
+    """The same answer through ``gebra.lineage.compare``: a store holding a version and its
+    over-stamped twin (written through the store, since the recorder refuses to record the pair)
+    diffs to the stamp line at exit ``0``."""
+    store = SnapshotStore(evolved_project / ".gebra")
+    store.write(
+        Snapshot.of(
+            restamped(STAGES[0].build(), "1.1"),
+            version="9.0.0.0",
+            extracted_from=provenance("tests.cli.test_diff_verb", "2026-09-07T09:00:00Z"),
+        )
+    )
+
+    result = run_cli("diff", OLDEST, "9.0.0.0", "--store", ".gebra")
+
+    assert result.exit_code == 0, result.stderr
+    assert re.search(rf"before\s+{re.escape(OLDEST)}\s+sha256:", result.stdout)
+    assert re.search(r"after\s+9\.0\.0\.0\s+sha256:", result.stdout)
+    assert "only the ir_version stamp moved: 1.0 -> 1.1" in " ".join(result.stdout.split())
+    assert "topology" not in result.stdout
 
 
 # ── --output (§5.2) ──────────────────────────────────────────────────────────────────────

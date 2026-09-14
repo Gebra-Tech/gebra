@@ -29,9 +29,12 @@ first has failed could import a module — or, under ``--call``, call a factory 
 comparison that can no longer happen. Nothing a dead run does not need is executed.
 
 **Exit codes are §3.2's ``diff`` row**: ``0`` — the comparison completed, by default
-whether or not anything moved; ``1`` — only with ``--exit-code``, a difference signal
-carrying no claim about whether the difference is safe; ``2`` — either side failed to
-resolve, or a stored snapshot failed its digest check.
+whether or not anything moved (a pair differing in its ``ir_version`` stamp alone included,
+with or without ``--exit-code``); ``1`` — only with ``--exit-code``, a difference in content,
+a signal carrying no claim about whether the difference is safe; ``2`` — either side failed
+to resolve, a stored snapshot failed its digest check, or the engine reported neither a delta
+nor a stamp move for two differing digests (a coverage defect in the diff engine, §3.4 — on
+stderr, never a clean run).
 
 **Never-invokes** (§0.5, WA-07): ``diff`` with an import-reference side is one of the
 three live-target paths, and its tripwire — including the mixed stored-label/import case —
@@ -42,7 +45,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from rich.text import Text
 
@@ -79,7 +82,6 @@ from gebra.diff import (
     workflow_diff,
 )
 from gebra.diff.state import KeyDeclaration
-from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.lineage import compare
 from gebra.report import TerminalOptions
 from gebra.versioning import Component
@@ -154,16 +156,45 @@ def run_diff(request: DiffRequest) -> int:
         else:
             assert subjects is not None
             diff = workflow_diff(subjects[0], subjects[1])
-    except (ValueError, DynamicEdgeUnsupportedError) as error:
+    except ValueError as error:
         # The engine's refusal channel: a stored snapshot that fails its digest check
-        # arrives as the store's own ValueError-derived StoreError, a duplicate node id as
-        # the diff engine's ValueError (IR-SPEC §2.1, DEC-22), and an ir 1.1 document as
-        # the DEC-28 decline. Anything outside these families is a crash §3.4 owns.
+        # arrives as the store's own ValueError-derived StoreError, and a duplicate node id
+        # or an under-stamped document as the diff engine's ValueError (IR-SPEC §2.1, DEC-22;
+        # §2.5 note 7, DEC-34). Anything outside this family is a crash §3.4 owns. (A
+        # `dynamic`-bearing side compares since SD-13; the DEC-28 decline this clause once
+        # caught by name is lifted — PD-059.)
         _write_diagnostic(f"no comparison was made: {error}")
         return 2
 
+    defect = _coverage_defect(diff)
+    if defect is not None:
+        # §3.4: a build defect is exit 2 with the fact on stderr, never a clean run — with or
+        # without --exit-code, since no answer was reached.
+        _write_diagnostic(defect)
+        return 2
     _write_artifact(_diff_lines(diff), request)
     return 1 if request.exit_code and diff.has_changes else 0
+
+
+def _coverage_defect(diff: WorkflowDiff) -> str | None:
+    """The one shape §3.4 owns rather than §4.3, or ``None`` for every reportable diff.
+
+    Digests differ, no delta was found and the stamps agree: content differs somewhere the
+    engine cannot see, which is the diff engine's covering property failing — the same defect
+    the recorder refuses as ``no-version-movement``. Unreachable through the engine today (its
+    three slices cover every canonical member but ``ir_version``), so this is the guard the
+    old ``# pragma: no cover`` assertion was, said on stderr with an exit code instead of a
+    traceback (PD-059, second-pass ratification).
+    """
+    if diff.identical or diff.has_changes or diff.stamp_only:
+        return None
+    return (
+        "no comparison can be reported: the digests differ "
+        f"({diff.before.graph_version} vs {diff.after.graph_version}) but the diff engine "
+        "found no delta and no ir_version stamp move — a coverage defect in the diff engine, "
+        "not a workflow change; please report it (CLI-SPEC §3.4: a build defect is never a "
+        "clean run)"
+    )
 
 
 # ── Usage validation (§3.4, §5.3) ────────────────────────────────────────────────────────
@@ -295,7 +326,12 @@ def _resolve_side(
 
 
 def _diff_lines(diff: WorkflowDiff) -> list[Text]:
-    """The whole delta as lines — anchors, bump class, marker, then the three deltas."""
+    """The whole delta as lines — anchors, bump class, marker, then the three deltas.
+
+    The caller has already excluded the one shape that is not a delta (:func:`_coverage_defect`
+    — a §3.4 exit 2, never rendered), so every diff reaching here is identical, stamp-only, or
+    carries at least one non-empty section.
+    """
     lines: list[Text] = [heading("workflow diff")]
     lines.append(kv("before", _anchor_phrase(diff.before.version, diff.before.graph_version)))
     lines.append(kv("after", _anchor_phrase(diff.after.version, diff.after.graph_version)))
@@ -308,8 +344,21 @@ def _diff_lines(diff: WorkflowDiff) -> list[Text]:
         lines.append(blank())
         lines.append(Text("nothing moved: both sides carry one graph_version"))
         return lines
-    if not diff.has_changes:  # pragma: no cover - unreachable: has_changes is total (SD-05)
-        raise AssertionError("digests differ but no delta was reported")
+    if diff.stamp_only:
+        # The one pair whose digests differ while no counter moves: the `ir_version` stamp
+        # alone, which IR-SPEC §8 keeps out of the V.S.F.E label (PD-059 D7b as ratified).
+        # Named rather than mis-reported — this used to be an assertion that the case was
+        # unreachable, and a CLI-SPEC §3.4 crash when it was reached.
+        lines.append(blank())
+        lines.append(
+            Text(
+                "only the ir_version stamp moved: "
+                f"{_stamp_phrase(diff.before.ir_version)} -> "
+                f"{_stamp_phrase(diff.after.ir_version)} — no content differs and no V.S.F.E "
+                "counter moves (IR-SPEC §8: a format migration, not a workflow migration)"
+            )
+        )
+        return lines
     lines.extend(_topology_lines(diff.topology, regrouped=diff.regrouped))
     lines.extend(_contracts_lines(diff.contracts))
     lines.extend(_state_lines(diff.state))
@@ -378,9 +427,15 @@ def _topology_lines(topology: TopologyDiff, *, regrouped: bool) -> list[Text]:
     return lines
 
 
+#: How a ``dynamic`` edge's absent target is spelled (PD-059): the kind declares that the
+#: router's target set is not statically known, and the phrase says so rather than leaving a
+#: blank a reader could take for a missing value.
+_NO_STATIC_TARGET: Final = "(targets not statically known)"
+
+
 def _edge_phrase(edge: EdgeRef) -> str:
     """One expanded edge, in authored vocabulary: kind, route, label, guard."""
-    phrase = f"{edge.source} -> {edge.target} [{edge.kind}"
+    phrase = f"{edge.source} -> {_target_phrase(edge.target)} [{edge.kind}"
     if edge.label is not None:
         phrase += f" {edge.label!r}"
     phrase += "]"
@@ -390,22 +445,43 @@ def _edge_phrase(edge: EdgeRef) -> str:
 
 
 def _edge_changed_phrase(changed: EdgeChanged) -> str:
-    """A persisting edge identity whose target or guard moved, both halves stated."""
+    """A persisting edge identity whose target or guard moved, both halves stated.
+
+    On a ``dynamic`` pairing there is no target half: the kind declares none, so the only
+    member a pairing can move is the guard, and a "target … (unchanged)" clause beside a
+    statement that the target set is unknown would read as a claim about the runtime set
+    (PD-059 close-out item 4). The line carries the guard alone.
+    """
     identity = f"{changed.source} [{changed.kind}"
     if changed.label is not None:
         identity += f" {changed.label!r}"
     identity += "]"
     parts: list[str] = []
-    if changed.rewired:
-        parts.append(f"target {changed.target_before} -> {changed.target_after}")
+    if changed.kind == "dynamic":
+        pass  # no target to state — see the docstring
+    elif changed.rewired:
+        parts.append(
+            f"target {_target_phrase(changed.target_before)} -> "
+            f"{_target_phrase(changed.target_after)}"
+        )
     else:
-        parts.append(f"target {changed.target_after} (unchanged)")
+        parts.append(f"target {_target_phrase(changed.target_after)} (unchanged)")
     if changed.condition_changed:
         parts.append(
             f"guard {_optional_phrase(changed.condition_before)} -> "
             f"{_optional_phrase(changed.condition_after)}"
         )
     return f"{identity}: " + "; ".join(parts)
+
+
+def _target_phrase(target: str | None) -> str:
+    """An authored target, or — on a ``dynamic`` edge — the statement that there is none."""
+    return _NO_STATIC_TARGET if target is None else target
+
+
+def _stamp_phrase(stamp: str | None) -> str:
+    """An anchor's ``ir_version``, or the statement that the anchor carries none."""
+    return "(no stamp on this anchor)" if stamp is None else stamp
 
 
 def _optional_phrase(value: str | None) -> str:

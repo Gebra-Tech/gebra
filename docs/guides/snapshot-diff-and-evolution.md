@@ -573,6 +573,82 @@ is what that looks like from a reviewer's chair.
 The lesson generalizes. **A bump class is a routing decision — which section of the diff to
 read — never a risk grade.**
 
+## A router with no declared targets
+
+A router whose targets the definition does not declare — a bare `Send` map-reduce, a hintless
+router — extracts as a `dynamic` edge and stamps the document `ir_version: 1.1`; the
+[extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
+shows one being extracted and verified. Such an edge carries no `to` and no `path_map`, and a
+diff says so rather than dropping it or inventing a target. Here is the same three-node
+workflow twice: once with `plan -> book_leg` declared, once with `plan` dispatching dynamically.
+
+<!-- gebra:example id=a-router-with-no-declared-targets -->
+```python
+from pathlib import Path
+
+from gebra.cli import main
+from gebra.ir import write_ir
+from gebra.ir.models import DynamicEdge, Node, NormalEdge, WorkflowIR
+
+nodes = (Node(id="plan"), Node(id="book_leg"), Node(id="collect"))
+declared = WorkflowIR(
+    ir_version="1.0",
+    entry="plan",
+    finish="collect",
+    state={"legs": "list[str]"},
+    nodes=nodes,
+    edges=(
+        NormalEdge(kind="normal", from_="plan", to="book_leg"),
+        NormalEdge(kind="normal", from_="book_leg", to="collect"),
+    ),
+)
+dispatching = WorkflowIR(
+    ir_version="1.1",
+    entry="plan",
+    finish="collect",
+    state={"legs": "list[str]"},
+    nodes=nodes,
+    edges=(
+        DynamicEdge(kind="dynamic", from_="plan", condition="route_legs"),
+        NormalEdge(kind="normal", from_="book_leg", to="collect"),
+    ),
+)
+write_ir(declared, Path("declared.ir.yaml"))
+write_ir(dispatching, Path("dispatching.ir.yaml"))
+
+print("exit", main(["diff", "declared.ir.yaml", "dispatching.ir.yaml"]))
+```
+
+<!-- gebra:output id=a-router-with-no-declared-targets -->
+```text
+workflow diff
+  before                  sha256:8d5b1c9c850fca20...
+  after                   sha256:e10cdc0550c540b6...
+  bump class              S
+  P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          the bump class names moved counters, never safety
+
+topology
+  ~ node book_leg — its edges moved; the node itself persists
+  ~ node plan — its edges moved; the node itself persists
+  + edge plan -> (targets not statically known) [dynamic] guard route_legs
+  - edge plan -> book_leg [normal]
+exit 0
+```
+
+Read the topology section: the declared edge leaves, the `dynamic` edge arrives with
+`(targets not statically known)` where a target would stand, the two nodes persist with their
+edges moved, and the bump class is S — the edge is routing, and it sits inside `graph_version`
+like any other edge. Two documents that differ only in such an edge — its presence, its source,
+or its declared `condition` — never diff as unchanged; a router whose guard alone was rewritten
+renders as a `~ edge plan [dynamic]` line carrying the guard's before and after. What the diff
+does not say is where the router goes: that is a run-time fact the definition does not carry,
+and the verification side reads the same edge the same way — P-01's witness lists the nodes
+only that router can reach under `dynamic_dependent`. The store records a 1.1 document like any
+other and derives its label from exactly this diff. `gebra display` is the one surface that
+still declines a 1.1 document: a drawn arrow needs a head, and the drawing of a headless edge
+is not yet ruled.
+
 ## The whole sequence, and where verification moves with it
 
 Put every step beside its verdict and the shape of the review becomes clear:
@@ -816,9 +892,17 @@ working definition: v7-witness-removed
   the working definition is not the snapshot the store holds — it changed and was not re-snapshotted
 ```
 
-It answers in three states rather than two — fresh, stale, and a store holding nothing at all,
-which is a different event and does not want the same words. A stale outcome names which of S,
-F and E moved and stops there; it grades nothing.
+It answers in four states rather than two — fresh, stale, a store holding nothing at all, which
+is a different event and does not want the same words, and `restamped`: a working definition
+that is the stored content under another `ir_version` stamp. That last one is not stale — the
+stamp is inside the digest but outside every counter, so nothing the counters count moved and
+the recorder refuses to record it — and the outcome says so, names both stamps, and prescribes
+the remedy the recorder honours: re-stamp the working definition to the stored stamp, or record
+it after a real change (leading with whichever the direction admits — an extraction never
+over-stamps, so a stored snapshot that carries the higher stamp cannot be matched by
+re-extracting). In CI the `gebra_freshness` item passes on it and surfaces that summary as a
+warning, for the same reason `gebra diff --exit-code` exits `0` on the pair: the definition did
+not change. A stale outcome names which of S, F and E moved and stops there; it grades nothing.
 
 In CI this runs through the pytest plugin as `@pytest.mark.gebra_freshness`, which fails its
 item when the store has fallen behind, or as the `gebra_freshness` fixture when you would rather
@@ -901,7 +985,8 @@ Everything above, as the order of operations a reviewer can follow:
    already depended on — but do not skip the `+` lines either: an added edge can close a cycle
    through nodes that were never in one, which is a new P-02 obligation for that cycle and a new
    P-06 one for any effect-tagged node now inside it, with no `-` or `~` line anywhere in the
-   diff.
+   diff. A `[dynamic]` line is a router the static picture cannot follow at all — read it
+   beside the `dynamic_dependent` list on the new version's P-01 witness.
 6. **Then verify the new version.** The diff and the validators answer different questions, and
    two of the four changes this page calls out only become findings on the second one.
 7. **Take the classification yourself, and write it down where a human will read it** — in the
@@ -931,7 +1016,7 @@ in CI, and compared byte for byte against what the page shows — the mechanism 
 [executable examples](../contributing/executable-examples.md). Beyond that,
 `tests/docs/test_snapshot_guide.py` holds the page's prose to its sources: the V.S.F.E table
 against `FIELD_COMPONENTS`, the store's directory and file names against the store module's own
-constants, both rendered diff reports re-run through the verb and compared byte for byte, every
+constants, the two stored-pair diff reports re-run through the verb and compared byte for byte, every
 step's bump class and gate verdict re-derived from a store the test builds, each condition id
 against the registry with its severity and claim class, the documented exit codes against real
 invocations, and the sentences that carry the honest-claims boundary against a scan of the page.

@@ -890,7 +890,7 @@ class DynamicEdgeUnsupportedError(NotImplementedError)
 
 A 1.0-vocabulary consumer was handed a document carrying a `dynamic` edge.
 
-`NotImplementedError` by inheritance because that is exactly the fact: the construct is ratified and emitted, the validators read it (`gebra.verify` reaches a verdict on such a document), and *this consumer* — the topology diff, the store and the freshness check built on it, or the display emitter — has no ruled representation for an edge with no target yet. The CLI verbs that reach those consumers (`gebra snapshot`, `gebra diff`, `gebra display`) catch it and report a tool error — "nothing was recorded", "no comparison was made", "no diagram was emitted" — which is the only honest outcome available before that representation is ruled.
+`NotImplementedError` by inheritance because that is exactly the fact: the construct is ratified and emitted, the validators read it (`gebra.verify` reaches a verdict on such a document), the topology diff and the store and freshness check built on it read it (card SD-13, PD-059 — a headless edge is carried on its source and reported with no target), and *this consumer* — the display emitter, the one that remains — has no ruled representation for an edge with no target in a **drawing** yet (DIAGRAM-STYLE-GUIDE §3.4). The CLI verb that reaches it (`gebra display`) catches it and reports a tool error — "no diagram was emitted" — which is the only honest outcome available before that representation is ruled.
 
 #### `gebra.ir.Edge`
 

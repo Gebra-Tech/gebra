@@ -10,7 +10,12 @@ speak one vocabulary.
 
 The emitter draws; it decides nothing. It runs none of the model's analyses, and a
 ``dynamic``-bearing document (ir 1.1) is declined by name (guide §3.4) rather than drawn
-under 1.0 rules — the same posture ``verify()``, the diff and the snapshot engines take.
+under 1.0 rules. It is the one consumer that still declines: ``verify()`` reads such a
+document since VAL-14, and the diff, the snapshot recorder and the freshness check since
+SD-13 (PD-059 — a diff descriptor can carry "no target" in so many words). A drawing cannot:
+an arrow needs a head, and what a headless router edge should look like on the page is a
+style-guide decision the CLI track owns, deliberately kept apart from the diff's ruling
+(PD-059 D8).
 
 Nothing here imports langgraph, executes anything, or opens a socket (WA-07).
 """

@@ -28,10 +28,21 @@ each side carries the key (anything wider is ambiguity, reported as removed/adde
 * a **conditional routing slot** ``(source, label)`` — ledger §4 reads each ``path_map``
   label as one logical directed edge carrying that label, so the label is the edge's name
   and its target and guard are values that can move under it;
-* a **normal/send source** ``(kind, source)`` — the one remaining unmatched out-edge of
-  that kind carried by a persisting source reference, whose target or ``condition`` moved.
+* a **normal/send/dynamic source** ``(kind, source)`` — the one remaining unmatched out-edge
+  of that kind carried by a persisting source reference, whose target or ``condition`` moved.
   A label rename, like a node rename, is a new identity; a kind change is a different edge
   (a ``send`` is a fan-out template, T-W-SPEC §1), so neither ever matches.
+
+**The fourth kind has no target, and the descriptor says so.** A ``dynamic`` edge (ir 1.1 —
+DEC-28) declares a router whose target set is not statically known: it carries ``from``,
+``kind`` and an optional ``condition`` and nothing else, and that is exactly what its
+:class:`EdgeRef` carries — ``target`` is ``None`` on this kind and on no other. The edge is in
+the diff's universe because it is in the ``graph_version`` hash scope (IR-SPEC §6.4's
+``edges[]`` row), so two documents differing only in one — its presence, its source, its
+``condition`` — never diff as unchanged; and no head is invented for it, because a vertex the
+document does not declare would be the phantom class DEC-26 closed (the ruling: PD-059,
+card SD-13). Brief D-11's enumeration "kind normal | conditional | send" predates the kind;
+the universe is the hash scope's, which is what that enumeration was naming.
 
 **No verdicts.** The diff says what is different, never what the difference means: no
 safe/breaking classification exists in Phase 0 (P-12 ``evolution-safety`` is deferred by
@@ -63,8 +74,9 @@ __all__ = [
     "ledger_sort_key",
 ]
 
-#: The three edge kinds of IR-SPEC §2.4 (``kind`` defaults to ``normal`` on the surface).
-EdgeKind: TypeAlias = Literal["normal", "conditional", "send"]
+#: The four edge kinds of IR-SPEC §2.4 (``kind`` defaults to ``normal`` on the surface;
+#: ``dynamic`` is the ir 1.1 kind — DEC-28 — and the one with no target).
+EdgeKind: TypeAlias = Literal["normal", "conditional", "send", "dynamic"]
 
 
 def ledger_sort_key(value: str) -> bytes:
@@ -97,21 +109,28 @@ class DiffAnchor:
         version: The V.S.F.E label, when this side came from a
             :class:`~gebra.store.models.Snapshot`; ``None`` for a bare IR, which has no
             label until a store gives it one.
+        ir_version: This side's ``ir_version`` stamp, verbatim. The stamp is inside the
+            digest (IR-SPEC §6.4) and outside every V.S.F.E slice (§8 — a format migration
+            is not a workflow migration), so it is the one hash-scope member a diff can find
+            moved while no counter moves; carrying it on the anchor is what lets that pair be
+            named rather than mis-reported (PD-059 D7b). ``None`` only on an anchor built
+            without an IR — :func:`~gebra.diff.topology.resolve_subject` always sets it.
     """
 
     graph_version: str
     version: str | None = None
+    ir_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class EdgeRef:
     """One logical directed edge, in authored vocabulary — the unit the edge diff counts.
 
-    A ``normal`` or ``send`` edge maps to one of these; a ``conditional`` edge contributes
-    one per ``path_map`` label (ledger §4 label expansion — the diff runs on the expanded
-    graph, not on how routers were grouped). Parallel identical edges are distinct copies:
-    the canonical form keeps duplicate edge objects (IR-SPEC §6.2 sorts ``edges[]`` and
-    removes nothing), so multiplicity is content and the diff treats these as a multiset.
+    A ``normal``, ``send`` or ``dynamic`` edge maps to one of these; a ``conditional`` edge
+    contributes one per ``path_map`` label (ledger §4 label expansion — the diff runs on the
+    expanded graph, not on how routers were grouped). Parallel identical edges are distinct
+    copies: the canonical form keeps duplicate edge objects (IR-SPEC §6.2 sorts ``edges[]``
+    and removes nothing), so multiplicity is content and the diff treats these as a multiset.
 
     Attributes:
         kind: The IR-SPEC §2.4 kind of the authored edge.
@@ -121,7 +140,10 @@ class EdgeRef:
             ``"END"`` is the END sentinel (IR-SPEC §4.1 m3 — the one blessed literal); on a
             ``normal``/``send`` edge it is an ordinary reference (PD-007 Q2 left m4
             unadopted, so ``to: "END"`` names a node or fails to resolve — P-01's question
-            either way, never this engine's).
+            either way, never this engine's). ``None`` on a ``dynamic`` edge, and only
+            there: the kind declares no target (IR-SPEC §2.4 — "carries neither ``to`` nor
+            ``path_map``"), so absence is the authored fact, not a value this engine could
+            not find (PD-059).
         label: The ``path_map`` label on a conditional expansion; ``None`` otherwise.
         condition: The authored guard/router expression, on any kind (admitted for fixture
             fidelity on ``normal``/``send``, IR-SPEC §2.4) — declared content, never
@@ -130,16 +152,18 @@ class EdgeRef:
 
     kind: EdgeKind
     source: str
-    target: str
+    target: str | None
     label: str | None = None
     condition: str | None = None
 
-    def sort_key(self) -> tuple[str, bytes, bytes, tuple[int, bytes], tuple[int, bytes]]:
+    def sort_key(
+        self,
+    ) -> tuple[str, bytes, tuple[int, bytes], tuple[int, bytes], tuple[int, bytes]]:
         """The deterministic report order: kind, then ledger §6 on every string member."""
         return (
             self.kind,
             ledger_sort_key(self.source),
-            ledger_sort_key(self.target),
+            _optional_key(self.target),
             _optional_key(self.label),
             _optional_key(self.condition),
         )
@@ -158,9 +182,10 @@ class EdgeChanged:
             pairs).
         source: The persisting source reference.
         label: The persisting ``path_map`` label for a conditional slot; ``None`` for a
-            ``normal``/``send`` pairing.
+            ``normal``/``send``/``dynamic`` pairing.
         target_before: The authored target on the before side (``"END"`` spelling as in
-            :attr:`EdgeRef.target`).
+            :attr:`EdgeRef.target`); ``None`` on a ``dynamic`` pairing, on both sides — the
+            kind has no target to move, so such a change is always the guard's.
         target_after: The authored target on the after side.
         condition_before: The authored guard on the before side.
         condition_after: The authored guard on the after side.
@@ -169,14 +194,17 @@ class EdgeChanged:
     kind: EdgeKind
     source: str
     label: str | None
-    target_before: str
-    target_after: str
+    target_before: str | None
+    target_after: str | None
     condition_before: str | None = None
     condition_after: str | None = None
 
     @property
     def rewired(self) -> bool:
-        """Whether the target moved — the "edges rewired" of the card's objective."""
+        """Whether the target moved — the "edges rewired" of the card's objective.
+
+        Never ``True`` on a ``dynamic`` pairing: both targets are ``None`` by construction.
+        """
         return self.target_before != self.target_after
 
     @property
@@ -186,14 +214,22 @@ class EdgeChanged:
 
     def sort_key(
         self,
-    ) -> tuple[str, bytes, tuple[int, bytes], bytes, bytes, tuple[int, bytes], tuple[int, bytes]]:
+    ) -> tuple[
+        str,
+        bytes,
+        tuple[int, bytes],
+        tuple[int, bytes],
+        tuple[int, bytes],
+        tuple[int, bytes],
+        tuple[int, bytes],
+    ]:
         """The deterministic report order, mirroring :meth:`EdgeRef.sort_key`."""
         return (
             self.kind,
             ledger_sort_key(self.source),
             _optional_key(self.label),
-            ledger_sort_key(self.target_before),
-            ledger_sort_key(self.target_after),
+            _optional_key(self.target_before),
+            _optional_key(self.target_after),
             _optional_key(self.condition_before),
             _optional_key(self.condition_after),
         )

@@ -1,11 +1,13 @@
-"""The networkx representation — IR-SPEC §4.1 (m1)–(m5) as :func:`topology_graph` builds it.
+"""The networkx representation — IR-SPEC §4.2 (m1)–(m5) as :func:`topology_graph` builds it.
 
 What is pinned here: the sentinel vertices and their roles; the wired-set collapse on
 ``entry``/``finish`` (§6.3/§4.2 m5); label expansion with the positional ``"END"`` blessing
-(m3, ledger §1/§4); PD-007's refusal to read ``to: "END"`` as a sentinel; multigraph
-parallels; and the totality rule this graph takes where the shared validator model
+(m3, ledger §1/§4); (m4) as corrected at DEC-27 — ``to: "END"`` is never a sentinel; multigraph
+parallels; the totality rule this graph takes where the shared validator model
 (:mod:`gebra.verify.graph`) takes DEC-12's drop-and-record — every authored edge appears,
-undeclared endpoints materialized as ``role="reference"`` vertices.
+undeclared endpoints materialized as ``role="reference"`` vertices; and the ir 1.1
+``dynamic`` edge's representation (PD-059, card SD-13) — carried on its source vertex, never
+an ``nx`` edge, never an invented head.
 
 Everything is hand-built IR models (WA-07): no extractor, no substrate, nothing to invoke.
 """
@@ -13,22 +15,15 @@ Everything is hand-built IR models (WA-07): no extractor, no substrate, nothing 
 from __future__ import annotations
 
 import networkx as nx
-import pytest
 
 from gebra.diff import (
+    DYNAMIC_ATTRIBUTE,
     END_VERTEX,
     START_VERTEX,
     topology_graph,
     wired_set,
 )
-from gebra.ir.models import (
-    ConditionalEdge,
-    DynamicEdge,
-    DynamicEdgeUnsupportedError,
-    NormalEdge,
-    SendEdge,
-    WorkflowIR,
-)
+from gebra.ir.models import ConditionalEdge, DynamicEdge, Edge, NormalEdge, SendEdge, WorkflowIR
 from tests.versioning.workflows import EDGES, NODES, node, workflow
 
 
@@ -294,35 +289,76 @@ def test_equal_documents_build_equal_graphs() -> None:
     assert _descriptors(first) == _descriptors(second)
 
 
-# ── ir 1.1: the `dynamic` kind, declined because totality is this graph's contract ────────
+# ── ir 1.1: the `dynamic` kind — carried on its source, never an edge, never a head (PD-059) ──
 
 
-def test_a_dynamic_edge_is_declined_rather_than_dropped() -> None:
-    """This graph's edge universe *is* the ``graph_version`` topology slice, so it cannot drop one.
+def dynamic_workflow(*edges: Edge) -> WorkflowIR:
+    """The base workflow at ``ir_version`` 1.1 with ``edges`` in place of the straight line.
 
-    A ``dynamic`` edge (DEC-28) has no head, and an ``nx`` edge needs two endpoints. Dropping it
-    would break the module's own contract in the direction that matters for a review tool: two
-    documents whose digests differ would diff as unchanged. Materializing a pseudo-head instead
-    would invent a vertex — the phantom-leak class DEC-26 closed elsewhere — and what a headless
-    edge should look like here is unruled. So it declines, and says which edge and why.
+    Stamped ``"1.1"`` because the model refuses a ``dynamic`` edge under a ``"1.0"`` stamp
+    (IR-SPEC §2.5 note 7, DEC-34) — the floor a hand-built document meets at construction.
     """
-    base = workflow()
-    ir = WorkflowIR(
-        ir_version="1.1",
-        entry=base.entry,
-        finish=base.finish,
-        state=base.state,
-        nodes=base.nodes,
-        edges=(
-            NormalEdge(kind="normal", **{"from": "plan"}, to="work"),
-            DynamicEdge(kind="dynamic", **{"from": "work"}, condition="route_legs"),
-        ),
-        runtime=base.runtime,
+    return workflow(ir_version="1.1", edges=edges)
+
+
+def test_a_dynamic_edge_inserts_no_edge_and_is_carried_on_its_source() -> None:
+    """PROPERTY-CATALOG-SPEC §0.3's convention, as PD-059 applies it to this graph: no member
+    (the kind has no head — DEC-28), the source participates, and the edge's whole hash-scope
+    content rides the source vertex as :data:`DYNAMIC_ATTRIBUTE`. Nothing is dropped, so the
+    descriptor universe still tracks the digest; no head is invented, so no vertex the document
+    does not declare exists (DEC-26's phantom class)."""
+    graph = topology_graph(
+        dynamic_workflow(
+            EDGES[0], DynamicEdge(kind="dynamic", **{"from": "work"}, condition="route_legs")
+        )
     )
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        topology_graph(ir)
+    assert graph.nodes["work"] == {"role": "node", DYNAMIC_ATTRIBUTE: ("route_legs",)}
+    assert graph.out_degree("work") == 0
+    assert set(graph.nodes) == {START_VERTEX, END_VERTEX, "plan", "work", "report"}
+    assert _descriptors(graph) == _descriptors(topology_graph(workflow(edges=EDGES[:1])))
 
-    assert isinstance(caught.value, NotImplementedError)
-    assert "the topology-diff graph" in str(caught.value)
-    assert "edges[1]" in str(caught.value)
+
+def test_two_dynamic_routers_on_one_node_are_two_members_in_authored_order() -> None:
+    """A multiset, as the ``nx`` edges are: the canonical form keeps both edge objects, so
+    both are content (§6.2 sorts, removes nothing). Authored order is what the tuple carries;
+    the diff sorts on its own, as it does for every other descriptor."""
+    graph = topology_graph(
+        dynamic_workflow(
+            DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route_b"),
+            DynamicEdge(kind="dynamic", **{"from": "plan"}),
+            DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route_a"),
+            EDGES[1],
+        )
+    )
+
+    assert graph.nodes["plan"][DYNAMIC_ATTRIBUTE] == ("route_b", None, "route_a")
+
+
+def test_an_undeclared_dynamic_source_is_a_reference_vertex_that_carries_the_edge() -> None:
+    """Totality over authored content holds for the fourth kind too: the source is
+    materialized as a reference vertex (whether it should resolve is P-01's question), and
+    the edge is carried on it rather than dropped for want of a declaration."""
+    graph = topology_graph(
+        dynamic_workflow(*EDGES, DynamicEdge(kind="dynamic", **{"from": "ghost"}))
+    )
+
+    assert graph.nodes["ghost"] == {"role": "reference", DYNAMIC_ATTRIBUTE: (None,)}
+    assert graph.degree("ghost") == 0
+
+
+def test_no_ir_1_0_vertex_carries_the_attribute() -> None:
+    """The attribute is present only where a ``dynamic`` edge is sourced, so every graph a 1.0
+    document ever built is byte-for-byte the graph it builds now — the "no 1.0 answer
+    changes" half of SD-13, at the representation."""
+    graph = topology_graph(workflow())
+
+    assert all(DYNAMIC_ATTRIBUTE not in data for _vertex, data in graph.nodes(data=True))
+
+
+def test_equal_dynamic_documents_build_equal_graphs() -> None:
+    first = topology_graph(dynamic_workflow(DynamicEdge(kind="dynamic", **{"from": "plan"})))
+    second = topology_graph(dynamic_workflow(DynamicEdge(kind="dynamic", **{"from": "plan"})))
+
+    assert sorted(first.nodes(data=True)) == sorted(second.nodes(data=True))
+    assert _descriptors(first) == _descriptors(second)

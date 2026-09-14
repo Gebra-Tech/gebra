@@ -171,17 +171,22 @@ them §4.4's `linkStyle` paints, deterministic.
 
 ### 3.4 Documents this guide declines
 
-A document carrying a `dynamic` edge (`ir_version` 1.1 — DEC-28) is **declined**, as the
-structural diff and the snapshot engines decline it: a `dynamic` edge contributes no member
-to the graph the §0.3 vocabulary is defined over, and what a headless router edge should
-look like in a drawing is unruled — an invented head would name a vertex the document does
-not declare (the phantom class DEC-26 closed), so it is not improvised here. `gebra display`
-reports the decline as a CLI-SPEC §2.6 tool error (`ir-validation` stage, exit 2). `verify()`
-no longer declines such a document: since VAL-14 (2026-09-04) the wedge five read it under
-PROPERTY-CATALOG-SPEC §0.3's ruled convention and reach a verdict, so a run report over a
-`dynamic`-bearing document exists while the diagram it would overlay does not. The diagram
-representation of a headless router edge lands with a ruling of its own, in a later card,
-not in this guide.
+A document carrying a `dynamic` edge (`ir_version` 1.1 — DEC-28) is **declined**: a
+`dynamic` edge contributes no member to the graph the §0.3 vocabulary is defined over, and
+what a headless router edge should look like in a drawing is unruled — an invented head would
+name a vertex the document does not declare (the phantom class DEC-26 closed), so it is not
+improvised here. `gebra display` reports the decline as a CLI-SPEC §2.6 tool error
+(`ir-validation` stage, exit 2). This emitter is the **one consumer** that still declines such
+a document. `verify()` reads it since VAL-14 (2026-09-04) — the wedge five apply
+PROPERTY-CATALOG-SPEC §0.3's ruled convention and reach a verdict — and the structural diff,
+the snapshot recorder and the freshness check read it since SD-13 (PD-059, 2026-09-07): the
+diff carries the edge on its source vertex and reports it as a descriptor with **no target**,
+which a data record can say in so many words. A drawing cannot — an arrow needs a head — and
+the two questions share a fact but not an audience, so PD-059 D8 keeps them deliberately apart:
+the diagram representation of a headless router edge lands with a ruling of its own, on the
+CLI-track card that ruling names (CLI-11), not in this guide. Until then a run report over a
+`dynamic`-bearing document exists, and a snapshot of one, while the diagram they would overlay
+does not.
 
 ## 4. The verification overlay
 

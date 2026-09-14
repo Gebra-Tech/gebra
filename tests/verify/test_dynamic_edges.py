@@ -35,7 +35,7 @@ from pydantic import ValidationError
 
 from gebra.extraction.base import ObjectFamily
 from gebra.extraction.envelope import ExtractedFrom, ExtractionEnvelope
-from gebra.ir import DynamicEdgeUnsupportedError, WorkflowIR, graph_version
+from gebra.ir import WorkflowIR, graph_version
 from gebra.snapshot import record
 from gebra.store import SnapshotStore
 from gebra.testing import load_corpus
@@ -682,7 +682,8 @@ def test_verify_and_the_store_both_key_on_the_construct_not_the_stamp(tmp_path: 
     """SD-12 disclosed that ``verify()`` keyed on the declared stamp while the store keyed on the
     construct. Neither keys on the stamp now: a hand-authored ``"1.1"`` with no ``dynamic`` edge
     is verified and recorded alike, and the document that carries the construct is verified
-    under the dynamic semantics and declined by the store — on the construct, in both.
+    under the dynamic semantics and — since card SD-13 (PD-059) — recorded too, the stamp moving
+    neither answer.
 
     The ``mis_stamped`` half is the one PD-055 named, and it has moved as that record said it
     would. IR-SPEC §2.4 tied kind ``dynamic`` to ``ir_version`` ≥ 1.1 but named no enforcement
@@ -690,9 +691,9 @@ def test_verify_and_the_store_both_key_on_the_construct_not_the_stamp(tmp_path: 
     §2.5 note 7 now floors the stamp at the loader (ratified — DEC-34, 2026-09-06), so that
     document does not load at all and there is nothing left here to report verbatim. What
     remains true, and is what this test was always about, is that neither ``verify()`` nor the
-    store consults the stamp: the correctly stamped twin below reaches the same verdict and the
-    same decline that the mis-stamped one used to, and the over-stamped document above is
-    admitted by both — the stamp moves neither answer."""
+    store consults the stamp: the correctly stamped twin below reaches a verdict and a recording
+    alike (until SD-13 the store declined it on the construct — the decline this test pinned
+    at VAL-14), and the over-stamped document above is admitted by both."""
     stamped_only = _ir(
         nodes=[_node("plan"), _node("collect")],
         edges=[_normal("plan", "collect")],
@@ -731,8 +732,10 @@ def test_verify_and_the_store_both_key_on_the_construct_not_the_stamp(tmp_path: 
     assert isinstance(p01, PropertyReport) and isinstance(p01.witness, WellFormednessWitness)
     assert p01.witness.dynamic_dependent == ("book_leg", "collect")
 
-    with pytest.raises(DynamicEdgeUnsupportedError):
-        record(envelope_of(twin), store=SnapshotStore.for_project(tmp_path / "b"), source="x")
+    recorded = record(
+        envelope_of(twin), store=SnapshotStore.for_project(tmp_path / "b"), source="x"
+    )
+    assert recorded.recorded and recorded.version == "1.0.0.0"
 
 
 # ── Nothing else moved ───────────────────────────────────────────────────────────────────

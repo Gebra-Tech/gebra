@@ -114,11 +114,15 @@ class ExportOutcome:
 
 
 class Freshness(str, Enum):
-    """What a freshness check found — three states, because the third is not the second.
+    """What a freshness check found — four states, because none of them is another.
 
     An empty store is *not* a stale one: nothing changed, nothing was ever recorded, and the
     two want different words and different remedies. Collapsing them would tell a first-time
-    user their definition had drifted.
+    user their definition had drifted. And a working definition that is the stored content
+    under another ``ir_version`` stamp is *not* stale either: no content moved, no V.S.F.E
+    counter moves (IR-SPEC §8 keeps format migrations out of the label), and the recorder
+    refuses to record it — so calling it stale would prescribe a remedy the recorder declines
+    (PD-059 D7b as ratified).
     """
 
     FRESH = "fresh"
@@ -130,27 +134,34 @@ class Freshness(str, Enum):
     UNSNAPSHOTTED = "unsnapshotted"
     """The store holds nothing, so there is no snapshot for the definition to agree with."""
 
+    RESTAMPED = "restamped"
+    """The working definition is the current snapshot's content under another ``ir_version``
+    stamp — the digests differ, nothing the counters count does. The remedy is the caller's:
+    re-stamp the working definition to the stored stamp, or record it after a real change."""
+
 
 @dataclass(frozen=True)
 class FreshnessOutcome:
     """The answer to "has this definition been snapshotted since it last changed?".
 
-    The four members after ``state`` are populated exactly as far as the state supports, and
+    The three optional members after ``state`` are populated exactly as far as the state supports, and
     that is enforced in :meth:`__post_init__` rather than left as a convention — an outcome
     that reported a stored digest for an empty store, or a diff for a fresh one, would be
     saying something no check could have observed.
 
     Attributes:
-        state: Which of the three :class:`Freshness` cases holds.
+        state: Which of the four :class:`Freshness` cases holds.
         graph_version: The IR-SPEC §6 digest of the **working** definition — what was checked.
         store: The store directory the check was made against.
         version: The V.S.F.E label of the store's current snapshot; ``None`` when there is none.
         snapshot_graph_version: That snapshot's digest; ``None`` when there is none.
-        diff: What moved between the stored snapshot and the working definition — present only
-            on :attr:`Freshness.STALE`, where the whole point is being able to say which of
-            S/F/E moved. Absent when fresh, because equal digests are equal canonical forms and
-            the diff engine short-circuits on exactly that comparison rather than building a
-            graph to confirm it.
+        diff: What the engine found between the stored snapshot and the working definition —
+            present on :attr:`Freshness.STALE`, where the whole point is being able to say
+            which of S/F/E moved, and on :attr:`Freshness.RESTAMPED`, where it carries the two
+            stamps and the fact that nothing else moved (its ``stamp_only`` is true). Absent
+            when fresh, because equal digests are equal canonical forms and the diff engine
+            short-circuits on exactly that comparison rather than building a graph to
+            confirm it.
     """
 
     state: Freshness
@@ -167,18 +178,25 @@ class FreshnessOutcome:
             raise ValueError("`version` names the current snapshot iff the store holds one")
         if has_snapshot != (self.snapshot_graph_version is not None):
             raise ValueError("`snapshot_graph_version` is the current snapshot's iff there is one")
-        if (self.state is Freshness.STALE) != (self.diff is not None):
+        differs = self.state in (Freshness.STALE, Freshness.RESTAMPED)
+        if differs != (self.diff is not None):
             raise ValueError(
                 "a diff is carried exactly when the definition and the snapshot differ"
             )
         if self.state is Freshness.FRESH and self.snapshot_graph_version != self.graph_version:
             raise ValueError("a fresh outcome's two digests are one digest")
-        if self.state is Freshness.STALE and self.snapshot_graph_version == self.graph_version:
-            raise ValueError("a stale outcome's two digests differ")
+        if differs and self.snapshot_graph_version == self.graph_version:
+            raise ValueError(f"a {self.state.value} outcome's two digests differ")
+        if self.diff is not None and (self.state is Freshness.RESTAMPED) != self.diff.stamp_only:
+            raise ValueError(
+                "a restamped outcome carries a stamp-only diff, and a stale outcome a diff that "
+                "moved content — the state and the diff must tell one story"
+            )
 
     @property
     def fresh(self) -> bool:
-        """Whether the store already holds this definition — what a CI check gates on."""
+        """Whether the store already holds this definition — what a CI check fails on when
+        false, except on :attr:`Freshness.RESTAMPED`, which the gate passes with a warning."""
         return self.state is Freshness.FRESH
 
     @property
@@ -188,14 +206,41 @@ class FreshnessOutcome:
         Read off the diff's own bump class, so the components a message shows and the counters
         a re-snapshot would bump are one derivation (SD-02, SD-05). In label order rather than
         the frozenset's, which is :class:`~gebra.lineage.models.LineageStep`'s convention and
-        the only order a V.S.F.E reader expects.
+        the only order a V.S.F.E reader expects. Empty on a restamped outcome by definition.
         """
         if self.diff is None:
             return ()
         return tuple(component for component in Component if component in self.diff.bump_class)
 
+    @property
+    def stamps(self) -> tuple[str | None, str | None]:
+        """The stored snapshot's and the working definition's ``ir_version``, when compared.
+
+        Read off the diff's two anchors, so the stamps a message names are the ones the engine
+        digested. ``(None, None)`` when no comparison was made (fresh, or an empty store).
+        """
+        if self.diff is None:
+            return (None, None)
+        return (self.diff.before.ir_version, self.diff.after.ir_version)
+
+    @property
+    def working_stamp_is_higher(self) -> bool | None:
+        """On a restamped outcome, whether the *working* definition carries the higher stamp.
+
+        The direction decides which remedy leads (:meth:`summary`, and the pytest gate's
+        footer, which follows it): a working definition stamped above the stored one was
+        over-stamped by hand and can simply be re-stamped down, while a stored snapshot stamped
+        above the working one cannot be matched by an extraction — emitters MUST stamp the
+        lowest sufficient minor (IR-SPEC §8) — so a real change is the remedy that leads.
+        ``None`` on every other state.
+        """
+        if self.state is not Freshness.RESTAMPED:
+            return None
+        stored_stamp, working_stamp = self.stamps
+        return _stamp_rank(working_stamp) > _stamp_rank(stored_stamp)
+
     def summary(self) -> str:
-        """The check's answer as text — what a failing CI item prints.
+        """The check's answer as text — what a failing CI item prints, or a restamped one warns with.
 
         Says what was compared, what differs, and what to do about it. What it never says is
         whether the change is safe or breaking: P-12 ``evolution-safety`` is deferred out of
@@ -224,13 +269,51 @@ class FreshnessOutcome:
                 working,
             ]
             return "\n".join(lines)
-        # An empty bump class beside two different digests is possible rather than
-        # contradictory, and it is worth its own words: it is the shape SD-03's recorder
-        # refuses outright (a change with no counter to bump), and a check that printed an
-        # empty list there would read as "nothing moved" beside two digests that say otherwise.
+        if self.state is Freshness.RESTAMPED:
+            # The pair PD-059 D7b names: the digests differ by the format stamp alone. Not
+            # "changed" — no content moved — and not a recording the recorder would make, so
+            # the remedy is the caller's and both stamps are named (IR-SPEC §8). Which remedy
+            # comes first depends on the direction: an extracted working definition carries
+            # the lowest sufficient stamp (§8's MUST on emitters), so when the *stored* stamp
+            # is the higher one, re-stamping the working definition upward is a hand edit a
+            # document may carry but no extraction produces — the real-change remedy leads.
+            stored_stamp, working_stamp = self.stamps
+            if not self.working_stamp_is_higher:
+                remedy = (
+                    "  record it after a real change: gebra.snapshot.snapshot(workflow, "
+                    f"store=store) — or re-stamp a hand-authored working definition to "
+                    f"ir_version {stored_stamp} (an extracted one carries the lowest "
+                    "sufficient stamp and cannot be re-stamped upward by extraction)"
+                )
+            else:
+                remedy = (
+                    f"  re-stamp the working definition to ir_version {stored_stamp}, or record "
+                    "it after a real change: gebra.snapshot.snapshot(workflow, store=store)"
+                )
+            lines = [
+                (
+                    "the working definition is the stored content under another ir_version "
+                    "stamp — only the format stamp moved, nothing the counters count did"
+                ),
+                store,
+                f"{stored}  ir_version {stored_stamp}",
+                f"{working}  ir_version {working_stamp}",
+                (
+                    "  moved               the ir_version stamp alone — no content and no V.S.F.E "
+                    "counter (IR-SPEC §8), so the store records nothing for it"
+                ),
+                remedy,
+            ]
+            return "\n".join(lines)
+        # An empty bump class beside two different digests, on a STALE outcome, is not the
+        # stamp-only pair (that is RESTAMPED, above, and the value refuses to be built the
+        # other way); it would be the diff engine's covering property failing — the shape the
+        # recorder refuses as a coverage defect — and a check that printed an empty list there
+        # would read as "nothing moved" beside two digests that say otherwise.
         moved = (
             ", ".join(component.value for component in self.moved)
-            or "the content, without selecting a V.S.F.E counter — the store cannot record it"
+            or "nothing the counters count — a coverage defect in the diff engine, not a "
+            "workflow change; the store cannot record it"
         )
         lines = [
             (
@@ -244,6 +327,18 @@ class FreshnessOutcome:
             "  record it: gebra.snapshot.snapshot(workflow, store=store)",
         ]
         return "\n".join(lines)
+
+
+def _stamp_rank(stamp: str | None) -> int:
+    """Where a stamp sits in :data:`~gebra.ir.IR_VERSIONS`' ascending order; ``-1`` if nowhere.
+
+    Only the *order* of two stamps is read, to choose which remedy leads (above); a stamp this
+    build does not read cannot reach a freshness outcome, since the engine's floor refuses it
+    first, so ``-1`` is defensive rather than a case.
+    """
+    from gebra.ir import IR_VERSIONS
+
+    return IR_VERSIONS.index(stamp) if stamp in IR_VERSIONS else -1
 
 
 def _elide(digest: str, *, keep: int = 16) -> str:

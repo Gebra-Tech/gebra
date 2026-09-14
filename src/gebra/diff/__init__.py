@@ -32,11 +32,17 @@ Phase-0 scope (SOW §8), a deferral ratified by PD-006 R4, and every diff carrie
 structured not-implemented marker — in the slot where a classification would go. The engine
 reports structure and which counters move; nothing here grades a change.
 
-**One document class is refused rather than diffed.** Node ids MUST be unique within a
+**Two document classes are refused rather than diffed.** Node ids MUST be unique within a
 document (IR-SPEC §2.1, ratified DEC-22), and :class:`~gebra.ir.models.WorkflowIR` enforces
 that at validation. One that repeats an id has no identity to anchor on — and every delta
 here is keyed by id — so :func:`~gebra.diff.topology.resolve_subject` raises rather than
-under-report it, for the models that reach it past validation.
+under-report it, for the models that reach it past validation; it raises on the same terms
+for a model stamped below the ``ir_version`` its edges require (§2.5 note 7, DEC-34).
+
+**A ``dynamic`` edge is diffed like any other** (ir 1.1 — DEC-28; ruled PD-059, card SD-13):
+the graph carries it on its source vertex (:data:`~gebra.diff.graph.DYNAMIC_ATTRIBUTE`), and
+its :class:`~gebra.diff.models.EdgeRef` carries ``target=None`` — the kind declares no target,
+and the descriptor says so rather than inventing a head or dropping the edge.
 
 Nothing in this package imports langgraph, opens a socket, or executes anything (WA-07). Its
 inputs are IR models; networkx is in reach by design — it is the representation brief D-11
@@ -53,6 +59,7 @@ from gebra.diff.contracts import (
     contracts_diff,
 )
 from gebra.diff.graph import (
+    DYNAMIC_ATTRIBUTE,
     END_LITERAL,
     END_VERTEX,
     START_VERTEX,
@@ -83,6 +90,7 @@ from gebra.diff.topology import DiffSubject, resolve_subject, topology_diff
 from gebra.diff.workflow import EVOLUTION_SAFETY_DEFERRED, WorkflowDiff, workflow_diff
 
 __all__ = [
+    "DYNAMIC_ATTRIBUTE",
     "END_LITERAL",
     "END_VERTEX",
     "EVOLUTION_SAFETY_DEFERRED",

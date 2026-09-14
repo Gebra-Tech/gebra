@@ -69,33 +69,33 @@ the constraint on ``WorkflowIR`` itself, so no *loaded* document can violate it;
 here stays for the model built past validation (``model_copy(update=...)``), which is the
 only way one can still be held.
 
-**A second class is refused for the same reason: an ir 1.1 document.** A ``dynamic`` edge
-(ratified — DEC-28, 2026-08-09) declares a router whose target set is not statically known, and
-every consumer written against the 1.0 vocabulary *declines* such a document rather than
-dropping the edge — PD-044 D11's ruled posture, already the shared validator graph model's and
-the topology-diff graph's. This recorder is one of those consumers, by way of the label: a
-snapshot's V.S.F.E label is **derived by diffing** it against the store's current one, so a
-document the diff engine refuses is one the store can never extend or compare. It is therefore
-refused **at the mouth**, before anything is written, rather than at the first re-snapshot.
-Storing it and refusing every later call would leave a store that nothing can move forward —
-fail-closed, but a worse answer than declining the write that creates the condition — and the
-first snapshot of an empty store is exactly where the ``dynamic`` edge slips past, since there
-is no earlier version to diff against. :func:`gebra.audit.freshness` declines on the same terms
-in the same place, so the two surfaces answer one question one way.
+**A second class is refused for the same reason: a document stamped below its floor.** The
+same :func:`~gebra.diff.topology.resolve_subject` call refuses a model whose ``ir_version`` is
+below the lowest minor its edges require (IR-SPEC §2.5 note 7 — ratified DEC-34, on the model
+since card IR-08), again reachable only past validation. A store must never hold a snapshot its
+own loader would refuse to read back.
 
-**A store that already holds a 1.1 snapshot errors with guidance; nothing is migrated.** The
-refusal above closes the route *this* engine owns, which is the one a user takes; a store can
-still reach that state through a pre-fix build, a hand-written file, or a direct
-:meth:`~gebra.store.store.SnapshotStore.write`, since the store has no edge-kind opinion of its
-own — it stores documents, it does not diff them. Whichever way it got there, it is reported
-rather than repaired. There is nothing to migrate *to*: rewriting the document without its
-``dynamic`` edge would
-delete a declared router from hash scope — the silent drop DEC-28 clause 1 forbids in terms —
-and would move a digest under a label that already names other content, which PD-012 makes a
-file name. The snapshot's bytes are left exactly as they are and stay readable through
-:meth:`~gebra.store.store.SnapshotStore.read`; what the store cannot do until the 1.1 semantics
-land is extend or compare against it. When they land (DEC-28's paired validator regression
-card), both refusals here are re-visited in the same card that lifts the validator gate.
+**An ir 1.1 document is recorded, extended and compared like any other.** A ``dynamic`` edge
+(ratified — DEC-28, 2026-08-09) declares a router whose target set is not statically known.
+Until card SD-13 this recorder declined such a document at the mouth (SD-12; PD-044 D11's
+interim posture), because a snapshot's V.S.F.E label is **derived by diffing** it against the
+store's current one and the topology diff had no ruled representation for an edge with no
+target. PD-059 ruled that representation — the edge is carried on its source and reported with
+no target, so two documents differing only in one bump S and never diff as unchanged — and the
+decline is lifted with it, on both sides: the document handed in and the snapshot the store
+already points at. Nothing is migrated, because nothing needs to be: a stored 1.1 snapshot is a
+valid document whose bytes never move (the store is append-only), and the next recording
+extends it under the label the diff derives. The test that remains is the stamp floor above,
+never the construct — a hand-authored ``"1.1"`` document with no ``dynamic`` edge records as a
+``"1.0"`` one does (over-stamping is admitted, DEC-34). :func:`gebra.audit.freshness` reads the
+same two documents on the same terms, so the two surfaces answer one question one way.
+
+**A difference in the stamp alone is a format migration, not a workflow one.** IR-SPEC §8
+keeps the two regimes apart and the V.S.F.E label counts only the second, so a working
+definition that differs from the current snapshot in ``ir_version`` and nothing else — an
+over-stamped twin of stored content — moves the digest and no counter. That is reported as
+``no-version-movement``, naming the stamp, rather than recorded under a label that would have
+to be the current one (:func:`_bumped`).
 
 **WA-07.** This is the first module outside :mod:`gebra.extraction` that hands a *live* object
 to the extractor, so it inherits the never-invokes obligation rather than the weaker
@@ -111,13 +111,12 @@ begins.
 from __future__ import annotations
 
 import datetime as _datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from gebra import __version__
 from gebra.diff.topology import resolve_subject
 from gebra.diff.workflow import WorkflowDiff, workflow_diff
 from gebra.extraction import extract
-from gebra.ir import refuse_dynamic_edges
 from gebra.snapshot.models import (
     SnapshotAction,
     SnapshotError,
@@ -137,13 +136,6 @@ if TYPE_CHECKING:
     from gebra.verify.run import RunReport
 
 __all__ = ["record", "record_document", "snapshot"]
-
-#: How the recorder names itself when it declines an ir 1.1 document (see the module
-#: docstring). Two spellings rather than one, because the two refusals have different remedies:
-#: the caller can change the definition they are recording, and cannot change what the store
-#: already holds.
-_RECORDER: Final = "the snapshot recorder"
-_RECORDER_ON_STORE: Final = "the snapshot recorder, reading the store's current snapshot"
 
 
 def snapshot(
@@ -191,9 +183,6 @@ def snapshot(
         SnapshotError: as for :func:`record`.
         StoreError: as for :func:`record`.
         ValueError: as for :func:`record`.
-        DynamicEdgeUnsupportedError: as for :func:`record` — ``gebra.extract()`` emits a
-            ``dynamic`` edge for a router whose target set is not statically known (ir 1.1,
-            DEC-28), so this is the entry point a map-reduce workflow meets the decline on.
     """
     return record(
         extract(workflow, sidecar=sidecar),
@@ -256,19 +245,15 @@ def record(
             already holds (reachable only in a store whose ``current`` is not its newest
             version).
         CanonicalizationError: if the IR carries a value the canonical form refuses.
-        ValueError: if the IR repeats a node id (IR-SPEC §2.1, ratified DEC-22) — refused on
-            every path, the first snapshot of an empty store included.
+        ValueError: if the IR repeats a node id (IR-SPEC §2.1, ratified DEC-22) or is stamped
+            below the ``ir_version`` its edges require (§2.5 note 7, DEC-34) — refused on
+            every path, the first snapshot of an empty store included, for a model built past
+            validation.
         pydantic.ValidationError: if ``source`` is the empty string, which the store model
             refuses; absence of a source is not spellable here, since extraction always knows
             one.
         VersionFormatError: with reason ``TOO_LONG`` if the bumped label could no longer be a
             snapshot's file name.
-        DynamicEdgeUnsupportedError: if ``envelope``'s document carries a ``dynamic`` edge (ir
-            1.1 — DEC-28), or if the snapshot the store currently points at does. Declined
-            before anything is written, on both sides, and nothing is migrated — see the module
-            docstring for why the recorder is one of the 1.0-vocabulary consumers PD-044 D11
-            rules must decline, and :func:`gebra.audit.freshness` for the same decline on the
-            check that reads the same two documents.
     """
     return _record(
         envelope.ir,
@@ -332,11 +317,10 @@ def record_document(
         SnapshotError: as for :func:`record`.
         StoreError: as for :func:`record`.
         CanonicalizationError: as for :func:`record`.
-        ValueError: as for :func:`record` (a repeated node id — IR-SPEC §2.1, DEC-22).
+        ValueError: as for :func:`record` (a repeated node id — IR-SPEC §2.1, DEC-22 — or an
+            under-stamped document — §2.5 note 7, DEC-34).
         pydantic.ValidationError: if ``source`` is the empty string.
         VersionFormatError: as for :func:`record`.
-        DynamicEdgeUnsupportedError: as for :func:`record` — an ir 1.1 document is declined at
-            the mouth on both sides, and nothing is migrated.
     """
     return _record(
         ir,
@@ -360,13 +344,10 @@ def _record(
     ``extracted_at`` instant is needed.
     """
     ir, anchor = resolve_subject(document_ir)
-    refuse_dynamic_edges(ir.edges, consumer=_RECORDER)
     digest = anchor.graph_version
     _refuse_ineligible(eligibility, digest)
 
     current = store.current()
-    if current is not None:
-        refuse_dynamic_edges(current.ir.edges, consumer=_RECORDER_ON_STORE)
 
     if current is not None and current.graph_version == digest:
         return SnapshotOutcome(
@@ -382,7 +363,7 @@ def _record(
         version, diff = Version.initial(), None
     else:
         diff = workflow_diff(current, ir)
-        version = _bumped(current.version, diff)
+        version = _bumped(current.version, diff, stamp_only=current.ir.ir_version != ir.ir_version)
 
     written = store.write(Snapshot.of(ir, version=str(version), extracted_from=provenance()))
     return SnapshotOutcome(
@@ -433,7 +414,7 @@ def _refuse_ineligible(eligibility: RunReport | None, digest: str) -> None:
         )
 
 
-def _bumped(current_label: str, diff: WorkflowDiff) -> Version:
+def _bumped(current_label: str, diff: WorkflowDiff, *, stamp_only: bool) -> Version:
     """The label a changed workflow gets, from the store's current one and the diff.
 
     Two refusals rather than a guess. A current label outside the V.S.F.E grammar has no
@@ -441,9 +422,13 @@ def _bumped(current_label: str, diff: WorkflowDiff) -> Version:
     deliberately wider than the grammar (SD-01), so a store can hold ``draft`` and this engine
     has to say so rather than start a second numbering beside it. And a bump class that
     selects nothing while the digest moved would produce the *current* label for content the
-    store does not hold under it; the diff engine's completeness property says that cannot
-    happen on a document it accepts, and this is that premise failing loudly instead of
-    writing a label that means something else.
+    store does not hold under it. The diff engine's completeness property says that cannot
+    happen on a document it accepts **except in one case it names**: the three component
+    slices cover the whole hash scope but ``ir_version``, which IR-SPEC §8 puts in the other
+    migration regime, so a working definition that differs from the current snapshot in its
+    stamp alone (``stamp_only``) moves the digest and no counter. That case is reported as
+    what it is; any other empty bump class is the completeness premise failing loudly instead
+    of writing a label that means something else.
     """
     try:
         base = Version.parse(current_label)
@@ -455,6 +440,15 @@ def _bumped(current_label: str, diff: WorkflowDiff) -> Version:
             reason=SnapshotErrorReason.UNVERSIONABLE_CURRENT,
         ) from exc
     bumped = diff.bump(base)
+    if bumped == base and stamp_only:
+        raise SnapshotError(
+            f"the working definition differs from {current_label!r} in its ir_version stamp "
+            "and in nothing else, so no V.S.F.E counter moves and no label can be assigned to "
+            "it: a change to the IR format is a format migration, not a workflow migration "
+            "(IR-SPEC §8 — two regimes, never conflated), and the label counts only the "
+            "second. The store keeps the snapshot it holds; nothing was recorded",
+            reason=SnapshotErrorReason.NO_VERSION_MOVEMENT,
+        )
     if bumped == base:
         raise SnapshotError(
             f"the working definition differs from {current_label!r} but the diff selected no "

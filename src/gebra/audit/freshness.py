@@ -35,39 +35,47 @@ R4). A stale outcome says the content moved and which of S/F/E moved with it; no
 says whether that is safe or breaking, and the diff it carries holds the property registry's
 own not-implemented marker where a classification would go.
 
-**It declines an ir 1.1 document rather than answering about one.** A ``dynamic`` edge
-(ratified — DEC-28, 2026-08-09) declares a router whose target set is not statically known, and
-a consumer written against the 1.0 vocabulary declines such a document instead of dropping the
-edge (PD-044 D11). The decline is made **at the mouth** — on the working definition before the
-store is read, and on the store's current snapshot before the two are compared — and it covers
-every state rather than only the one where a diff runs, which is the same reason
-:mod:`gebra.snapshot`'s recorder declines before it writes: the two states that name a next step
-both name one the recorder would itself refuse, so answering ``unsnapshotted`` for a 1.1 document
-would send a user to a call that declines it, and answering ``stale`` would need the diff that
-cannot be built. What the check says instead is that no comparison was made — the same shape a
-damaged store gets, and for the same reason: a fault to report, never a freshness verdict.
+**Four states, and the fourth is the recorder's own refusal read back.** A working definition
+that is the stored content under another ``ir_version`` stamp — an over-stamped twin, admitted
+at the loader by DEC-34 — has a different digest and moves no V.S.F.E counter (IR-SPEC §8 keeps
+format migrations out of the label). The recorder refuses to record it, so a ``stale`` answer
+here would prescribe the one remedy the recorder declines — the CI failure with no remedy the
+paragraph above forbids. It answers :attr:`~gebra.audit.models.Freshness.RESTAMPED` instead,
+naming both stamps and the remedy the recorder honours — re-stamp the working definition to the
+stored stamp, or record it after a real change, leading with whichever the direction admits
+(:attr:`~gebra.audit.models.FreshnessOutcome.working_stamp_is_higher`) — and the pytest gate
+passes the item on it, surfacing the summary as a warning: the definition did not change, so a
+red item would be the failure with no remedy this module forbids (PD-059 D7b as ratified at its
+second pass).
+
+**It answers about an ir 1.1 document as about any other.** A ``dynamic`` edge (ratified —
+DEC-28, 2026-08-09) declares a router whose target set is not statically known. Until card
+SD-13 this check declined such a document at the mouth, on both sides (SD-12; PD-044 D11's
+interim posture), because the diff a ``stale`` answer carries had no ruled representation for
+an edge with no target and the recorder an ``unsnapshotted`` answer names refused the same
+document. PD-059 ruled the representation and lifted both declines together, so the three
+content states are reachable for a 1.1 document and each names a next step the recorder will
+take (the fourth state cannot arise for a ``dynamic``-bearing document: ``"1.1"`` is its only
+admissible stamp, floored from below by IR-SPEC §2.5 note 7 and from above by
+:data:`~gebra.ir.IR_VERSIONS`).
+The one document precondition left is :func:`~gebra.diff.topology.resolve_subject`'s — unique
+node ids and a stamp at or above the floor its edges require — and it is a fault to report,
+never a freshness verdict.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from gebra.audit.models import Freshness, FreshnessOutcome
 from gebra.diff.topology import resolve_subject
 from gebra.diff.workflow import workflow_diff
-from gebra.ir import refuse_dynamic_edges
 
 if TYPE_CHECKING:
     from gebra.ir import WorkflowIR
     from gebra.store.store import SnapshotStore
 
 __all__ = ["freshness"]
-
-#: How the check names itself when it declines an ir 1.1 document. Two spellings, as the
-#: recorder's are, because a caller can change the definition they handed in and cannot change
-#: what the store already holds.
-_CHECK: Final = "the freshness check"
-_CHECK_ON_STORE: Final = "the freshness check, reading the store's current snapshot"
 
 
 def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
@@ -77,36 +85,33 @@ def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
         ir: The IR of the definition as it stands now — an extraction of the live workflow, or
             a hand-built IR. It is routed through
             :func:`~gebra.diff.topology.resolve_subject` before the store is looked at, which
-            both supplies its digest and applies the diff engine's one document precondition
-            (node ids are unique — IR-SPEC §2.1, DEC-22). A document that could never be
-            snapshotted is refused rather than reported stale against, on the same terms and
-            in the same order :func:`gebra.snapshot.snapshot` refuses it.
+            both supplies its digest and applies the diff engine's document preconditions
+            (node ids are unique — IR-SPEC §2.1, DEC-22; the ``ir_version`` stamp is at or
+            above the floor its edges require — §2.5 note 7, DEC-34). A document that could
+            never be snapshotted is refused rather than reported stale against, on the same
+            terms and in the same order :func:`gebra.snapshot.snapshot` refuses it.
         store: The store to check against. A store that does not exist reads as an empty one,
             so a project that has never snapshotted gets
-            :attr:`~gebra.audit.models.Freshness.UNSNAPSHOTTED` rather than an error — for a
-            document this build can compare at all, which a ``dynamic``-bearing one is not
-            (see Raises; the test is on the construct, not on the ``ir_version`` stamp).
+            :attr:`~gebra.audit.models.Freshness.UNSNAPSHOTTED` rather than an error.
 
     Returns:
-        The :class:`~gebra.audit.models.FreshnessOutcome`: which of the three states holds,
-        both digests, and — when stale — the whole :class:`~gebra.diff.workflow.WorkflowDiff`,
-        so a caller can say which of S/F/E moved without reading the store a second time.
+        The :class:`~gebra.audit.models.FreshnessOutcome`: which of the four states holds,
+        both digests, and — when stale or restamped — the whole
+        :class:`~gebra.diff.workflow.WorkflowDiff`, so a caller can say which of S/F/E moved
+        (or that only the stamp did) without reading the store a second time. A ``dynamic``
+        edge that arrived, left or changed its guard is in that diff's ``topology.edges`` like
+        any other edge, with no target (PD-059).
 
     Raises:
-        ValueError: if ``ir`` declares one node id twice (IR-SPEC §2.1, DEC-22).
+        ValueError: if ``ir`` declares one node id twice (IR-SPEC §2.1, DEC-22) or is stamped
+            below the ``ir_version`` its edges require (§2.5 note 7, DEC-34) — a model built
+            past validation, the only way either can still be held.
         gebra.store.StoreError: if the store's index or its current snapshot cannot be read.
             A damaged store is a fault to report, never a freshness verdict — reading it as
             "stale" would ask a user to re-snapshot their way out of a corrupt file.
-        gebra.ir.DynamicEdgeUnsupportedError: if ``ir`` carries a ``dynamic`` edge (ir 1.1 —
-            DEC-28), or if the store's current snapshot does. Declined on both sides before
-            any comparison is made, on the terms the module docstring states and the terms
-            :func:`gebra.snapshot.record` declines the same two documents.
     """
     working, anchor = resolve_subject(ir)
-    refuse_dynamic_edges(working.edges, consumer=_CHECK)
     current = store.current()
-    if current is not None:
-        refuse_dynamic_edges(current.ir.edges, consumer=_CHECK_ON_STORE)
     if current is None:
         return FreshnessOutcome(
             state=Freshness.UNSNAPSHOTTED, graph_version=anchor.graph_version, store=store.path
@@ -119,11 +124,15 @@ def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
             version=current.version,
             snapshot_graph_version=current.graph_version,
         )
+    diff = workflow_diff(current, working)
     return FreshnessOutcome(
-        state=Freshness.STALE,
+        # The digests differ. Either content moved (stale — the case the check exists for) or
+        # only the `ir_version` stamp did (restamped — PD-059 D7b as ratified: the one pair the
+        # recorder refuses to record, so it is never reported as a change to record).
+        state=Freshness.RESTAMPED if diff.stamp_only else Freshness.STALE,
         graph_version=anchor.graph_version,
         store=store.path,
         version=current.version,
         snapshot_graph_version=current.graph_version,
-        diff=workflow_diff(current, working),
+        diff=diff,
     )

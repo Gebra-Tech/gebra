@@ -117,7 +117,9 @@ fails one only by being promoted, and then it is the promotion that failed it.
 **The freshness marker — has the store kept up with the definition?** ``@pytest.mark.
 gebra_freshness`` marks a graph-producing function the same way, and its one item fails when
 the workflow it returns is not the snapshot the store currently holds (brief D-11 In-Scope 7:
-"fail CI if the workflow definition changed but no ``gebra snapshot`` was taken")::
+"fail CI if the workflow definition changed but no ``gebra snapshot`` was taken") — and passes
+with a :class:`GebraFreshnessWarning` when only the ``ir_version`` stamp differs, because then
+the definition did not change (PD-059 D7b)::
 
     @pytest.mark.gebra_freshness(name="travel_agent")
     def test_snapshot_is_current():
@@ -229,6 +231,7 @@ __all__ = [
     "FreshnessCheck",
     "GatePolicy",
     "GebraCheck",
+    "GebraFreshnessWarning",
     "GebraTargetError",
     "ItemOutcome",
     "OwnedFinding",
@@ -304,6 +307,21 @@ REPORT_KEY: Final[pytest.StashKey[dict[str, _Block]]] = pytest.StashKey()
 
 #: The parsed gate policy for this session, or absent when no gebra flag was given.
 POLICY_KEY: Final[pytest.StashKey[GatePolicy]] = pytest.StashKey()
+
+
+class GebraFreshnessWarning(UserWarning):
+    """A ``gebra_freshness`` item passed with something the store should hear.
+
+    Issued through the item's own :meth:`pytest.Item.warn` — so it lands in the session's
+    warnings summary attributed to the marked function, and ``-W
+    error::gebra.pytest_plugin.GebraFreshnessWarning`` promotes it to a failure for a suite
+    that wants one. The one case that raises it today is a *restamped* store (PD-059 D7b (ii)
+    as ratified): the working definition is the stored content under another ``ir_version``
+    stamp, so the definition did not change — brief D-11 In-Scope 7's trigger is not met, no
+    V.S.F.E counter moves, and the recorder refuses to record the pair — and a red item would
+    be a failure with no remedy. The message is the engine's own summary under this plugin's
+    header, exactly as a red item's would be.
+    """
 
 
 class GebraTargetError(Exception):
@@ -2018,13 +2036,11 @@ def check_freshness(target: object, *, store: Path, sidecar: str | None = None) 
     Raises:
         GebraTargetError: if the target could not be reduced to IR.
         ValueError: if the check could not be made over an IR that was — a document repeating a
-            node id (IR-SPEC §2.1, DEC-22), or a store whose index or current snapshot is not
-            readable (:class:`~gebra.store.store.StoreError`).
-        gebra.ir.DynamicEdgeUnsupportedError: if the target's IR, or the store's current
-            snapshot, carries a ``dynamic`` edge — the ir 1.1 decline
-            :func:`gebra.audit.freshness` makes (DEC-28). On the marker surface it is rendered
-            as "the freshness check could not be made", beside the two above; the item is
-            neither fresh nor stale, because no comparison was made.
+            node id (IR-SPEC §2.1, DEC-22) or stamped below the ``ir_version`` its edges
+            require (§2.5 note 7, DEC-34), or a store whose index or current snapshot is not
+            readable (:class:`~gebra.store.store.StoreError`). A ``dynamic``-bearing document
+            (ir 1.1 — DEC-28) is checked like any other since card SD-13; the decline
+            :func:`gebra.audit.freshness` used to make on it is lifted (PD-059).
     """
     from gebra.audit import freshness
     from gebra.store import SnapshotStore
@@ -2039,30 +2055,58 @@ def _freshness_state_is_unsnapshotted(outcome: FreshnessOutcome) -> bool:
     return outcome.state is Freshness.UNSNAPSHOTTED
 
 
+def _freshness_state_is_restamped(outcome: FreshnessOutcome) -> bool:
+    """Whether only the ``ir_version`` stamp moved — the engine's own enum, not a string."""
+    from gebra.audit import Freshness
+
+    return outcome.state is Freshness.RESTAMPED
+
+
 def _render_freshness(check: FreshnessCheck, outcome: FreshnessOutcome) -> str:
-    """A failing freshness item's message — the whole answer, and what to do about it.
+    """A failing freshness item's message — or a restamped item's warning — and what to do.
 
     The engine's own :meth:`~gebra.audit.models.FreshnessOutcome.summary` is the body, indented
     under this plugin's ``gebra · <target> · …`` header, so the words a pytest run shows and
     the words any other consumer shows are one text rather than two that can drift apart.
 
     The footer is per-state rather than fixed, because the fixed one was wrong on the empty
-    store: "it reports that the content moved" describes a comparison that path never made.
-    Both spellings say the same thing about what a freshness check is — a statement about the
-    store, never a verdict about the workflow — which is the part that has to be there whatever
-    the state.
+    store: "it reports that the content moved" describes a comparison that path never made —
+    and wrong again on the restamped store, where no content moved at all. Every spelling says
+    the same thing about what a freshness check is — a statement about the store, never a
+    verdict about the workflow — which is the part that has to be there whatever the state.
     """
     body = "\n".join(f"  {line}" for line in outcome.summary().splitlines())
-    footer = (
-        "this is a check on the store, not a verdict about the workflow: it reports that the "
-        "content moved and which counters move with it, never whether the change is safe "
-        "(P-12 evolution-safety is deferred — SOW §8)."
-        if not _freshness_state_is_unsnapshotted(outcome)
-        else (
+    if _freshness_state_is_unsnapshotted(outcome):
+        footer = (
             "this is a check on the store, not a verdict about the workflow: nothing was "
             "compared, because the store holds nothing to compare against."
         )
-    )
+    elif _freshness_state_is_restamped(outcome):
+        # The footer follows the body's direction (PD-059 second pass): when the working
+        # definition carries the higher stamp it was over-stamped by hand and re-stamping it
+        # down is the direct remedy; when the *stored* snapshot carries the higher stamp, an
+        # extraction cannot re-stamp upward (IR-SPEC §8 binds emitters), so a real change is
+        # the remedy that leads.
+        remedy = (
+            "re-stamp the working definition to the stored stamp, or record it after a real change"
+            if outcome.working_stamp_is_higher
+            else (
+                "record it after a real change (an extraction cannot re-stamp upward), or "
+                "re-stamp a hand-authored working definition to the stored stamp"
+            )
+        )
+        footer = (
+            "this is a check on the store, not a verdict about the workflow: only the "
+            f"ir_version stamp moved — no content and no V.S.F.E counter — so {remedy}. The "
+            "item passes and this is a warning, because the definition did not change; "
+            "-W error::gebra.pytest_plugin.GebraFreshnessWarning promotes it."
+        )
+    else:
+        footer = (
+            "this is a check on the store, not a verdict about the workflow: it reports that "
+            "the content moved and which counters move with it, never whether the change is "
+            "safe (P-12 evolution-safety is deferred — SOW §8)."
+        )
     return f"gebra · {check.target} · snapshot freshness\n{body}\n    {footer}"
 
 
@@ -2077,6 +2121,13 @@ def _run_freshness(item: pytest.Function, marker: pytest.Mark) -> bool:
             "StateGraph, a compiled graph, an LCEL Runnable, or a gebra WorkflowIR."
         )
     outcome = check_freshness(target, store=check.store, sidecar=check.sidecar)
+    if _freshness_state_is_restamped(outcome):
+        # PD-059 D7b (ii) as ratified: the definition did not change — only its `ir_version`
+        # stamp did — so the item passes, and the summary is surfaced as a warning attributed
+        # to the marked function rather than as a failure with no remedy. One answer on every
+        # surface: `gebra diff --exit-code` exits 0 on the same pair.
+        item.warn(GebraFreshnessWarning(_render_freshness(check, outcome)))
+        return True
     if not outcome.fresh:
         pytest.fail(_render_freshness(check, outcome), pytrace=False)
     return True
@@ -2102,13 +2153,6 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
         freshness_marker = pyfuncitem.get_closest_marker(FRESHNESS_MARKER)
         if freshness_marker is None:
             return None
-        # Imported here rather than at module scope for this module's own reason: the closure
-        # of a `pytest11` entry point is `pytest` and the standard library (see the module
-        # docstring). This branch already imports `gebra.audit` and `gebra.store` by way of
-        # `check_freshness`, and both import `gebra.ir`, so naming the exception here costs
-        # nothing — while at module scope it would cost every session that marks nothing at all.
-        from gebra.ir import DynamicEdgeUnsupportedError
-
         try:
             return _run_freshness(pyfuncitem, freshness_marker)
         except GebraTargetError as error:
@@ -2118,15 +2162,14 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> bool | None:
                 f"{error}",
                 pytrace=False,
             )
-        # `StoreError` and the diff engine's duplicate-node-id refusal are both `ValueError`s,
-        # the ir 1.1 decline is a `NotImplementedError` subclass, and all three mean the same
-        # thing on this item: the check could not be made. Reporting any of them as "stale"
-        # would ask a reader to re-snapshot their way out of a damaged store, an unstorable
-        # document, or a construct this build has no semantics for yet — and none of the
-        # three is a freshness answer. The 1.1 decline is caught by name because it is *not* a
-        # `ValueError`: without this clause it escapes as the one thing this gate must never
-        # print, a raw traceback through the plugin's own frames.
-        except (DynamicEdgeUnsupportedError, ValueError) as error:
+        # `StoreError` and the diff engine's two document refusals (a repeated node id, an
+        # under-stamped document) are all `ValueError`s, and they mean one thing on this item:
+        # the check could not be made. Reporting any of them as "stale" would ask a reader to
+        # re-snapshot their way out of a damaged store or an unstorable document — not a
+        # freshness answer. (Until card SD-13 the ir 1.1 decline, a `NotImplementedError`
+        # subclass, was caught here by name; the check reads such a document now — PD-059 —
+        # and there is no longer anything of that class for this clause to catch.)
+        except ValueError as error:
             pytest.fail(
                 f"gebra · snapshot freshness\n  the freshness check could not be made: {error}",
                 pytrace=False,

@@ -465,7 +465,7 @@ not an omission: that verb cannot return that code.
 |---|---|---|---|
 | `verify` | `gate.outcome` is `pass` or `pass-with-notes` — no FATAL/ERROR finding, and no strict promotion | `gate.outcome` is `fail` — at least one FATAL or ERROR finding, or at least one WARNING-grade record promoted by the strict policy (§3.3) | `gate.outcome` is `tool-error` — any row of §2.6; the run report carries `error.stage` and no outcomes |
 | `snapshot` | the store call completed: a snapshot was recorded, or SD-03's policy recorded nothing because nothing moved | recording was refused because the run was not snapshot-eligible — `gate.snapshot_eligible` is `false` which, for a run that reached a verdict, is `counts.fatal > 0` (§0.2: a FATAL means no snapshot is recorded; the field's full derivation is REPORT-FORMAT-SPEC §2.5's) | subject resolution failed (§2.6), the run that decides eligibility reached no verdict (any tool-error stage, §2.6), or the store refused the write (`StoreError`) |
-| `diff` | the comparison completed — by default whether or not anything moved | **only with `--exit-code`**: the comparison completed and the two sides differ (`WorkflowDiff.has_changes`). A difference signal, never a verdict — §4.3 | either side failed to resolve (§2.6), or a stored snapshot failed its digest check |
+| `diff` | the comparison completed — by default whether or not anything moved; and, with or without `--exit-code`, when the two sides differ in their `ir_version` stamp alone (no content differs and no counter moves — §4.3, PD-059 D7b) | **only with `--exit-code`**: the comparison completed and the two sides differ in content (`WorkflowDiff.has_changes`). A difference signal, never a verdict — §4.3; a stamp-only pair is not a difference | either side failed to resolve (§2.6), a stored snapshot failed its digest check, or the engine found neither a delta nor a stamp move for two differing digests — a coverage defect in the diff engine, reported on stderr per §3.4 and never as a clean run, with or without `--exit-code` |
 | `display` | the diagram was emitted | *never* — `display` reaches no verdict and reports no difference | the subject failed to resolve (§2.6), or an overlay report was refused (§4.4) |
 | `history` | the history was listed, including an empty history from a store that does not exist | *never* — a listing is not a verdict | the store index was unreadable, or a window argument named a version the history does not hold |
 
@@ -525,6 +525,13 @@ spellings**, so a reader who arrived from the frozen spec finds the one they typ
 - **An unhandled exception is exit `2`**, reported as a tool error with the traceback on
   stderr and an invitation to file it. A crash is not a finding (REPORT-FORMAT-SPEC §2.4) and
   must never be reported as a clean run.
+- **A build defect a verb detects is exit `2` too**, with the fact on stderr and the same
+  invitation, and no traceback, since the verb saw it coming. The one named instance:
+  `gebra diff` over a pair whose digests differ while the engine reports no delta and no
+  `ir_version` stamp move — a coverage defect in the diff engine, unreachable through the
+  engine today and guarded rather than assumed (PD-059, second-pass ratification). It exits
+  `2` with or without `--exit-code`: no answer was reached, so there is no difference to
+  signal and nothing to render.
 - **An `--output` file that cannot be written is exit `2`**, with a stderr diagnostic naming
   the path and the failure — no traceback, since a missing directory is an environment fact
   rather than a bug to file. The run may have reached a verdict, but the artifact was not
@@ -660,7 +667,23 @@ stored version against the working definition.
 `graph_version`, plus its V.S.F.E label when the side came from a snapshot), the topology,
 contract and state deltas, the `regrouped` flag, and the **S/F/E bump class**. When both sides
 are stored versions the engine call is `gebra.lineage.compare`, which reads both snapshots with
-the store's digest check on.
+the store's digest check on. A `dynamic` edge (`ir_version` 1.1 — DEC-28; diffed since SD-13
+under PD-059) has no target, and its line says so rather than leaving a blank or inventing a
+head: `edge plan -> (targets not statically known) [dynamic] guard route_legs`; on a persisting
+router whose guard moved the line carries the guard alone — `edge plan [dynamic]: guard
+route_legs -> route_v2` — because the kind has no target to report as unchanged. The phrase is
+fixed by the verb, not by the engine, and is the one place this document names a rendering of
+the engine's `None`.
+
+**The stamp-only pair is named, at exit `0`.** Two sides that differ in their `ir_version` stamp
+and in nothing else — an over-stamped twin of the same content, admitted by IR-SPEC §2.5 note 7
+(DEC-34) — have different digests and an empty bump class: `ir_version` is inside the digest
+and outside every V.S.F.E slice (IR-SPEC §8, "two migration regimes, never conflated"). The
+verb renders the header (bump class `none`) and then one line, `only the ir_version stamp
+moved: 1.0 -> 1.1 — no content differs and no V.S.F.E counter moves (IR-SPEC §8: a format
+migration, not a workflow migration)`, and exits `0` with or without `--exit-code`: no content
+differs, so there is no difference to signal (§3.2's `diff` row; PD-059 D7b as ratified — until
+its close-out this pair was an unhandled exception, §3.4).
 
 **The deferred-P-12 marker is rendered honestly.** Every `WorkflowDiff` carries
 `EVOLUTION_SAFETY_DEFERRED` — the property registry's `not_implemented("evolution-safety")`
@@ -1003,8 +1026,9 @@ error that preceded IR identity records no `graph_version` for the provenance ch
 holds no findings to paint — the "overlays name their own graph" rule applied to the one
 report shape that names none) and a digest mismatch; a `dynamic`-bearing ir 1.1 document
 is declined as the `ir-validation` §2.6 row, as `verify()` declined it at the time (see the
-VAL-14 note below: `verify` now reaches a verdict on such a document; `display`'s own decline
-stands on the diagram representation, DIAGRAM-STYLE-GUIDE §3.4). The
+VAL-14 and SD-13 notes below: `verify` reaches a verdict on such a document and `snapshot`
+and `diff` record and compare it; `display`'s own decline stands on the diagram
+representation, DIAGRAM-STYLE-GUIDE §3.4, the one decline left). The
 diagram is plain Mermaid text on stdout on every color setting; conformance is
 parse-checked by `tools/mermaid_check.py` (the guide's §9 checker) across the corpus in
 `tests/display/` and `tests/cli/test_display_verb.py`.
@@ -1047,11 +1071,13 @@ document moves). `verify()` reads an `ir_version` 1.1 document — one carrying 
 (DEC-28) — under PROPERTY-CATALOG-SPEC §0.3's ruled convention and reaches a verdict, so
 `gebra verify` exits `0` or `1` on such a document where it exited `2` before, and its run report
 is `report_format` `1.2` (REPORT-FORMAT-SPEC §1.6). The §2.6 `ir-validation` row above reads
-accordingly. What still declines, and why, is unchanged in kind: `snapshot` and `diff` refuse a
-`dynamic`-bearing document because the topology diff has no ruled representation for a headless
-edge (§3.2's `snapshot` row: "the store refused the write" — the eligibility run now *does* reach
-a verdict, so the refusal is the recorder's own, reported as `nothing was recorded`), and
-`display` refuses it on DIAGRAM-STYLE-GUIDE §3.4. One consumer-side consequence of the `1.2`
+accordingly. What still declined at that landing, and why, was unchanged in kind: `snapshot` and
+`diff` refused a `dynamic`-bearing document because the topology diff had no ruled
+representation for a headless edge (§3.2's `snapshot` row: "the store refused the write" — the
+eligibility run now *does* reach a verdict, so the refusal was the recorder's own, reported as
+`nothing was recorded`), and `display` refused it on DIAGRAM-STYLE-GUIDE §3.4. *(The first two
+of those declines are lifted at SD-13 — the note below; `display`'s stands.)* One
+consumer-side consequence of the `1.2`
 bump lands on `display --report`: a `1.1` report file written by the previous release is refused
 naming the version this build reads (§4.4; REPORT-FORMAT-SPEC §1.6's MAY), and re-running
 `verify` produces a `1.2` one.
@@ -1067,6 +1093,22 @@ and its `reachable_from_start` lists the static `START`-closure of the top-level
 flag or exit-code rule of this document changes. The same consumer-side consequence as at `1.2`
 lands on `display --report`, one version on: a `1.2` report file is refused naming `1.3`, and
 re-running `verify` produces a `1.3` one.
+
+**SD-13 (the `dynamic` edge in the topology diff) — landed 2026-09-07**, the third post-final
+landing note under §6 item 3 of the promotion record (a card plus a note here; no contract of
+this document moves). PD-059 rules the headless edge's representation — carried on its source
+vertex in the diff's graph, reported as a descriptor with no target — so `gebra snapshot`
+records a `dynamic`-bearing document (exit `0`, a label derived by the diff on every later
+change) and `gebra diff` compares one (exit `0`; the rendering §4.3 names), where both exited
+`2` before; a store whose current snapshot is an ir 1.1 document extends and compares, and the
+`gebra_freshness` gate reports such a store as fresh or stale rather than as a check that could
+not be made. No verb, flag or exit-code rule of this document changes: the §3.2 `snapshot` and
+`diff` rows' exit `2` still covers the store's and the engine's refusals, which no longer include
+this document class — the engine's remaining document refusals are a repeated node id (DEC-22)
+and an `ir_version` stamped below the floor its edges require (DEC-34), both reachable only for
+a model built past validation. `display` still declines the document on DIAGRAM-STYLE-GUIDE
+§3.4; PD-059 D8 keeps the drawing question apart from the diff's, and names the CLI-track card
+(CLI-11) that owns it.
 
 ---
 

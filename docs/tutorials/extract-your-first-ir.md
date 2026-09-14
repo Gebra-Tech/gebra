@@ -612,9 +612,14 @@ Declaring the router's targets is what moves an edge out of this class — a `pa
 `Literal[...]` return hint, or `destinations=` on the node. That is a declaration, so it is
 trusted rather than checked; it buys a target set the analysis can see, and both lists empty
 out. The first agent on this page, whose router has a `path_map`, is a 1.0 document and carries
-neither key. One further consequence stays for now: `gebra snapshot` and `gebra diff` decline a
-1.1 document, because the structural diff has no ruled representation for an edge with no
-target — they report a tool error, exit `2`, rather than a comparison.
+neither key. Downstream, `gebra snapshot` records a 1.1 document and `gebra diff` compares one:
+the edge appears in a diff as a `[dynamic]` line whose target reads `(targets not statically
+known)`, because the definition declares none, and declaring the targets later is an S move
+the diff reports as that edge leaving — the
+[snapshot guide](../guides/snapshot-diff-and-evolution.md#a-router-with-no-declared-targets)
+shows one. One consequence stays: `gebra display` declines a 1.1 document, because what a
+router edge with no target should look like in a drawing is not yet ruled — it reports a tool
+error, exit `2`, rather than a diagram.
 
 ## What a builder cannot know — and one thing nothing can
 

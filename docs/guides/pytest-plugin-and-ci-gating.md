@@ -709,6 +709,15 @@ It is a check on the **store**, not a fourteenth property. It runs no validator,
 the part that makes it a gate rather than a formality — it never writes: a check that fixed
 itself would be a check that always passes. Recording is `gebra snapshot`'s job. And a stale
 result says the content moved and which counters move with it, never whether the change is safe.
+One outcome is neither fresh nor a failure: a definition that is the stored content under
+another `ir_version` stamp reads as `restamped` — only the format stamp moved, no counter does,
+and the recorder refuses to record a stamp-only difference. The marked item **passes** on it,
+because the definition did not change, and the summary is issued as a `GebraFreshnessWarning`
+attributed to the function: it names both stamps and leads with the remedy the direction
+admits — re-stamp the working definition to the stored stamp when it was over-stamped by hand,
+or record it after a real change when the stored snapshot carries the higher stamp (an
+extraction never over-stamps). A suite that wants the warning to fail the run promotes it the
+way pytest promotes any warning: `-W error::gebra.pytest_plugin.GebraFreshnessWarning`.
 
 Put it on its own function. The two markers ask different questions of the same graph, and the
 plugin refuses both on one function rather than letting one of them silently not run.

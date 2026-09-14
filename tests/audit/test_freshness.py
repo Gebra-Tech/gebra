@@ -1,4 +1,4 @@
-"""The snapshot-freshness engine — three states, one comparison, and no writes.
+"""The snapshot-freshness engine — four states, one comparison, and no writes.
 
 The gate half of SD-07's second acceptance box (a pytest session going red on a changed agent)
 is ``tests/audit/test_freshness_gate.py``'s; this file is the engine underneath it, stated over
@@ -31,7 +31,7 @@ from gebra.ir.canonical import graph_version
 from gebra.store import Snapshot, SnapshotStore, StoreError, dump_meta
 from gebra.versioning import Component
 from tests.lineage.stores import STAGES, evolved_labels, evolved_store, provenance
-from tests.versioning.workflows import NODES, with_repeated_node_id, workflow
+from tests.versioning.workflows import NODES, restamped, with_repeated_node_id, workflow
 
 if TYPE_CHECKING:
     from gebra.ir import WorkflowIR
@@ -112,6 +112,125 @@ def test_a_store_directory_that_does_not_exist_reads_as_an_empty_one(tmp_path: P
 
     assert freshness(workflow(), store=store).state is Freshness.UNSNAPSHOTTED
     assert not store.path.exists()
+
+
+# ── The fourth state: the stamp alone moved (PD-059 D7b as ratified) ─────────────────────
+
+
+@pytest.mark.parametrize(
+    ("stored_stamp", "working_stamp"),
+    [("1.0", "1.1"), ("1.1", "1.0")],
+    ids=["stored-1.0-working-1.1", "stored-1.1-working-1.0"],
+)
+def test_a_definition_that_differs_in_the_stamp_alone_is_restamped_not_stale(
+    tmp_path: Path, stored_stamp: str, working_stamp: str
+) -> None:
+    """Four states rather than three: an over-stamped twin (DEC-34 admits it) has a different
+    digest and moves no V.S.F.E counter, and the recorder refuses to record it — so "stale"
+    would prescribe the one remedy the recorder declines. The answer is ``RESTAMPED``, in both
+    directions, carrying the diff whose anchors name the two stamps."""
+    stored = restamped(workflow(), stored_stamp)  # type: ignore[arg-type]
+    working = restamped(workflow(), working_stamp)  # type: ignore[arg-type]
+    store = _store_with(tmp_path, stored)
+
+    outcome = freshness(working, store=store)
+
+    assert outcome.state is Freshness.RESTAMPED
+    assert not outcome.fresh
+    assert outcome.version == "1.0.0.0"
+    assert outcome.snapshot_graph_version == graph_version(stored)
+    assert outcome.graph_version == graph_version(working) != outcome.snapshot_graph_version
+    assert outcome.diff is not None and outcome.diff.stamp_only
+    assert outcome.moved == ()
+    assert outcome.stamps == (stored_stamp, working_stamp)
+
+
+def test_the_restamped_summary_names_both_stamps_and_a_remedy_the_recorder_honours(
+    tmp_path: Path,
+) -> None:
+    """The seam invariant the module docstring states: a red gate never prescribes a call the
+    recorder refuses. The summary names the stored and the working stamp, says that only the
+    stamp moved — never that "the content" did — and offers the two remedies that work:
+    re-stamp to the stored stamp, or record after a real change."""
+    store = _store_with(tmp_path, workflow())
+
+    summary = freshness(restamped(workflow(), "1.1"), store=store).summary()
+
+    assert "under another ir_version stamp" in summary
+    assert "ir_version 1.0" in summary and "ir_version 1.1" in summary
+    assert "re-stamp the working definition to ir_version 1.0" in summary
+    assert "record it after a real change" in summary
+    assert "gebra.snapshot.snapshot(workflow, store=store)" in summary
+    assert "changed and was not re-snapshotted" not in summary
+    assert "the content" not in summary
+    assert "IR-SPEC §8" in summary
+
+
+def test_the_restamped_remedy_leads_with_the_one_an_extraction_can_follow(
+    tmp_path: Path,
+) -> None:
+    """The direction matters (ir-contract pre-review, round 2). When the *stored* stamp is the
+    higher one, the working definition carries the lowest sufficient stamp — what every
+    emitter MUST produce (IR-SPEC §8) — so "re-stamp it upward" is a hand edit no extraction
+    can make. The summary then leads with the real-change remedy and names the re-stamp as a
+    hand-authored option; in the other direction the re-stamp leads, since the working
+    definition is the one that was over-stamped by hand."""
+    store = _store_with(tmp_path, restamped(workflow(), "1.1"))
+
+    summary = freshness(workflow(), store=store).summary()
+
+    assert "ir_version 1.1" in summary and "ir_version 1.0" in summary
+    assert "record it after a real change: gebra.snapshot.snapshot(workflow, store=store)" in (
+        summary
+    )
+    assert "re-stamp a hand-authored working definition to ir_version 1.1" in summary
+    assert "cannot be re-stamped upward by extraction" in summary
+    assert "re-stamp the working definition to ir_version 1.1, or" not in summary
+
+
+def test_a_stamp_move_beside_a_content_move_is_plain_stale(tmp_path: Path) -> None:
+    """The fourth state is exactly the stamp-alone pair: a stamp that moved *with* content is an
+    ordinary stale outcome whose counters are the content's, the stamp riding along uncounted."""
+    store = _store_with(tmp_path, workflow())
+
+    outcome = freshness(restamped(workflow(entry="work"), "1.1"), store=store)
+
+    assert outcome.state is Freshness.STALE
+    assert outcome.diff is not None and not outcome.diff.stamp_only
+    assert outcome.moved == (Component.S,)
+    assert outcome.stamps == ("1.0", "1.1")
+    assert "changed and was not re-snapshotted" in outcome.summary()
+
+
+def test_a_restamped_outcome_carries_a_stamp_only_diff_and_a_stale_one_does_not() -> None:
+    """The value refuses the two mismatches: ``RESTAMPED`` with a diff that moved content, and
+    ``STALE`` with a stamp-only diff — the state and the diff must tell one story."""
+    content_moved = workflow_diff(workflow(), workflow(entry="work"))
+    stamp_only = workflow_diff(workflow(), restamped(workflow(), "1.1"))
+    common = {
+        "graph_version": "sha256:b",
+        "store": Path("/tmp/.gebra"),
+        "version": "1.0.0.0",
+        "snapshot_graph_version": "sha256:a",
+    }
+
+    with pytest.raises(ValueError, match="one story"):
+        FreshnessOutcome(state=Freshness.RESTAMPED, diff=content_moved, **common)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="one story"):
+        FreshnessOutcome(state=Freshness.STALE, diff=stamp_only, **common)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="restamped outcome's two digests differ"):
+        FreshnessOutcome(
+            state=Freshness.RESTAMPED,
+            graph_version="sha256:a",
+            store=Path("/tmp/.gebra"),
+            version="1.0.0.0",
+            snapshot_graph_version="sha256:a",
+            diff=stamp_only,
+        )
+    assert FreshnessOutcome(state=Freshness.RESTAMPED, diff=stamp_only, **common).stamps == (  # type: ignore[arg-type]
+        "1.0",
+        "1.1",
+    )
 
 
 # ── The comparison is the recorder's ─────────────────────────────────────────────────────
@@ -298,6 +417,7 @@ def test_no_freshness_output_makes_a_safe_or_breaking_claim(tmp_path: Path) -> N
         freshness(STAGES[0].build(), store=store).summary(),
         freshness(STAGES[1].build(), store=store).summary(),
         freshness(STAGES[0].build(), store=empty).summary(),
+        freshness(restamped(STAGES[0].build(), "1.1"), store=store).summary(),
     ]
 
     verdicts = ("safe", "unsafe", "breaking", "compatible", "backward", "benign", "additive")
@@ -339,6 +459,7 @@ from pathlib import Path
 
 from gebra.audit import Freshness, export_store, freshness, read_export, snapshot_report
 from tests.lineage.stores import STAGES, awkward_store, evolved_labels, evolved_store
+from tests.versioning.workflows import restamped
 
 with tempfile.TemporaryDirectory() as root:
     labels = evolved_labels()
@@ -354,9 +475,13 @@ with tempfile.TemporaryDirectory() as root:
             assert document.subject.version == outcome.version
     assert snapshot_report(store.read(labels[0])).report_format
 
-    # The freshness check, on all three of its answers.
+    # The freshness check, on all four of its answers.
     assert freshness(STAGES[0].build(), store=store).state is Freshness.STALE
     assert freshness(STAGES[-1].build(), store=store).fresh
+    restamped_answer = freshness(restamped(STAGES[-1].build(), "1.1"), store=store)
+    assert restamped_answer.state is Freshness.RESTAMPED
+    assert restamped_answer.working_stamp_is_higher is True
+    assert "re-stamp the working definition to ir_version 1.0" in restamped_answer.summary()
     empty = Path(root) / "empty"
     assert freshness(STAGES[0].build(), store=type(store)(empty)).state is Freshness.UNSNAPSHOTTED
 
@@ -389,7 +514,7 @@ def test_exporting_and_checking_freshness_reach_no_substrate_and_no_socket() -> 
     :mod:`gebra.audit` takes IR models rather than live workflows — the extraction leg is the
     pytest plugin's, which has its own tripwires — so unlike :mod:`gebra.snapshot` this package
     can be held to the *import* claim as well as the invocation one: exporting two whole stores
-    and asking all three freshness questions imports no langgraph, no langchain and no
+    and asking all four freshness questions imports no langgraph, no langchain and no
     langchain-core, and opens no connection. networkx is deliberately not on the refusal list
     and the child asserts it *is* imported: the diff a stale outcome carries goes through
     :mod:`gebra.diff`, whose graph representation brief D-11 mandates.

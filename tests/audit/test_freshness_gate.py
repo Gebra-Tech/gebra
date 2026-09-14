@@ -24,12 +24,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from gebra import extract
 from gebra.audit import export_store
 from gebra.pytest_plugin import FRESHNESS_MARKER
-from gebra.snapshot import snapshot
+from gebra.snapshot import record_document, snapshot
 from gebra.store import SnapshotStore
 from tests.audit.agents import build_travel_booking_agent_with_audit
 from tests.sample_workflows import travel_booking as tb
+from tests.versioning.workflows import restamped
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -116,6 +118,119 @@ def test_the_gate_fails_the_session_when_the_agent_changed_without_a_re_snapshot
             "*gebra.snapshot.snapshot(workflow, store=store)*",
         ]
     )
+
+
+#: An inner file whose marked function returns v1 under another ``ir_version`` stamp — the
+#: working-higher direction of the stamp-only pair (the document over-stamped by hand).
+_RESTAMPED_WORKING = (
+    _PREAMBLE
+    + f"""
+from gebra import extract
+from tests.sample_workflows.travel_booking import build_travel_booking_agent as build_agent
+from tests.versioning.workflows import restamped
+
+@pytest.mark.{FRESHNESS_MARKER}(name="travel_agent")
+def test_snapshot_is_current():
+    return restamped(extract(build_agent()).ir, "1.1")
+"""
+)
+
+
+def _store_holding_v1_restamped(root: Path) -> SnapshotStore:
+    """A store whose current snapshot is v1 under ``ir_version`` ``"1.1"`` — the stored-higher
+    direction: a hand-authored over-stamped document recorded through the document mouth (an
+    extraction never over-stamps, IR-SPEC §8), which the recorder admits (DEC-34)."""
+    store = SnapshotStore.for_project(root)
+    record_document(
+        restamped(extract(tb.build_travel_booking_agent()).ir, "1.1"),
+        store=store,
+        source="tests.audit.test_freshness_gate",
+    )
+    return store
+
+
+def test_the_gate_passes_a_stamp_only_move_with_a_warning_naming_the_remedy(
+    pytester: pytest.Pytester,
+) -> None:
+    """PD-059 D7b (ii) as ratified at the second pass, on the CI surface: the store holds v1
+    and the marked function returns v1 under another ``ir_version`` stamp. The definition did
+    not change — brief D-11 In-Scope 7's trigger is not met, no counter moves, and the recorder
+    refuses to record the pair — so the item **passes**, and the engine's summary is surfaced as
+    a warning attributed to the marked function: it says only the stamp moved, names both
+    stamps, and leads with the remedy this direction admits (the working definition was
+    over-stamped by hand, so re-stamp it down); it never says the content changed. One answer
+    on every surface: ``gebra diff --exit-code`` exits 0 on the same pair."""
+    _store_at(Path(pytester.path))
+    pytester.makepyfile(_RESTAMPED_WORKING)
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(passed=1, warnings=1)
+    assert result.ret == pytest.ExitCode.OK
+    result.stdout.fnmatch_lines(
+        [
+            "*GebraFreshnessWarning: gebra ? travel_agent ? snapshot freshness*",
+            "*under another ir_version stamp*",
+            "*snapshot 1.0.0.0*ir_version 1.0*",
+            "*working definition*ir_version 1.1*",
+            "*re-stamp the working definition to ir_version 1.0, or record it after a real change*",
+            (
+                "*so re-stamp the working definition to the stored stamp, or record it after a "
+                "real change. The item passes and this is a warning*"
+            ),
+        ]
+    )
+    printed = result.stdout.str()
+    assert "changed and was not re-snapshotted" not in printed
+    assert "Traceback (most recent call last)" not in printed
+
+
+def test_the_gate_passes_a_stored_higher_stamp_and_leads_with_the_remedy_an_extraction_can_follow(
+    pytester: pytest.Pytester,
+) -> None:
+    """The other direction: the *stored* snapshot carries the higher stamp (a hand-recorded
+    over-stamped document) and the marked function returns the plain extraction. An extraction
+    cannot re-stamp upward, so the body and the footer both lead with "record it after a real
+    change" and name the upward re-stamp as a hand-authored option — the footer follows the
+    body's direction (PD-059 second pass). The item passes, with the warning."""
+    _store_holding_v1_restamped(Path(pytester.path))
+    pytester.makepyfile(_source(agent="v1"))
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(passed=1, warnings=1)
+    assert result.ret == pytest.ExitCode.OK
+    result.stdout.fnmatch_lines(
+        [
+            "*GebraFreshnessWarning: gebra ? travel_agent ? snapshot freshness*",
+            "*snapshot 1.0.0.0*ir_version 1.1*",
+            "*working definition*ir_version 1.0*",
+            (
+                "*record it after a real change: gebra.snapshot.snapshot(workflow, store=store) "
+                "— or re-stamp a hand-authored working definition to ir_version 1.1*"
+            ),
+            "*so record it after a real change (an extraction cannot re-stamp upward)*",
+        ]
+    )
+    printed = result.stdout.str()
+    assert "re-stamp the working definition to ir_version 1.1, or" not in printed
+    assert "changed and was not re-snapshotted" not in printed
+
+
+def test_the_warning_is_promotable_to_a_failure_by_the_suite_that_wants_one(
+    pytester: pytest.Pytester,
+) -> None:
+    """The warning is a real ``Warning`` issued through the item, so pytest's own filters
+    reach it: ``-W error::gebra.pytest_plugin.GebraFreshnessWarning`` turns the restamped pass
+    into a failure — the promotion PD-059's second pass asked to keep available."""
+    _store_at(Path(pytester.path))
+    pytester.makepyfile(_RESTAMPED_WORKING)
+
+    result = pytester.runpytest("-W", "error::gebra.pytest_plugin.GebraFreshnessWarning")
+
+    result.assert_outcomes(failed=1)
+    assert result.ret == pytest.ExitCode.TESTS_FAILED
+    assert "GebraFreshnessWarning" in result.stdout.str()
 
 
 def test_the_gate_passes_when_the_store_holds_this_definition(

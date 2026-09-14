@@ -20,6 +20,7 @@ from typing import Final
 from gebra.ir.models import (
     Annotations,
     Edge,
+    IrVersion,
     Node,
     NormalEdge,
     RecursionLimit,
@@ -55,6 +56,7 @@ RUNTIME: Final = Runtime(
 
 def workflow(
     *,
+    ir_version: IrVersion = "1.0",
     entry: str | tuple[str, ...] = "plan",
     finish: str | tuple[str, ...] = "report",
     state: dict[str, str | StateField] | None = STATE,
@@ -65,16 +67,38 @@ def workflow(
     """The base workflow, with any part replaced.
 
     ``state=None`` and ``runtime=None`` mean the slot is *absent*, which the canonical form
-    keeps distinct from an empty one — so a delta can edit either way round.
+    keeps distinct from an empty one — so a delta can edit either way round. ``ir_version``
+    is ``"1.1"`` for an edit that adds a ``dynamic`` edge (the model refuses the kind under a
+    ``"1.0"`` stamp — IR-SPEC §2.5 note 7, DEC-34), and may be ``"1.1"`` without one, since
+    over-stamping is admitted.
     """
     return WorkflowIR(
-        ir_version="1.0",
+        ir_version=ir_version,
         entry=entry,
         finish=finish,
         state=state,
         nodes=nodes,
         edges=edges,
         runtime=runtime,
+    )
+
+
+def restamped(ir: WorkflowIR, ir_version: IrVersion) -> WorkflowIR:
+    """``ir`` under another ``ir_version`` stamp — the over-stamped twin DEC-34 admits.
+
+    Built through the constructor, so the stamp floor is met rather than skipped: this is how a
+    hand-authored ``"1.1"`` document with no ``dynamic`` edge comes to exist. The pair
+    ``(ir, restamped(ir, "1.1"))`` differs in the stamp alone — a different digest and no
+    V.S.F.E component, the one exception IR-SPEC §8 makes to the covering property (PD-059 D7b).
+    """
+    return WorkflowIR(
+        ir_version=ir_version,
+        entry=ir.entry,
+        finish=ir.finish,
+        state=ir.state,
+        nodes=ir.nodes,
+        edges=ir.edges,
+        runtime=ir.runtime,
     )
 
 

@@ -1,42 +1,30 @@
-"""The ir-1.1 seam across the snapshot, freshness and pytest-gate surfaces — SD-12, then VAL-14.
+"""The ir-1.1 seam across the snapshot, freshness, diff and pytest-gate surfaces — lifted (SD-13).
 
 A ``dynamic`` edge (ratified — DEC-28, 2026-08-09) declares a router whose target set is not
-statically known, and every consumer written against the ir 1.0 ``kind`` vocabulary **declines**
-such a document rather than dropping the edge (PD-044 D11). The shared validator graph model and
-the topology-diff graph did so from the start. The three surfaces built on top of the diff did
-not, and the 2026-08-12 post-landing review found the seam that left:
+statically known. The story of this file, in three cards:
 
-1. :func:`gebra.snapshot.record` **accepted** a dynamic document into an empty store — the one
-   place there is no earlier version to diff against, and so the one place the decline was never
-   reached — violating the engine's own stored-snapshot-must-be-diffable premise;
-2. every later *changed* re-snapshot of that store then raised
-   :class:`~gebra.ir.DynamicEdgeUnsupportedError` out of the topology-diff graph, a class absent
-   from :func:`~gebra.snapshot.record`'s documented ``Raises`` — a store nothing could move
-   forward, refused in words about a graph the caller never asked for;
-3. :func:`gebra.audit.freshness` raised the same undocumented error on a stale dynamic pair;
-4. ``@pytest.mark.gebra_freshness`` printed the raw traceback through the plugin's own frames,
-   because the hook caught only ``GebraTargetError`` and ``ValueError`` and the decline is a
-   ``NotImplementedError`` subclass.
-
-Fail-closed throughout — nothing wrong was ever reported as right — but incoherent, undocumented
-and untested. One test per observation below, plus the coherence claims that make them a seam
-rather than four bugs: one wording across every surface, nothing migrated, and no ir 1.0
-document touched.
-
-**VAL-14 (2026-09-04) lifted the validators' half of the seam and left the rest in place, on
-purpose.** The shared validator graph model now reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC
-§0.3's ruled convention, so ``verify()`` reaches a verdict on the very document below (pinned here
-end to end, over the live bare-``Send`` router). The topology-diff graph, the recorder, the
-freshness check and the pytest gate still decline: what a headless edge looks like in an ``nx``
-representation is unruled (DEC-26's phantom class), and ruling it is follow-on traceability work,
-not a validator card's. The one-wording claim therefore now spans **three** consumers and names
-the new reason — the validators read the document; the diff's representation is what is missing.
+* **SD-12** (2026-08-21) found that the recorder accepted such a document into an empty store,
+  that every later changed re-snapshot then raised out of the topology-diff graph, that the
+  freshness check raised the same undocumented error, and that the ``gebra_freshness`` gate
+  leaked the traceback — and made every surface *decline* the document coherently, at the
+  mouth, in one wording (PD-044 D11's posture), ruling on an interim basis that a store already
+  holding one errors with guidance and is never migrated.
+* **VAL-14** (2026-09-04) made the wedge five read the document, and left the four declines in
+  place on a reason that was not a validator's to rule: what a headless edge looks like in the
+  diff's ``nx`` representation was unruled.
+* **SD-13** ruled it — **PD-059**: the edge is carried on its source vertex and reported with no
+  target, so two documents differing only in one never diff as unchanged — and lifted the four
+  declines together. This file is now the claim that the surfaces *agree the other way*: the
+  recorder records, extends and compares a 1.1 document; the freshness check answers all three
+  states over one; the gate renders a stale 1.1 store as stale; nothing is migrated because
+  nothing needs to be; and exactly one consumer still declines — the display emitter, on the
+  drawing question PD-059 D8 deliberately left to the CLI track.
 
 **WA-07.** Every document here is built with the IR model constructors, and the inner pytest
 session's marked function *returns* a ``WorkflowIR``, so it takes
 :func:`gebra.pytest_plugin.resolve_ir`'s fixture-only branch and no extraction runs on that path.
 The tests that reach a live object are
-:func:`test_snapshot_declines_a_live_map_reduce_workflow` — because ``snapshot()`` is defined as
+:func:`test_snapshot_records_a_live_map_reduce_workflow` — because ``snapshot()`` is defined as
 ``record()`` over an extraction and there is no other way to state it — and
 :func:`test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow`, which extracts the same
 builder once and hands the *document* to ``verify()``; ``_nothing_was_executed`` below says exactly
@@ -50,27 +38,32 @@ network taken away and ``StateGraph.compile`` replaced by a raiser).
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from gebra.audit import Freshness, freshness
-from gebra.diff.graph import topology_graph
+from gebra.diff import EdgeChanged, EdgeRef, topology_graph, workflow_diff
+from gebra.display import render_mermaid
 from gebra.extraction import extract
 from gebra.extraction.base import ObjectFamily
 from gebra.extraction.envelope import ExtractedFrom as ExtractionProvenance
 from gebra.extraction.envelope import ExtractionEnvelope
 from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.ir.models import DynamicEdge, Edge, Node, NormalEdge, WorkflowIR
+from gebra.lineage import compare
 from gebra.pytest_plugin import FRESHNESS_MARKER, check_freshness
-from gebra.snapshot import SnapshotAction, record, snapshot
+from gebra.snapshot import SnapshotAction, SnapshotError, SnapshotErrorReason, record, snapshot
 from gebra.store import ExtractedFrom, Snapshot, SnapshotStore
 from gebra.verify import PropertyReport, WellFormednessWitness, verify
 from gebra.verify.graph import build_graph_model
+from gebra.versioning import Component
 from tests.sample_workflows import sentinel_graph as sg
 from tests.sample_workflows import sentinel_routing as sr
 from tests.store.hand_built import golden_vector_ir
+from tests.versioning.workflows import restamped
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -96,11 +89,9 @@ def _nothing_was_executed() -> Iterator[None]:
     two *node* bodies come from ``sentinel_graph.raiser`` and record too, into
     ``sentinel_graph.TRIPPED`` — ``SentinelExecutedError.__init__`` appends before the raise —
     so that ledger is cleared and asserted beside the first (corrected at VAL-14's never-invokes
-    pre-review: until then this file read only the router's ledger and described the node
-    bodies as raising without recording, which understated the coverage). The guarded child that
-    holds the same builder in a fresh interpreter, with the network taken away and
-    ``StateGraph.compile`` replaced by a raiser, is ``tests/extraction/test_routing.py``'s run
-    over ``ROUTING_BUILDERS``.
+    pre-review). The guarded child that holds the same builder in a fresh interpreter, with the
+    network taken away and ``StateGraph.compile`` replaced by a raiser, is
+    ``tests/extraction/test_routing.py``'s run over ``ROUTING_BUILDERS``.
     """
     del sr.TRIPPED[:]
     del sg.TRIPPED[:]
@@ -116,16 +107,25 @@ MOMENT = dt.datetime(2026, 8, 21, 9, 0, 0, tzinfo=dt.timezone.utc)
 #: module's builder regardless of ``pytester``'s tmp cwd.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+#: The library modules the four lifted declines lived in — acceptance box 2's grep, as a test.
+_LIFTED_MODULES = (
+    "src/gebra/diff",
+    "src/gebra/snapshot",
+    "src/gebra/audit",
+    "src/gebra/pytest_plugin.py",
+)
 
-def dynamic_ir(*, extra_node: bool = False) -> WorkflowIR:
+
+def dynamic_ir(*, extra_node: bool = False, condition: str | None = "route_legs") -> WorkflowIR:
     """A map-reduce document: ``plan`` routes dynamically, the workers converge on ``collect``.
 
-    ``extra_node`` adds one wired node, which moves the digest without changing the edge kind —
-    the "the workflow changed" half of observations 2 and 3.
+    ``extra_node`` adds one wired node, which moves the digest without changing the edge kind;
+    ``condition`` is the router's declared expression, the one member of a ``dynamic`` edge that
+    can move while the edge persists.
     """
     nodes = [Node(id="plan"), Node(id="book_leg"), Node(id="collect")]
     edges: list[Edge] = [
-        DynamicEdge(kind="dynamic", **{"from": "plan"}, condition="route_legs"),
+        DynamicEdge(kind="dynamic", **{"from": "plan"}, condition=condition),
         NormalEdge(kind="normal", **{"from": "book_leg"}, to="collect"),
     ]
     if extra_node:
@@ -138,6 +138,21 @@ def dynamic_ir(*, extra_node: bool = False) -> WorkflowIR:
         state={"legs": "list[str]"},
         nodes=tuple(nodes),
         edges=tuple(edges),
+    )
+
+
+def declared_ir() -> WorkflowIR:
+    """The same workflow with the router's targets declared — the 1.0 twin, one edge apart."""
+    return WorkflowIR(
+        ir_version="1.0",
+        entry="plan",
+        finish="collect",
+        state={"legs": "list[str]"},
+        nodes=(Node(id="plan"), Node(id="book_leg"), Node(id="collect")),
+        edges=(
+            NormalEdge(kind="normal", **{"from": "plan"}, to="book_leg"),
+            NormalEdge(kind="normal", **{"from": "book_leg"}, to="collect"),
+        ),
     )
 
 
@@ -154,12 +169,12 @@ def envelope_of(ir: WorkflowIR) -> ExtractionEnvelope:
 
 
 def store_holding_a_dynamic_snapshot(root: Path) -> SnapshotStore:
-    """A store whose current snapshot is an ir 1.1 document — what a pre-fix build left behind.
+    """A store whose current snapshot is an ir 1.1 document, written through the store directly.
 
-    Written through :meth:`~gebra.store.store.SnapshotStore.write` rather than through
-    :func:`~gebra.snapshot.record`, which now declines: the store has no edge-kind opinion of
-    its own (it stores documents, it does not diff them), so this is the only way left to reach
-    the state the review found — and it is the state a pre-fix store is already in.
+    This is the state SD-12 ruled on — a store a pre-SD-12 build, a hand-written file or a
+    direct :meth:`~gebra.store.store.SnapshotStore.write` left behind — and the state the
+    recorder now reaches on its own (below). Written through the store rather than the recorder
+    here so the two routes are checked against each other.
     """
     store = SnapshotStore.for_project(root)
     store.write(
@@ -176,258 +191,343 @@ def store_holding_a_dynamic_snapshot(root: Path) -> SnapshotStore:
     return store
 
 
-# ── Observation 1: record() accepted a dynamic document into an empty store ───────────────
+def _dynamic_ref(condition: str | None = "route_legs") -> EdgeRef:
+    return EdgeRef("dynamic", "plan", None, condition=condition)
 
 
-def test_record_declines_a_dynamic_document_into_an_empty_store(tmp_path: Path) -> None:
-    """The empty store is where the decline was missing, because it is where no diff runs.
+# ── The recorder: a 1.1 document records, extends and compares ────────────────────────────
 
-    :func:`~gebra.snapshot.record` derives a label by diffing against the store's current
-    snapshot; with no current snapshot the label is :meth:`Version.initial` and the diff engine
-    — the one consumer that already declined — is never reached. So the document landed, and
-    every path out of that store was closed behind it. The refusal now happens at the mouth.
-    """
+
+def test_record_records_a_dynamic_document_into_an_empty_store(tmp_path: Path) -> None:
+    """SD-12's observation 1, the other way round: the empty store is where the recorder used
+    to *accept* the document by accident and then decline it on purpose; it now records it as
+    the document it is, and reads it back equal."""
     store = SnapshotStore.for_project(tmp_path)
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        record(envelope_of(dynamic_ir()), store=store, source="probe", extracted_at=MOMENT)
+    outcome = record(envelope_of(dynamic_ir()), store=store, source="probe", extracted_at=MOMENT)
 
-    message = str(caught.value)
-    assert "the snapshot recorder" in message
-    assert "edges[0]" in message
-    assert "DEC-28" in message
-    # Nothing was written: no index, no snapshot file, no directory holding half a store.
-    assert store.current() is None
-    assert not store.snapshot_path("1.0.0.0").exists()
-    assert not store.meta_path.exists()
+    assert outcome.action is SnapshotAction.RECORDED
+    assert outcome.version == "1.0.0.0"
+    assert outcome.diff is None
+    assert store.read("1.0.0.0").ir == dynamic_ir()
+    assert store.read("1.0.0.0").ir.ir_version == "1.1"
+    assert store.check().ok
 
 
-def test_snapshot_declines_a_live_map_reduce_workflow(tmp_path: Path) -> None:
+def test_snapshot_records_a_live_map_reduce_workflow(tmp_path: Path) -> None:
     """The story as a user meets it: ``gebra.snapshot()`` over a bare-``Send`` router.
 
-    The hand-built documents above state the rule; this states that the rule is reachable from
-    the entry point that produces such a document in the first place — ``gebra.extract()`` emits
-    ``kind: dynamic`` for a router whose target set is not statically known (INTROSPECTION-SPEC
-    §6, DEC-28), and ``snapshot()`` is ``record()`` over exactly that envelope.
-
-    Every body in the builder raises if it is called; the router records itself first, which is
-    the half ``_nothing_was_executed`` (above) can see. Note the ordering this test does *not*
-    claim to change: ``snapshot()`` extracts and *then* refuses, so the decline is what stops the
-    document being stored, never what stops it being read (WA-07).
+    ``gebra.extract()`` emits ``kind: dynamic`` for a router whose target set is not statically
+    known (INTROSPECTION-SPEC §6, DEC-28) and stamps the document ``"1.1"``; ``snapshot()`` is
+    ``record()`` over exactly that envelope, and it records. Every body in the builder raises if
+    it is called; the router records itself first, which is the half ``_nothing_was_executed``
+    (above) can see. Extraction reads the builder and never runs it (WA-07).
     """
     store = SnapshotStore.for_project(tmp_path)
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        snapshot(sr.build_dynamic_send_hinted_graph(), store=store, extracted_at=MOMENT)
+    outcome = snapshot(sr.build_dynamic_send_hinted_graph(), store=store, extracted_at=MOMENT)
 
-    assert "the snapshot recorder" in str(caught.value)
-    assert store.current() is None
-
-
-def test_record_documents_the_decline_it_makes(tmp_path: Path) -> None:
-    """The class is in ``record()``'s and ``snapshot()``'s ``Raises``, which is where a caller
-    who has to handle it looks — the half of the observation that was a documentation defect."""
-    for entry_point in (record, snapshot):
-        doc = entry_point.__doc__ or ""
-        assert "Raises:" in doc
-        raises = doc[doc.index("Raises:") :]
-        assert "DynamicEdgeUnsupportedError" in raises, entry_point.__name__
+    assert outcome.action is SnapshotAction.RECORDED
+    stored = store.read(outcome.version).ir
+    assert stored.ir_version == "1.1"
+    assert any(isinstance(edge, DynamicEdge) for edge in stored.edges)
 
 
-# ── Observation 2: the wedged store ───────────────────────────────────────────────────────
-
-
-def test_a_store_already_holding_a_dynamic_snapshot_declines_at_the_mouth(
+def test_a_store_already_holding_a_dynamic_snapshot_extends_under_a_derived_label(
     tmp_path: Path,
 ) -> None:
-    """The wedge, from the other side: a store that already holds one says so itself.
-
-    Before this card the message named "the topology-diff graph" — a component the caller never
-    asked for, reached three frames below ``record``. It now names the recorder and the snapshot
-    it read, so the two remedies stay distinguishable: change the definition you are recording,
-    or reckon with what the store holds (which is nobody's to change — see below).
-    """
+    """SD-12's observation 2, lifted: the store that used to be wedged extends. The label is the
+    diff's — a node added (S and F, identity being both) and an edge added (S) — and the diff
+    the outcome carries leaves the persisting ``dynamic`` edge out of every delta, as it leaves
+    every other unchanged edge out."""
     store = store_holding_a_dynamic_snapshot(tmp_path)
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        record(envelope_of(golden_vector_ir()), store=store, source="probe", extracted_at=MOMENT)
+    outcome = record(
+        envelope_of(dynamic_ir(extra_node=True)), store=store, source="probe", extracted_at=MOMENT
+    )
 
-    message = str(caught.value)
-    assert "the snapshot recorder, reading the store's current snapshot" in message
-    assert "the topology-diff graph" not in message
+    assert outcome.action is SnapshotAction.RECORDED
+    assert outcome.version == "1.1.1.0"
+    assert outcome.previous == "1.0.0.0"
+    assert outcome.diff is not None
+    assert outcome.diff.bump_class == frozenset({Component.S, Component.F})
+    assert outcome.diff.topology.nodes.added == ("audit",)
+    assert outcome.diff.topology.edges.added == (EdgeRef("normal", "collect", "audit"),)
+    assert outcome.diff.topology.edges.removed == ()
+    assert store.versions() == ("1.0.0.0", "1.1.1.0")
 
 
-def test_nothing_is_migrated_and_the_stored_snapshot_is_left_alone(tmp_path: Path) -> None:
-    """The ruling on this card's one reserved decision: **error with guidance, never migrate.**
+def test_a_dynamic_edge_that_leaves_is_a_removed_edge_and_an_s_move(tmp_path: Path) -> None:
+    """Declaring the router's targets is what moves an edge out of the ``dynamic`` class (the
+    extraction tutorial's own sentence), and the recorder labels that as the S move it is: the
+    headless edge is reported *removed* with no target, the declared edge added, and the stamp
+    goes back to ``"1.0"`` with the construct that required it — never as unchanged."""
+    store = store_holding_a_dynamic_snapshot(tmp_path)
 
-    There is nothing to migrate *to*. Rewriting the document without its ``dynamic`` edge would
-    delete a declared router from hash scope — the silent drop DEC-28 clause 1 forbids in terms
-    — and would move a digest under a V.S.F.E label that already names other content, which
-    PD-012 makes a file name. So the bytes are left exactly as they are and stay readable; what
-    the store cannot do until the 1.1 semantics land is extend or compare against them.
+    outcome = record(envelope_of(declared_ir()), store=store, source="probe", extracted_at=MOMENT)
+
+    assert outcome.action is SnapshotAction.RECORDED
+    assert outcome.version == "1.1.0.0"
+    assert outcome.diff is not None
+    assert outcome.diff.bump_class == frozenset({Component.S})
+    assert outcome.diff.topology.edges.removed == (_dynamic_ref(),)
+    assert outcome.diff.topology.edges.added == (EdgeRef("normal", "plan", "book_leg"),)
+    assert store.read("1.1.0.0").ir.ir_version == "1.0"
+
+
+def test_a_stamp_only_difference_gets_one_answer_on_every_surface(tmp_path: Path) -> None:
+    """The one hash-scope member with no V.S.F.E component is the stamp (IR-SPEC §8 — a format
+    migration is not a workflow migration), and over-stamping is admitted (DEC-34): a working
+    definition that is the current snapshot's content stamped ``"1.1"`` moves the digest and
+    no counter. PD-059 D7b as ratified gives that pair one answer everywhere: the recorder
+    refuses it naming the stamp and writes nothing; the diff names it (``stamp_only``, both
+    stamps on the anchors) and is neither identical nor a change; the freshness check answers
+    ``restamped`` with the remedy the recorder honours — never ``stale``."""
+    store = SnapshotStore.for_project(tmp_path)
+    record(envelope_of(golden_vector_ir()), store=store, source="probe", extracted_at=MOMENT)
+    over_stamped = restamped(golden_vector_ir(), "1.1")
+    before = store.meta_path.read_bytes()
+
+    with pytest.raises(SnapshotError) as caught:
+        record(envelope_of(over_stamped), store=store, source="probe", extracted_at=MOMENT)
+    diff = workflow_diff(store.read("1.0.0.0"), over_stamped)
+    outcome = freshness(over_stamped, store=store)
+
+    assert caught.value.reason is SnapshotErrorReason.NO_VERSION_MOVEMENT
+    assert "ir_version stamp" in str(caught.value)
+    assert "format migration" in str(caught.value)
+    assert "defect" not in str(caught.value)
+    assert store.versions() == ("1.0.0.0",)
+    assert store.meta_path.read_bytes() == before
+    assert diff.stamp_only and not diff.identical and not diff.has_changes
+    assert (diff.before.ir_version, diff.after.ir_version) == ("1.0", "1.1")
+    assert outcome.state is Freshness.RESTAMPED and not outcome.fresh
+    assert outcome.stamps == ("1.0", "1.1")
+    assert "re-stamp the working definition to ir_version 1.0" in outcome.summary()
+
+
+def test_nothing_is_migrated_because_nothing_needs_to_be(tmp_path: Path) -> None:
+    """SD-12's interim ruling — error with guidance, never migrate — revisited as the card asked.
+
+    There is still nothing to migrate *to*: the stored document is valid ir 1.1, its digest is
+    what it is, and the store is append-only. What changed is that the store no longer has to
+    refuse: it extends and compares against the snapshot as it stands. So the ruled behaviour
+    is that the bytes never move **and** every route forward is open — pinned by reading the
+    snapshot and the index back byte-for-byte after an extension, a freshness check and a
+    stored-pair comparison have all run against it.
     """
     store = store_holding_a_dynamic_snapshot(tmp_path)
     before = store.snapshot_path("1.0.0.0").read_bytes()
-    meta_before = store.meta_path.read_bytes()
 
-    for call in (
-        lambda: record(envelope_of(dynamic_ir(extra_node=True)), store=store, source="probe"),
-        lambda: record(envelope_of(golden_vector_ir()), store=store, source="probe"),
-        lambda: freshness(golden_vector_ir(), store=store),
-    ):
-        with pytest.raises(DynamicEdgeUnsupportedError):
-            call()
+    record(
+        envelope_of(dynamic_ir(extra_node=True)), store=store, source="probe", extracted_at=MOMENT
+    )
+    outcome = freshness(dynamic_ir(extra_node=True), store=store)
+    compared = compare(store, "1.0.0.0", "1.1.1.0")
 
+    assert outcome.state is Freshness.FRESH
+    assert compared.bump_class == frozenset({Component.S, Component.F})
+    assert (compared.before.version, compared.after.version) == ("1.0.0.0", "1.1.1.0")
     assert store.snapshot_path("1.0.0.0").read_bytes() == before
-    assert store.meta_path.read_bytes() == meta_before
     assert store.read("1.0.0.0").ir == dynamic_ir()
     assert store.check().ok
 
 
-# ── Observation 3: freshness() on a stale dynamic pair ────────────────────────────────────
+# ── The freshness check: all three states, over a 1.1 document ────────────────────────────
 
 
-def test_freshness_declines_a_dynamic_working_definition_whatever_the_store_holds(
-    tmp_path: Path,
-) -> None:
-    """All three states are declined, not only the stale one — the coherence half.
+def test_freshness_answers_all_three_states_for_a_dynamic_document(tmp_path: Path) -> None:
+    """SD-12's observation 3, lifted, and its coherence half: each state names a next step the
+    recorder will now take — ``unsnapshotted`` and ``stale`` both say "record it", and the
+    recorder records exactly this document."""
+    store = SnapshotStore.for_project(tmp_path)
 
-    Each of the three outcomes names a next step: ``unsnapshotted`` and ``stale`` both say
-    "record it", and :func:`~gebra.snapshot.record` now declines exactly this document. An
-    ``unsnapshotted`` verdict here would send a reader to a call that refuses them.
-    """
-    empty = SnapshotStore.for_project(tmp_path / "empty")
-    populated = SnapshotStore.for_project(tmp_path / "populated")
-    record(envelope_of(golden_vector_ir()), store=populated, source="probe", extracted_at=MOMENT)
+    assert freshness(dynamic_ir(), store=store).state is Freshness.UNSNAPSHOTTED
+    record(envelope_of(dynamic_ir()), store=store, source="probe", extracted_at=MOMENT)
+    assert freshness(dynamic_ir(), store=store).state is Freshness.FRESH
+    stale = freshness(dynamic_ir(extra_node=True), store=store)
 
-    for store in (empty, populated):
-        with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-            freshness(dynamic_ir(), store=store)
-        assert "the freshness check" in str(caught.value)
+    assert stale.state is Freshness.STALE
+    assert stale.diff is not None
+    assert stale.moved == (Component.S, Component.F)
 
 
-def test_freshness_declines_a_stale_dynamic_pair(tmp_path: Path) -> None:
-    """The observation as the review made it: a store holding one, and a changed definition."""
+def test_a_dynamic_edge_alone_moves_the_freshness_answer(tmp_path: Path) -> None:
+    """The acceptance sentence, on the check's own surface: two documents differing only in the
+    router's declared expression are a stale pair, and the diff the outcome carries reports the
+    persisting headless edge with its moved guard — both targets ``None``, never rewired."""
     store = store_holding_a_dynamic_snapshot(tmp_path)
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        freshness(dynamic_ir(extra_node=True), store=store)
+    outcome = freshness(dynamic_ir(condition="route_legs_v2"), store=store)
 
-    assert "the freshness check" in str(caught.value)
+    assert outcome.state is Freshness.STALE
+    assert outcome.diff is not None
+    assert outcome.diff.bump_class == frozenset({Component.S})
+    assert outcome.diff.topology.edges.changed == (
+        EdgeChanged(
+            kind="dynamic",
+            source="plan",
+            label=None,
+            target_before=None,
+            target_after=None,
+            condition_before="route_legs",
+            condition_after="route_legs_v2",
+        ),
+    )
+    (change,) = outcome.diff.topology.edges.changed
+    assert change.condition_changed and not change.rewired
 
 
-def test_freshness_documents_the_decline_it_makes() -> None:
-    """As ``record()``'s: the class is named in the ``Raises`` a caller reads."""
-    doc = freshness.__doc__ or ""
-    assert "Raises:" in doc
-    assert "DynamicEdgeUnsupportedError" in doc[doc.index("Raises:") :]
+def test_the_check_documents_what_it_raises_and_it_is_no_longer_the_decline() -> None:
+    """Both ``Raises`` sections name what a caller can still meet — the two model floors as
+    ``ValueError`` — and neither names the class the decline used to raise (SD-12's box 2,
+    kept true the other way round)."""
+    for entry_point in (freshness, check_freshness, record, snapshot):
+        doc = entry_point.__doc__ or ""
+        raises = doc[doc.index("Raises:") :]
+        assert "DynamicEdgeUnsupportedError" not in raises, entry_point.__name__
+        assert "ValueError" in raises, entry_point.__name__
 
 
-def test_check_freshness_documents_the_decline_it_propagates() -> None:
-    """The plugin's programmatic half re-raises it, so its own ``Raises`` names it too."""
-    doc = check_freshness.__doc__ or ""
-    assert "Raises:" in doc
-    assert "DynamicEdgeUnsupportedError" in doc[doc.index("Raises:") :]
-
-
-# ── Observation 4: the pytest gate leaked the raw traceback ───────────────────────────────
+# ── The pytest gate: a stale 1.1 store is stale, a fresh one is fresh ──────────────────────
 
 
 # The session is in-process, so this file's import of `tests.…` binds the *same* module object
 # — and the same `sr.TRIPPED` list — as the parent. The path insert is conditional for the same
 # reason: an unconditional one would leave a duplicate entry in the parent's own `sys.path`.
-_INNER = f"""
+_INNER = """
 import sys
-if {str(REPO_ROOT)!r} not in sys.path:
-    sys.path.insert(0, {str(REPO_ROOT)!r})
+if {root!r} not in sys.path:
+    sys.path.insert(0, {root!r})
 import pytest
 from tests.test_dynamic_document_seam import dynamic_ir
 
-@pytest.mark.{FRESHNESS_MARKER}(name="legs", store="{{store}}")
+@pytest.mark.{marker}(name="legs", store={store!r})
 def test_snapshot_is_current():
-    return dynamic_ir(extra_node=True)
+    return dynamic_ir(extra_node={extra_node!r})
 """
 
 
-def test_the_freshness_gate_renders_the_designed_message(pytester: pytest.Pytester) -> None:
-    """A red item is the gate working; a *traceback* is the gate leaking.
+def _inner(store: Path, *, extra_node: bool) -> str:
+    return _INNER.format(
+        root=str(REPO_ROOT), marker=FRESHNESS_MARKER, store=store.as_posix(), extra_node=extra_node
+    )
 
-    ``pytest.fail(..., pytrace=False)`` is what every other refusal on this marker renders with,
-    and the hook reached none of them for this one: the decline is a ``NotImplementedError``
-    subclass and the two ``except`` clauses named ``GebraTargetError`` and ``ValueError``. So a
-    user met ``refuse_dynamic_edges``' own frame, the plugin's hook frame, and the exception
-    class — instead of a sentence saying no check was made.
-    """
+
+def test_the_freshness_gate_reports_a_stale_dynamic_store_as_stale(
+    pytester: pytest.Pytester,
+) -> None:
+    """SD-12's observation 4, lifted: the gate used to render "the freshness check could not be
+    made" for a 1.1 store (and before SD-12, a raw traceback). It now renders the designed stale
+    message, with the moved counters, and still no traceback."""
     store = store_holding_a_dynamic_snapshot(Path(pytester.path))
-    pytester.makepyfile(_INNER.format(store=store.path.as_posix()))
+    pytester.makepyfile(_inner(store.path, extra_node=True))
 
     result = pytester.runpytest()
 
     result.assert_outcomes(failed=1)
     printed = result.stdout.str()
     result.stdout.fnmatch_lines(
-        ["*gebra · snapshot freshness*", "*the freshness check could not be made*"]
+        ["*gebra · legs · snapshot freshness*", "*changed and was not re-snapshotted*"]
     )
-    # The leak, named by its three parts: pytest's traceback header, the frames it walks, and
-    # the exception class it lands on. `pytrace=False` shows none of them.
     assert "Traceback (most recent call last)" not in printed
-    assert "refuse_dynamic_edges" not in printed
     assert "DynamicEdgeUnsupportedError" not in printed
-    # And it is not reported as a freshness answer either way.
-    assert "changed and was not re-snapshotted" not in printed
-    assert "the store holds no snapshot" not in printed
+    assert "the freshness check could not be made" not in printed
 
 
-# ── The seam: one wording, and no ir 1.0 document touched ─────────────────────────────────
+def test_the_freshness_gate_passes_a_fresh_dynamic_store(pytester: pytest.Pytester) -> None:
+    store = store_holding_a_dynamic_snapshot(Path(pytester.path))
+    pytester.makepyfile(_inner(store.path, extra_node=False))
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(passed=1)
 
 
-def test_every_remaining_surface_declines_the_same_document_with_one_wording(
-    tmp_path: Path,
-) -> None:
-    """Three consumers, one exception class, one explanation — that is what makes this a seam.
+# ── The one decline that remains, and the four that do not ────────────────────────────────
 
-    The topology-diff graph declined from the start (PD-044 D11); the recorder and the freshness
-    check joined it at SD-12 rather than inventing their own wording, so a reader who meets the
-    decline in a CI log recognizes it in a traceback and in the API docs. ``snapshot()`` is the
-    same decline one call up, stated over a live object in
-    :func:`test_snapshot_declines_a_live_map_reduce_workflow`. The shared validator graph model
-    left this list at VAL-14 — see the next test — and the wording moved with it: it names what the
-    validators now do and what is still unruled, and no longer promises a card that has landed.
-    """
+
+def test_the_display_emitter_is_the_one_consumer_that_still_declines(tmp_path: Path) -> None:
+    """PD-059 D8 keeps the drawing question apart from the diff question: a diff descriptor can
+    say "no target" in so many words, a drawn arrow cannot. So the display emitter declines,
+    naming itself, and its wording now says what every other surface does with the document."""
     document = dynamic_ir()
     store = SnapshotStore.for_project(tmp_path)
-    calls: tuple[Callable[[], object], ...] = (
+    reads: tuple[Callable[[], object], ...] = (
         lambda: topology_graph(document),
-        lambda: record(envelope_of(document), store=store, source="probe"),
+        lambda: workflow_diff(document, dynamic_ir(extra_node=True)),
+        lambda: record(envelope_of(document), store=store, source="probe", extracted_at=MOMENT),
         lambda: freshness(document, store=store),
+        lambda: build_graph_model(document),
+        lambda: verify(document),
     )
+    for read in reads:
+        read()  # none of these raises any more
 
-    for call in calls:
-        with pytest.raises(DynamicEdgeUnsupportedError) as caught:
+    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
+        render_mermaid(document)
+
+    message = str(caught.value)
+    assert "the display emitter" in message
+    assert "has no semantics for the `dynamic` edge kind" in message
+    assert "DEC-28" in message and "PD-059" in message
+    assert "`gebra.snapshot`, `gebra diff` and the freshness check read it too" in message
+    assert "how a headless edge is drawn" in message
+    assert "DIAGRAM-STYLE-GUIDE §3.4" in message
+    assert "topology diff" not in message.split("What is unruled")[1]
+
+
+def test_refuse_dynamic_edges_has_no_caller_left_in_the_four_lifted_surfaces() -> None:
+    """Acceptance box 2 as a machine check: the decline's one helper is not named anywhere in
+    ``gebra.diff``, ``gebra.snapshot``, ``gebra.audit`` or the pytest plugin — not called, not
+    caught, not imported. Its remaining caller is the display emitter, re-justified in PD-059."""
+    pattern = re.compile(r"refuse_dynamic_edges|DynamicEdgeUnsupportedError")
+    for relative in _LIFTED_MODULES:
+        path = REPO_ROOT / relative
+        sources = [path] if path.is_file() else sorted(path.rglob("*.py"))
+        for source in sources:
+            assert pattern.search(source.read_text(encoding="utf-8")) is None, source
+    assert pattern.search((REPO_ROOT / "src/gebra/display/mermaid.py").read_text("utf-8"))
+
+
+def test_an_under_stamped_model_built_past_validation_is_refused_by_every_surface(
+    tmp_path: Path,
+) -> None:
+    """The floor DEC-34 §3 named — the construct declines — is replaced, not dropped: a model
+    stamped below the minor its edges require (reachable only through ``model_copy``, the
+    loader refusing it) is refused by the recorder, the check and the diff alike, as a
+    ``ValueError`` the CLI and the gate already report as a refusal, and nothing is written."""
+    lowered = dynamic_ir().model_copy(update={"ir_version": "1.0"})
+    store = SnapshotStore.for_project(tmp_path)
+
+    for call in (
+        lambda: record(envelope_of(lowered), store=store, source="probe", extracted_at=MOMENT),
+        lambda: freshness(lowered, store=store),
+        lambda: workflow_diff(lowered, dynamic_ir()),
+    ):
+        with pytest.raises(ValueError, match="below the lowest minor"):
             call()
-        message = str(caught.value)
-        assert "has no semantics for the `dynamic` edge kind" in message
-        assert "DEC-28" in message
-        assert "`gebra.verify` reads it" in message
-        assert "how a headless edge is represented in a topology diff or a diagram" in message
-        assert "paired validator regression card" not in message
+    assert store.current() is None
+    assert not store.meta_path.exists()
+
+
+# ── The validators, unchanged since VAL-14 ────────────────────────────────────────────────
 
 
 def test_the_shared_validator_graph_model_reads_the_same_document(tmp_path: Path) -> None:
-    """The consumer that left the list: VAL-14 landed §0.3's convention, so the model builds —
-    no member for the edge, ``plan`` recorded as a participating source — and ``verify()``
-    reaches a verdict where SD-12 recorded a tool error."""
+    """VAL-14 landed §0.3's convention in the shared model — no member for the edge, ``plan``
+    recorded as a participating source — and ``verify()`` reaches a verdict; the store now
+    records the very same document, so the two halves of the seam answer alike."""
     document = dynamic_ir()
 
     model = build_graph_model(document)
     report = verify(document)
+    recorded = record(envelope_of(document), store=SnapshotStore.for_project(tmp_path), source="p")
 
     assert model.dynamic_sources == frozenset({"plan"})
     assert report.error is None
     assert report.subject is not None and report.subject.ir_version == "1.1"
-    # The store still declines the very same document, on the construct (the seam's other half).
-    with pytest.raises(DynamicEdgeUnsupportedError):
-        record(envelope_of(document), store=SnapshotStore.for_project(tmp_path), source="probe")
+    assert recorded.action is SnapshotAction.RECORDED
 
 
 def test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow() -> None:
@@ -453,13 +553,13 @@ def test_verify_reaches_a_verdict_over_the_live_map_reduce_workflow() -> None:
     assert p01.witness.dynamic_dependent == ("act_step",)
 
 
-def test_no_ir_1_0_document_is_affected(tmp_path: Path) -> None:
-    """The control. The guard is a test on edge kinds and nothing else.
+# ── The control: no ir 1.0 document is touched ────────────────────────────────────────────
 
-    The golden vector records, re-records as UNCHANGED, and reads fresh — the whole 1.0 path
+
+def test_no_ir_1_0_document_is_affected(tmp_path: Path) -> None:
+    """The golden vector records, re-records as UNCHANGED, and reads fresh — the whole 1.0 path
     through both surfaces this card touched, in one test, so "nothing else moved" is observed
-    here rather than only inferred from the suites that did not change.
-    """
+    here rather than only inferred from the suites that did not change."""
     store = SnapshotStore.for_project(tmp_path)
 
     first = record(

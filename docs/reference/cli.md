@@ -260,7 +260,7 @@ that verb cannot return that code.
 |---|---|---|---|
 | `verify` | the gate passed — no FATAL or ERROR finding, and no strict promotion | the gate failed — a FATAL or ERROR finding, or a WARNING promoted by a strict policy | no verdict was reached: the subject would not resolve, extraction was refused, the document did not validate, or a validator was missing |
 | `snapshot` | the store call completed — a snapshot was recorded, or nothing moved and nothing was recorded | recording was refused because the run that decides eligibility carried a FATAL finding | the subject would not resolve, the eligibility run reached no verdict, or the store refused the write |
-| `diff` | the comparison completed, whether or not anything moved | **only with `--exit-code`**: the comparison completed and the two sides differ | either side would not resolve, or a stored snapshot failed its digest check |
+| `diff` | the comparison completed, whether or not anything moved — a pair differing in its `ir_version` stamp alone is exit `0` too, with or without `--exit-code` | **only with `--exit-code`**: the comparison completed and the two sides differ in content | either side would not resolve, a stored snapshot failed its digest check, or the engine found neither a delta nor a stamp move for two differing digests — a build defect, reported on stderr and never as a clean run |
 | `display` | the diagram was emitted | *never* — `display` reaches no verdict and reports no difference | the subject would not resolve, or an overlay report was refused |
 | `history` | the history was listed, including an empty history from a store that does not exist | *never* — a listing is not a verdict | the store index was unreadable, or a window argument named a version the history does not hold |
 
@@ -349,6 +349,12 @@ different reasons.
   `130` learns the run was killed, not that a workflow failed.
 - **An unhandled exception is exit `2`**, with the traceback on stderr and an invitation to
   report it. A crash is not a finding and is never presented as a clean run.
+- **A build defect a verb detects is exit `2` too**, with the fact on stderr and the same
+  invitation, minus the traceback. The one named case: `gebra diff` over two documents whose
+  digests differ while the engine reports neither a delta nor an `ir_version` stamp move — a
+  coverage defect in the diff engine, which no document this release produces can reach, and
+  which is guarded rather than assumed away. `--exit-code` does not turn it into a `1`: no
+  comparison was reached.
 - **An `--output` file that cannot be written is exit `2`**, naming the path. The run may have
   reached a verdict, but the artifact was not delivered where you asked; it is not rerouted to
   stdout, which the invocation asked to keep clean.
@@ -737,7 +743,13 @@ exit 0
 The header anchors both sides by recomputed digest — and by V.S.F.E label, where a side came
 from a snapshot — then names the bump class, then carries the deferred-P-12 marker. The body
 is one section per part of the document that moved, with `+` added, `-` removed and `~`
-changed.
+changed. An edge line names its route as `source -> target [kind]`; a `dynamic` edge — a
+router whose targets the definition does not declare (`ir_version` 1.1) — has no target, and
+its line says `(targets not statically known)` in that position rather than leaving it blank
+(a changed `dynamic` line carries the guard alone). One pair renders no section at all and is
+still not "nothing moved": two documents that differ in their `ir_version` stamp and in nothing
+else print one line saying so — the stamp is inside the digest and outside every counter — and
+exit `0` even under `--exit-code`, because no content differs.
 
 **No diff is labelled safe or breaking, on any surface, at any severity.** Classifying an
 evolution step is property P-12 `evolution-safety`, which is outside this release's scope; the

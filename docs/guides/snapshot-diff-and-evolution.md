@@ -645,9 +645,10 @@ renders as a `~ edge plan [dynamic]` line carrying the guard's before and after.
 does not say is where the router goes: that is a run-time fact the definition does not carry,
 and the verification side reads the same edge the same way — P-01's witness lists the nodes
 only that router can reach under `dynamic_dependent`. The store records a 1.1 document like any
-other and derives its label from exactly this diff. `gebra display` is the one surface that
-still declines a 1.1 document: a drawn arrow needs a head, and the drawing of a headless edge
-is not yet ruled.
+other and derives its label from exactly this diff. `gebra display` draws one the same way the
+diff reports it: a drawn arrow needs a head, so the edge is carried on its source — a `[D1]`
+marker on the dispatching node and a note stating that no arrow is drawn — rather than pointing
+at a box the definition never named.
 
 ## The whole sequence, and where verification moves with it
 

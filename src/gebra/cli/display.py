@@ -42,7 +42,7 @@ from gebra.cli.resolve import (
     resolve_snapshot,
 )
 from gebra.display import OverlayPairingError, render_mermaid
-from gebra.ir import CanonicalizationError, DynamicEdgeUnsupportedError
+from gebra.ir import CanonicalizationError
 from gebra.report import did_you_mean, suggestion_sentence
 from gebra.verify import REPORT_FORMAT, RunReport
 
@@ -107,9 +107,6 @@ def run_display(request: DisplayRequest) -> int:
         )
     except Refusal as refusal:
         _write_diagnostic(f"no diagram was emitted (stage: {refusal.stage}): {refusal.detail}")
-        return 2
-    except DynamicEdgeUnsupportedError as error:
-        _write_diagnostic(f"no diagram was emitted (stage: ir-validation): {error}")
         return 2
     except CanonicalizationError as error:
         _write_diagnostic(

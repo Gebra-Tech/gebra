@@ -10,14 +10,17 @@ as a diagram that quietly stopped matching its contract.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Final, get_args
 
 import pytest
 
-from gebra.display import mermaid_label, mermaid_vertex_id
-from gebra.display.mermaid import _CLASS_DEFS, _LINK_STYLE
+from gebra.display import mermaid_label, mermaid_vertex_id, render_mermaid
+from gebra.display.mermaid import _CLASS_DEFS, _LINK_STYLE, _DispatchNote
+from gebra.ir import WorkflowIR
+from gebra.ir.serialization import load_json
 from gebra.verify.locations import Location
 
 REPO_ROOT: Final = Path(__file__).parent.parent.parent
@@ -69,6 +72,60 @@ def test_the_s24_escape_rules_are_the_five_the_guide_states(guide_text: str) -> 
         assert rule in guide_text, f"escape rule {rule} missing from the guide"
     assert mermaid_label('#"<>') == "#35;#34;#60;#62;"
     assert mermaid_label("\n") == "#10;"
+
+
+def test_the_s33_dispatch_note_template_is_the_emitters_own_line(guide_text: str) -> None:
+    """The §3.3 fenced note form, held to the line the emitter builds: every fixed word of
+    the template, in order, is in a real note — so a reworded emitter or a reworded guide
+    fails here rather than drifting apart (card CLI-11)."""
+    block = re.search(r"```\n\s*(D<i> dynamic dispatch[^`]+?)\s*```", guide_text)
+    assert block is not None, "the §3.3 note template is missing"
+    note = _DispatchNote(index=1, source="plan", routers=1, marked=True)
+    position = 0
+    for fixed in re.split(r"<[a-z]+>", block.group(1).strip()):
+        assert fixed in note.text[position:], f"{fixed!r} is not in the emitted note"
+        position = note.text.index(fixed, position) + len(fixed)
+    assert note.text.startswith("D1 dynamic dispatch - plan: 1 dynamic router")
+    assert _DispatchNote(index=2, source="p", routers=2, marked=True).text.startswith(
+        "D2 dynamic dispatch - p: 2 dynamic routers"
+    )
+
+
+def test_the_s33_not_drawn_suffix_is_the_emitters_own(guide_text: str) -> None:
+    suffix = " - no vertex carries this marker"
+    assert f"`{suffix}`" in guide_text
+    assert _DispatchNote(index=1, source="__start__", routers=1, marked=False).text.endswith(suffix)
+
+
+def test_the_s33_marker_example_renders_as_the_guide_writes_it(guide_text: str) -> None:
+    """`plan [D1 F2]` is the guide's worked example of the shared bracket block; the marker
+    half of it is executed here, on a document whose one router dispatches dynamically."""
+    assert "`plan [D1 F2]`" in guide_text
+    ir = load_json(
+        WorkflowIR,
+        json.dumps(
+            {
+                "ir_version": "1.1",
+                "entry": "plan",
+                "finish": [],
+                "nodes": [{"id": "plan"}],
+                "edges": [{"kind": "dynamic", "from": "plan", "condition": "route_legs"}],
+            }
+        ),
+    )
+    text = render_mermaid(ir)
+    assert '  n_plan["plan [D1]"]' in text
+    assert '  subgraph gebra_dynamic["gebra dynamic dispatch"]' in text
+    assert "  class d_1 gebra_info" in text
+    assert "-->" not in text.split("START --> n_plan")[1], "a headless edge was drawn"
+
+
+def test_the_s34_section_declines_nothing(guide_text: str) -> None:
+    """The acceptance box's own question — what, if anything, this guide still declines —
+    answered in the section that used to carry the one decline."""
+    section = guide_text.split("### 3.4 Documents this guide declines")[1].split("## 4.")[0]
+    assert section.lstrip().startswith("**None.**")
+    assert "CLI-11 ruled it" in section and "the decline is lifted" in section
 
 
 def test_the_s44_dispatch_table_covers_exactly_the_frozen_anchor_kinds(

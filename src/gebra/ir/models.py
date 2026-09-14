@@ -401,14 +401,19 @@ def lowest_ir_version(edges: Iterable[Edge]) -> IrVersion:
 class DynamicEdgeUnsupportedError(NotImplementedError):
     """A 1.0-vocabulary consumer was handed a document carrying a ``dynamic`` edge.
 
-    ``NotImplementedError`` by inheritance because that is exactly the fact: the construct is
-    ratified and emitted, the validators read it (``gebra.verify`` reaches a verdict on such a
-    document), the topology diff and the store and freshness check built on it read it (card
-    SD-13, PD-059 — a headless edge is carried on its source and reported with no target), and
-    *this consumer* — the display emitter, the one that remains — has no ruled representation
-    for an edge with no target in a **drawing** yet (DIAGRAM-STYLE-GUIDE §3.4). The CLI verb
-    that reaches it (``gebra display``) catches it and reports a tool error — "no diagram was
-    emitted" — which is the only honest outcome available before that representation is ruled.
+    ``NotImplementedError`` by inheritance because that is what such a consumer's position is:
+    the construct is ratified and emitted, and the consumer implements the three ir 1.0 kinds.
+
+    **No consumer in this package raises it any more.** Every one that once did now reads the
+    kind under its own ruled representation — the validators since VAL-14 (PROPERTY-CATALOG-SPEC
+    §0.3's convention), the topology diff, the snapshot recorder and the freshness check since
+    SD-13 (PD-059 D1: the headless edge is carried on its source and reported with no target),
+    and the display emitter since CLI-11 (PD-060: the same source-carried representation, drawn
+    as a marker and a dispatch note — DIAGRAM-STYLE-GUIDE §3.3). The class stays on this frozen
+    export surface for the consumers it was written for: a caller outside this package written
+    against the 1.0 ``kind`` vocabulary, which :func:`refuse_dynamic_edges` lets it decline in
+    one wording. Removing it would be a §4 change to the frozen export set (IR-MODELS-FREEZE),
+    which routes through a vault decision record — not through a card's own latitude (PD-060).
     """
 
 
@@ -422,24 +427,29 @@ StaticEdge: TypeAlias = NormalEdge | ConditionalEdge | SendEdge
 def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[StaticEdge, ...]:
     """Decline a ``dynamic``-bearing edge set on behalf of a consumer with no 1.1 semantics.
 
-    One decline, one wording, every consumer that still needs it. **One remains: the display
-    emitter** (DIAGRAM-STYLE-GUIDE §3.4). The validators left this list at VAL-14 — the shared
-    validator graph model reads a ``dynamic`` edge under PROPERTY-CATALOG-SPEC §0.3's ruled
-    convention (no member of $G$, a participating source), so ``gebra.verify`` reaches a
-    verdict on such a document — and the topology-diff graph, the snapshot recorder and the
-    freshness check left it at SD-13, under PD-059: the diff carries a headless edge on its
-    source vertex and reports it with no target, so the store above it extends and compares a
-    1.1 document like any other. The call sites are deliberately not counted here, because the
-    count is the part that goes stale.
+    One decline, one wording, for any consumer that needs it. **No consumer in this package
+    does any more, and none is expected to return** — the helper is kept for callers outside
+    it. Each of gebra's own left the list on a ruling of its own: the validators at VAL-14
+    (PROPERTY-CATALOG-SPEC §0.3's convention — no member of $G$, a participating source, so
+    ``gebra.verify`` reaches a verdict); the topology-diff graph, the snapshot recorder and the
+    freshness check at SD-13 (PD-059 D1 — the edge is carried on its source vertex and reported
+    with no target, so the store above them extends and compares a 1.1 document like any
+    other); and the display emitter at CLI-11 (PD-060 — the same source-carried representation
+    on the page, a marker on the source and a rendered dispatch note, so no head is invented
+    and no target set implied; DIAGRAM-STYLE-GUIDE §3.3).
 
-    **Why a decline rather than a default, where one remains.** A ``dynamic`` edge contributes
-    no member to the graph $G$ (§0.3, ratified — DEC-28), and *silently* dropping it is the one
-    thing that must not happen; inventing a head for it would name a vertex the document does
-    not declare — the phantom-vertex class DEC-26 closed. A diff descriptor can say "no target"
-    in so many words; a drawing cannot, because an arrow needs a head, so what a headless edge
-    should look like in a diagram is **unruled** — it needs its own decision record before the
-    emitter can choose (PD-059 D8 names the CLI-track card that owns it) — and the emitter
-    declines rather than choosing.
+    **What it is still for.** A consumer written against the three ir 1.0 ``kind`` values — a
+    plugin, a downstream tool, a script walking ``ir.edges`` — meets a fourth kind it has no
+    branch for. This says so once, in one wording, naming the consumer, and hands back the edge
+    set typed as :data:`StaticEdge` so that consumer's own walk is checked against the kinds it
+    actually handles. Declining is a legitimate posture; what the ruled representations replace
+    is *gebra's* reason for taking it, not the posture itself.
+
+    **Why a decline rather than a default, for a consumer that still needs one.** A ``dynamic``
+    edge contributes no member to the graph $G$ (§0.3, ratified — DEC-28), and *silently*
+    dropping it is the one thing that must not happen; inventing a target for it would name a
+    vertex the document does not declare — the phantom class DEC-26 §3 closed. A consumer with
+    no representation of its own has no third option.
 
     Args:
         edges: The document's edge set.
@@ -461,15 +471,15 @@ def refuse_dynamic_edges(edges: Iterable[Edge], *, consumer: str) -> tuple[Stati
         raise DynamicEdgeUnsupportedError(
             f"{consumer} has no semantics for the `dynamic` edge kind, and edges[{index}] "
             f"(from {edge.from_!r}) is one. The kind is ratified (ir 1.1 — DEC-28, "
-            "2026-08-09), `gebra.extract()` emits it for a router whose target set is not "
-            "statically known, `gebra.verify` reads it — the validators reach a verdict on "
-            "this document — and `gebra.snapshot`, `gebra diff` and the freshness check read "
-            "it too (PD-059: the edge is carried on its source and reported with no target). "
-            "What is unruled is how a headless edge is drawn: a `dynamic` edge contributes no "
-            "member to the graph, and inventing a head for it would name a vertex the "
-            "document does not declare. Declining is deliberate, and lifting it needs a "
-            "decision record on the diagram representation (DIAGRAM-STYLE-GUIDE §3.4, a "
-            "CLI-track card), not a default chosen here."
+            "2026-08-09) and `gebra.extract()` emits it for a router whose target set is not "
+            "statically known. Every consumer gebra ships reads it: `gebra.verify` reaches a "
+            "verdict (VAL-14), `gebra.snapshot`, `gebra diff` and the freshness check carry "
+            "the edge on its source and report it with no target (PD-059), and `gebra "
+            "display` draws it the same way — a marker on the source and a dispatch note, "
+            "never an invented head (PD-060, DIAGRAM-STYLE-GUIDE §3.3). A consumer with no "
+            "representation of its own declines here rather than guessing: the edge "
+            "contributes no member to the graph, and inventing a target would name a vertex "
+            "the document does not declare."
         )
     return tuple(static)
 

@@ -59,6 +59,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`gebra display` draws an `ir_version` 1.1 document: the headless router edge is carried on
+  its source, and the last `dynamic`-edge decline is lifted** (card CLI-11; `gebra.display`,
+  `gebra display`, `docs/specs/DIAGRAM-STYLE-GUIDE.md`). A `dynamic` edge (DEC-28) declares a
+  router whose target set is not statically known, so it contributes no member to the drawn
+  graph and there is no arrow to draw — and a Mermaid arrow needs a head, which is why SD-13
+  lifted every other decline but this one (PD-059 D8: a diff descriptor can say "no target" in
+  so many words; a drawing cannot). PD-060 rules the drawn form, amending the style guide's §3:
+  the edge is **carried on its source**, the same representation the topology diff uses, in the
+  guide's own vocabulary — the source vertex's label takes a `[Dn]` marker in the same bracket
+  block the `[Fn]` finding markers ride, and a rendered `gebra dynamic dispatch` block carries
+  one line per source (`D1 dynamic dispatch - plan: 1 dynamic router, targets not
+  statically known, so no arrow is drawn`). No vertex is invented (DEC-26 §3's phantom rule) and no target set is
+  implied, because nothing on the page points anywhere. One note per source, counted, numbered
+  in authored order; a source the drawing never materializes — a reserved-segment reference,
+  which (m5) keeps off the picture — is still noted, suffixed ` - no vertex carries
+  this marker`, so nothing is dropped. The declared `condition` is elided exactly as a
+  `conditional` edge's is. `gebra display` therefore exits `0` on such a document, plain and
+  with a `--report` overlay, where it exited `2`; `gebra.ir.refuse_dynamic_edges` has no caller
+  left in the library, and it and `DynamicEdgeUnsupportedError` **stay** exported for consumers
+  written against the three ir 1.0 edge kinds (an export removal on that frozen surface is
+  IR-MODELS-FREEZE §4's matter, so their docstrings and message move and nothing else does).
+  **Nothing about an ir 1.0 diagram changes**: no palette value, no escape rule, no id mapping,
+  no overlay paint — a `dynamic` edge takes no link index, so the `linkStyle` paints a report
+  names land exactly where they landed, and every existing display golden and the corpus sweep
+  (71 fixtures, 78 IRs; none carries the kind) are byte-identical.
 - **A `dynamic` edge is diffed, snapshotted and freshness-checked like any other edge; the four
   declines VAL-14 left in place are lifted** (card SD-13; `gebra.diff`, `gebra.snapshot`,
   `gebra.audit.freshness`, the `@pytest.mark.gebra_freshness` gate, `gebra snapshot`, `gebra
@@ -113,11 +138,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nor stamp-only — digests differ, no delta, equal stamps, a coverage defect the engine's slices
   make unreachable today — is guarded rather than assumed away: `gebra diff` reports it on
   stderr as the build defect it would be and exits `2` with or without `--exit-code`, never as a
-  clean run (CLI-SPEC §3.2, §3.4). **What still declines:** `gebra display`
+  clean run (CLI-SPEC §3.2, §3.4). **What this card left declining:** `gebra display`
   and `gebra.display.render_mermaid`, on DIAGRAM-STYLE-GUIDE §3.4 — a diff descriptor can say
-  "no target" in so many words, a drawn arrow cannot — the one remaining caller of
-  `gebra.ir.refuse_dynamic_edges`, whose message now names it as such; the drawing question is
-  deliberately kept apart from the diff's (PD-059 D8) and owned by a CLI-track card. No 1.0
+  "no target" in so many words, a drawn arrow cannot — so the drawing question was deliberately
+  kept apart from the diff's (PD-059 D8) and owned by a CLI-track card, which lifted it in this
+  same release (CLI-11, above). No 1.0
   snapshot, diff or freshness answer changes: a 1.0 document builds the graph it always built
   (the attribute is present only on a vertex that sources a `dynamic` edge), and the snapshot,
   diff, audit, lineage and DoD suites pass with their existing expectations unchanged.

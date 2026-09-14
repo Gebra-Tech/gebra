@@ -63,8 +63,10 @@
    byte-comparable with nothing normalized.
 4. **Line discipline.** Every line, including the last, ends with `\n`; the same bytes are
    written to a stream and to `--output`. Indentation inside the flowchart body is two
-   spaces; blank lines separate the header, the node definitions, the edges, the legend
-   (when present), and the style directives, in that order.
+   spaces; blank lines separate the header, the node definitions, the edges, the dispatch
+   notes (§3.3, when present), the findings legend (§4.3, when present), and the style
+   directives, in that order — the two chrome blocks in that order, so a reader meets what
+   the definition declares (§3) before what a run recorded (§4).
 5. **Header comments.** The artifact opens with `%%` comment lines (invisible in a rendered
    diagram; part of the text artifact) stating, in order:
    - `%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)`
@@ -86,10 +88,11 @@ not borrow LangGraph's `:`-nesting convention (PD-034 finding 6).
    `[A-Za-z0-9]` is kept; every other character is replaced by `_` + two lowercase hex
    digits per UTF-8 byte (`_` itself becomes `_5f`). The escape is injective, so two
    distinct vertices can never collide on a Mermaid id.
-2. **Overlay ids.** Legend nodes are `f_1`, `f_2`, … in finding order, and `f_0` for the
-   §4.3 statement entry when there is no finding to number; the legend subgraph id is
-   `gebra_findings`. The three id families (`START`/`END`, `n_…`, `f_…` +
-   `gebra_findings`) are prefix-disjoint by construction.
+2. **Chrome ids.** Findings-legend nodes are `f_1`, `f_2`, … in finding order, and `f_0` for
+   the §4.3 statement entry when there is no finding to number; that subgraph's id is
+   `gebra_findings`. Dispatch-note nodes (§3.3) are `d_1`, `d_2`, … in note order, in the
+   subgraph `gebra_dynamic`. The four id families (`START`/`END`, `n_…`, `d_…` +
+   `gebra_dynamic`, `f_…` + `gebra_findings`) are prefix-disjoint by construction.
 3. **No emitted id is a Mermaid keyword.** The reserved words (`end`, `subgraph`,
    `flowchart`, `graph`, `classDef`, `class`, `linkStyle`, `style`, `click`, `direction`,
    `default`) cannot arise from the mapping above (`END` is upper-case; every other id
@@ -158,6 +161,7 @@ references in first-recorded model order; END.
 | `normal` (including m1/m2 sentinel wirings) | solid `-->` | none |
 | `conditional`, per expanded label | solid `-->\|"label"\|` | the `path_map` key |
 | `send` | dashed `-.->` | none |
+| `dynamic` | **none** — carried on the source, below | none |
 
 The dashed `send` arrow denotes the **dynamic fan-out template**: the IR is deliberately
 silent on the runtime fan-out count, and the diagram draws one arrow — never N — so it
@@ -167,26 +171,84 @@ expression is declared IR content a reader finds in the document itself — elid
 legibility choice, stated so it is not read as absence. Edges are emitted in the model's
 emission order (entry wirings, finish wirings, then `ir.edges` in authored order with each
 router's labels in authored order) — the order that makes Mermaid's link indices, and with
-them §4.4's `linkStyle` paints, deterministic.
+them §4.4's `linkStyle` paints, deterministic. A `dynamic` edge takes no place in that order,
+so the indices a report's paints name are the indices the static edges already had.
+
+#### The `dynamic` edge: carried on its source, never drawn as an arrow
+
+A `dynamic` edge (`ir_version` 1.1 — DEC-28) declares a router whose target set is not
+statically known: it carries neither `to` nor `path_map`, and contributes **no member** to $G$,
+its targets being Runtime-only (PROPERTY-CATALOG-SPEC §0.3) — and so none to the drawn
+multigraph, which is that model plus §3.1's carried references. So there is no arrow to draw
+and no head to invent — a head would name a vertex the document declares **nowhere, not even as
+a reference** (§3.2 draws declared references and nothing else; DEC-26 §3 closed the same class
+one surface over, ruling that no §0.3 location field may name such a vertex) and would state a
+target set the definition deliberately does not, which is the whole reason the kind exists.
+Ruled at **CLI-11 (PD-060)**: the edge is **carried on its source**, the representation PD-059
+D1 fixed for the topology diff, in this artifact's own vocabulary.
+
+1. **A marker on the source vertex.** Its label takes a `[Dn]` marker, in the same bracket
+   block the §4.4 finding markers ride and ahead of them — `plan [D1 F2]` — so a reader meets
+   the definition's own fact before the overlay's.
+2. **A rendered dispatch note**, which is what `Dn` resolves to: a
+   `subgraph gebra_dynamic["gebra dynamic dispatch"]` block of one node per source, labeled on
+   one line:
+
+   ```
+   D<i> dynamic dispatch - <from>: <routers>, targets not statically known, so no arrow is drawn
+   ```
+
+   where `<routers>` reads `1 dynamic router` or `N dynamic routers` — the kind is named on the
+   count because a `conditional` edge is a router in this vocabulary too (the table above), and
+   the note counts only these. The block renders whenever the document declares such an edge,
+   overlay or not; like the §4.3 legend it is chrome — wired to nothing, in the neutral §5
+   `gebra_info` style — and it precedes that legend (§1.4).
+3. **One note per source, not one per edge.** Notes are numbered `D1, D2, …` in the order
+   their sources first appear in `ir.edges`; a source declaring two routers is marked once and
+   its note states the count. The multiplicity PD-059 D1 keeps in the diff's descriptor
+   multiset is therefore *stated*, not drawn twice on one vertex.
+4. **The source is named by the `from` string the document declares**, byte-for-byte — the
+   same text its own label carries when it is drawn (§3.2), and no display projection.
+5. **Nothing is dropped.** A source the drawing never materializes — a reference spelling a
+   reserved segment, which (m5) keeps out of the picture (§3.1) — has no vertex to mark, so its
+   note carries the suffix ` - no vertex carries this marker`. The note block is the complete
+   router list; the picture is the subset with markable sources, exactly as §4.5 splits the
+   legend from the picture for findings. The suffix says *this marker is on no vertex*, not
+   "the source is not drawn": a `from` spelling `__start__` sits beside a drawn START stadium,
+   and that stadium is the sentinel, never the reference.
+6. **The source takes no style of its own.** Node fill is §4.4's severity channel, and a
+   second meaning on it would collide precisely where a dispatching node also carries a
+   finding. The dispatch fact rides the label marker and the note instead — the channel §5's
+   degradation rule prefers, since a monochrome rendering then loses styling, not facts.
+7. **The `condition` string is elided**, as a `conditional` edge's is and for the same reason:
+   declared IR content a reader finds in the document. Stated so the absence is not read as a
+   router with no declared guard.
+
+An `ir_version` 1.1 document that carries no `dynamic` edge draws exactly the 1.0 picture: the
+stamp is a header fact (§1.5), not a drawing one.
 
 ### 3.4 Documents this guide declines
 
-A document carrying a `dynamic` edge (`ir_version` 1.1 — DEC-28) is **declined**: a
-`dynamic` edge contributes no member to the graph the §0.3 vocabulary is defined over, and
-what a headless router edge should look like in a drawing is unruled — an invented head would
-name a vertex the document does not declare (the phantom class DEC-26 closed), so it is not
-improvised here. `gebra display` reports the decline as a CLI-SPEC §2.6 tool error
-(`ir-validation` stage, exit 2). This emitter is the **one consumer** that still declines such
-a document. `verify()` reads it since VAL-14 (2026-09-04) — the wedge five apply
-PROPERTY-CATALOG-SPEC §0.3's ruled convention and reach a verdict — and the structural diff,
-the snapshot recorder and the freshness check read it since SD-13 (PD-059, 2026-09-07): the
-diff carries the edge on its source vertex and reports it as a descriptor with **no target**,
-which a data record can say in so many words. A drawing cannot — an arrow needs a head — and
-the two questions share a fact but not an audience, so PD-059 D8 keeps them deliberately apart:
-the diagram representation of a headless router edge lands with a ruling of its own, on the
-CLI-track card that ruling names (CLI-11), not in this guide. Until then a run report over a
-`dynamic`-bearing document exists, and a snapshot of one, while the diagram they would overlay
-does not.
+**None.** Every document the IR loaders accept has a drawing here, and no `dynamic` edge is
+dropped from it: the §3.3 note block is the complete router list, with the picture carrying the
+markable subset. (What the drawing does *not* carry is stated where each rule states it and is
+not a decline: annotations and Σ are not drawn in Phase-0 (§3.2), a `condition` string is
+elided (§3.3), and a reference spelling a reserved segment is never materialized (§3.1 (m5)).)
+
+There was one class, and this section recorded it: the `dynamic`-bearing ir 1.1 document
+(DEC-28), declined by CLI-06 because a drawn arrow needs a head and the headless router edge's
+form on the page was unruled — PD-059 D8 held that question apart from the topology diff's
+deliberately, since the two share a fact and not an audience (a diff descriptor can say "no
+target" in so many words; a Mermaid arrow cannot), and filed it as the CLI-track card CLI-11.
+**CLI-11 ruled it (PD-060, 2026-09-14)** and §3.3 carries the ruling, so the decline is lifted:
+`gebra display` emits a diagram for such a document, plain and overlaid, at exit `0`. It was
+the last of the five — the validators left this posture at VAL-14 (2026-09-04) under
+PROPERTY-CATALOG-SPEC §0.3's convention, and the structural diff, the snapshot recorder and the
+freshness check at SD-13 (PD-059, 2026-09-07).
+
+The §4.1 pairing refusals are not declines of a *document*: they refuse an overlay report that
+does not name this drawing's graph, and the drawing itself is emitted for the same document
+without `--report`.
 
 ## 4. The verification overlay
 
@@ -317,7 +379,8 @@ classDef gebra_info fill:#f3f4f6,stroke:#6b7280,color:#111827
 Link paints: fatal `stroke:#7f1d1d,stroke-width:3px`; error
 `stroke:#dc2626,stroke-width:2px`; warning `stroke:#d97706,stroke-width:2px`.
 
-`gebra_info` styles the zero-findings legend entry (§4.3). Only the classes an emission
+`gebra_info` styles the chrome entries that grade nothing: the zero-findings legend entry
+(§4.3) and every dispatch note (§3.3). Only the classes an emission
 uses are declared in it. Severity is **never** carried by color alone: the severity word is
 in the legend line and the `[Fn]` marker is on the painted element, so a monochrome
 rendering of the diagram loses styling, not facts — the same degradation rule the terminal
@@ -341,8 +404,9 @@ as possibilities.
 
 ## 7. Copy rules
 
-REPORT-FORMAT-SPEC §4.6 binds every string this artifact emits — labels, legend lines,
-header comments — and the TE-15 lint scans the emitter's templates like any other source.
+REPORT-FORMAT-SPEC §4.6 binds every string this artifact emits — labels, dispatch notes (§3.3),
+legend lines, header comments — and the TE-15 lint scans the emitter's templates like any other
+source.
 In particular: the claim class is always displayed with a painted finding (§4.3); a
 diagram never states or implies a verdict of its own — the gate line in the overlay header
 is the report's own recorded outcome, quoted; witness-presence wording is the only wording
@@ -365,8 +429,9 @@ sentence describes a decision, not a capability).
   refusals (§4.1), per-kind paint and the legend (§4.3–§4.5), the palette block (§5).
 - **The licensed Mermaid subset** is exactly what this guide names: `%%` comments,
   `flowchart TD`, rectangle and stadium node definitions with double-quoted labels, solid
-  and dotted arrows with optional quoted labels, one non-nested `subgraph … end`,
-  `classDef`/`class`/`linkStyle` with the §5 declarations. `tools/mermaid_check.py` is the
+  and dotted arrows with optional quoted labels, the chrome `subgraph … end` blocks (§3.3's
+  dispatch notes and §4.3's findings legend, each holding node definitions and nothing else,
+  and never nested), `classDef`/`class`/`linkStyle` with the §5 declarations. `tools/mermaid_check.py` is the
   conformance checker: a dependency-free validator of that subset which **refuses any
   construct outside it** — an undefined node reference (Mermaid itself would silently
   auto-vivify a vertex for a typo'd id), a keyword id, a malformed label entity, a
@@ -385,3 +450,19 @@ sentence describes a decision, not a capability).
   lens over the same diagram should draw one picture rather than several — now has its
   addressee in [EXTENSION-SPEC.md](EXTENSION-SPEC.md) §4.2, which binds a Phase-1 extension to
   §4's encoding rather than letting it invent one.
+- **CLI-11 (the headless router edge on the page), landed 2026-09-14.** The one document class
+  §3.4 declined is drawn: a `dynamic` edge is carried on its source as a `[Dn]` marker and a
+  rendered dispatch note (§3.3), ruled in [PD-060] on the latitude CLI-11's own
+  `decisions_to_implementer` reserves for the drawn form. The amendment touches §1.4 (the block
+  order), §2.2 (the `d_…`/`gebra_dynamic` id family), §3.3 (the ruling and the edge-table row),
+  §3.4 (which now declines nothing), §5 (`gebra_info` styles the notes too) and this section's
+  licensed-subset sentence. **Nothing else moved**: no palette value, no escape rule, no id
+  mapping, no §4 paint rule — an ir 1.0 document draws the bytes it drew before, and a `dynamic`
+  edge still takes no link index, so the paints a report names land where they landed. PD-060
+  also records the disposition of the two `gebra.ir` symbols the lifted decline used
+  (`refuse_dynamic_edges`, `DynamicEdgeUnsupportedError`): they **stay** on that frozen export
+  surface for consumers outside this package, an export removal being IR-MODELS-FREEZE §4's
+  matter rather than a card's.
+
+[PD-060]: the delivery-side record, in the development-process repository at
+`docs/plan/decisions/PD-060-cli-11-the-headless-router-edge-on-the-page.md`.

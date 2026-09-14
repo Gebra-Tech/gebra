@@ -1,7 +1,7 @@
-"""The ir-1.1 seam across the snapshot, freshness, diff and pytest-gate surfaces — lifted (SD-13).
+"""The ir-1.1 seam across every consumer — snapshot, freshness, diff, gate, drawing — all lifted.
 
 A ``dynamic`` edge (ratified — DEC-28, 2026-08-09) declares a router whose target set is not
-statically known. The story of this file, in three cards:
+statically known. The story of this file, in four cards:
 
 * **SD-12** (2026-08-21) found that the recorder accepted such a document into an empty store,
   that every later changed re-snapshot then raised out of the topology-diff graph, that the
@@ -14,11 +14,14 @@ statically known. The story of this file, in three cards:
   diff's ``nx`` representation was unruled.
 * **SD-13** ruled it — **PD-059**: the edge is carried on its source vertex and reported with no
   target, so two documents differing only in one never diff as unchanged — and lifted the four
-  declines together. This file is now the claim that the surfaces *agree the other way*: the
-  recorder records, extends and compares a 1.1 document; the freshness check answers all three
-  states over one; the gate renders a stale 1.1 store as stale; nothing is migrated because
-  nothing needs to be; and exactly one consumer still declines — the display emitter, on the
-  drawing question PD-059 D8 deliberately left to the CLI track.
+  declines together, leaving one: the display emitter, on the drawing question PD-059 D8
+  deliberately left to the CLI track.
+* **CLI-11** ruled that one — **PD-060**: the same source-carried representation on the page, a
+  ``[Dn]`` marker on the source and a rendered dispatch note, so nothing is dropped and no head
+  is invented. This file is now the claim that the surfaces *agree the other way*, with no
+  exception: the recorder records, extends and compares a 1.1 document; the freshness check
+  answers all three states over one; the gate renders a stale 1.1 store as stale; the emitter
+  draws it; and nothing is migrated because nothing needs to be.
 
 **WA-07.** Every document here is built with the IR model constructors, and the inner pytest
 session's marked function *returns* a ``WorkflowIR``, so it takes
@@ -44,6 +47,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+import gebra.ir as gebra_ir
 from gebra.audit import Freshness, freshness
 from gebra.diff import EdgeChanged, EdgeRef, topology_graph, workflow_diff
 from gebra.display import render_mermaid
@@ -51,7 +55,6 @@ from gebra.extraction import extract
 from gebra.extraction.base import ObjectFamily
 from gebra.extraction.envelope import ExtractedFrom as ExtractionProvenance
 from gebra.extraction.envelope import ExtractionEnvelope
-from gebra.ir import DynamicEdgeUnsupportedError
 from gebra.ir.models import DynamicEdge, Edge, Node, NormalEdge, WorkflowIR
 from gebra.lineage import compare
 from gebra.pytest_plugin import FRESHNESS_MARKER, check_freshness
@@ -107,13 +110,10 @@ MOMENT = dt.datetime(2026, 8, 21, 9, 0, 0, tzinfo=dt.timezone.utc)
 #: module's builder regardless of ``pytester``'s tmp cwd.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-#: The library modules the four lifted declines lived in — acceptance box 2's grep, as a test.
-_LIFTED_MODULES = (
-    "src/gebra/diff",
-    "src/gebra/snapshot",
-    "src/gebra/audit",
-    "src/gebra/pytest_plugin.py",
-)
+#: Where the decline helper is allowed to be named at all: the module that defines it and the
+#: package `__init__` that re-exports it. Everywhere else under ``src/`` is the grep CLI-11's
+#: acceptance box asks for, widened from SD-13's four modules to the whole library.
+_DECLINE_HOME = ("src/gebra/ir/models.py", "src/gebra/ir/__init__.py")
 
 
 def dynamic_ir(*, extra_node: bool = False, condition: str | None = "route_legs") -> WorkflowIR:
@@ -447,10 +447,14 @@ def test_the_freshness_gate_passes_a_fresh_dynamic_store(pytester: pytest.Pytest
 # ── The one decline that remains, and the four that do not ────────────────────────────────
 
 
-def test_the_display_emitter_is_the_one_consumer_that_still_declines(tmp_path: Path) -> None:
-    """PD-059 D8 keeps the drawing question apart from the diff question: a diff descriptor can
-    say "no target" in so many words, a drawn arrow cannot. So the display emitter declines,
-    naming itself, and its wording now says what every other surface does with the document."""
+def test_every_consumer_reads_the_document_and_the_last_decline_is_lifted(
+    tmp_path: Path,
+) -> None:
+    """The fifth decline, lifted at CLI-11 (PD-060). PD-059 D8 kept the drawing question apart
+    from the diff's because they share a fact and not an audience: a diff descriptor can say
+    "no target" in so many words, a Mermaid arrow cannot. PD-060 answers it in the drawing's
+    own vocabulary — the headless edge is carried on its source, as a marker and a rendered
+    dispatch note — so this list has no exception left."""
     document = dynamic_ir()
     store = SnapshotStore.for_project(tmp_path)
     reads: tuple[Callable[[], object], ...] = (
@@ -460,34 +464,48 @@ def test_the_display_emitter_is_the_one_consumer_that_still_declines(tmp_path: P
         lambda: freshness(document, store=store),
         lambda: build_graph_model(document),
         lambda: verify(document),
+        lambda: render_mermaid(document),
     )
     for read in reads:
         read()  # none of these raises any more
 
-    with pytest.raises(DynamicEdgeUnsupportedError) as caught:
-        render_mermaid(document)
+    drawing = render_mermaid(document)
+    assert '  n_plan["plan [D1]"]' in drawing
+    assert "dynamic dispatch - plan: 1 dynamic router, targets not statically known" in drawing
+    arrows = [line for line in drawing.split("\n") if "-->" in line or "-.->" in line]
+    assert arrows == ["  START --> n_plan", "  n_collect --> END", "  n_book_5fleg --> n_collect"]
+
+
+def test_refuse_dynamic_edges_has_no_caller_left_anywhere_in_the_library() -> None:
+    """Acceptance box 2 as a machine check, widened by CLI-11: the decline's helper and its
+    error are not named anywhere under ``src/`` outside the module that defines them — not
+    called, not caught, not imported. They stay on the frozen ``gebra.ir`` export surface
+    (PD-060: an export removal is IR-MODELS-FREEZE §4's matter, DEC-routed), so the names are
+    still there and still tested; what has no caller is the *decline*."""
+    pattern = re.compile(r"refuse_dynamic_edges|DynamicEdgeUnsupportedError")
+    home = {REPO_ROOT / relative for relative in _DECLINE_HOME}
+    for source in sorted((REPO_ROOT / "src").rglob("*.py")):
+        if source in home:
+            continue
+        assert pattern.search(source.read_text(encoding="utf-8")) is None, source
+    assert {"refuse_dynamic_edges", "DynamicEdgeUnsupportedError"} <= set(gebra_ir.__all__)
+
+
+def test_the_kept_declines_message_names_what_reads_the_document_now() -> None:
+    """The helper stays for consumers outside this package, so its message is the thing that
+    goes stale if a future card re-introduces a decline — pinned here rather than left to
+    rot (the ir-contract pre-review's observation 8). It names every ruling that took a
+    consumer off the list, and claims no caller of its own."""
+    with pytest.raises(gebra_ir.DynamicEdgeUnsupportedError) as caught:
+        gebra_ir.refuse_dynamic_edges(dynamic_ir().edges, consumer="a 1.0-vocabulary reader")
 
     message = str(caught.value)
-    assert "the display emitter" in message
+    assert "a 1.0-vocabulary reader" in message
     assert "has no semantics for the `dynamic` edge kind" in message
-    assert "DEC-28" in message and "PD-059" in message
-    assert "`gebra.snapshot`, `gebra diff` and the freshness check read it too" in message
-    assert "how a headless edge is drawn" in message
-    assert "DIAGRAM-STYLE-GUIDE §3.4" in message
-    assert "topology diff" not in message.split("What is unruled")[1]
-
-
-def test_refuse_dynamic_edges_has_no_caller_left_in_the_four_lifted_surfaces() -> None:
-    """Acceptance box 2 as a machine check: the decline's one helper is not named anywhere in
-    ``gebra.diff``, ``gebra.snapshot``, ``gebra.audit`` or the pytest plugin — not called, not
-    caught, not imported. Its remaining caller is the display emitter, re-justified in PD-059."""
-    pattern = re.compile(r"refuse_dynamic_edges|DynamicEdgeUnsupportedError")
-    for relative in _LIFTED_MODULES:
-        path = REPO_ROOT / relative
-        sources = [path] if path.is_file() else sorted(path.rglob("*.py"))
-        for source in sources:
-            assert pattern.search(source.read_text(encoding="utf-8")) is None, source
-    assert pattern.search((REPO_ROOT / "src/gebra/display/mermaid.py").read_text("utf-8"))
+    for ruling in ("DEC-28", "PD-059", "PD-060", "DIAGRAM-STYLE-GUIDE §3.3"):
+        assert ruling in message, ruling
+    assert "gebra display" in message and "never an invented head" in message
+    assert "unruled" not in message, "the drawing question is ruled; the message must not say so"
 
 
 def test_an_under_stamped_model_built_past_validation_is_refused_by_every_surface(
@@ -496,7 +514,14 @@ def test_an_under_stamped_model_built_past_validation_is_refused_by_every_surfac
     """The floor DEC-34 §3 named — the construct declines — is replaced, not dropped: a model
     stamped below the minor its edges require (reachable only through ``model_copy``, the
     loader refusing it) is refused by the recorder, the check and the diff alike, as a
-    ``ValueError`` the CLI and the gate already report as a refusal, and nothing is written."""
+    ``ValueError`` the CLI and the gate already report as a refusal, and nothing is written.
+
+    **The display emitter is deliberately not in this loop** (ir-contract pre-review, note 2).
+    The floor is a *loader* rule — IR-SPEC §2.5 note 7 as DEC-34 keyed it, and §8's MUST binds
+    emitters of IR, not renderers of it — and SD-13 put the guard on the surfaces that anchor a
+    digest or write a durable artifact. `render_mermaid` does neither: it draws the document it
+    is handed, stamp and all, and the shape is unreachable through any loader since IR-08.
+    """
     lowered = dynamic_ir().model_copy(update={"ir_version": "1.0"})
     store = SnapshotStore.for_project(tmp_path)
 

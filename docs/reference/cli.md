@@ -850,6 +850,71 @@ records a `graph_version` other than the displayed IR's: painting one workflow's
 another's topology would be a false statement about both. Every painted finding carries its
 claim class, exactly as the terminal renderer shows it.
 
+### A router with no declared targets
+
+A router whose targets are computed at run time — a bare `Send` fan-out, a hintless conditional
+— extracts as a `dynamic` edge and stamps the document `ir_version: 1.1`. The definition
+declares no target for it, so the diagram draws no arrow: the edge is carried on its **source**
+instead, as a `[D1]` marker on that node and a note stating what is not drawn.
+
+<!-- gebra:example id=displaying-a-dynamic-router -->
+```python
+from pathlib import Path
+
+from gebra.cli import main
+from gebra.ir import DynamicEdge, Node, NormalEdge, WorkflowIR, write_ir
+
+workflow = WorkflowIR(
+    ir_version="1.1",
+    entry="plan",
+    finish="collect",
+    state={"legs": "list[str]"},
+    nodes=(Node(id="plan"), Node(id="book_leg"), Node(id="collect")),
+    edges=(
+        DynamicEdge(kind="dynamic", from_="plan", condition="route_legs"),
+        NormalEdge(kind="normal", from_="book_leg", to="collect"),
+    ),
+)
+write_ir(workflow, Path("legs.ir.yaml"))
+
+print("exit", main(["display", "--ir", "legs.ir.yaml"]))
+```
+
+<!-- gebra:output id=displaying-a-dynamic-router -->
+```text
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: legs.ir.yaml (ir-document)
+%% ir_version: 1.1
+flowchart TD
+
+  START(["START"])
+  n_plan["plan [D1]"]
+  n_book_5fleg["book_leg"]
+  n_collect["collect"]
+  END(["END"])
+
+  START --> n_plan
+  n_collect --> END
+  n_book_5fleg --> n_collect
+
+  subgraph gebra_dynamic["gebra dynamic dispatch"]
+    d_1["D1 dynamic dispatch - plan: 1 dynamic router, targets not statically known, so no arrow is drawn"]
+  end
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  classDef gebra_info fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class START,END gebra_sentinel
+  class d_1 gebra_info
+exit 0
+```
+
+Read it as the definition reads: `plan` dispatches somewhere the document does not name, and
+the picture says so without guessing. Inventing a target box would name a node your workflow
+never declared and imply a target set the router does not commit to — so nothing points
+anywhere, and the note carries the fact instead. Two routers on one node are marked once and
+counted on the note. A run report overlays such a diagram like any other, and its `[F1]`
+markers share the same bracket block: `plan [D1 F1]`.
+
 ## `gebra history`
 
 ```

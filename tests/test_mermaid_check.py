@@ -79,7 +79,7 @@ def _problems_of(body: str) -> list[str]:
         ("  classDef gebra_x fill:#zzzzzz\n", "does not match the §5 form"),
         ("  classDef gebra_x fill\n", "not key:value"),
         ("%%{init: {}}%%\n", "directive blocks"),
-        ('  subgraph legend["l"]\n    subgraph inner["i"]\n  end\n  end\n', "inside the legend"),
+        ('  subgraph legend["l"]\n    subgraph inner["i"]\n  end\n  end\n', "inside a subgraph"),
         ('n_c["indent"]\n', "indented 0"),
     ],
 )

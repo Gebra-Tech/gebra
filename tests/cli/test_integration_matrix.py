@@ -46,7 +46,7 @@ _ESCAPES = re.compile("\x1b\\[[0-9;]*m")
 
 
 def _write_documents(directory: Path) -> None:
-    """The three corpus subjects plus the two §2.6 refusal shapes, as loose files."""
+    """The three corpus subjects, a §2.6 `ir-validation` refusal shape, and an ir 1.1 document."""
     write_ir(fixture_ir(PASSING_FIXTURE), directory / "pass.ir.yaml")
     write_ir(fixture_ir(FAILING_FIXTURE), directory / "fail.ir.yaml")
     write_ir(fixture_ir(NOTED_FIXTURE), directory / "noted.ir.yaml")
@@ -277,7 +277,7 @@ def test_diff_has_no_format_flag(documents: Path) -> None:
     assert result.stdout == ""
 
 
-# ── display: §3.2 row — emit, decline, and the §4.4 pairing checks ────────────────────────
+# ── display: §3.2 row — emit, refuse, and the §4.4 pairing checks ─────────────────────────
 
 
 def test_display_emits_parse_checked_mermaid(documents: Path) -> None:
@@ -287,15 +287,27 @@ def test_display_emits_parse_checked_mermaid(documents: Path) -> None:
     assert mermaid_problems(result.stdout) == []
 
 
-def test_display_declines_and_refuses_at_its_stages(documents: Path) -> None:
+def test_display_emits_for_an_ir_1_1_document(documents: Path) -> None:
+    """CLI-11: the one document class this verb declined is drawn, at the process boundary.
+    The headless router edge is carried on its source — a marker and a note — so the emission
+    is a diagram like any other, and the §9 checker says so."""
+    result = run_gebra("display", "dynamic.ir.yaml", cwd=documents)
+    assert result.exit_code == 0
+    assert result.stderr == ""
+    assert "%% ir_version: 1.1" in result.stdout
+    assert '  n_a["a [D1]"]' in result.stdout
+    assert "dynamic dispatch - a: 1 dynamic router, targets not statically known" in result.stdout
+    assert mermaid_problems(result.stdout) == []
+
+
+def test_display_refuses_at_its_stages(documents: Path) -> None:
     missing = run_gebra("display", "missing.ir.yaml", cwd=documents)
     assert missing.exit_code == 2
     assert "stage: input" in missing.stderr
 
-    dynamic = run_gebra("display", "dynamic.ir.yaml", cwd=documents)
-    assert dynamic.exit_code == 2
-    assert "stage: ir-validation" in dynamic.stderr
-    assert "dynamic" in dynamic.stderr
+    not_ir = run_gebra("display", "not-ir.yaml", cwd=documents)
+    assert not_ir.exit_code == 2
+    assert "stage: ir-validation" in not_ir.stderr
 
     import_shaped = run_gebra("display", "tests.cli.targets:plain_data", cwd=documents)
     assert import_shaped.exit_code == 2

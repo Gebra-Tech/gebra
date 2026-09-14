@@ -8,24 +8,27 @@ references carried as dashed phantom vertices (guide §3.1–§3.2) — the same
 every graph-algorithm consumer applies, so the picture and the findings painted onto it
 speak one vocabulary.
 
-The emitter draws; it decides nothing. It runs none of the model's analyses, and a
-``dynamic``-bearing document (ir 1.1) is declined by name (guide §3.4) rather than drawn
-under 1.0 rules. It is the one consumer that still declines: ``verify()`` reads such a
-document since VAL-14, and the diff, the snapshot recorder and the freshness check since
-SD-13 (PD-059 — a diff descriptor can carry "no target" in so many words). A drawing cannot:
-an arrow needs a head, and what a headless router edge should look like on the page is a
-style-guide decision the CLI track owns, deliberately kept apart from the diff's ruling
-(PD-059 D8).
+The emitter draws; it decides nothing. It runs none of the model's analyses. A
+``dynamic``-bearing document (ir 1.1 — DEC-28) draws like any other since CLI-11 (PD-060):
+the headless router edge is **carried on its source**, exactly as PD-059 D1 carries it in the
+topology diff — a ``[Dn]`` marker on the source vertex and a rendered dispatch note (guide
+§3.3) — because an arrow needs a head and any head here would name a vertex the document
+declares nowhere, not even as a reference (the guide's §3.2 draws *declared* references and
+nothing else; DEC-26 §3 closed the same class one surface over, for report evidence), and
+would imply the target set DEC-28's kind exists to deny. No consumer in
+this package declines the document now, and none imports the 1.0-vocabulary decline helper
+``gebra.ir`` still exports for consumers outside it.
 
 Nothing here imports langgraph, executes anything, or opens a socket (WA-07).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Final
 
 from gebra.display.overlay import Overlay, build_overlay, check_pairing
-from gebra.ir import WorkflowIR, graph_version, refuse_dynamic_edges
+from gebra.ir import DynamicEdge, WorkflowIR, graph_version
 from gebra.verify.base import Severity, to_display
 from gebra.verify.graph import END_VERTEX, START_VERTEX, GraphModel, build_graph_model
 from gebra.verify.run import RunReport
@@ -99,6 +102,78 @@ def mermaid_label(text: str) -> str:
     return "".join(escaped)
 
 
+@dataclass(frozen=True)
+class _DispatchNote:
+    """One rendered dispatch note — guide §3.3's form for a headless router edge.
+
+    A ``dynamic`` edge contributes no member to $G$ (its targets are Runtime-only —
+    PROPERTY-CATALOG-SPEC §0.3) and so none to the drawn multigraph, which is that model plus
+    §3.2's carried references. There is therefore no arrow to draw and no head to invent: the
+    fact is carried on the edge's *source* instead, as this note and the ``[Dn]`` marker its
+    :attr:`marker` puts on that source's label.
+
+    Attributes:
+        index: The note number, ``1``-based, in the order the sources first appear in
+            ``ir.edges``.
+        source: The ``from`` string the document declares, byte-for-byte — the same text the
+            source's own label carries when it is drawn.
+        routers: How many ``dynamic`` edges this source declares (two hintless routers on one
+            node are two, as two parallel static edges are two arrows).
+        marked: Whether a vertex of the drawing carries this note's marker. False when the
+            model resolved the source to nothing and did not carry it — a reserved-segment
+            spelling, which (m5) never materializes (guide §3.1). Deliberately *not* "the
+            source is drawn": for a ``from`` spelling ``__start__`` a stadium labelled START
+            is on the picture, and it is the sentinel, not this reference.
+    """
+
+    index: int
+    source: str
+    routers: int
+    marked: bool
+
+    @property
+    def marker(self) -> str:
+        """``D1`` — the label marker, in the same bracket block the ``[Fn]`` markers ride."""
+        return f"D{self.index}"
+
+    @property
+    def text(self) -> str:
+        """The note's one line (guide §3.3), unescaped — the assembly applies §2.4."""
+        routers = "1 dynamic router" if self.routers == 1 else f"{self.routers} dynamic routers"
+        line = (
+            f"{self.marker} dynamic dispatch - {self.source}: {routers}, targets not "
+            "statically known, so no arrow is drawn"
+        )
+        if not self.marked:
+            line += " - no vertex carries this marker"
+        return line
+
+
+def _dispatch_notes(ir: WorkflowIR, model: GraphModel) -> tuple[_DispatchNote, ...]:
+    """One note per source declaring a ``dynamic`` edge, in first-authored order (§3.3).
+
+    Grouped per source rather than per edge because the drawn form is an annotation on a
+    vertex: two routers on one node mark that node once and are counted on its one note.
+
+    Markability is the **drawing's** own membership question — is this ``from`` string a
+    declared node or a carried reference (§3.2's two markable vertex classes)? — and is asked
+    that way rather than through
+    :attr:`~gebra.verify.graph.GraphModel.dynamic_sources`, which answers §0.3's *participation*
+    question. The two sets coincide on these sources today, by the builder's own construction,
+    and a reserved-segment spelling is outside both: it is never a node id (IR-SPEC §5.1) and
+    never carried, so (m5) leaves no vertex to mark.
+    """
+    routers: dict[str, int] = {}
+    for edge in ir.edges:
+        if isinstance(edge, DynamicEdge):
+            routers[edge.from_] = routers.get(edge.from_, 0) + 1
+    markable = model.node_ids | model.carried
+    return tuple(
+        _DispatchNote(index=index, source=source, routers=count, marked=source in markable)
+        for index, (source, count) in enumerate(routers.items(), start=1)
+    )
+
+
 def _vertex_order(ir: WorkflowIR, model: GraphModel) -> tuple[str, ...]:
     """Guide §3.2's definition order: START, declared nodes as authored, phantoms, END."""
     carried_in_order: list[str] = []
@@ -121,10 +196,17 @@ def _marker_suffix(markers: tuple[str, ...]) -> str:
     return f" [{' '.join(markers)}]" if markers else ""
 
 
-def _node_line(vertex: str, overlay: Overlay | None) -> str:
-    """One node definition line, marker suffix included (guide §3.2, §4.4)."""
+def _node_line(vertex: str, dispatch: str | None, overlay: Overlay | None) -> str:
+    """One node definition line, marker suffix included (guide §3.2, §3.3, §4.4).
+
+    The two marker families share one bracket block, §3's dispatch marker first and the §4
+    finding markers after it — ``plan [D1 F2]`` — so a reader meets the topology fact before
+    the overlay's.
+    """
     diagram_id = mermaid_vertex_id(vertex)
-    markers = overlay.vertex_markers.get(vertex, ()) if overlay is not None else ()
+    markers = [] if dispatch is None else [dispatch]
+    if overlay is not None:
+        markers.extend(overlay.vertex_markers.get(vertex, ()))
     label = mermaid_label(to_display(vertex) + _marker_suffix(tuple(markers)))
     if vertex in (START_VERTEX, END_VERTEX):
         return f'  {diagram_id}(["{label}"])'
@@ -156,15 +238,13 @@ def render_mermaid(
         The complete artifact, every line ``\\n``-terminated (guide §1.4).
 
     Raises:
-        gebra.ir.DynamicEdgeUnsupportedError: for a ``dynamic``-bearing document — the
-            diagram representation of a headless router edge is unruled, and this emitter
-            declines rather than improvises (guide §3.4).
         gebra.ir.CanonicalizationError: on the overlay path only, when the displayed IR
             has no §6 digest for the §4.1 provenance check to compare.
         gebra.display.OverlayPairingError: when ``report`` fails the §4.1 pairing checks.
     """
-    refuse_dynamic_edges(ir.edges, consumer="the display emitter (DIAGRAM-STYLE-GUIDE §3.4)")
     model = build_graph_model(ir, carry_unresolved_references=True)
+    notes = _dispatch_notes(ir, model)
+    dispatch = {note.source: note.marker for note in notes if note.marked}
     overlay: Overlay | None = None
     if report is not None:
         digest = graph_version(ir)
@@ -183,7 +263,7 @@ def render_mermaid(
 
     vertices = _vertex_order(ir, model)
     lines.append("")
-    lines.extend(_node_line(vertex, overlay) for vertex in vertices)
+    lines.extend(_node_line(vertex, dispatch.get(vertex), overlay) for vertex in vertices)
 
     if model.edges:
         lines.append("")
@@ -199,6 +279,12 @@ def render_mermaid(
                 label = None
             lines.append(_edge_line(edge.source, edge.target, edge.kind, label))
 
+    if notes:
+        lines.append("")
+        lines.append('  subgraph gebra_dynamic["gebra dynamic dispatch"]')
+        lines.extend(f'    d_{note.index}["{mermaid_label(note.text)}"]' for note in notes)
+        lines.append("  end")
+
     if overlay is not None:
         lines.append("")
         lines.append('  subgraph gebra_findings["gebra findings overlay"]')
@@ -208,12 +294,15 @@ def render_mermaid(
         lines.append("  end")
 
     lines.append("")
-    lines.extend(_style_lines(vertices, model, overlay))
+    lines.extend(_style_lines(vertices, model, notes, overlay))
     return "\n".join(lines) + "\n"
 
 
 def _style_lines(
-    vertices: tuple[str, ...], model: GraphModel, overlay: Overlay | None
+    vertices: tuple[str, ...],
+    model: GraphModel,
+    notes: tuple[_DispatchNote, ...],
+    overlay: Overlay | None,
 ) -> list[str]:
     """The guide §5 style block: used classDefs, class assignments, linkStyle paints."""
     members: dict[str, list[str]] = {}
@@ -222,6 +311,11 @@ def _style_lines(
         members["gebra_unresolved"] = [
             mermaid_vertex_id(vertex) for vertex in vertices if vertex in model.carried
         ]
+    if notes:
+        # Chrome, like the §4.3 statement entry: a dispatch note states a fact about the
+        # definition and grades nothing. The source vertex itself takes no class here — the
+        # node-fill channel stays §4.4's severity channel (§3.3).
+        members.setdefault("gebra_info", []).extend(f"d_{note.index}" for note in notes)
     if overlay is not None:
         for vertex in vertices:
             severity = overlay.vertex_severity.get(vertex)

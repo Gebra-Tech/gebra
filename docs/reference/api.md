@@ -890,7 +890,9 @@ class DynamicEdgeUnsupportedError(NotImplementedError)
 
 A 1.0-vocabulary consumer was handed a document carrying a `dynamic` edge.
 
-`NotImplementedError` by inheritance because that is exactly the fact: the construct is ratified and emitted, the validators read it (`gebra.verify` reaches a verdict on such a document), the topology diff and the store and freshness check built on it read it (card SD-13, PD-059 — a headless edge is carried on its source and reported with no target), and *this consumer* — the display emitter, the one that remains — has no ruled representation for an edge with no target in a **drawing** yet (DIAGRAM-STYLE-GUIDE §3.4). The CLI verb that reaches it (`gebra display`) catches it and reports a tool error — "no diagram was emitted" — which is the only honest outcome available before that representation is ruled.
+`NotImplementedError` by inheritance because that is what such a consumer's position is: the construct is ratified and emitted, and the consumer implements the three ir 1.0 kinds.
+
+**No consumer in this package raises it any more.** Every one that once did now reads the kind under its own ruled representation — the validators since VAL-14 (PROPERTY-CATALOG-SPEC §0.3's convention), the topology diff, the snapshot recorder and the freshness check since SD-13 (PD-059 D1: the headless edge is carried on its source and reported with no target), and the display emitter since CLI-11 (PD-060: the same source-carried representation, drawn as a marker and a dispatch note — DIAGRAM-STYLE-GUIDE §3.3). The class stays on this frozen export surface for the consumers it was written for: a caller outside this package written against the 1.0 `kind` vocabulary, which `refuse_dynamic_edges()` lets it decline in one wording. Removing it would be a §4 change to the frozen export set (IR-MODELS-FREEZE), which routes through a vault decision record — not through a card's own latitude (PD-060).
 
 #### `gebra.ir.Edge`
 

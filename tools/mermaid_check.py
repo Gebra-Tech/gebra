@@ -12,8 +12,10 @@ Mermaid itself where Mermaid is forgiving in ways that would hide emitter defect
   member naming an id no node definition introduced is a problem.
 * Mermaid accepts many arrow, shape and label forms; here exactly the guide's forms parse
   (§2–§5: rectangle and stadium definitions with double-quoted labels, ``-->`` and
-  ``-.->`` arrows with optional ``|"label"|`` labels, one non-nested ``subgraph``,
-  ``classDef``/``class``/``linkStyle`` with the §5 declaration vocabulary).
+  ``-.->`` arrows with optional ``|"label"|`` labels, the guide's chrome ``subgraph``
+  blocks — §3.3's dispatch notes and §4.3's findings legend, each holding node definitions
+  and nothing else, and never nested — ``classDef``/``class``/``linkStyle`` with the §5
+  declaration vocabulary).
 * A lowercase Mermaid keyword used as a node id breaks real renderers (``end`` is the
   documented footgun); here it is refused by name.
 
@@ -202,7 +204,7 @@ def mermaid_problems(text: str) -> list[str]:
                 if indent != 2:
                     problem(number, f"'end' indented {indent}, expected 2")
                 continue
-            problem(number, "only node definitions may appear inside the legend subgraph")
+            problem(number, "only node definitions may appear inside a subgraph block")
             continue
         if indent != 2:
             problem(number, f"line indented {indent}, expected 2 (guide §1.4)")

@@ -36,6 +36,7 @@ import yaml
 from tools import board_integrity as bi
 from tools.board_integrity import (
     BoardIntegrityError,
+    Card,
     Finding,
     Plan,
     activity_from_git,
@@ -1535,6 +1536,52 @@ def add_prereq(board: Path, card_id: str, token: str) -> None:
     set_field(board, card_id, "prereqs", token if current == "none" else f"{current}, {token}")
 
 
+def any_card(plan: Plan) -> Card:
+    """A victim for a check that does not read status — the first card the plan parsed.
+
+    Deliberately *not* "the first `todo` card". A completed plan holds none, and the checks
+    that seed a defect here are status-blind, so requiring one would tie the test to a plan
+    state that the plan's own success removes.
+    """
+    return next(iter(plan.cards.values()))
+
+
+def leaf_card_in_done(plan: Plan) -> Card:
+    """A completed card no other card depends on — the safe one to make live on a copy.
+
+    A leaf so that making it live cannot change any other card's readiness, and one already
+    under `## Done` because after the plan completes that is where every card is.
+    """
+    depended_on = {token for card in plan.cards.values() for token in card.prereq_cards}
+    return next(
+        card
+        for card in plan.cards.values()
+        if card.section == bi.DONE_SECTION and card.id not in depended_on
+    )
+
+
+def make_live(board: Path, card_id: str, claimed: str) -> None:
+    """Seed one live, staleable card on a copied board: move it under `## Cards` and claim it.
+
+    The real boards hold no live card once every card is `done`, so a test that needs one
+    seeds it the same way it seeds every other defect — on the copy, and by *moving* a card
+    the checker already accepts rather than by inventing one. Inventing one is not available:
+    the §7 board index states each board's card count and `check_index` compares it, so a new
+    card would fail the run for a reason the test is not about.
+    """
+    text = board.read_text(encoding="utf-8")
+    block = card_block(text, card_id)
+    body = block.group(0).rstrip("\n")
+    without = text[: block.start()] + text[block.end() :]
+    marker = re.search(rf"^## {bi.DONE_SECTION}$", without, flags=re.MULTILINE)
+    assert marker is not None, f"{board.name} has no `## {bi.DONE_SECTION}` heading"
+    board.write_text(
+        f"{without[: marker.start()]}{body}\n\n{without[marker.start() :]}", encoding="utf-8"
+    )
+    set_field(board, card_id, "status", "in-progress")
+    set_field(board, card_id, "claimed_by", claimed)
+
+
 @requires_companion
 def test_the_real_boards_are_clean_as_merged(capsys: pytest.CaptureFixture[str]) -> None:
     """Acceptance box 2's local half: the check the CI job runs, green on the boards."""
@@ -1556,11 +1603,16 @@ def test_the_default_plan_root_is_the_companion_checkout() -> None:
 def test_a_seeded_dangling_prereq_on_the_real_boards_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance box 1, first half: the edit is made on a copy, so 'reverted' is by construction."""
+    """Acceptance box 1, first half: the edit is made on a copy, so 'reverted' is by construction.
+
+    The victim is any card: the dangling-prereq check quantifies over `plan.cards` and never
+    reads status, so picking a `todo` one said nothing extra and stopped working the day the
+    plan ran out of them.
+    """
     before = board_digests()
     plan_root = copy_of_the_plan(tmp_path)
     plan = load_plan(plan_root)
-    victim = next(card for card in plan.cards.values() if card.status == "todo")
+    victim = any_card(plan)
     add_prereq(plan_root / "boards" / victim.board, victim.id, "ZZ-99")
 
     assert main(["--plan", str(plan_root)]) == 1
@@ -1595,14 +1647,19 @@ def test_a_seeded_cycle_on_the_real_boards_fails(
 def test_a_seeded_stale_claim_on_the_real_boards_is_flagged(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance box 3 on the real boards: in-progress since early August, no activity."""
+    """Acceptance box 3 on the real boards: in-progress since early August, no activity.
+
+    The staleable card is seeded rather than found. Once every card is `done` the boards hold
+    none, and flipping a card in place would put a live status under `## Done` — an error of
+    its own (`check_done`), which would fail this run for a reason it is not about. So the
+    victim is a leaf, moved under `## Cards` on the copy and claimed there.
+    """
     before = board_digests()
     plan_root = copy_of_the_plan(tmp_path)
     plan = load_plan(plan_root)
-    victim = next(card for card in plan.cards.values() if card.status == "todo")
+    victim = leaf_card_in_done(plan)
     board = plan_root / "boards" / victim.board
-    set_field(board, victim.id, "status", "in-progress")
-    set_field(board, victim.id, "claimed_by", "someone (2026-08-03)")
+    make_live(board, victim.id, "someone (2026-08-03)")
 
     assert main(["--plan", str(plan_root), "--today", "2026-09-01"]) == 0
     out = capsys.readouterr().out

@@ -1035,6 +1035,38 @@ runs under the guard;
 return a hand-built `WorkflowDiff` — nothing is constructed or run beyond the two hand-written
 documents the fixture already holds.
 
+### CLI-11 — the headless router edge on the page, and the fifth decline lifted
+
+The emitter-side change is string assembly over data. `gebra.display.mermaid` stops calling the
+1.0-vocabulary decline helper and instead counts `DynamicEdge` instances per `from` string, marks
+the source's label and emits a `subgraph` of note lines; `gebra.cli.display` stops catching an
+exception no longer raised. Nothing enters `gebra.display`'s import closure (`DynamicEdge` comes
+from `gebra.ir`, already resident), no socket, no subprocess, no call into user code, and the one
+newly-reachable call — `build_graph_model(ir, carry_unresolved_references=True)` — is the same
+pure model walk the emitter already made for every ir 1.0 document. **No extraction path is
+added, so INTROSPECTION-SPEC §1 rule 4 owes no new tripwire and CLI-SPEC §0.5's table gains no
+row**; `display` still has no live-target mode at all, and an import-shaped target is still a
+usage error decided by grammar before resolution (the CLI-06 paragraph in §4 above states that
+posture and is unchanged by this card).
+
+`tests/test_dynamic_document_seam.py` is rewritten again, and keeps exactly the two live-object
+tests the SD-12, VAL-14 and SD-13 paragraphs above account for, under the same autouse fixture
+asserting both ledgers: the test that replaced `…the_one_consumer_that_still_declines` builds its
+document with the IR model constructors and adds one `render_mermaid` call, which reaches no live
+object. Every other new test — `tests/display/`, `tests/cli/test_display_verb.py`,
+`tests/cli/test_integration_matrix.py`'s 1.1 row, `tests/docs/test_diagram_style_guide.py` — takes
+its subject through `load_json`/the constructors; none imports a sample workflow. The one new
+documentation example (`docs/reference/cli.md`, `displaying-a-dynamic-router`) builds a
+`WorkflowIR` with the model constructors, writes it with `gebra.ir.write_ir` and runs `gebra
+display` over the file under the harness guard, importing no sample-workflow module, so its
+ledger sweep has nothing to sweep.
+
+One tripwire is **strengthened** rather than merely preserved: the substrate-blocked guarded
+child in `tests/cli/test_never_invokes.py` gains a fourth display leg over a hand-written ir 1.1
+document, so the code this card newly makes reachable — the dispatch notes and their subgraph —
+completes with `langgraph` unimportable as an *observation* rather than as an inference from the
+import closure (the never-invokes pre-review's recommendation, taken in the same change).
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

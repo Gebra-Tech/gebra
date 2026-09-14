@@ -1,0 +1,26 @@
+%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: dynamic.ir.yaml (ir-document)
+%% ir_version: 1.1
+flowchart TD
+
+  START(["START"])
+  n_plan["plan [D1]"]
+  n_book_5fleg["book_leg"]
+  n_check["check"]
+  n_collect["collect"]
+  END(["END"])
+
+  START --> n_plan
+  n_collect --> END
+  n_book_5fleg --> n_check
+  n_check -->|"retry"| n_book_5fleg
+  n_check -->|"done"| n_collect
+
+  subgraph gebra_dynamic["gebra dynamic dispatch"]
+    d_1["D1 dynamic dispatch - plan: 1 dynamic router, targets not statically known, so no arrow is drawn"]
+  end
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  classDef gebra_info fill:#f3f4f6,stroke:#6b7280,color:#111827
+  class START,END gebra_sentinel
+  class d_1 gebra_info

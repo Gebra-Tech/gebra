@@ -735,6 +735,13 @@ painting one workflow's findings onto another's topology would be a false statem
 and comparing two recorded digests is a provenance check, not a verdict. Every painted finding
 carries its claim class, exactly as the terminal renderer does (PD-034, WA-06).
 
+**Every document the loaders accept has a diagram.** An `ir_version` 1.1 document — one
+carrying a `dynamic` edge (DEC-28) — draws like any other since CLI-11: the headless router
+edge is carried on its source, as a marker on that vertex's label and a rendered dispatch note
+naming the source and stating that no arrow is drawn (DIAGRAM-STYLE-GUIDE §3.3, PD-060). No
+head is invented and no target set implied, so nothing the document declares is dropped and
+nothing it does not declare is drawn.
+
 **Exit codes.** §3.2's `display` row.
 
 ### 4.5 `gebra history`
@@ -1025,10 +1032,9 @@ a format nothing ever emitted per §1.6's amendment log), then refuses a subject
 error that preceded IR identity records no `graph_version` for the provenance check and
 holds no findings to paint — the "overlays name their own graph" rule applied to the one
 report shape that names none) and a digest mismatch; a `dynamic`-bearing ir 1.1 document
-is declined as the `ir-validation` §2.6 row, as `verify()` declined it at the time (see the
-VAL-14 and SD-13 notes below: `verify` reaches a verdict on such a document and `snapshot`
-and `diff` record and compare it; `display`'s own decline stands on the diagram
-representation, DIAGRAM-STYLE-GUIDE §3.4, the one decline left). The
+was declined as the `ir-validation` §2.6 row, as `verify()` declined it at the time (that
+decline is lifted at CLI-11 — the note below; `display` draws such a document, and with it the
+last of the five declines is gone). The
 diagram is plain Mermaid text on stdout on every color setting; conformance is
 parse-checked by `tools/mermaid_check.py` (the guide's §9 checker) across the corpus in
 `tests/display/` and `tests/cli/test_display_verb.py`.
@@ -1076,7 +1082,7 @@ accordingly. What still declined at that landing, and why, was unchanged in kind
 representation for a headless edge (§3.2's `snapshot` row: "the store refused the write" — the
 eligibility run now *does* reach a verdict, so the refusal was the recorder's own, reported as
 `nothing was recorded`), and `display` refused it on DIAGRAM-STYLE-GUIDE §3.4. *(The first two
-of those declines are lifted at SD-13 — the note below; `display`'s stands.)* One
+of those declines are lifted at SD-13 and `display`'s at CLI-11 — the notes below.)* One
 consumer-side consequence of the `1.2`
 bump lands on `display --report`: a `1.1` report file written by the previous release is refused
 naming the version this build reads (§4.4; REPORT-FORMAT-SPEC §1.6's MAY), and re-running
@@ -1108,7 +1114,23 @@ this document class — the engine's remaining document refusals are a repeated 
 and an `ir_version` stamped below the floor its edges require (DEC-34), both reachable only for
 a model built past validation. `display` still declines the document on DIAGRAM-STYLE-GUIDE
 §3.4; PD-059 D8 keeps the drawing question apart from the diff's, and names the CLI-track card
-(CLI-11) that owns it.
+(CLI-11) that owns it. *(That last decline is lifted at CLI-11 — the note below.)*
+
+**CLI-11 (the `dynamic` edge in `gebra display`) — landed 2026-09-14**, the fourth post-final
+landing note under §6 item 3 of the promotion record (a card plus a note here; no contract of
+this document moves). PD-060 rules the headless router edge's drawn form — carried on its
+source as a `[Dn]` marker and a rendered dispatch note, so no vertex is invented (DEC-26 §3)
+and no target set implied (DEC-28) — and amends DIAGRAM-STYLE-GUIDE §3 accordingly, §3.4 now
+declining nothing. So `gebra display` emits a diagram for a `dynamic`-bearing ir 1.1 document,
+plain and with a `--report` overlay, at exit `0` where it exited `2` before; it was the last
+consumer that declined such a document, and `gebra.ir.refuse_dynamic_edges` now has no caller
+in the library (it stays exported for consumers outside it — an export removal on the frozen
+IR surface is IR-MODELS-FREEZE §4's matter, not a card's). No verb, flag or exit-code rule of
+this document changes: §3.2's `display` row still reads exit `2` for a subject that fails to
+resolve (§2.6) or an overlay report refused (§4.4), a set that no longer includes this document
+class. `display` remains the verb with no live-target mode (§4.4, Appendix B OI-5): the change
+removes a refusal inside the emitter and adds no input mode, so §0.5's tripwire table gains no
+row.
 
 ---
 

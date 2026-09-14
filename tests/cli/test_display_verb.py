@@ -154,29 +154,67 @@ def test_a_no_grammar_target_is_a_resolution_failure_not_a_usage_error(
     assert "V.S.F.E" in result.stderr
 
 
-def test_a_dynamic_bearing_document_is_declined_as_ir_validation(run_cli: RunCli) -> None:
-    """The ir 1.1 decline (DEC-28): the same posture ``verify`` takes, at this verb's own
-    §2.6 row — the diagram representation of a headless router edge is not improvised."""
+# ── Exit 0: the ir 1.1 document (CLI-11) ─────────────────────────────────────────────────
+
+#: A dynamically dispatching router authored ahead of a cycle with no termination witness —
+#: the document the two 1.1 goldens draw. It exercises both halves of the card at once: the
+#: headless edge's own drawing, and the §4.4 paints whose link indices it must not move.
+DYNAMIC_DOCUMENT = {
+    "ir_version": "1.1",
+    "entry": "plan",
+    "finish": ["collect"],
+    "nodes": [{"id": "plan"}, {"id": "book_leg"}, {"id": "check"}, {"id": "collect"}],
+    "edges": [
+        {"kind": "dynamic", "from": "plan", "condition": "route_legs"},
+        {"from": "book_leg", "to": "check"},
+        {
+            "kind": "conditional",
+            "from": "check",
+            "path_map": {"retry": "book_leg", "done": "collect"},
+        },
+    ],
+}
+
+
+def _write_dynamic_document(name: str = "dynamic.ir.yaml") -> str:
+    """The 1.1 document on disk, through the documented ingestion path."""
     import gebra.ir as gir
 
-    document = gir.load_json(
-        gir.WorkflowIR,
-        json.dumps(
-            {
-                "ir_version": "1.1",
-                "entry": "a",
-                "finish": ["a"],
-                "nodes": [{"id": "a"}],
-                "edges": [{"kind": "dynamic", "from": "a"}],
-            }
-        ),
+    write_ir(gir.load_json(gir.WorkflowIR, json.dumps(DYNAMIC_DOCUMENT)), name)
+    return name
+
+
+def test_a_dynamic_bearing_document_emits_a_diagram(run_cli: RunCli) -> None:
+    """The decline CLI-06 landed on DIAGRAM-STYLE-GUIDE §3.4 is lifted (PD-060): the
+    headless router edge is carried on its source — a marker and a dispatch note — so the
+    verb draws the document instead of reporting a tool error."""
+    result = run_cli("display", _write_dynamic_document())
+    assert result.exit_code == 0
+    assert result.stderr == ""
+    assert "%% ir_version: 1.1" in result.stdout
+    assert '  n_plan["plan [D1]"]' in result.stdout
+    assert (
+        "dynamic dispatch - plan: 1 dynamic router, targets not statically known" in result.stdout
     )
-    write_ir(document, "dynamic.ir.yaml")
-    result = run_cli("display", "dynamic.ir.yaml")
-    assert result.exit_code == 2
-    assert result.stdout == ""
-    assert "no diagram was emitted (stage: ir-validation)" in result.stderr
-    assert "dynamic" in result.stderr
+    assert "-.->" not in result.stdout, "a headless edge was drawn as an arrow"
+    check_mermaid(result.stdout)
+
+
+def test_the_dynamic_documents_own_report_overlays_it(run_cli: RunCli) -> None:
+    """Acceptance box 2's overlay half: a run report over *this* document paints onto it,
+    and every §4.4 paint names a link the drawing has."""
+    document = _write_dynamic_document()
+    report = _report_file(run_cli, document, "dynamic-report.json")
+    result = run_cli("display", "--ir", document, "--report", report)
+    assert result.exit_code == 0
+    assert "%% overlay: run report for graph_version sha256:" in result.stdout
+    assert "gebra dynamic dispatch" in result.stdout
+    assert "gebra findings overlay" in result.stdout
+    links = [line for line in result.stdout.split("\n") if "-->" in line]
+    for line in result.stdout.split("\n"):
+        if line.startswith("  linkStyle "):
+            assert int(line.split()[1]) < len(links)
+    check_mermaid(result.stdout)
 
 
 # ── Exit 2: the --report refusals (§4.4) ─────────────────────────────────────────────────
@@ -358,3 +396,17 @@ def test_golden_stored_version(run_cli: RunCli, evolved_project: Path) -> None:
     result = run_cli("display", "--snapshot", "1.0.0.0", "--store", ".gebra")
     assert result.exit_code == 0
     compare_golden("display/snapshot-oldest.mmd", result.stdout)
+
+
+def test_golden_plain_dynamic_document(run_cli: RunCli) -> None:
+    result = run_cli("display", _write_dynamic_document())
+    assert result.exit_code == 0
+    compare_golden("display/document-dynamic.mmd", result.stdout)
+
+
+def test_golden_overlaid_dynamic_document(run_cli: RunCli) -> None:
+    document = _write_dynamic_document()
+    report = _report_file(run_cli, document, "dynamic-report.json")
+    result = run_cli("display", "--ir", document, "--report", report)
+    assert result.exit_code == 0
+    compare_golden("display/document-dynamic-overlaid.mmd", result.stdout)

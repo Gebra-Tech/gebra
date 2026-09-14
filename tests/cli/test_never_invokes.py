@@ -318,14 +318,32 @@ for surface in ("human", "json", "sarif"):
 # The display legs (CLI-06): the whole §4.4 surface — a plain drawing, and one overlaid
 # with a run report produced under this same blocker — completes with the substrate
 # unimportable, which is what "display reaches no live object on any path" costs to hold.
+# The ir 1.1 document is the fourth leg (CLI-11): the document class the emitter declined
+# until that card is drawn here too, so the newly-reachable code — the dispatch notes and
+# their subgraph — is *observed* substrate-free rather than inferred from the import closure.
 report_path = scratch / "report.json"
 out, err = io.StringIO(), io.StringIO()
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
     code = main(["verify", str(document), "--format", "json", "--output", str(report_path)])
 assert code == 0, (code, err.getvalue())
+
+dynamic_document = scratch / "dynamic.ir.yaml"
+dynamic_document.write_text(
+    '''ir_version: "1.1"
+entry: plan
+finish: [plan]
+nodes:
+  - id: plan
+edges:
+  - kind: dynamic
+    from: plan
+''',
+    encoding="utf-8",
+)
 for argv in (
     ["display", str(document)],
     ["display", "--ir", str(document), "--report", str(report_path)],
+    ["display", str(dynamic_document)],
 ):
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):

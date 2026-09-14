@@ -197,6 +197,82 @@ def test_strict_promotion_is_stated_and_the_record_keeps_its_own_severity() -> N
     check_mermaid(text)
 
 
+# ── The overlay over a 1.1 document (CLI-11) ─────────────────────────────────────────────
+
+#: A router that dispatches dynamically, ahead of a cycle with no termination witness. The
+#: ``dynamic`` edge is authored *first*, so if it ever took a link the two painted indices
+#: would move — which is exactly what §4.4's `linkStyle` paints cannot survive.
+DYNAMIC_CYCLE = {
+    "ir_version": "1.1",
+    "entry": "plan",
+    "finish": ["collect"],
+    "nodes": nodes_of("plan", "book_leg", "check", "collect"),
+    "edges": [
+        {"kind": "dynamic", "from": "plan", "condition": "route_legs"},
+        {"from": "book_leg", "to": "check"},
+        {
+            "kind": "conditional",
+            "from": "check",
+            "path_map": {"retry": "book_leg", "done": "collect"},
+        },
+    ],
+}
+
+
+def test_a_dynamic_edge_takes_no_link_so_the_s44_paints_keep_their_indices() -> None:
+    """A ``dynamic`` edge has no member in ``model.edges`` (§0.3), so the link indices the
+    §4.4 paints key on are the indices the static edges had — read off the drawing rather
+    than asserted in the abstract: the two painted links are the cycle's own two arrows."""
+    ir = ir_of(DYNAMIC_CYCLE)
+    text = render_mermaid(ir, report=verify(ir))
+    links = [line for line in text.split("\n") if "-->" in line or "-.->" in line]
+    painted = sorted(
+        int(line.split()[1]) for line in text.split("\n") if line.startswith("  linkStyle ")
+    )
+    assert painted == [2, 3]
+    assert [links[index].strip() for index in painted] == [
+        'n_book_5fleg -->|"[F1]"| n_check',
+        'n_check -->|"retry [F1]"| n_book_5fleg',
+    ]
+    assert "cycle-without-termination-witness" in text
+    check_mermaid(text)
+
+
+def test_a_finding_anchored_at_a_dispatching_node_shares_one_marker_block() -> None:
+    """The two marker families meet on one label — §3's dispatch marker, then §4's finding
+    marker — and the node-fill channel stays the severity channel: the vertex takes the
+    finding's class, the dispatch note takes the neutral chrome class."""
+    ir = ir_of(
+        {
+            "ir_version": "1.1",
+            "entry": "plan",
+            "finish": ["collect"],
+            "state": {"legs": "list[str]", "itinerary": "str"},
+            "nodes": [
+                {"id": "plan", "annotations": {"input": ["itinerary"], "output": ["legs"]}},
+                {"id": "collect", "annotations": {"input": ["legs"]}},
+            ],
+            "edges": [
+                {"kind": "dynamic", "from": "plan", "condition": "route_legs"},
+                {"from": "plan", "to": "collect"},
+            ],
+        }
+    )
+    text = render_mermaid(ir, report=verify(ir))
+    assert '  n_plan["plan [D1 F1]"]' in text
+    assert "  class n_plan,f_1 gebra_fatal" in text
+    assert "  class d_1 gebra_info" in text
+    check_mermaid(text)
+
+
+def test_the_dispatch_block_precedes_the_findings_legend() -> None:
+    """§1.4's block order, with both chrome blocks present: topology (§3) before overlay
+    (§4), so a reader meets the definition's own facts first."""
+    ir = ir_of(DYNAMIC_CYCLE)
+    text = render_mermaid(ir, report=verify(ir))
+    assert text.index("subgraph gebra_dynamic") < text.index("subgraph gebra_findings")
+
+
 # ── Unit seams: the two §4.4 anchors no corpus report reaches ────────────────────────────
 
 

@@ -617,9 +617,11 @@ the edge appears in a diff as a `[dynamic]` line whose target reads `(targets no
 known)`, because the definition declares none, and declaring the targets later is an S move
 the diff reports as that edge leaving — the
 [snapshot guide](../guides/snapshot-diff-and-evolution.md#a-router-with-no-declared-targets)
-shows one. One consequence stays: `gebra display` declines a 1.1 document, because what a
-router edge with no target should look like in a drawing is not yet ruled — it reports a tool
-error, exit `2`, rather than a diagram.
+shows one. `gebra display` draws one too, and the same way: an arrow needs a head, so the edge
+is carried on its **source** instead — the dispatching node's label takes a `[D1]` marker and a
+note in the diagram states that its targets are not statically known and that no arrow is
+drawn. Nothing points anywhere, because the definition points nowhere; the
+[CLI reference](../reference/cli.md#a-router-with-no-declared-targets) shows the picture.
 
 ## What a builder cannot know — and one thing nothing can
 

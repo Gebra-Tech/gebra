@@ -321,6 +321,8 @@ for surface in ("human", "json", "sarif"):
 # The ir 1.1 document is the fourth leg (CLI-11): the document class the emitter declined
 # until that card is drawn here too, so the newly-reachable code — the dispatch notes and
 # their subgraph — is *observed* substrate-free rather than inferred from the import closure.
+# The two `--format html` legs (REL-05) do the same for the HTML wrapper, plain and overlaid:
+# the page is emitted with langgraph unimportable, and nothing on it runs at emit time.
 report_path = scratch / "report.json"
 out, err = io.StringIO(), io.StringIO()
 with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -344,12 +346,15 @@ for argv in (
     ["display", str(document)],
     ["display", "--ir", str(document), "--report", str(report_path)],
     ["display", str(dynamic_document)],
+    ["display", str(document), "--format", "html"],
+    ["display", "--ir", str(document), "--report", str(report_path), "--format", "html"],
 ):
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         code = main(argv)
     assert code == 0, (argv, code, err.getvalue())
-    assert out.getvalue().startswith("%% gebra display:"), argv
+    head = "<!DOCTYPE html>" if "html" in argv else "%% gebra display:"
+    assert out.getvalue().startswith(head), argv
 
 # The snapshot leg: the store writes and reads under the same blocker, so the whole
 # stored-version path — resolution, digest re-check, all thirteen properties — is held

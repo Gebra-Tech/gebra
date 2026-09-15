@@ -11,7 +11,11 @@ overlay loaded the way REPORT-FORMAT-SPEC §1.6 requires of any consumer — ``r
 read first off the parsed JSON, an unknown MAJOR refused, and this build's strict models
 refusing the rest — then the guide §4.1 pairing checks (subject present; recorded digest
 equal to the displayed IR's own). The diagram is plain Mermaid text on stdout on every
-setting; ``--color`` governs the stderr diagnostics only (§4.4).
+setting; under ``--format html`` (REL-05) it is ``gebra.display.render_html``'s page instead
+— the same text, wrapped in one HTML document that renders it when a browser opens it, with
+mermaid.js loaded from a CDN at view time — and the choice of format moves nothing else: same
+resolution, same overlay checks, same exit codes. ``--color`` governs the stderr diagnostics
+only (§4.4).
 
 Exit codes are §3.2's ``display`` row: ``0`` the diagram was emitted; ``1`` never —
 ``display`` reaches no verdict and reports no difference; ``2`` the subject failed to
@@ -41,15 +45,16 @@ from gebra.cli.resolve import (
     resolve_ir_document,
     resolve_snapshot,
 )
-from gebra.display import OverlayPairingError, render_mermaid
+from gebra.display import OverlayPairingError, render_html, render_mermaid
 from gebra.ir import CanonicalizationError
 from gebra.report import did_you_mean, suggestion_sentence
 from gebra.verify import REPORT_FORMAT, RunReport
 
 __all__ = ["DISPLAY_FORMATS", "DisplayRequest", "run_display"]
 
-#: §4.4's one diagram format in Phase-0; PlantUML is demoted out of the phase (PD-034).
-DISPLAY_FORMATS: Final[tuple[str, ...]] = ("mermaid",)
+#: §4.4's two formats: the Mermaid text — Phase-0's one format — and, since REL-05, the HTML
+#: page that wraps that same text. PlantUML stays demoted out of the phase (PD-034).
+DISPLAY_FORMATS: Final[tuple[str, ...]] = ("mermaid", "html")
 
 
 @dataclass(frozen=True)
@@ -100,11 +105,11 @@ def run_display(request: DisplayRequest) -> int:
     try:
         subject = _resolve(request, positional)
         report = _load_report(request.report_path)
-        text = render_mermaid(
-            subject.ir,
-            report=report,
-            source=f"{subject.reference.source} ({subject.reference.input_mode})",
-        )
+        label = f"{subject.reference.source} ({subject.reference.input_mode})"
+        if request.display_format == "html":
+            text = render_html(subject.ir, report=report, source=label)
+        else:
+            text = render_mermaid(subject.ir, report=report, source=label)
     except Refusal as refusal:
         _write_diagnostic(f"no diagram was emitted (stage: {refusal.stage}): {refusal.detail}")
         return 2
@@ -142,7 +147,7 @@ def _usage_problems(
         problems.append(
             f"--format {request.display_format!r} is not one of "
             + ", ".join(DISPLAY_FORMATS)
-            + " — the only diagram format in Phase-0 (CLI-SPEC §4.4)"
+            + " — the Mermaid text, or one HTML page that renders it (CLI-SPEC §4.4)"
             + (f". {hint}" if hint else "")
         )
 
@@ -278,7 +283,8 @@ def _read_text(path: str) -> str:
 
 
 def _write_artifact(text: str, request: DisplayRequest) -> None:
-    """The diagram, on stdout or at ``--output`` (§5.2) — the same bytes either way (§1.4).
+    """The artifact — Mermaid text or the HTML page — on stdout or at ``--output`` (§5.2), the
+    same bytes either way (guide §1.4).
 
     Raises:
         OutputError: ``--output`` could not be written (§3.4's exit-2 case, rendered by

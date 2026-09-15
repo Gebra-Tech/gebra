@@ -704,21 +704,22 @@ that diffs for information never fails on having found information, and with it 
 
 ```
 gebra display [TARGET] [--ir PATH | --snapshot VERSION] [--store DIR]
-              [--report PATH] [--format mermaid] [--output PATH] [--color | --no-color]
+              [--report PATH] [--format {mermaid,html}] [--output PATH] [--color | --no-color]
 ```
 
 Emits the subject's topology as Mermaid text, directly from the IR (PD-034: no dependency on
 `draw_mermaid()` or `get_graph()` anywhere in this path), optionally overlaid with a run
-report's findings per DIAGRAM-STYLE-GUIDE.
+report's findings per DIAGRAM-STYLE-GUIDE — or, under `--format html`, as one HTML document
+carrying that same text (the wrapper paragraph below; REL-05).
 
 | Flag | Value | Default | Meaning |
 |---|---|---|---|
 | `--ir` / `--snapshot` | see §2.3 | — | explicit mode selectors |
 | `--store` | directory | `./.gebra` | the store `--snapshot` resolves against |
 | `--report` | path | — | a native-JSON run report (`--format json` output) whose findings are painted onto the diagram |
-| `--format` | `mermaid` | `mermaid` | the only diagram format in Phase-0; PlantUML is demoted out of the phase (PD-034) |
-| `--output`, `-o` | path | stdout | write the diagram to a file |
-| `--color` / `--no-color` | — | auto-detected | governs the **diagnostics** on stderr only; the diagram itself is plain Mermaid text on every setting |
+| `--format` | `mermaid`, `html` | `mermaid` | `mermaid` — the diagram as Mermaid text, Phase-0's one format; `html` — the same text in one HTML document that renders it in a browser (REL-05, below); PlantUML stays demoted out of the phase (PD-034) |
+| `--output`, `-o` | path | stdout | write the artifact to a file (recommended for `html`) |
+| `--color` / `--no-color` | — | auto-detected | governs the **diagnostics** on stderr only; the artifact itself is plain text on every setting |
 
 **No live-target mode in Phase-0.** `display`'s input is a loaded `WorkflowIR` — an IR document
 or a stored snapshot. That is PD-034's finding 2 and CLI-06's own prereq set (the IR loaders,
@@ -741,6 +742,23 @@ edge is carried on its source, as a marker on that vertex's label and a rendered
 naming the source and stating that no arrow is drawn (DIAGRAM-STYLE-GUIDE §3.3, PD-060). No
 head is invented and no target set implied, so nothing the document declares is dropped and
 nothing it does not declare is drawn.
+
+**The HTML wrapper (`--format html`, REL-05).** The artifact is one complete HTML5 document,
+`gebra.display.render_html`'s, carrying the **exact** Mermaid text `render_mermaid` produces
+for the same subject and overlay — header comments, drawing and style block, byte for byte —
+embedded as a JSON string literal in a `<script type="application/json" id="diagram">`
+element (no HTML-entity round trip touches a label; `JSON.parse`, or `json.loads`, gives the
+text back) and again, HTML-escaped, in a `<noscript>` fallback. Its `<title>` is the §2.1
+subject label, and its one `<script type="module">` imports mermaid.js from a CDN at an exact
+pinned release (DIAGRAM-STYLE-GUIDE §9 names it) and renders the text when a browser opens
+the page. The wrapper is presentation over presentation: it adds no rule, no vertex, no paint
+— every drawing rule is the guide's — and the package gains no runtime dependency, because
+the browser fetches the renderer, never gebra. The page is self-contained as a *document*
+(one file, the text inside it), not as an offline bundle: viewing needs the CDN reachable at
+view time. Nothing on the page runs when it is emitted (§0.5 is unchanged — the format
+selects a wrapper, not an input mode), and the format moves no exit code: a refused overlay
+or an unresolved subject is the same `2` with nothing on stdout, whichever format was asked
+for. The same bytes go to stdout or to `--output`; a file is the artifact's natural home.
 
 **Exit codes.** §3.2's `display` row.
 
@@ -819,8 +837,9 @@ same facts, and CLI-07 goldens both.
 
 ### 5.2 Streams, and what goes where
 
-- **stdout carries the artifact**: the run report (human, JSON or SARIF), the Mermaid text, the
-  history table, the diff rendering, the recorded version label. Nothing else. So
+- **stdout carries the artifact**: the run report (human, JSON or SARIF), the Mermaid text (or,
+  under `display --format html`, the HTML page carrying it — §4.4), the history table, the
+  diff rendering, the recorded version label. Nothing else. So
   `gebra verify --format json > report.json` writes exactly the report bytes, and
   `gebra display --ir ir.yaml | mmdc -i -` is a valid pipeline.
 - **stderr carries diagnostics about the run**: extraction warnings, tool-error messages, usage
@@ -1132,6 +1151,29 @@ class. `display` remains the verb with no live-target mode (§4.4, Appendix B OI
 removes a refusal inside the emitter and adds no input mode, so §0.5's tripwire table gains no
 row.
 
+**REL-05 (`--format html`) — landed 2026-09-15**, the fifth post-final landing note under §6
+item 3 of the promotion record (a card plus a note here; no contract of this document moves).
+`gebra display` gains a second `--format` value, `html`: one HTML5 document on stdout (or at
+`--output`) carrying the exact Mermaid text `render_mermaid` produces for the same subject
+and overlay — embedded as a JSON string literal and as a `<noscript>` fallback — with one
+module script that imports mermaid.js `11.17.2` from
+`https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs` and renders the text
+in the browser (`gebra.display.render_html`, the new module `gebra.display.html`;
+DIAGRAM-STYLE-GUIDE §9 carries the matching note). §4.4's usage line and flag row and
+Appendix A's `--format` cell now read `mermaid`, `html`; `mermaid` stays the default and the
+Phase-0 artifact, byte-unchanged (the five display goldens and the corpus sweep are identical;
+the two new goldens are new files, not moved ones). The wrapper is presentation over
+presentation — it adds no drawing rule, no vertex, no paint, and the package gains no runtime
+dependency; no SRI `integrity` attribute is emitted, because an ES-module `import` statement
+carries none and the ESM entry loads chunk files an entry-point hash would not cover (the
+guide's note records both). No verb, exit-code rule or input mode changes: §3.2's `display`
+row still reads `0` emitted, `1` never, `2` for a subject that fails to resolve (§2.6) or an
+overlay report refused (§4.4), whichever format was asked for, and an import-shaped target is
+still a usage error refused by grammar before any import — the format selects a wrapper, not
+an input mode, so §0.5's tripwire table gains no row. The substrate-blocked guarded child in
+`tests/cli/test_never_invokes.py` gained two `html` legs, plain and overlaid, so the wrapper
+is observed to emit with the substrate unimportable rather than inferred to.
+
 ---
 
 ## Appendix A — the consolidated flag table
@@ -1149,7 +1191,7 @@ Every flag, every verb. `•` = accepted; blank = not accepted (giving it is a u
 | `--sidecar PATH` | • | • | • | | |
 | `--call` | • | • | • | | |
 | `--strict[=SLUG,…]` (alias `--gebra-strict`) | • | | | | |
-| `--format` | `human`, `json`, `sarif` | | | `mermaid` | `human`, `json` |
+| `--format` | `human`, `json`, `sarif` | | | `mermaid`, `html` | `human`, `json` |
 | `--report PATH` | | | | • | |
 | `--exit-code` | | | • | | |
 | `--quiet` | | • | | | |

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pass.ir.yaml (ir-document)</title>
+<style>
+  body { margin: 0 auto; padding: 1rem; max-width: 100rem; font-family: system-ui, sans-serif; }
+  h1 { font-size: 1rem; font-weight: 600; margin: 0 0 1rem; }
+  #diagram-view svg { max-width: 100%; height: auto; }
+  pre { overflow: auto; }
+</style>
+</head>
+<body>
+<h1>pass.ir.yaml (ir-document)</h1>
+<div id="diagram-view"></div>
+<noscript>
+<pre>%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)
+%% subject: pass.ir.yaml (ir-document)
+%% ir_version: 1.0
+flowchart TD
+
+  START(["START"])
+  n_prepare["prepare"]
+  n_fetch_5fprices["fetch_prices"]
+  n_fetch_5fnews["fetch_news"]
+  n_compose_5fdigest["compose_digest"]
+  n_publish_5fdigest["publish_digest"]
+  n_verify_5fpublish["verify_publish"]
+  n_archive["archive"]
+  END(["END"])
+
+  START --&gt; n_prepare
+  n_archive --&gt; END
+  n_prepare --&gt; n_fetch_5fprices
+  n_prepare --&gt; n_fetch_5fnews
+  n_fetch_5fprices --&gt; n_compose_5fdigest
+  n_fetch_5fnews --&gt; n_compose_5fdigest
+  n_compose_5fdigest --&gt; n_publish_5fdigest
+  n_publish_5fdigest --&gt; n_verify_5fpublish
+  n_verify_5fpublish --&gt;|"retry"| n_publish_5fdigest
+  n_verify_5fpublish --&gt;|"done"| n_archive
+
+  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827
+  class START,END gebra_sentinel
+</pre>
+</noscript>
+<script type="application/json" id="diagram">"%% gebra display: workflow definition as Mermaid (DIAGRAM-STYLE-GUIDE)\n%% subject: pass.ir.yaml (ir-document)\n%% ir_version: 1.0\nflowchart TD\n\n  START([\"START\"])\n  n_prepare[\"prepare\"]\n  n_fetch_5fprices[\"fetch_prices\"]\n  n_fetch_5fnews[\"fetch_news\"]\n  n_compose_5fdigest[\"compose_digest\"]\n  n_publish_5fdigest[\"publish_digest\"]\n  n_verify_5fpublish[\"verify_publish\"]\n  n_archive[\"archive\"]\n  END([\"END\"])\n\n  START --> n_prepare\n  n_archive --> END\n  n_prepare --> n_fetch_5fprices\n  n_prepare --> n_fetch_5fnews\n  n_fetch_5fprices --> n_compose_5fdigest\n  n_fetch_5fnews --> n_compose_5fdigest\n  n_compose_5fdigest --> n_publish_5fdigest\n  n_publish_5fdigest --> n_verify_5fpublish\n  n_verify_5fpublish -->|\"retry\"| n_publish_5fdigest\n  n_verify_5fpublish -->|\"done\"| n_archive\n\n  classDef gebra_sentinel fill:#f3f4f6,stroke:#374151,color:#111827\n  class START,END gebra_sentinel\n"</script>
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs";
+
+const text = JSON.parse(document.getElementById("diagram").textContent);
+const view = document.getElementById("diagram-view");
+mermaid.initialize({ startOnLoad: false });
+try {
+  const { svg } = await mermaid.render("gebra-diagram-svg", text);
+  view.innerHTML = svg;
+} catch (error) {
+  const fallback = document.createElement("pre");
+  fallback.textContent = "mermaid could not render this diagram: " + error + "\n\n" + text;
+  view.replaceChildren(fallback);
+}
+</script>
+</body>
+</html>

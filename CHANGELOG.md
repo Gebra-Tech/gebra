@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`gebra display --format html`: one HTML page that renders the diagram** (card REL-05;
+  `gebra.display.render_html`, the new module `gebra.display.html`, `gebra display`). `gebra
+  display` emitted Mermaid text only, which a reader cannot look at without a renderer. The new
+  `--format` value writes one HTML5 document — on stdout by default, or at `--output`, where a
+  page belongs — carrying the **exact** Mermaid text `render_mermaid()` produces for the same
+  subject and `--report` overlay: embedded as a JSON string literal in a
+  `<script type="application/json" id="diagram">` element (byte-exact recovery, tested over
+  every corpus emission; every `<` is written as its JSON escape `\u003c`, so no subject label can close the
+  element) and again, HTML-escaped, in a `<noscript>` fallback. Its `<title>` is the subject
+  line, and its one `<script type="module">` imports mermaid.js `11.17.2` from jsdelivr and
+  renders the text when a browser opens the page. The page is a wrapper and nothing more: it
+  adds no drawing rule, no vertex and no paint (its stylesheet is a layout frame that names no
+  colour), the package gains no runtime dependency (the browser fetches the renderer at view
+  time, so viewing needs the CDN reachable), and nothing on the page runs when it is emitted.
+  `mermaid` stays the default and is byte-unchanged; the `--format` refusal now names both
+  values; exit codes, input modes and the overlay's provenance checks are unchanged — a refused
+  overlay under `html` writes no page. Landed on the post-final route: CLI-SPEC §4.4, §7 and
+  Appendix A and DIAGRAM-STYLE-GUIDE §1.2 and §9 carry the amendment and its landing notes, and
+  two new goldens pin the page.
 - **P-01's node conditions quantify over the top-level nodes, so an extracted LCEL fragment
   with a nested frame reaches a verdict** (card VAL-15; `gebra.verify`). A node whose id has a
   proper path prefix that is itself a node — an LCEL fragment's children, which mount by path

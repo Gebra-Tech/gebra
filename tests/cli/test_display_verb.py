@@ -1,10 +1,12 @@
 """``gebra display`` — CLI-SPEC §4.4 and §3.2's ``display`` row, through ``main()``.
 
 Every §2.6 stage the verb can reach returns ``2`` with the stage named on stderr; the one
-success shape is exit ``0`` with the Mermaid artifact alone on stdout — parse-checked here
-by the guide's §9 conformance checker, so "the diagram was emitted" always means "a valid
-one". The never-invokes pins for this verb (an import-shaped target refused with the module
-demonstrably unimported; the substrate-blocked run) live in ``test_never_invokes.py``.
+success shape is exit ``0`` with the artifact alone on stdout — the Mermaid text,
+parse-checked here by the guide's §9 conformance checker, so "the diagram was emitted"
+always means "a valid one"; or, under ``--format html`` (REL-05), the one HTML page that
+carries that same text, read back here byte for byte. The never-invokes pins for this verb
+(an import-shaped target refused with the module demonstrably unimported; the
+substrate-blocked run) live in ``test_never_invokes.py``.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import pytest
 from gebra.ir import write_ir
 from tests.cli.conftest import RunCli
 from tests.cli.goldens import compare_golden
+from tests.display.pages import embedded_mermaid, read_page
 from tools.mermaid_check import check_mermaid
 
 pytestmark = pytest.mark.usefixtures("project_dir")
@@ -322,10 +325,10 @@ def test_strict_is_refused_because_display_has_no_gate(run_cli: RunCli) -> None:
     assert "display has no gate for a promotion to move" in result.stderr
 
 
-def test_the_format_value_set_is_mermaid_alone(run_cli: RunCli) -> None:
+def test_the_format_value_set_is_mermaid_and_html(run_cli: RunCli) -> None:
     result = run_cli("display", "pass.ir.yaml", "--format", "plantuml")
     assert result.exit_code == 2
-    assert "--format 'plantuml' is not one of mermaid" in result.stderr
+    assert "--format 'plantuml' is not one of mermaid, html" in result.stderr
 
 
 def test_format_mermaid_is_the_explicit_spelling_of_the_default(run_cli: RunCli) -> None:
@@ -333,6 +336,65 @@ def test_format_mermaid_is_the_explicit_spelling_of_the_default(run_cli: RunCli)
         run_cli("display", "pass.ir.yaml", "--format", "mermaid").stdout
         == run_cli("display", "pass.ir.yaml").stdout
     )
+
+
+# ── Exit 0: the HTML wrapper (REL-05) ────────────────────────────────────────────────────
+
+
+def test_format_html_writes_a_page_carrying_the_exact_mermaid_text(run_cli: RunCli) -> None:
+    """The card's CLI box: ``--format html -o diagram.html`` exits ``0``, writes the file,
+    and the text embedded in it is byte for byte what ``--format mermaid`` prints."""
+    written = run_cli("display", "pass.ir.yaml", "--format", "html", "-o", "diagram.html")
+    assert written.exit_code == 0
+    assert written.stdout == ""
+    assert written.stderr == ""
+    document = Path("diagram.html").read_text(encoding="utf-8")
+    assert document.startswith("<!DOCTYPE html>")
+    assert embedded_mermaid(document) == run_cli("display", "pass.ir.yaml").stdout
+    assert read_page(document).title == "pass.ir.yaml (ir-document)"
+
+
+def test_format_html_on_stdout_is_the_same_page(run_cli: RunCli) -> None:
+    """stdout stays the default for symmetry with ``mermaid``; the file and the stream carry
+    the same bytes (§5.2, guide §1.4)."""
+    streamed = run_cli("display", "pass.ir.yaml", "--format", "html")
+    assert streamed.exit_code == 0
+    assert streamed.stderr == ""
+    run_cli("display", "pass.ir.yaml", "--format", "html", "--output", "diagram.html")
+    assert Path("diagram.html").read_text(encoding="utf-8") == streamed.stdout
+
+
+def test_format_html_carries_the_overlay_too(run_cli: RunCli) -> None:
+    report = _report_file(run_cli, "fail.ir.yaml", "report.json")
+    page = run_cli("display", "--ir", "fail.ir.yaml", "--report", report, "--format", "html")
+    text = run_cli("display", "--ir", "fail.ir.yaml", "--report", report)
+    assert page.exit_code == text.exit_code == 0
+    assert embedded_mermaid(page.stdout) == text.stdout
+    assert "gebra findings overlay" in embedded_mermaid(page.stdout)
+
+
+def test_format_html_on_a_stored_version_names_the_snapshot_subject(
+    run_cli: RunCli, evolved_project: Path
+) -> None:
+    """The title is the subject line whatever the mode: on the snapshot path it is the
+    label the resolver gives the stored version, read here off the text's own header."""
+    result = run_cli("display", "--snapshot", "1.0.0.0", "--store", ".gebra", "--format", "html")
+    assert result.exit_code == 0
+    text = run_cli("display", "--snapshot", "1.0.0.0", "--store", ".gebra").stdout
+    assert embedded_mermaid(result.stdout) == text
+    subject = next(line for line in text.splitlines() if line.startswith("%% subject: "))
+    assert subject.endswith("(snapshot)")
+    assert read_page(result.stdout).title == subject.removeprefix("%% subject: ")
+
+
+def test_a_refused_overlay_under_html_emits_no_page(run_cli: RunCli) -> None:
+    """The format moves no exit code (§3.2's ``display`` row): the §4.4 refusals are the same
+    exit ``2`` with nothing on stdout, whichever wrapper was asked for."""
+    report = _report_file(run_cli, "fail.ir.yaml", "fail-report.json")
+    result = run_cli("display", "pass.ir.yaml", "--report", report, "--format", "html")
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "differs from the displayed IR's digest" in result.stderr
 
 
 def test_two_selectors_are_refused_together(run_cli: RunCli) -> None:
@@ -410,3 +472,19 @@ def test_golden_overlaid_dynamic_document(run_cli: RunCli) -> None:
     result = run_cli("display", "--ir", document, "--report", report)
     assert result.exit_code == 0
     compare_golden("display/document-dynamic-overlaid.mmd", result.stdout)
+
+
+def test_golden_plain_document_html(run_cli: RunCli) -> None:
+    """REL-05's two goldens are new files beside the Mermaid ones, never moved ones: the
+    page pins the frame, and the text inside it is the ``.mmd`` golden's own bytes."""
+    result = run_cli("display", "pass.ir.yaml", "--format", "html")
+    assert result.exit_code == 0
+    compare_golden("display/document-pass.html", result.stdout)
+    assert embedded_mermaid(result.stdout) == run_cli("display", "pass.ir.yaml").stdout
+
+
+def test_golden_overlaid_document_html(run_cli: RunCli) -> None:
+    report = _report_file(run_cli, "fail.ir.yaml", "report.json")
+    result = run_cli("display", "--ir", "fail.ir.yaml", "--report", report, "--format", "html")
+    assert result.exit_code == 0
+    compare_golden("display/document-fail-overlaid.html", result.stdout)

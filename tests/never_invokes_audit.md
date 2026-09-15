@@ -1067,6 +1067,32 @@ document, so the code this card newly makes reachable — the dispatch notes and
 completes with `langgraph` unimportable as an *observation* rather than as an inference from the
 import closure (the never-invokes pre-review's recommendation, taken in the same change).
 
+### REL-05 — the HTML wrapper, and a second display format that runs nothing
+
+The emitter-side change is string assembly over the text `render_mermaid` already produces:
+`gebra.display.html` calls it, HTML-escapes the text for a `<noscript>` block, serializes it as
+one JSON string literal (`json.dumps`, every `<` written as its JSON escape `\u003c`) and joins fixed lines
+around both — the standard library's `html` and `json` and nothing else enter `gebra.display`'s
+import closure; no socket, no subprocess, no call into user code. The one script on the page is
+*text*: it runs in a browser that opens the file, never in gebra, and the pinned mermaid release
+it names is fetched by that browser, never by this package. `gebra.cli.display` selects the
+wrapper on `--format html` and changes nothing else — the same resolution, the same overlay
+checks, the same exit codes. **No extraction path is added and no input mode: the format selects
+a wrapper**, so INTROSPECTION-SPEC §1 rule 4 owes no new tripwire and CLI-SPEC §0.5's table gains
+no row; `display` still has no live-target mode, and an import-shaped target is still a usage
+error decided by grammar before resolution (the CLI-06 paragraph in §4 above, unchanged).
+
+Every new test takes its subject through the corpus loaders or the IR constructors:
+`tests/display/test_html.py` over `tests/display/pages.py` (an `html.parser` walk — reading
+text, executing nothing), and the `--format html` cases in `tests/cli/test_display_verb.py` with
+their two goldens. The one new documentation example (`docs/reference/cli.md`,
+`displaying-an-html-page`) extracts the travel-booking fixture exactly as the section's existing
+example does — the fixture whose ledger control the harness already fires — writes the IR, runs
+`gebra display --format html -o` under the harness guard and reads the file back with `re` and
+`json`; it opens no browser. The substrate-blocked guarded child in
+`tests/cli/test_never_invokes.py` gains two `html` legs, plain and overlaid, so the wrapper is
+*observed* to emit with `langgraph` unimportable rather than inferred to from the import closure.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

@@ -120,12 +120,12 @@ gebra.lineage           11
 gebra.diff              34
 gebra.audit             11
 gebra.report            31
-gebra.display            4
+gebra.display            6
 gebra.testing           29
 gebra.pytest_plugin     34
 gebra.cli                2
                       ----
-exported names         574
+exported names         576
 ```
 
 | Package | What it owns | Where it is documented |
@@ -142,7 +142,7 @@ exported names         574
 | `gebra.diff` | The structural diff itself: topology, state and contracts. | [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md) |
 | `gebra.audit` | Per-version audit exports and the lineage export. | [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md) |
 | `gebra.report` | The three surfaces of one run report: a human rendering, the report itself as JSON, a findings-only SARIF projection. | [CLI reference](cli.md) |
-| `gebra.display` | A definition as Mermaid text. | [CLI reference](cli.md#gebra-display) |
+| `gebra.display` | A definition as Mermaid text, or as an HTML page that renders it. | [CLI reference](cli.md#gebra-display) |
 | `gebra.testing` | The golden-fixture harness and the assertion helpers tests build on. | [The pytest plugin and CI gating](../guides/pytest-plugin-and-ci-gating.md) |
 | `gebra.pytest_plugin` | The pytest plugin: markers, fixtures, severity gating. | [The pytest plugin and CI gating](../guides/pytest-plugin-and-ci-gating.md) |
 | `gebra.cli` | The five verbs, their flags and their exit codes. | [CLI reference](cli.md) |

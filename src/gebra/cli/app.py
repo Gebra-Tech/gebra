@@ -470,8 +470,11 @@ def _display(
         str,
         typer.Option(
             "--format",
-            metavar="{mermaid}",
-            help="The diagram format: mermaid is the only value in Phase-0.",
+            metavar="{mermaid,html}",
+            help=(
+                "The diagram format: mermaid is the Mermaid text; html is one self-contained "
+                "page carrying that same text, rendered by mermaid.js from a CDN when opened."
+            ),
         ),
     ] = "mermaid",
     output: Annotated[

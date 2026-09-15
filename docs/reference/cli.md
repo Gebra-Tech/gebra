@@ -70,7 +70,7 @@ Commands:
 | `verify` | Runs the registered validators over a definition and reports the result. | [`gebra verify`](#gebra-verify) |
 | `snapshot` | Records a V.S.F.E-versioned snapshot of a definition in a store. | [`gebra snapshot`](#gebra-snapshot) |
 | `diff` | Shows what moved between two definitions, and which counters that bumps. | [`gebra diff`](#gebra-diff) |
-| `display` | Emits a definition's topology as Mermaid text. | [`gebra display`](#gebra-display) |
+| `display` | Emits a definition's topology as Mermaid text, or as an HTML page that renders it. | [`gebra display`](#gebra-display) |
 | `history` | Lists the versions a store holds, oldest first. | [`gebra history`](#gebra-history) |
 
 Two application-level options sit outside the verbs:
@@ -766,20 +766,21 @@ claim about whether the difference is a problem.
 
 ```
 gebra display [TARGET] [--ir PATH | --snapshot VERSION] [--store DIR]
-              [--report PATH] [--format mermaid] [--output PATH] [--color | --no-color]
+              [--report PATH] [--format {mermaid,html}] [--output PATH] [--color | --no-color]
 ```
 
 Emits the subject's topology as Mermaid text, drawn from the IR itself, optionally overlaid
-with a run report's findings.
+with a run report's findings — or, with `--format html`, as one HTML page that carries that
+same text and renders it in a browser.
 
 | Flag | Value | Default | Meaning |
 |---|---|---|---|
 | `--ir` / `--snapshot` | see above | — | explicit mode selectors |
 | `--store` | directory | `./.gebra` | the store `--snapshot` resolves against |
 | `--report` | path | — | a `--format json` run report whose findings are painted onto the diagram |
-| `--format` | `mermaid` | `mermaid` | the only diagram format in this release |
-| `--output`, `-o` | path | stdout | write the diagram to a file |
-| `--color` / `--no-color` | — | auto-detected | governs the **diagnostics** on stderr only; the diagram is plain text on every setting |
+| `--format` | `mermaid`, `html` | `mermaid` | `mermaid` is the Mermaid text; `html` is one HTML page carrying that same text, rendered by mermaid.js when a browser opens it |
+| `--output`, `-o` | path | stdout | write the artifact to a file — where an HTML page belongs |
+| `--color` / `--no-color` | — | auto-detected | governs the **diagnostics** on stderr only; the artifact is plain text on every setting |
 | `--help`, `-h` | — | — | print usage and exit `0` |
 
 <!-- gebra:example id=displaying-a-diagram -->
@@ -849,6 +850,52 @@ unreadable, is not a run report, carries a `report_format` MAJOR this build does
 records a `graph_version` other than the displayed IR's: painting one workflow's findings onto
 another's topology would be a false statement about both. Every painted finding carries its
 claim class, exactly as the terminal renderer shows it.
+
+### An HTML page that renders the diagram
+
+Mermaid text needs a renderer before anyone can look at it. `--format html` writes one HTML
+page instead — the same text, embedded in the page, and a short script that loads mermaid.js
+from a CDN and draws it when a browser opens the file. Write it with `-o` and open the file;
+nothing else is needed on the machine, and nothing is installed by gebra. What the page
+needs is the CDN reachable at view time: it is self-contained as a document, not as an
+offline bundle, and the mermaid.js release it loads is pinned exactly.
+
+<!-- gebra:example id=displaying-an-html-page -->
+```python
+import json
+import re
+from pathlib import Path
+
+from gebra import extract
+from gebra.cli import main
+from gebra.ir import write_ir
+from tests.sample_workflows.travel_booking import build_travel_booking_agent
+
+write_ir(extract(build_travel_booking_agent()).ir, Path("agent.ir.yaml"))
+
+print("exit", main(["display", "--ir", "agent.ir.yaml", "--format", "html", "-o", "agent.html"]))
+
+page = Path("agent.html").read_text(encoding="utf-8")
+block = re.search(r'<script type="application/json" id="diagram">(.*?)</script>', page, re.S)
+diagram = json.loads(block.group(1))
+print("embedded flowchart lines:", sum(line == "flowchart TD" for line in diagram.splitlines()))
+```
+
+<!-- gebra:output id=displaying-an-html-page -->
+```text
+exit 0
+embedded flowchart lines: 1
+```
+
+The page carries the diagram twice: once as a JSON string inside a
+`<script type="application/json" id="diagram">` element — which is what the example reads
+back, and what the page's own script hands to mermaid.js — and once, HTML-escaped, inside a
+`<noscript>` block for a reader with scripts disabled. The text inside is byte for byte what
+`--format mermaid` prints for the same subject and the same `--report`, so a `[F1]` marker
+or a dispatch note reads the same on the page as in the text; the page adds no rule, no
+vertex and no paint of its own, and its title is the subject line. The exit codes are the
+same three as ever: a refused report or an unresolved subject is exit `2` with no page
+written, whichever format was asked for.
 
 ### A router with no declared targets
 
@@ -1026,7 +1073,7 @@ SARIF is a findings format, and a history has no findings.
 | `verify` | `human`, `json`, `sarif` | `human` | the run report — rendered, serialized, or projected into SARIF 2.1.0 |
 | `snapshot` | — | — | one record of what was written, or the label alone under `--quiet` |
 | `diff` | — | — | the rendered structural delta and its bump class |
-| `display` | `mermaid` | `mermaid` | Mermaid flowchart text |
+| `display` | `mermaid`, `html` | `mermaid` | Mermaid flowchart text, or one HTML page that renders it |
 | `history` | `human`, `json` | `human` | the version table, or the lineage document |
 
 A value outside a verb's set is a usage error, exit `2`, with a suggestion where one is close.
@@ -1036,8 +1083,8 @@ schema to live.
 
 ## Streams, colour and environment
 
-**stdout carries the artifact** — the run report, the Mermaid text, the history table, the
-diff rendering, the recorded label — and nothing else. **stderr carries diagnostics about the
+**stdout carries the artifact** — the run report, the Mermaid text or the HTML page carrying
+it, the history table, the diff rendering, the recorded label — and nothing else. **stderr carries diagnostics about the
 run**: extraction warnings, tool-error messages, usage errors, suggestions, progress. So
 `gebra verify --format json > report.json` writes exactly the report bytes, and a consumer
 parsing stdout never has to strip anything out of it.

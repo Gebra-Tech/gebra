@@ -55,7 +55,9 @@
    `gebra display --ir workflow.ir.yaml | mmdc -i -` is a valid pipeline. Diagnostics go to
    stderr. `--color`/`--no-color` govern the stderr diagnostics only — the diagram itself
    is plain Mermaid text on every setting (CLI-SPEC §4.4); its colors are Mermaid
-   directives (§5), not terminal escapes.
+   directives (§5), not terminal escapes. Under `gebra display --format html` (CLI-SPEC
+   §4.4; REL-05, §9) the stdout artifact is instead one HTML page that carries this text
+   unchanged, byte for byte — a wrapper around the artifact, never a second drawing.
 3. **Byte-reproducible.** Equal inputs (IR, and report when one is given) produce identical
    bytes across runs, processes and platforms. The diagram embeds **no tool version** and no
    timestamp; provenance is the subject line in the header and, on the overlay path, the
@@ -463,6 +465,30 @@ sentence describes a decision, not a capability).
   (`refuse_dynamic_edges`, `DynamicEdgeUnsupportedError`): they **stay** on that frozen export
   surface for consumers outside this package, an export removal being IR-MODELS-FREEZE §4's
   matter rather than a card's.
+- **REL-05 (`--format html`), landed 2026-09-15.** `gebra display` gains an HTML wrapper:
+  `gebra.display.render_html(ir, report=None, source=None)` (the new module
+  `gebra.display.html`, exported beside `render_mermaid`) returns one HTML5 document carrying
+  §1's artifact — the exact text `render_mermaid` produces for the same arguments, header
+  comments, drawing and style block alike — embedded as a JSON string literal (byte-exact
+  recovery, tested against every corpus emission, plain and overlaid) and again as a
+  `<noscript>` fallback, with one module script that imports mermaid.js at the exact pinned
+  release **`11.17.2`** from
+  `https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs` and renders the text
+  when a browser opens the page. **The HTML wrapper carries §1's artifact unchanged; no rule,
+  palette value, escape or id mapping moved**: a Mermaid emission is byte-identical to before
+  (the CLI-06 and CLI-11 goldens and the corpus sweep unchanged), the page's own stylesheet is
+  a layout frame that names no fill, stroke or colour, and the §4 paint rules are untouched
+  because the page never reads a finding — it hands the text to the renderer whole. The pin is
+  held to this note by `tests/docs/test_diagram_style_guide.py`: the release the emitter
+  imports is the value written here, so neither moves alone. No SRI `integrity` attribute is
+  emitted — an ES-module `import` statement carries none, the ESM entry loads chunk files an
+  entry-point hash would not cover, and the hash was not fetched at landing (the card's own
+  condition for adding one); the exact release on jsdelivr's immutable versioned path is the
+  whole of the page's dependency, and the package gains none. What "renders" claims here: a
+  browser that opens the page fetches that release at view time, so it needs the CDN
+  reachable then — the page is self-contained as a document, not as an offline bundle; this
+  guide's own parse-check (above) is unchanged, and is still not that observation. §8 is
+  untouched: PlantUML stays out.
 
 [PD-060]: the delivery-side record, in the development-process repository at
 `docs/plan/decisions/PD-060-cli-11-the-headless-router-edge-on-the-page.md`.

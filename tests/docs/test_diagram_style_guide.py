@@ -17,7 +17,8 @@ from typing import Final, get_args
 
 import pytest
 
-from gebra.display import mermaid_label, mermaid_vertex_id, render_mermaid
+from gebra.display import MERMAID_VERSION, mermaid_label, mermaid_vertex_id, render_mermaid
+from gebra.display.html import MERMAID_MODULE_URL
 from gebra.display.mermaid import _CLASS_DEFS, _LINK_STYLE, _DispatchNote
 from gebra.ir import WorkflowIR
 from gebra.ir.serialization import load_json
@@ -164,3 +165,17 @@ def test_the_guide_states_what_parse_checked_claims(guide_text: str) -> None:
     flat = " ".join(guide_text.split("## 9. Conformance")[1].split())
     assert "not the Mermaid renderer" in flat
     assert "**refuses any construct outside it**" in flat
+
+
+def test_the_s9_html_note_names_the_pinned_mermaid_release_the_wrapper_loads(
+    guide_text: str,
+) -> None:
+    """REL-05's landing note is held to the emitter's own pin: the release the page imports
+    is the one the guide records, so moving either alone fails here rather than drifting."""
+    conformance = guide_text.split("## 9. Conformance")[1]
+    assert "**REL-05" in conformance, "§9 carries no REL-05 landing note"
+    note = " ".join(conformance.split("**REL-05")[1].split())
+    assert MERMAID_MODULE_URL in note
+    assert f"`{MERMAID_VERSION}`" in note
+    assert "no rule, palette value, escape or id mapping moved" in note
+    assert "integrity" in note, "the SRI decision is unrecorded"

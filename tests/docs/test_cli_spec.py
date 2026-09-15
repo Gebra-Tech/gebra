@@ -437,6 +437,19 @@ def test_display_keeps_its_ir_only_input_surface(spec_text: str) -> None:
     assert "subject.graph_version" in display, "the overlay provenance check is unstated"
 
 
+def test_display_names_its_two_formats_and_the_wrapper_that_carries_the_text(
+    spec_text: str,
+) -> None:
+    """REL-05: the ``html`` value is in the usage line and the flag row, and §4.4 says what
+    the wrapper is — the same text, in a page that renders it — rather than a second drawing."""
+    section = _section(spec_text, "### 4.4 `gebra display`")
+    assert "[--format {mermaid,html}]" in section
+    display = _flat(section)
+    assert "`mermaid`, `html`" in display
+    assert "render_html" in display
+    assert "no rule, no vertex, no paint" in display
+
+
 def test_history_renders_pd_033s_table(spec_text: str) -> None:
     history = _flat(_section(spec_text, "### 4.5 `gebra history`"))
     assert "oldest first" in history
@@ -510,9 +523,22 @@ def test_the_format_row_matches_each_verbs_own_value_set(spec_text: str) -> None
     row = next(row for row in rows[1:] if row[0] == "`--format`")
     values = dict(zip(header[1:], row[1:]))
     assert values["verify"] == "`human`, `json`, `sarif`"
-    assert values["display"] == "`mermaid`"
+    assert values["display"] == "`mermaid`, `html`"
     assert values["history"] == "`human`, `json`"
     assert values["snapshot"] == "" and values["diff"] == ""
+
+
+def test_the_post_final_landing_notes_are_recorded_in_landing_order(spec_text: str) -> None:
+    """§7 carries one note per post-final landing (D-12-PROMOTION §6 item 3), each dated,
+    in the order the cards landed — the route the FINAL stamp prescribes, held open."""
+    obligations = _section(spec_text, "## 7. Conformance obligations")
+    positions = []
+    for card in ("VAL-14", "VAL-15", "SD-13", "CLI-11", "REL-05"):
+        marker = f"**{card} ("
+        assert marker in obligations, f"§7 carries no landing note for {card}"
+        assert "landed 2026-" in obligations[obligations.index(marker) :].split("\n")[0]
+        positions.append(obligations.index(marker))
+    assert positions == sorted(positions)
 
 
 def test_open_items_carry_an_owner(spec_text: str) -> None:

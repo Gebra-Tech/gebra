@@ -581,7 +581,19 @@ def test_the_open_core_statement_still_agrees_with_the_licensing_record() -> Non
 
 # ── Links, badges, and the pages the page is allowed to point at ─────────────────────────
 
-_LINK_RE = re.compile(r"\[[^\]]*\]\((?P<target>[^)#][^)]*)\)")
+#: A Markdown target — what `](` opens and the next `)` closes, in a link or in an image —
+#: excluding the bare `#anchor` form, which names a section rather than a file and has its own
+#: check (`test_every_anchor_link_names_a_heading`).
+#:
+#: The grammar keys on the target alone rather than on `[text](target)`, because the badge row
+#: writes an image inside a link (`[![License](…badge.svg)](LICENSE)`) and a `\[[^\]]*\]` prefix
+#: cannot span the image's own `]`: it matched the badge's image URL and never saw the link's
+#: target, so the one relative link in the badge row was invisible here (REL-02, which found it
+#: by rewriting the page for PyPI). Keyed on `](`, both targets are seen. The long-description
+#: substitutions in `pyproject.toml` use exactly this grammar with a negative lookahead for the
+#: absolute schemes, so the page's link test and the rewrite cannot disagree about what a link
+#: is — `tests/test_packaging.py` holds the two sets equal.
+_LINK_RE = re.compile(r"\]\((?P<target>[^)#][^)]*)\)")
 
 
 def _relative_links() -> list[str]:

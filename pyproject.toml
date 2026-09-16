@@ -5,7 +5,13 @@
 # hatchling emitting Metadata-Version 2.5, twine 6.1.0 and 6.2.0 both rejecting
 # it). Reproducible release builds are GOV-08's doctrine; bump deliberately,
 # together with the twine pin, when the ecosystem catches up.
-requires = ["hatchling==1.27.0"]
+#
+# `hatch-fancy-pypi-readme` is pinned by the same rule and for the same reason
+# (REL-02): it is resolved fresh by every isolated build and it decides the text
+# of the long description PyPI renders, so a floating resolution could move the
+# published page under a release with no commit saying so. It is a metadata hook,
+# not a second backend — `build-backend` stays hatchling's.
+requires = ["hatchling==1.27.0", "hatch-fancy-pypi-readme==24.1.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -17,21 +23,38 @@ name = "gebra"
 # commit that ships `0.0.2` drops it.
 version = "0.0.2.dev0"
 description = "Design-time verification and versioning for LangGraph agent workflows"
-readme = "README.md"
+# The long description is BUILT from `README.md`, not copied from it. PyPI renders the
+# README but never rewrites a relative link or image (pypa/readme_renderer#163, open), so
+# every relative target on the page — and every `#anchor` into its own sections — is dead on
+# the project page and the logo does not render. The metadata hook configured at
+# `[tool.hatch.metadata.hooks.fancy-pypi-readme]` below rewrites them to absolute GitHub
+# URLs at build time; the README in the repository is untouched.
+dynamic = ["readme"]
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 
 authors = [{ name = "Gebra Tech Inc.", email = "gebra.dev@gmail.com" }]
-keywords = ["langgraph", "langchain", "agents", "verification", "static-analysis"]
+keywords = ["langgraph", "langchain", "agents", "verification", "static-analysis", "pytest", "ci"]
+# `Development Status` is `3 - Alpha` from the Phase-0.5 polish release on (REL-02's ruling):
+# the public API surfaces are frozen documents, the tested matrix is twelve blocking CI cells,
+# and the package is published — more than "pre-alpha" says, and less than the stable API a
+# `4 - Beta` implies. `Framework :: Pytest` is the `pytest11` plugin the distribution ships;
+# the `Topic ::` lines are what a reader browsing PyPI by subject would look under. The
+# `Programming Language` lines stay the declared ceiling: `tests/docs/test_readme.py` derives
+# the Python range in the README's install prose from them.
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -78,6 +101,9 @@ gebra = "gebra.cli:main"
 [project.urls]
 Homepage = "https://github.com/Gebra-Tech/gebra"
 Repository = "https://github.com/Gebra-Tech/gebra"
+# The sidebar link a reader reaches for when something is wrong. `Documentation` joins them
+# when the site is served (REL-03) — a project URL naming a page that 404s is worse than none.
+Issues = "https://github.com/Gebra-Tech/gebra/issues"
 Changelog = "https://github.com/Gebra-Tech/gebra/blob/main/CHANGELOG.md"
 
 [project.entry-points.pytest11]
@@ -211,10 +237,54 @@ include = [
     # pages carry, so an sdist without them would collect tests it cannot answer.
     "/docs",
     "/mkdocs.yml",
+    # The long description is built from `README.md` by the metadata hook below, and a wheel
+    # built from the sdist — which is what `uv build` does on its second leg, and what an
+    # index-side build of the sdist does — reads the fragment out of the sdist. A static
+    # `readme =` was carried here by hatchling on its own; a `dynamic` one is not, so the
+    # explicit list has to name it or the build fails with the file missing.
+    "/README.md",
     "/CHANGELOG.md",
     "/CONTRIBUTING.md",
+    # The agreement every contribution needs signed first, linked from both the README and
+    # CONTRIBUTING.md: an sdist reader following either link should find the file beside them.
+    "/CLA.md",
     "/NOTICE",
 ]
+
+# ── The long description PyPI renders (hatch-fancy-pypi-readme; REL-02) ──
+# PyPI serves the long description as-is and rewrites nothing, so a relative link or image
+# that resolves on GitHub is a dead link on the project page. The hook reads `README.md` at
+# build time and applies these substitutions **in order** — `re.sub` with no flags. Rule 2
+# reads a target with exactly the grammar `tests/docs/test_readme.py`'s `_LINK_RE` reads one
+# with, so the page's own link test and this rewrite cannot disagree about what a link is.
+# `https://`, `http://` and `mailto:` targets are left alone by all three.
+# `tests/test_packaging.py` applies these three entries — read from this file, never a copy —
+# to `README.md` and holds the result to: no relative target survives, every rewritten path is
+# in the tree, and the logo resolves to the raw host.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+fragments = [{ path = "README.md" }]
+
+# 1. Images first, and to the raw host: `…/blob/main/x.png` serves an HTML page, not an
+#    image. Doing images first is what lets rule 2 stay simple — an image is a link too, and
+#    by the time rule 2 runs this one's target is already absolute, so rule 2 skips it.
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '!\[([^\]]*)\]\((?!https?://|mailto:|#)([^)]+)\)'
+replacement = '![\g<1>](https://raw.githubusercontent.com/Gebra-Tech/gebra/main/\g<2>)'
+
+# 2. Every remaining relative target → the same path on the default branch. Keyed on `](`
+#    rather than on `[text](target)`, exactly as `_LINK_RE` is: the badge row writes an image
+#    inside a link, and a `[text]` prefix cannot span the image's own `]`. GitHub redirects
+#    `/blob/main/<dir>` to the tree view, so the two directory links resolve as well.
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\((?!https?://|mailto:|#)([^)]+)\)'
+replacement = '](https://github.com/Gebra-Tech/gebra/blob/main/\g<1>)'
+
+# 3. Bare `#anchor` links point into the README's own sections; on PyPI they resolve to
+#    nothing, so they land on the repository page, whose headings carry the same slugs.
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\(#([^)]+)\)'
+replacement = '](https://github.com/Gebra-Tech/gebra#\g<1>)'
 
 [tool.ruff]
 line-length = 100

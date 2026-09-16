@@ -65,6 +65,16 @@ hatchling into `dist/`. There is no `setup.py`, `setup.cfg`, or `MANIFEST.in`,
 and no `*.egg-info` directory should ever appear in the tree — if one does, an
 old setuptools-based build ran; delete it.
 
+**If you edit the README.** The long description the package carries is *built*
+from `README.md` rather than copied from it: PyPI rewrites nothing in what it is
+given, so a metadata hook (`hatch-fancy-pypi-readme`, configured in
+`pyproject.toml`) turns every relative link and image into an absolute
+`github.com` or `raw.githubusercontent.com` URL at build time, and every bare
+`#anchor` into the matching anchor on the repository page. Write the README with
+ordinary relative links; `tests/test_packaging.py` applies the substitutions to
+the page and fails if one of them would be left relative, or if a rewritten path
+is not in the tree.
+
 ## Commit messages
 
 This repository uses [Conventional Commits](https://www.conventionalcommits.org/):

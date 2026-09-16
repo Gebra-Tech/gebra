@@ -353,6 +353,18 @@ jobs:
         run: |
           python -m zipfile -l dist/*.whl
           python -m zipfile -l dist/*.whl | grep -q 'gebra/py.typed'
+      # REL-02: the long description PyPI renders is built from `README.md` by a metadata
+      # hook, so a wheel built from the sdist — the index-side build, and `uv build`'s own
+      # second leg — needs the fragment inside it; and the page links `CLA.md`, the agreement
+      # a contribution needs signed first. `tests/test_packaging.py` holds the include list;
+      # this holds the archive the list produced. The patterns are anchored at the archive
+      # root on purpose: four `README.md` files ship under `tests/`, and an unanchored match
+      # would pass with the one that matters missing.
+      - name: Check the sdist carries the README and the CLA
+        run: |
+          tar tzf dist/*.tar.gz
+          tar tzf dist/*.tar.gz | grep -qE '^[^/]+/README\.md$'
+          tar tzf dist/*.tar.gz | grep -qE '^[^/]+/CLA\.md$'
       - name: Install the built wheel into a clean environment
         run: |
           python -m venv /tmp/wheelcheck

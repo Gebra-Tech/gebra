@@ -78,6 +78,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The project page on the index carries a README whose links resolve** (card REL-02;
+  `pyproject.toml`, and with it the long description every built distribution carries). PyPI
+  renders the README and rewrites nothing in it (pypa/readme_renderer#163, open), so all
+  forty-four of the page's relative links, its three `#anchor` links into its own sections and
+  the logo were dead on the project page while resolving perfectly on GitHub. The long
+  description is now **built** from `README.md` at package-build time by
+  `hatch-fancy-pypi-readme` — pinned `==24.1.0` by the same rule that pins the backend: an
+  isolated build resolves it fresh and it decides what the published page says, so a floating
+  resolution could move that page under a release with no commit saying so. Three substitutions
+  run in order: images to `raw.githubusercontent.com`, then every remaining relative target to
+  `github.com/Gebra-Tech/gebra/blob/main/…`, then each bare `#anchor` to the repository page
+  plus that anchor. The README in the repository is untouched — write relative links as before.
+  The rewrite reads a link with exactly the grammar the page's own link test reads one with, so
+  neither can see a link the other misses; `tests/test_packaging.py` applies the substitutions
+  it reads out of `pyproject.toml` and holds the two lists equal, every rewritten path to a path
+  in the tree, and the logo to the raw host. The source distribution gains `README.md` — the
+  fragment a wheel built from the sdist needs — and `CLA.md`, the agreement both the README and
+  `CONTRIBUTING.md` link, beside the `CONTRIBUTING.md`, `CHANGELOG.md`, `LICENSE` and `NOTICE`
+  it already carried. The distribution metadata gains an `Issues` URL, the `Framework :: Pytest`
+  classifier for the plugin it ships, three `Topic :: Software Development ::` classifiers, the
+  `pytest` and `ci` keywords, and moves `Development Status` from `2 - Pre-Alpha` to
+  `3 - Alpha`: the public API surfaces are frozen documents, the tested matrix is twelve
+  blocking CI cells, and the package is published. A `Documentation` URL waits for a site that
+  serves. No version literal, no dependency, and nothing under `src/` moved.
 - **The README opens for a first-time visitor: the logo, a live badge row, "Start here" and
   "Where gebra fits"** (card REL-01; `README.md` is also the long description the package
   carries). The page now leads with the project logo (`docs/assets/gebra-logo.png`, a

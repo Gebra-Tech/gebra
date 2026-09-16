@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The documentation site is served at <https://gebra-tech.github.io/gebra/>** (card REL-03;
+  `pyproject.toml` gains a `Documentation` project URL, so this reaches the index page too).
+  All twenty pages were written and CI built them with `mkdocs build --strict` on every push,
+  and nothing published the result — PD-051 ruling 6 recorded GitHub Pages as the destination
+  and wired no publish step, so reading a page meant cloning the repository. A workflow of its
+  own, `.github/workflows/docs-pages.yml`, now runs that same build on `main` and deploys what
+  it writes to GitHub Pages. It is the `docs` job's own build command and the toolchain pinned
+  in `docs/requirements.txt` — read out of those files by `tests/test_docs_pages_wiring.py`
+  rather than restated, so the two cannot drift — run again on the same commit rather than
+  handed over as an artifact; what is uploaded is `mkdocs.yml`'s `site_dir`. The deployment reads no secret — the `github-pages` environment mints an identity
+  token for it, the credential-free posture the release workflow takes to PyPI — and it runs
+  only on the public repository. The README's status row, its `## Documentation` lead and the
+  site's own home page say where the pages are served instead of saying they are read in the
+  repository; the pages themselves are unchanged and still ship in the source distribution.
 - **`gebra display --format html`: one HTML page that renders the diagram** (card REL-05;
   `gebra.display.render_html`, the new module `gebra.display.html`, `gebra display`). `gebra
   display` emitted Mermaid text only, which a reader cannot look at without a renderer. The new
@@ -100,8 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   classifier for the plugin it ships, three `Topic :: Software Development ::` classifiers, the
   `pytest` and `ci` keywords, and moves `Development Status` from `2 - Pre-Alpha` to
   `3 - Alpha`: the public API surfaces are frozen documents, the tested matrix is twelve
-  blocking CI cells, and the package is published. A `Documentation` URL waits for a site that
-  serves. No version literal, no dependency, and nothing under `src/` moved.
+  blocking CI cells, and the package is published. A `Documentation` URL waited for a site that
+  serves, and joined them one card later (REL-03, above). No version literal, no dependency, and
+  nothing under `src/` moved.
 - **The README opens for a first-time visitor: the logo, a live badge row, "Start here" and
   "Where gebra fits"** (card REL-01; `README.md` is also the long description the package
   carries). The page now leads with the project logo (`docs/assets/gebra-logo.png`, a

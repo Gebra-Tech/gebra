@@ -88,7 +88,7 @@ covered by its tests.
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md) |
 | Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached — see [the CLI reference](docs/reference/cli.md) |
-| Published documentation site | in development | all twenty pages are written — no placeholder is left — and CI builds the site with `mkdocs build --strict` on every push; nothing deploys it, so it is read here in the repository |
+| Published documentation site | available | all twenty pages are written — no placeholder is left — and served at [gebra-tech.github.io/gebra](https://gebra-tech.github.io/gebra/); CI builds the site with `mkdocs build --strict` on every push, and on `main` [`docs-pages.yml`](.github/workflows/docs-pages.yml) runs that same command and deploys what it writes |
 | Installation from a package index | available | `pip install gebra` — the [`gebra` project on PyPI](https://pypi.org/project/gebra/); see [Install](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -327,8 +327,10 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-All twenty pages of the documentation site are written; nothing publishes them yet, so they are
-read here in the repository. Those, and the repository documents worth reading beside them:
+All twenty pages of the documentation site are written, and the site is served at
+<https://gebra-tech.github.io/gebra/> — built from this repository by `mkdocs build --strict`
+and deployed from `main`. The links below go to the same pages in this repository. Those, and
+the repository documents worth reading beside them:
 
 - [What gebra checks](docs/concepts/what-gebra-checks.md) — claim classes, the severity ladder,
   exit codes, strict mode, and what a finding does and does not claim.

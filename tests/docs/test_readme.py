@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+import yaml
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -171,29 +172,46 @@ def _the_five_verbs_are_registered() -> None:
     assert registered == {"verify", "snapshot", "diff", "display", "history"}
 
 
-#: How a workflow would publish the site. Any of these appearing in `.github/workflows/` means
-#: a deployment exists, which is the half of "published" this repository does not do.
+#: How a workflow publishes the site. Any of these appearing in `.github/workflows/` means a
+#: deployment exists — the half of "published" that a build alone never supplies.
 _PUBLISH_MARKERS = re.compile(
     r"gh-pages|actions/deploy-pages|actions/upload-pages-artifact|gh-deploy|actions-gh-pages"
 )
 
+#: Where the site is served. PD-051 ruling 6 named this address before anything served it,
+#: and `mkdocs.yml` has recorded it as `site_url` ever since; REL-03 made it resolve.
+SITE_URL = "https://gebra-tech.github.io/gebra/"
 
-def _the_site_is_built_but_not_published() -> None:
-    """The row says `in development`, and after DOC-19 the reason changed rather than expired.
+#: The workflow that deploys it. One file, so that "what is served" has one answer.
+DEPLOY_WORKFLOW = "docs-pages.yml"
 
-    While reserved pages remained, what made the row honest was the skeleton. DOC-19 wrote the
-    last of them, so the honest half is now the other one: the `docs` job builds the site under
-    `mkdocs build --strict` on every push and *deploys nothing*. PD-051 ruling 6 recorded
-    GitHub Pages as the destination and wired no publish step, and none has been wired since.
-    When one is, this fails — which is the prompt to revisit the row, not a licence to have
-    called it `available` early.
+
+def _the_site_is_published() -> None:
+    """The row says `available`, and what makes it so is a deployment rather than a build.
+
+    Until REL-03 this was `_the_site_is_built_but_not_published` and it asserted the opposite:
+    no workflow in the tree matched `_PUBLISH_MARKERS`, because PD-051 ruling 6 recorded
+    GitHub Pages as the destination and wired no publish step. Its last sentence said that
+    wiring one would fail here, and that the failure was the prompt to revisit this row rather
+    than a licence to have called it `available` early. This is that revisit.
+
+    Both halves are checked, because either alone is a half-claim. Exactly one workflow
+    deploys — two would leave a reader's page depending on which ran last — and it is
+    `docs-pages.yml`, whose shape `tests/test_docs_pages_wiring.py` holds. And the address the
+    page sends a reader to is the one the build declares as `site_url`, so the site's own
+    canonical links and the README cannot come apart.
     """
     deploying = [
         path.name
-        for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
+        # `.yaml` as well as `.yml`: GitHub reads both, so a second deployment could be added
+        # under the spelling this glob did not look at and "exactly one" would still pass.
+        for path in sorted((REPO_ROOT / ".github" / "workflows").glob("*.y*ml"))
         if _PUBLISH_MARKERS.search(path.read_text(encoding="utf-8"))
     ]
-    assert deploying == [], deploying
+    assert deploying == [DEPLOY_WORKFLOW], deploying
+
+    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text(encoding="utf-8"))
+    assert config["site_url"] == SITE_URL
 
 
 def _released_versions() -> list[tuple[int, int, int]]:
@@ -316,19 +334,16 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
     ),
     RowSpec(
         capability="Published documentation site",
-        status=IN_DEVELOPMENT,
-        probe=_the_site_is_built_but_not_published,
-        # DOC-19 wrote the last reserved page, which is the revisit the previous card list
-        # said was coming rather than another extension of it. The row cites no card now, and
-        # that is the correction: what keeps it out of `available` was never how many pages
-        # were written, it is that nothing publishes them. Every DOC card is `done` and the
-        # site still is not published, so a card list here could only ever read as stale —
-        # `test_no_row_stays_behind_the_boards` was right about the old one.
-        reason=(
-            "PD-051 ruling 6 recorded GitHub Pages as the destination and wired no publish "
-            "step; GOV-03 landed the release workflow without one, so no card in the plan "
-            "deploys the site, and the repository's public flip is the owner-run M14 step"
-        ),
+        status=AVAILABLE,
+        probe=_the_site_is_published,
+        # The deployment is the card — the publish step PD-051 ruling 6 named a destination
+        # for and left unwired. The Pages source it deploys into is a repository setting,
+        # made by the owner (MANUAL-STEPS M24) and confirmed before this row cited the card.
+        # Like the index row below, the row turned `available` with the commit that arms the
+        # first deployment rather than with the deployment itself; the mirror's first
+        # `docs-pages.yml` run and a 200 on `SITE_URL` are recorded against the card as its
+        # confirming observations.
+        cards=("REL-03",),
     ),
     RowSpec(
         capability="Installation from a package index",
@@ -454,6 +469,50 @@ def test_no_row_stays_behind_the_boards() -> None:
         and all(statuses[card] == "done" for card in spec.cards)
     ]
     assert stale == []
+
+
+# ── The documentation site: one address, said in each of the three places ────────────────
+
+
+def _docs_site_note() -> str:
+    """The third cell of the status row for the documentation site."""
+    rows = _table_rows(_readme(), STATUS_TABLE_HEADER)
+    [note] = [row[2] for row in rows if row[0] == "Published documentation site"]
+    return note
+
+
+def test_the_docs_site_row_names_the_address_and_what_puts_the_site_there() -> None:
+    """A status cell reading `available` is a claim; the note is where it is made checkable.
+
+    Both halves are named because a reader can act on each: the address is where the pages
+    are, and the workflow is what a contributor looks at to see when a change to them
+    arrives there.
+    """
+    note = _unwrapped(_docs_site_note())
+
+    assert SITE_URL in note
+    assert DEPLOY_WORKFLOW in note
+
+
+def test_no_sentence_still_sends_a_reader_to_the_repository_for_the_pages() -> None:
+    """The three places that said the site was unpublished now say where it is served.
+
+    Before REL-03 each of these said, in its own words, that nothing deployed the pages and
+    they were read in the repository. They were true then and would be false now, and they
+    are the sentences a reader acts on, so they are held together rather than one at a time.
+    """
+    documentation = _unwrapped(_section("Documentation"))
+    home = _unwrapped((DOCS / "index.md").read_text(encoding="utf-8"))
+
+    for text, where in ((documentation, "README `## Documentation`"), (home, "docs/index.md")):
+        assert SITE_URL in text, where
+        assert "nothing publishes them" not in text, where
+        assert "not deployed anywhere yet" not in text, where
+        assert "read here in the repository" not in text, where
+
+    # The pages themselves are still in the tree and still linked from here; what changed is
+    # that the repository is no longer the *only* place to read them.
+    assert "docs/concepts/what-gebra-checks.md" in documentation
 
 
 # ── The install instructions: the index route first, the checkout route kept ─────────────

@@ -101,8 +101,11 @@ gebra = "gebra.cli:main"
 [project.urls]
 Homepage = "https://github.com/Gebra-Tech/gebra"
 Repository = "https://github.com/Gebra-Tech/gebra"
-# The sidebar link a reader reaches for when something is wrong. `Documentation` joins them
-# when the site is served (REL-03) — a project URL naming a page that 404s is worse than none.
+# Added at REL-03, when `.github/workflows/docs-pages.yml` made the address resolve: a
+# project URL naming a page that 404s is worse than none, which is why this line waited for
+# the deployment rather than for the pages (all twenty were written well before it).
+Documentation = "https://gebra-tech.github.io/gebra/"
+# The sidebar link a reader reaches for when something is wrong.
 Issues = "https://github.com/Gebra-Tech/gebra/issues"
 Changelog = "https://github.com/Gebra-Tech/gebra/blob/main/CHANGELOG.md"
 

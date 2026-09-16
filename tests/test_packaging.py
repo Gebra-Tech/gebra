@@ -57,6 +57,11 @@ REPOSITORY_PAGE = "https://github.com/Gebra-Tech/gebra"
 BLOB_PREFIX = f"{REPOSITORY_PAGE}/blob/main/"
 RAW_PREFIX = "https://raw.githubusercontent.com/Gebra-Tech/gebra/main/"
 
+#: Where the documentation site is served (REL-03). `mkdocs.yml` declares it as `site_url`
+#: and `tests/docs/test_readme.py` holds the two to one address; here it is what the
+#: project's own metadata sends a reader on PyPI to.
+DOCUMENTATION_SITE = "https://gebra-tech.github.io/gebra/"
+
 #: The schemes a target may already carry; the substitutions leave these alone.
 ABSOLUTE_SCHEMES = ("https://", "http://", "mailto:")
 
@@ -346,13 +351,22 @@ def test_the_project_metadata_names_its_tracker_its_audience_and_its_maturity(
     the tested matrix is twelve blocking CI cells and the package is published — more than
     ``2 - Pre-Alpha`` says, and less than the stable API a ``4 - Beta`` would imply. The
     ``Framework`` and ``Topic`` lines are what a reader browsing PyPI by subject looks
-    under. ``Documentation`` is deliberately absent until the site serves (REL-03): a
-    project URL naming a page that 404s is worse than no URL.
+    under. ``Documentation`` joined them at REL-03 and not before: it was absent while the
+    site was built and unpublished, because a project URL naming a page that 404s is worse
+    than no URL. The set is asserted, not just its members, so a fifth link cannot arrive
+    without a reader of this test deciding it should.
     """
     project = pyproject["project"]
 
     assert project["urls"]["Issues"] == f"{REPOSITORY_PAGE}/issues"
-    assert set(project["urls"]) == {"Homepage", "Repository", "Issues", "Changelog"}
+    assert project["urls"]["Documentation"] == DOCUMENTATION_SITE
+    assert set(project["urls"]) == {
+        "Homepage",
+        "Repository",
+        "Documentation",
+        "Issues",
+        "Changelog",
+    }
 
     classifiers = project["classifiers"]
     assert [line for line in classifiers if line.startswith("Development Status ::")] == [

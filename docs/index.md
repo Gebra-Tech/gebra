@@ -29,7 +29,10 @@ example harness landed first, so that a page's examples were executed and checke
 appeared rather than from the day someone got round to it.
 
 The site itself is built by CI on every push (`mkdocs build --strict`, where a warning is a
-failure) and is not deployed anywhere yet, so these pages are read in the repository.
+failure) and served from GitHub Pages at <https://gebra-tech.github.io/gebra/>, deployed from
+`main` by `.github/workflows/docs-pages.yml` — which runs that same command, on that same
+commit, and uploads what it writes rather than discarding it. The pages are also in the
+repository, under `docs/`, beside the code they describe.
 
 The pages, in the order they were written:
 

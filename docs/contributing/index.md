@@ -584,6 +584,14 @@ told you about:
 | `docs` | a documentation example whose output is not what the page shows, or a site build warning |
 | `test-matrix` | a failure on any of the twelve tested Python and substrate pairings |
 
+The site that `docs` gates is the site that gets served: a separate workflow,
+`.github/workflows/docs-pages.yml`, runs the same `mkdocs build --strict` on every push to
+`main` of the public repository and deploys that build to
+<https://gebra-tech.github.io/gebra/>. It is a workflow of its own rather than another job in
+`ci.yml` because a deployment needs write permission on Pages and an identity token, which no
+gate above needs, and because it runs on one branch where those run on every push and every
+pull request.
+
 **The honest-claims lint deserves a sentence of its own**, because it surprises people. This
 project draws a hard line between what it checks and what it does not. It reads a workflow
 *definition* and reports what that definition — its structure and its declared annotations —

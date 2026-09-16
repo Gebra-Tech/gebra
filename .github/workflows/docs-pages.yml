@@ -1,0 +1,87 @@
+# The documentation site's deployment (card REL-03; destination ruled by PD-051 ruling 6).
+#
+# `ci.yml`'s `docs` job builds the site with `mkdocs build --strict` on every push and then
+# deploys nothing: ruling 6 recorded GitHub Pages as the destination and wired no publish
+# step, so every page was written and nobody could read one without cloning. This workflow
+# is that step, and it is a file of its own rather than another job in `ci.yml` for three
+# reasons: a deployment needs `pages: write` and `id-token: write`, which no CI job should
+# carry; it runs on one branch of one repository, where CI runs on every push and every
+# pull request; and the contributor guide counts `ci.yml`'s jobs, so a deployment folded in
+# there would move a number that describes the quality gates.
+#
+# Two properties keep it safe in a tree that is developed privately and mirrored to the
+# public repository (PD-050):
+#
+#   * the job runs only on `Gebra-Tech/gebra`, so the development repository carries this
+#     file — the two trees are byte-identical by design — and never deploys from it; and
+#   * no step reads a secret. The deployment is authorized by the OIDC token the
+#     `github-pages` environment mints for `actions/deploy-pages`, the same credential-free
+#     posture `release.yml` takes to PyPI (PD-036). There is nothing stored here to leak.
+#
+# What gets served is built by the gate's own command — not copied out of the gate's run.
+# This job runs `mkdocs build --strict` again, on the same commit and with the same pinned
+# toolchain, and uploads what that writes; there is no artifact handover between the two.
+# The command and the uploaded directory are read out of `ci.yml` and `mkdocs.yml` by
+# `tests/test_docs_pages_wiring.py` rather than restated here, so the two cannot drift.
+# What this job does *not* re-run is the `docs` job's example harness: a page whose example
+# output has drifted is caught there, on the same push, and never here.
+#
+# Actions are pinned to major tags, the way `ci.yml` pins them; `release.yml`'s publish
+# action is SHA-pinned because the credential it mints acts on a package the world
+# installs, where the token exchanged below acts on this repository's own Pages site.
+# The Pages majors were read on 2026-09-16: `configure-pages` v6, `upload-pages-artifact`
+# v5, `deploy-pages` v5.
+#
+# One-time owner setup, and the reason this workflow cannot do it: Settings -> Pages ->
+# Build and deployment -> Source must be "GitHub Actions". `actions/configure-pages` keeps
+# its default `enablement: false`, so no run can turn Pages on or change how the site is
+# built — that stays a decision someone makes in the repository's settings.
+name: Docs site
+
+on:
+  push:
+    branches: [main]
+  # The one-click run: a re-deploy after the source switch, or after an infrastructure
+  # failure, without an empty commit to trigger it.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and the one in flight finishes (the default is not to cancel):
+# an interrupted Pages deployment can leave the site on a half-uploaded artifact.
+concurrency: pages
+
+jobs:
+  deploy:
+    # The public mirror serves the site; the development repository never deploys.
+    if: github.repository == 'Gebra-Tech/gebra'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # The `docs` job's own toolchain line: the generator is pinned in
+      # `docs/requirements.txt` and resolved under the freeze-time constraints, so the
+      # site that is served is built by the mkdocs the gate ran (PD-051 ruling 4). The
+      # package is deliberately not installed — `mkdocs build` renders Markdown and
+      # imports nothing from `gebra`. The pages' examples are executed by the `docs` job,
+      # which is where that claim is checked; this job publishes, it does not re-check.
+      - name: Install the documentation toolchain
+        run: pip install -r docs/requirements.txt -c tools/matrix-constraints.txt
+      - name: The documentation site builds with warnings as errors
+        run: mkdocs build --strict
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          # `mkdocs.yml`'s `site_dir`. The action's own default is `_site/`, so this line
+          # is what makes the artifact the directory the build above actually wrote.
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5

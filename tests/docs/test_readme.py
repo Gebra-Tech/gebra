@@ -7,12 +7,21 @@ beside this one — a reconciliation against the cards that produce it, in both 
 a row cannot go stale in either. The **install instructions** lead with the index route once
 a release is recorded: PD-036 put the first publish at the launch step, the release gate ships
 a final tag only with its dated changelog section (GOV-03), and GOV-14 recorded `0.0.1` that
-way — so the page says `pip install gebra`, names the PyPI project, keeps the checkout route
-below, and reads no live index. And the **open-core statement** must be present and must
-still agree with the licensing record.
+way — so the page says `pip install gebra`, names the PyPI project, and keeps the checkout
+route below. And the **open-core statement** must be present and must still agree with the
+licensing record.
 
-Everything here reads text and imports the package. It builds no workflow, runs no node and
-opens no connection (WA-07).
+Card REL-01 restructured the page for a first-time visitor and added what that costs in
+tests: the logo is the first line and a byte copy of the staged artwork; the badge row reads
+the index (the pre-release ban on live badges is lifted here, with its reason — see
+`test_every_live_badge_names_this_project`); the Python range the badge carried is held in
+the install prose instead; "Start here" addresses three audiences with links that resolve;
+"Where gebra fits" carries the ratified relation to the tools beside gebra (PD-061 ruling
+(c)), held to the ruling's own text where that record is checked out; and the tagline is one
+string with `pyproject.toml`'s description and `gebra --help`.
+
+Everything here reads files and calls the package over inline data. It builds no workflow,
+runs no node and opens no connection (WA-07).
 """
 
 from __future__ import annotations
@@ -64,6 +73,13 @@ requires_companion = pytest.mark.skipif(
 
 def _readme() -> str:
     return README.read_text(encoding="utf-8")
+
+
+def _section(heading: str) -> str:
+    """The text of one `## heading` section, from its heading line to the next `## ` line."""
+    text = _readme()
+    section = text[text.index(f"\n## {heading}\n") :]
+    return section[: section.index("\n## ", 1)]
 
 
 def _declared_version() -> str:
@@ -445,12 +461,9 @@ def test_no_row_stays_behind_the_boards() -> None:
 
 def _install_commands() -> list[str]:
     """Every command line in the fenced blocks of the `## Install` section."""
-    text = _readme()
-    section = text[text.index("\n## Install\n") :]
-    section = section[: section.index("\n## ", 1)]
     commands: list[str] = []
     inside = False
-    for line in section.splitlines():
+    for line in _section("Install").splitlines():
         if line.startswith("```"):
             inside = not inside
             continue
@@ -484,16 +497,38 @@ def test_the_readme_names_the_pypi_project_and_no_other_index_page() -> None:
     assert "pypi.org" not in text.replace("https://pypi.org/project/gebra/", "")
 
 
-def test_no_badge_reads_a_live_index() -> None:
-    """The version badge is copy — a literal the release commit sets — never a live lookup.
+#: A live badge: one `img.shields.io/pypi/<kind>/<project>` image and the page it links to.
+_LIVE_BADGE_RE = re.compile(
+    r"\[!\[(?P<alt>[^\]]*)\]\(https://img\.shields\.io/pypi/(?P<kind>[a-z]+)/(?P<project>[^)]+)\)\]"
+    r"\((?P<link>[^)]+)\)"
+)
 
-    A badge that queries the index (`shields.io/pypi/…`) or a download counter would say
-    something this repository cannot hold to; the owner's ruling at the release cut was to
-    say nothing beyond the install command and the version (GOV-14).
+
+def test_every_live_badge_names_this_project() -> None:
+    """A badge that reads the index says what the index serves — for this project, and no other.
+
+    Until the launch this test was `test_no_badge_reads_a_live_index`, and it held the other
+    way round: no badge could query `shields.io/pypi/…` or a download counter, because
+    nothing was published yet and a live lookup would have rendered "not found" above an
+    install route the page did not show (GOV-14 box 3; GOV-15 kept the static badge on the
+    released number when `main` moved to a `.devN`). That was the pre-release posture, and
+    its reason expired with the release: the index serves the package, so a live badge
+    reports a fact this repository can hold to — the version `pip install gebra` delivers,
+    the Pythons the published classifiers declare, the download count — without a literal a
+    release commit has to remember to move (REL-01). What survives of the ban is what it was
+    for: every live badge is about *this* project, reads the one index PD-036 named, and
+    links to the one PyPI page the README names.
     """
     text = _readme()
+    badges = list(_LIVE_BADGE_RE.finditer(text))
 
-    assert "shields.io/pypi" not in text
+    assert [badge.group("kind") for badge in badges] == ["v", "pyversions", "dm"]
+    for badge in badges:
+        assert badge.group("project") == "gebra", badge.group(0)
+        assert badge.group("link") == "https://pypi.org/project/gebra/", badge.group(0)
+    # Every index-reading image on the page is one of those: nothing reads the index unlinked
+    # to the project page, and nothing reads it through a second service.
+    assert text.count("img.shields.io/pypi/") == len(badges)
     assert "pepy.tech" not in text
 
 
@@ -520,9 +555,7 @@ def _unwrapped(text: str) -> str:
 
 
 def _open_core_section() -> str:
-    text = _readme()
-    section = text[text.index("\n## Open core\n") :]
-    return section[: section.index("\n## ", 1)]
+    return _section("Open core")
 
 
 @pytest.mark.parametrize(("clause", "wording"), OPEN_CORE_CLAUSES, ids=lambda value: value[:24])
@@ -577,27 +610,28 @@ def test_no_link_points_at_a_page_that_documents_nothing() -> None:
     assert promises == []
 
 
-def test_the_release_badge_carries_the_newest_recorded_release() -> None:
-    """A badge is copy too: a stale version in it is a stale claim about what this is.
+def test_the_version_badge_reads_the_index() -> None:
+    """The version above `pip install gebra` is the index's own, never a literal.
 
-    The badge is a static one whose message is a version verbatim (canonical PEP 440 spellings
-    carry no `-`, the one character the badge grammar would escape). Which version is GOV-15's
-    call: once development re-opens on a `.devN`, the declared version and the installable one
-    are two different numbers, and a badge sitting above `pip install gebra` says the one that
-    command delivers — the newest release the changelog records. The declared version is not
-    unclaimed, it is claimed in prose one section down, where there is room to say which is
-    which (`test_the_status_paragraph_names_both_versions`).
+    GOV-14 set a static `badge/release-0.0.1` and GOV-15 kept it on the released number while
+    `main` moved on to a `.devN` — copy that every release commit had to remember to move.
+    The live badge shows what the index serves when the page is read, which is the number the
+    install command below it delivers; the declared version is still claimed in prose one
+    section down, where there is room to say which is which
+    (`test_the_status_paragraph_names_both_versions`), and the status paragraph says the
+    badge reads the index rather than repeating a number of its own.
     """
-    major, minor, patch = max(_released_versions())
+    text = _readme()
 
-    assert f"https://img.shields.io/badge/release-{major}.{minor}.{patch}-" in _readme()
-    assert "badge/version-" not in _readme(), "the badge's label no longer says which version"
+    assert "[![PyPI](https://img.shields.io/pypi/v/gebra)](https://pypi.org/project/gebra/)" in text
+    assert "badge/release-" not in text
+    assert "badge/version-" not in text
+    assert "reads the index" in _unwrapped(_status_paragraph())
 
 
 def _status_paragraph() -> str:
     """The prose between the `## Status` heading and the table it introduces."""
-    text = _readme()
-    section = text[text.index("\n## Status\n") :]
+    section = _section("Status")
     return section[: section.index(STATUS_TABLE_HEADER)]
 
 
@@ -617,7 +651,15 @@ def test_the_status_paragraph_names_both_versions() -> None:
     assert "pip install gebra" in paragraph
 
 
-def test_the_python_badge_matches_the_declared_floor() -> None:
+def test_the_install_prose_names_the_declared_python_range() -> None:
+    """`Python 3.10–3.13` is prose now, held to the floor and ceiling the badge used to carry.
+
+    The static Python badge spelled the range as an escaped literal and this test held it to
+    `pyproject.toml`. The live `pyversions` badge reads the *published* classifiers, which say
+    nothing about the tree you have — so the sentence in the Install section is what carries
+    the range for this checkout, and it is held to `requires-python` and the `Programming
+    Language` classifiers by the same computation.
+    """
     with PYPROJECT.open("rb") as handle:
         project = tomllib.load(handle)["project"]
     floor = project["requires-python"].lstrip(">=")
@@ -627,4 +669,169 @@ def test_the_python_badge_matches_the_declared_floor() -> None:
         if classifier.startswith("Programming Language :: Python :: 3.")
     )
 
-    assert f"python-{floor}%20%E2%80%93%20{ceiling}-blue" in _readme()
+    assert f"Python {floor}–{ceiling}" in _unwrapped(_section("Install"))
+    assert "badge/python-" not in _readme()
+
+
+# ── The front matter a first-time visitor meets: logo, tagline, Start here, Where gebra fits ─
+
+LOGO = DOCS / "assets" / "gebra-logo.png"
+STAGED_LOGO = COMPANION / "docs" / "setups" / "assets" / "gebra-logo.png"
+_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def test_the_logo_leads_the_page_as_a_markdown_image() -> None:
+    """The first line is the logo — a Markdown image, never an HTML tag.
+
+    A Markdown image is a link `_LINK_RE` sees, so `test_every_relative_link_resolves` covers
+    it, and it is what the long-description substitutions rewrite into an absolute URL for
+    the index page; an `<img>` tag would be invisible to both.
+    """
+    text = _readme()
+
+    assert text.splitlines()[0] == "![gebra](docs/assets/gebra-logo.png)"
+    assert "<img" not in text
+    assert LOGO.read_bytes().startswith(_PNG_SIGNATURE)
+
+
+@requires_companion
+def test_the_logo_is_the_staged_artwork_byte_for_byte() -> None:
+    """The artwork is staged beside the plan and copied here unchanged; neither moves alone."""
+    assert LOGO.read_bytes() == STAGED_LOGO.read_bytes()
+
+
+def test_the_tagline_is_the_ruled_product_line_everywhere() -> None:
+    """One string in three places: the tagline, `pyproject.toml`'s description, `gebra --help`.
+
+    PD-061 ruled the product line and found that nothing held copy and code to it; this is
+    that pin. The CLI reference's executed help transcript holds the fourth copy.
+    """
+    from gebra.cli.app import app
+
+    lines = _readme().splitlines()
+    tagline = next(line for line in lines[lines.index("# gebra") + 1 :] if line.strip())
+    with PYPROJECT.open("rb") as handle:
+        description = tomllib.load(handle)["project"]["description"]
+    callback = app.registered_callback
+    assert callback is not None and callback.callback is not None
+
+    assert tagline == f"**{description}.**"
+    assert callback.callback.__doc__ == f"{description}."
+
+
+def _headings() -> list[str]:
+    return re.findall(r"^## (.+)$", _readme(), re.MULTILINE)
+
+
+def _bullets(section: str) -> list[str]:
+    """The section's top-level bullets, each unwrapped to one line."""
+    bullets: list[str] = []
+    for line in section.splitlines():
+        if line.startswith("- "):
+            bullets.append(line[2:])
+        elif line.startswith("  ") and bullets:
+            bullets[-1] += " " + line.strip()
+    return bullets
+
+
+#: The three audiences "Start here" addresses, in order, each with the links its entry carries.
+START_HERE_ENTRIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Use it", ("`pip install gebra`", "](#quickstart)", "](docs/index.md)")),
+    (
+        "Adopt it in CI",
+        (
+            "](docs/guides/pytest-plugin-and-ci-gating.md)",
+            "](examples/ci_gate)",
+            "](docs/ci/github-action.md)",
+        ),
+    ),
+    ("Contribute", ("](CONTRIBUTING.md)", "](CLA.md)", "](docs/contributing/index.md)")),
+)
+
+
+def test_start_here_is_the_first_section_and_addresses_three_audiences() -> None:
+    """Directly under the tagline block: the first `##` a visitor reaches, one entry each."""
+    assert _headings()[0] == "Start here"
+
+    bullets = _bullets(_section("Start here"))
+    assert [bullet[: bullet.index(".**")].strip("*") for bullet in bullets] == [
+        audience for audience, _links in START_HERE_ENTRIES
+    ]
+    for (audience, links), bullet in zip(START_HERE_ENTRIES, bullets, strict=True):
+        for link in links:
+            assert link in bullet, f"{audience}: {link}"
+
+
+def test_where_gebra_fits_precedes_the_status_table_and_names_its_neighbours() -> None:
+    """Three sentences on three kinds of tool, "complementary" said, one overlap named."""
+    headings = _headings()
+    assert headings.index("Where gebra fits") < headings.index("Status")
+
+    section = _unwrapped(_section("Where gebra fits"))
+    for phrase in (
+        "An agent harness is the software that runs an agent",
+        "gebra is not a harness and adds nothing at run time",
+        "LangSmith and LangGraph Studio own run content",
+        "the two are complementary — neither replaces the other",
+        "auditable's PRE pillar",
+        "gebra's P-01 graph-well-formed",
+        "as of 2026-",
+    ):
+        assert phrase in section, phrase
+    assert "replaces LangSmith" not in section
+    assert "replaces auditable" not in section
+
+
+#: The ratified positioning ruling; its ruling (c) is the section's text.
+PD_061 = (
+    COMPANION / "docs" / "plan" / "decisions" / "PD-061-pub-d1-positioning-and-naming-ruling.md"
+)
+
+
+def _ruled_relation() -> list[str]:
+    """PD-061 §4's three sentences: the first blockquote under the ruling's heading."""
+    text = PD_061.read_text(encoding="utf-8")
+    section = text[text.index("\n## 4. Ruling (c)") :]
+    quoted: list[str] = []
+    for line in section.splitlines():
+        if line.startswith(">"):
+            quoted.append(line[1:].strip())
+        elif quoted:
+            break
+    return [_unwrapped(paragraph).strip() for paragraph in "\n".join(quoted).split("\n\n")]
+
+
+def _without_links(text: str) -> str:
+    return re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+
+
+@requires_companion
+def test_where_gebra_fits_is_the_ratified_rulings_own_text() -> None:
+    """ "In substance" held as text: each ruled sentence appears verbatim, link markup aside.
+
+    The card says the ruling's text governs where the vault note and the ruling differ, so
+    the section is held to the ruling — an amendment there has to come here too.
+    """
+    sentences = _ruled_relation()
+    assert len(sentences) == 3, sentences
+
+    section = _unwrapped(_without_links(_section("Where gebra fits")))
+    for sentence in sentences:
+        assert sentence in section, sentence[:72]
+
+
+def _heading_slugs() -> set[str]:
+    """Every heading's anchor the way GitHub derives it: lowercased, punctuation dropped,
+    spaces to hyphens."""
+    return {
+        re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
+        for heading in re.findall(r"^#+ (.+)$", _readme(), re.MULTILINE)
+    }
+
+
+def test_every_anchor_link_names_a_heading() -> None:
+    """`_LINK_RE` skips `#anchors` on purpose (they are not files); this is their check."""
+    anchors = re.findall(r"\]\(#([^)]+)\)", _readme())
+    assert anchors, "the page links no section of its own"
+
+    assert [anchor for anchor in anchors if anchor not in _heading_slugs()] == []

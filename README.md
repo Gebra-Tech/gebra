@@ -1,11 +1,14 @@
+![gebra](docs/assets/gebra-logo.png)
+
 # gebra
 
 **Design-time verification and versioning for LangGraph agent workflows.**
 
 [![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml/badge.svg)](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue.svg)](#install)
+[![PyPI](https://img.shields.io/pypi/v/gebra)](https://pypi.org/project/gebra/)
+[![Python](https://img.shields.io/pypi/pyversions/gebra)](https://pypi.org/project/gebra/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-0.0.1-blue.svg)](#status)
+[![Downloads](https://img.shields.io/pypi/dm/gebra)](https://pypi.org/project/gebra/)
 
 `gebra` reads a LangGraph workflow **definition** and answers questions about it before
 anything runs. It imports and inspects a `StateGraph` builder, a compiled graph or an LCEL
@@ -22,21 +25,58 @@ extract  →  verify  →  snapshot  →  diff  →  report
 A passing result carries a **witness** — structured evidence, never prose — plus any
 structured notes that qualify it, and a failing one carries a structured failure with the
 location it was found at. Neither is a statement about what the workflow does at run time:
-witness *presence* is what a P-02 result reports, and semantic termination is never claimed.
-Every finding carries its claim class — DEFENSIBLE, DEFENSIBLE-A or HEURISTIC — so a reader
-can tell what was decided over the document alone from what rests on a trusted declaration,
-and both from an advisory lint. Three of the five properties read the topology and are defined
-only over a graph P-01 has already passed; where P-01 fails, their reports are best-effort
-diagnostics rather than verdicts.
+witness *presence* is what a P-02 termination-witness result reports, and semantic termination
+is never claimed. Every finding carries its claim class — DEFENSIBLE, DEFENSIBLE-A or
+HEURISTIC — so a reader can tell what was decided over the document alone from what rests on a
+trusted declaration, and both from an advisory lint. Three of the five properties read the
+topology and are defined only over a graph that P-01 graph-well-formed has already passed;
+where P-01 fails, their reports are best-effort diagnostics rather than verdicts.
 [What gebra checks](docs/concepts/what-gebra-checks.md) is the long form.
+
+## Start here
+
+- **Use it.** `pip install gebra`, then the [Quickstart](#quickstart) below — ten minutes from
+  an installed package to a verification report — and then the
+  [documentation](docs/index.md), which lists every page and the order they were written in.
+- **Adopt it in CI.** [The pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md)
+  is the guide from one dependency to a merge gate; [`examples/ci_gate/`](examples/ci_gate) is
+  the example suite it walks through, which this repository runs on every push; and
+  [the CI-gate GitHub Action](docs/ci/github-action.md) is the action's own interface reference.
+- **Contribute.** [CONTRIBUTING.md](CONTRIBUTING.md) is the mechanics reference, [CLA.md](CLA.md)
+  the agreement every contribution needs signed first, and the
+  [contributor guide](docs/contributing/index.md) the path from a clone to a first merged change.
+
+## Where gebra fits
+
+gebra reads the definition before anything runs. The tools around it answer other questions,
+and the answers compose.
+
+An agent harness is the software that runs an agent — the loop around the model, tool
+dispatch, memory and state, retries, guardrails — and an agent built on LangGraph is one; gebra
+is not a harness and adds nothing at run time: it reads the workflow graph a harness would run
+and checks that definition before the run. LangSmith and LangGraph Studio own run content —
+tracing, evaluation, monitoring and step-through debugging over runs that happened, the runtime
+oracle answering what a run did — while gebra owns the definition's structure, the design-time
+oracle answering what its named properties hold of that definition on every path it declares,
+before any run exists; the line between them is subject matter rather than time, and the two
+are complementary — neither replaces the other.
+[auditable](https://github.com/yzhao062/auditable) (Yue Zhao, USC, 2026) is a runtime system of
+record — it captures what each agent decision relied on, replays it against live state and
+rolls back a committed action that no longer holds — so it records and repairs after a run what
+gebra verifies and versions before one, with one overlap named rather than hidden: auditable's
+PRE pillar runs read-only structural lints on a declared plan before deployment, the same
+ground gebra's P-01 graph-well-formed covers for a LangGraph definition.
+
+The other tools are described from their own documentation, as of 2026-09-15.
 
 ## Status
 
 `0.0.1` is the released version — the first one — and `pip install gebra` installs it. This
 checkout declares `0.0.2.dev0`: development re-opened on the next patch after that release, so
-installing from the tree gives you that instead, and the badge above stays on the number the
-index serves. The table is what is merged in this repository, and nothing else; a row is
-`available` only where the capability is in the package and covered by its tests.
+installing from the tree gives you that instead, while the PyPI badge above reads the index
+and shows the number that command delivers. The table is what is merged in this repository,
+and nothing else; a row is `available` only where the capability is in the package and
+covered by its tests.
 
 | Capability | Status | Notes |
 |---|---|---|

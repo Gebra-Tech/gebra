@@ -78,6 +78,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The README opens for a first-time visitor: the logo, a live badge row, "Start here" and
+  "Where gebra fits"** (card REL-01; `README.md` is also the long description the package
+  carries). The page now leads with the project logo (`docs/assets/gebra-logo.png`, a
+  Markdown image on the first line), then a badge row whose PyPI, Python and Downloads badges
+  read the index (`shields.io/pypi/…`) in place of the static release and Python badges the
+  pre-release posture required — GOV-14's "no badge reads a live index" was ruled while nothing
+  was published, and the reason expired with `0.0.1` — then a **Start here** section with one
+  entry per audience (use it; adopt it in CI; contribute) linking the quickstart, the
+  documentation, the pytest-plugin guide, the `examples/ci_gate/` suite, the GitHub Action
+  reference, `CONTRIBUTING.md`, `CLA.md` and the contributor guide, and a **Where gebra fits**
+  section carrying the ratified relation to agent harnesses, LangSmith / LangGraph Studio and
+  auditable in three sentences: what each one answers, "complementary — neither replaces the
+  other", and the one overlap (auditable's PRE lints and P-01 graph-well-formed) named rather
+  than hidden. No factual claim moved: the status table, the install routes, the quickstart
+  transcript, the open-core statement and the version literals are unchanged; the status
+  paragraph says the PyPI badge reads the index instead of repeating a number; and the
+  boundary paragraph names P-01 and P-02 by number and slug on first use.
+  `tests/docs/test_readme.py` holds the new page: the logo to the file it names, every live
+  badge to this project and to the one PyPI page, the Python range to `pyproject.toml`'s floor
+  and classifiers in the install prose (the check the static badge used to carry), the
+  tagline to `pyproject.toml`'s description and the `gebra --help` docstring, every `#anchor`
+  to a heading, and — where the development-process repository is checked out beside this
+  one — the relation to the ruling's own text and the logo to the staged artwork byte for byte.
 - **`gebra display` draws an `ir_version` 1.1 document: the headless router edge is carried on
   its source, and the last `dynamic`-edge decline is lifted** (card CLI-11; `gebra.display`,
   `gebra display`, `docs/specs/DIAGRAM-STYLE-GUIDE.md`). A `dynamic` edge (DEC-28) declares a

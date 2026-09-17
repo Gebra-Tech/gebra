@@ -846,6 +846,8 @@ START_HERE_ENTRIES: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "](docs/guides/pytest-plugin-and-ci-gating.md)",
             "](examples/ci_gate)",
+            "](docs/guides/use-cases.md)",
+            "](examples/scenarios)",
             "](docs/ci/github-action.md)",
         ),
     ),

@@ -84,6 +84,7 @@ nav:
       - The pytest plugin and CI gating: guides/pytest-plugin-and-ci-gating.md
       - Snapshot, diff and evolution: guides/snapshot-diff-and-evolution.md
       - Install and compatibility: guides/install-and-compatibility.md
+      - Use cases: guides/use-cases.md
   - Reference:
       - CLI reference: reference/cli.md
       - API reference: reference/api.md

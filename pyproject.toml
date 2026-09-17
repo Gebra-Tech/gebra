@@ -240,6 +240,12 @@ include = [
     # pages carry, so an sdist without them would collect tests it cannot answer.
     "/docs",
     "/mkdocs.yml",
+    # The example scenarios (REL-06) and the CI-gating guide's suite, for the same reason as
+    # `/docs`: `docs/guides/use-cases.md` and `docs/guides/pytest-plugin-and-ci-gating.md`
+    # reproduce these files verbatim and `tests/docs/` holds the two byte-equal, so an sdist
+    # without them would collect tests it cannot answer — and they are the files a reader of the
+    # shipped documentation is told to copy.
+    "/examples",
     # The long description is built from `README.md` by the metadata hook below, and a wheel
     # built from the sdist — which is what `uv build` does on its second leg, and what an
     # index-side build of the sdist does — reads the fragment out of the sdist. A static

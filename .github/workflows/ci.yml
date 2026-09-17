@@ -407,6 +407,14 @@ jobs:
         run: pip install -e ".[dev]" -c tools/matrix-constraints.txt
       - name: Test
         run: pytest -q
+      # REL-06: the use-cases page's example scenarios live under `examples/`, outside
+      # `testpaths` (see `examples/__init__.py`), so the bare run above never collects them.
+      # This step runs them by path, under the plugin's fixtures, on the pip-installed package
+      # — the environment an adopter copying a scenario has. A step rather than a job, so the
+      # contributor guide's job count holds; the suite is green as a suite (the seeded graphs
+      # are verified through `gebra_workflow` and asserted to fail; only each fix is marked).
+      - name: The example scenarios, under the plugin's fixtures
+        run: python -m pytest examples/scenarios -q
 
   # ── The DoD scenario job — SOW §2 criterion 1's dedicated clock (SD-09; PD-006 R5) ──
   #

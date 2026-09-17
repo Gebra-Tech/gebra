@@ -867,6 +867,42 @@ def test_the_tooling_modules_examples_import_stay_free_of_the_substrate() -> Non
         assert finished.stdout.strip() == "[]", f"{module}: {finished.stdout.strip()}"
 
 
+#: How an example names one of this repository's example scenarios — the sixth derived rule,
+#: and REL-06's. ``examples.scenarios.<slug>.workflow`` is a module the trailer sweeps under
+#: none of its three kinds: not a sample workflow, not ``__main__``, not written into the
+#: child's cwd — and the card ruled the guard is not extended for it. Such an example therefore
+#: owes its *own* ledger assertion, and its printed-ledger line must be the block's last
+#: statement: the print reads the live list, so a body tripped anywhere before it changes stdout
+#: and fails the page, and only code after it would be uncovered. ``tests/docs/test_use_cases.py``
+#: fires the control — a body tripped before the assertion exits the block 1, and one tripped
+#: after it is invisible to the trailer, which is the reason this rule exists.
+EXAMPLES_IMPORT = re.compile(r"^\s*(?:from|import)\s+examples\.", re.MULTILINE)
+
+
+def _last_statement(code: str) -> str:
+    """The source of an example's last top-level statement, by AST rather than by text."""
+    tree = ast.parse(code)
+    assert tree.body, "an empty example"
+    return ast.get_source_segment(code, tree.body[-1]) or ""
+
+
+def test_an_example_importing_a_scenario_module_asserts_and_prints_its_own_ledger() -> None:
+    """The sixth page-level rule, for the module kind the sweep does not reach."""
+    owing = [example for example in EXAMPLES if EXAMPLES_IMPORT.search(example.code)]
+    assert owing, "no example imports a scenario module — the rule below would be vacuous"
+
+    for example in owing:
+        assert "TRIPPED == []" in example.code, (
+            f"{example.name} imports a scenario module and asserts no ledger; the harness "
+            "trailer does not sweep that module, so the example must hold its own ledger empty."
+        )
+        last = _last_statement(example.code)
+        assert last.startswith("print(") and "TRIPPED" in last, (
+            f"{example.name}: the printed-ledger line must be the block's last statement, "
+            f"got {last!r}"
+        )
+
+
 @requires_an_example
 def test_a_written_module_with_no_ledger_fails_rather_than_reads_clean() -> None:
     """The fail-closed leg, extended to the module kind this change introduced.

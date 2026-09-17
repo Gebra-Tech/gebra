@@ -1093,6 +1093,49 @@ example does — the fixture whose ledger control the harness already fires — 
 `tests/cli/test_never_invokes.py` gains two `html` legs, plain and overlaid, so the wrapper is
 *observed* to emit with `langgraph` unimportable rather than inferred to from the import closure.
 
+### REL-06 — three example scenarios, a discovered ledger sweep, and a page that runs a file
+
+`examples/scenarios/` adds three more *consumers* of the plugin's own `gebra.extract()` call —
+every path of which has a row in §1 — and **no extraction path**: `research_loop`,
+`support_triage` and `pipeline_replay` are builder-level `StateGraph` definitions with declared
+contracts, one seeded defect each (P-02, P-04, P-08 — none of them `ci_gate`'s P-06), and a
+`test_verdict.py` that verifies the seeded graph through `gebra_workflow`/`gebra_verification`
+and marks only the fixed variant. Every node body and router in the three `workflow.py` files
+is a one-line `_trip(label)` — record into the module's own `TRIPPED`, then raise a
+`BaseException` subclass — the travel-booking family's discipline with a per-scenario ledger
+instead of a shared one. `examples/conftest.py` now sweeps those ledgers **by discovery rather
+than by list**: every `scenarios/*/workflow.py` is imported at collection and asked for its
+`TRIPPED`, a scenario keeping none is refused at import (a `TypeError` — the harness's own
+fail-closed rule brought to the pytest path, fired by
+`test_the_conftest_refuses_a_scenario_that_keeps_no_ledger` over a stub module registered under
+the name the conftest imports), and the autouse fixture asserts every ledger, the family's and
+each scenario's, empty on entry to and exit from every example test. The suite is
+outside `testpaths` like `ci_gate/` and is reached by path: the `pip-editable` job's new step
+(`python -m pytest examples/scenarios -q`) and `tests/docs/test_use_cases.py`'s child sessions.
+
+`docs/guides/use-cases.md` is the first page to reproduce a *file* as an executed example: each
+`workflow.py` is a `gebra:example` block byte-equal to the file, so under the DOC-01 harness it
+runs as `__main__` — its `if __name__ == "__main__": main()` extracts, verifies, prints the
+verdict, and asserts and prints its own ledger — and the trailer's `__main__` sweep reads that
+ledger by name (the block's `add_node(` calls make `SELF_DEFINED_MARKERS` owe one, and each file
+carries `TRIPPED.append(`). The three fix blocks import `examples.scenarios.<slug>.workflow`
+instead, which the trailer sweeps under **none** of its three module kinds — not a sample
+workflow, not `__main__`, not written into the child's cwd — so each block asserts and prints
+`workflow.TRIPPED == []` itself into its pinned output; the guard was deliberately not extended
+(the card's ruling), and `tests/docs/test_use_cases.py` records the gap as an observation: a
+body tripped *after* a fix block's own assertion leaves the trailer's verdict clean, which is
+exactly why the assertion is the block's own. That obligation is a page-level rule rather than
+this page's habit: `tests/docs/test_doc_examples.py`'s sixth derived rule (`EXAMPLES_IMPORT`)
+holds every example importing `examples.` to an own-ledger assertion whose printed-ledger line is
+the block's last statement — the print reads the live list, so a body tripped anywhere before it
+changes stdout and fails the page — the pre-review's recommendation, taken in the same change. The same module fires the controls both paths
+rest on: a scenario body called inside a swallowed `try` fails the page example (before
+`main()`, the file's own assertion exits 1; after it, `WA07-LEDGER` names `__main__:<body>`)
+and fails the pytest path through the conftest sweep (a scratch test run with
+`-p examples.conftest` errors at teardown naming the scenario and the body), and every body of
+every scenario is called once and shown to record and raise. Nothing in the scenarios, the page
+or the tests compiles a graph, invokes a runnable, calls a model or opens a connection.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

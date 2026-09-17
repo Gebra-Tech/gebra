@@ -41,8 +41,11 @@ where P-01 fails, their reports are best-effort diagnostics rather than verdicts
   [documentation](docs/index.md), which lists every page and the order they were written in.
 - **Adopt it in CI.** [The pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md)
   is the guide from one dependency to a merge gate; [`examples/ci_gate/`](examples/ci_gate) is
-  the example suite it walks through, which this repository runs on every push; and
-  [the CI-gate GitHub Action](docs/ci/github-action.md) is the action's own interface reference.
+  the example suite it walks through, which this repository runs on every push;
+  [Use cases](docs/guides/use-cases.md) walks through three more scenarios in
+  [`examples/scenarios/`](examples/scenarios), each a small workflow with one seeded defect and
+  the verdict gebra reaches on it; and [the CI-gate GitHub Action](docs/ci/github-action.md) is
+  the action's own interface reference.
 - **Contribute.** [CONTRIBUTING.md](CONTRIBUTING.md) is the mechanics reference, [CLA.md](CLA.md)
   the agreement every contribution needs signed first, and the
   [contributor guide](docs/contributing/index.md) the path from a clone to a first merged change.
@@ -90,7 +93,7 @@ covered by its tests.
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md) |
 | Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached — see [the CLI reference](docs/reference/cli.md) |
-| Published documentation site | available | all twenty pages are written — no placeholder is left — and served at [gebra-tech.github.io/gebra](https://gebra-tech.github.io/gebra/); CI builds the site with `mkdocs build --strict` on every push, and on `main` [`docs-pages.yml`](.github/workflows/docs-pages.yml) runs that same command and deploys what it writes |
+| Published documentation site | available | all twenty-one pages are written — no placeholder is left — and served at [gebra-tech.github.io/gebra](https://gebra-tech.github.io/gebra/); CI builds the site with `mkdocs build --strict` on every push, and on `main` [`docs-pages.yml`](.github/workflows/docs-pages.yml) runs that same command and deploys what it writes |
 | Installation from a package index | available | `pip install gebra` — the [`gebra` project on PyPI](https://pypi.org/project/gebra/); see [Install](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -329,7 +332,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-All twenty pages of the documentation site are written, and the site is served at
+All twenty-one pages of the documentation site are written, and the site is served at
 <https://gebra-tech.github.io/gebra/> — built from this repository by `mkdocs build --strict`
 and deployed from `main`. The links below go to the same pages in this repository. Those, and
 the repository documents worth reading beside them:
@@ -383,6 +386,12 @@ the repository documents worth reading beside them:
   substrate pairs against the wider ranges that merely install, what `GebraVersionWarning` and
   the out-of-range envelope warning each report, and what a version change moves — the
   substrate's, gebra's own, and your workflow's V.S.F.E label.
+- [Use cases](docs/guides/use-cases.md) — three small workflows, each with one seeded defect
+  from the wedge and the verdict gebra reaches on it: a research loop with no declared bound, a
+  triage path that reads a key nothing on that path wrote, and an LLM node whose determinism
+  claim the definition cannot back — each with its fix, executed. The scenarios are
+  [`examples/scenarios/`](examples/scenarios), which CI runs both as pytest suites and as the
+  page's own examples.
 - [CLI reference](docs/reference/cli.md) — the five verbs, every flag each one takes, how an
   invocation names the definition it operates on, what `0`, `1` and `2` mean for each verb, and
   the report surfaces `verify`, `display` and `history` write.

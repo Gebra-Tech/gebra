@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Three example scenarios and a use-cases page** (card REL-06; `examples/scenarios/`,
+  `docs/guides/use-cases.md`; `pyproject.toml`'s source-distribution include list gains
+  `/examples`, so the scenarios ship in the sdist beside the pages that reproduce them). One
+  scenario existed — `examples/ci_gate/`, the CI-gating guide's suite, seeding a P-06 defect.
+  Three join it, each a small LangGraph workflow with one seeded defect from the wedge and the
+  verdict gebra reaches on it: a research loop with no declared bound (P-02
+  `cycle-without-termination-witness`, FATAL, DEFENSIBLE), a support-triage path on which the
+  escalation node reads a key nothing on that path wrote (P-04 `read-key-never-written-on-path`,
+  FATAL, DEFENSIBLE-A), and a document pipeline whose LLM node claims seed-only determinism
+  (P-08 `deterministic-llm-temperature-unpinned`, WARNING, HEURISTIC — exit `0` by default,
+  exit `1` under `--gebra-strict=determinism-replay`, the record unchanged under the promotion).
+  Each scenario is four files: `workflow.py`, whose every node body records into a ledger and
+  raises, and which prints its own verdict when run as a script; `test_verdict.py`, which asserts
+  the seeded finding through the plugin's `gebra_workflow` and `gebra_verification` fixtures and
+  gates the fixed variant green with `@pytest.mark.gebra` (nothing is marked red on purpose, so
+  the suite is green as a suite); a `README.md`; and an `__init__.py`. CI runs them two ways: the
+  `pip-editable` job gains a step running `python -m pytest examples/scenarios -q`, and the new
+  page reproduces every `workflow.py` verbatim as an executed example whose printed verdict is
+  the page's output block, with a second executed block per scenario showing the fix.
+  `tests/docs/test_use_cases.py` holds the fences byte-equal to the files, checks the seeded
+  defects by running `verify()` over each builder, fires a node body on both paths to show that
+  the ledgers catch it, and runs the honest-claims lint over the page and the scenario sources.
+  `examples/conftest.py` now discovers every scenario ledger and asserts each empty before and
+  after every example test, refusing a scenario that keeps none. The site's navigation gains the
+  page under Guides; the README and the home page count twenty-one pages.
 - **Coverage shown on Codecov, an OpenSSF Scorecard workflow, and a security policy** (card
   REL-04; `SECURITY.md`, `README.md`, `.github/`; `pyproject.toml`'s source-distribution include
   list gains `SECURITY.md`). The coverage gate has held `gebra.verify`, `gebra.testing` and the

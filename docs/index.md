@@ -24,7 +24,8 @@ transcript its own code did not produce.
 ## What is on this site
 
 Every page the navigation lists is written: the skeleton reserved one page per planned topic and
-the last reservation has now been replaced. That order was deliberate — the skeleton and the
+the last reservation has now been replaced, and one page — [Use cases](guides/use-cases.md) — was
+written afterwards, outside any reservation. That order was deliberate — the skeleton and the
 example harness landed first, so that a page's examples were executed and checked from the day it
 appeared rather than from the day someone got round to it.
 
@@ -95,10 +96,15 @@ The pages, in the order they were written:
   change moves — the substrate's, gebra's own, and your workflow's V.S.F.E label;
 - [Executable examples](contributing/executable-examples.md) — how examples on this site are
   marked, run and checked;
-- [Contributor guide](contributing/index.md) — the last of them: clone to first merged change —
-  the CLA, how work is chosen and what makes a task claimable, the vendored files that may not be
-  edited and the guard that enforces it, what a spec defect is and what to do about one, how a
-  fixture changes, commit conventions, and what the CI jobs refuse.
+- [Contributor guide](contributing/index.md) — the last of the reserved pages: clone to first
+  merged change — the CLA, how work is chosen and what makes a task claimable, the vendored files
+  that may not be edited and the guard that enforces it, what a spec defect is and what to do
+  about one, how a fixture changes, commit conventions, and what the CI jobs refuse;
+- [Use cases](guides/use-cases.md) — written after the last reservation was filled: three small
+  workflows, each with one seeded defect and the verdict gebra reaches on it — a research loop
+  with no declared bound, a triage path that reads a key nothing on that path wrote, an LLM node
+  whose determinism claim the definition cannot back — with the fix executed for each, over the
+  scenarios in `examples/scenarios/`.
 
 ## How the site is arranged
 
@@ -107,7 +113,7 @@ The pages, in the order they were written:
 | **Concepts** | What gebra checks, and what the IR and a `graph_version` are. |
 | **Tutorials** | Worked, start-to-finish walkthroughs over a real agent. |
 | **Validators** | One page for each of the five properties this release implements: what it reads and what its findings mean. |
-| **Guides** | Adoption tasks — CI gating, snapshotting and evolution, install and compatibility. |
+| **Guides** | Adoption tasks — CI gating, snapshotting and evolution, install and compatibility — and three worked use cases. |
 | **Reference** | The CLI surface, the public Python API, and an architecture overview. |
 | **Contributing** | Working on gebra itself. |
 

@@ -199,12 +199,14 @@ def test_the_readme_counts_the_pages_the_navigation_lists(site_pages: list[str])
     """This card wrote the last reserved page, so the README stopped saying "the rest is a
     skeleton" and started giving a total instead. A total is a number that can go stale, and it
     appears twice — the status row's note and the documentation list's lead — so both are held
-    to the navigation's own count here rather than to each other.
+    to the navigation's own count here rather than to each other. REL-06 then added a page
+    outside any reservation (the use-cases guide), which is what moved the count to twenty-one.
     """
-    assert len(site_pages) == 20
+    assert len(site_pages) == 21
 
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert readme.count("twenty pages") == 2
+    assert readme.count("twenty-one pages") == 2
+    assert "twenty pages" not in readme
 
     # And the two sentences that replaced the skeleton wording are held to the tree rather
     # than to each other: a page reserved later carries the marker again, and both fail.

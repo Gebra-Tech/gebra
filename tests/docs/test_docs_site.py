@@ -68,8 +68,10 @@ PAGES_BY_CARD: dict[str, tuple[str, ...]] = {
     "DOC-19": ("contributing/index.md",),
 }
 
-#: The two pages DOC-01 writes rather than reserves.
-WRITTEN_PAGES = ("index.md", "contributing/executable-examples.md")
+#: Pages written outside a DOC reservation: the two DOC-01 wrote rather than reserved, and the
+#: use-cases page REL-06 added once every reservation had been replaced. A page joins this set
+#: in the same change that adds it to the navigation; nothing here is ever a placeholder.
+WRITTEN_PAGES = ("index.md", "contributing/executable-examples.md", "guides/use-cases.md")
 
 #: Reserved pages whose card has since written them. A page moves into this set in the same
 #: change that drops its placeholder marker, and the two directions below hold it there: a

@@ -1,0 +1,20 @@
+# Codecov's configuration (card REL-04). Codecov reads this file from `.github/` on the
+# default branch.
+#
+# CI uploads the coverage report from the `test-locked` job on the public repository, after
+# `tools/coverage_gate.py` has passed, and Codecov shows it — the project page and the README
+# badge. That is all it is for. The gate is the floor and Codecov is the display, never the
+# other way round (docs/governance/coverage-gate.md): the gate scores three named scopes, each
+# above 80%, by coverage.py's own arithmetic, and Codecov computes one percentage of its own
+# from the same report. Left at its defaults, Codecov would also judge — a pass or fail status
+# on every commit it receives a report for, a comment on every pull request, annotations on
+# the lines a change leaves uncovered — which would be a second verdict, by other arithmetic,
+# on work the gate has already decided. So every one of those is off, and
+# `tests/test_coverage_upload.py` holds these keys.
+coverage:
+  status:
+    project: off
+    patch: off
+comment: false
+github_checks:
+  annotations: false

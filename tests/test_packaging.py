@@ -327,6 +327,7 @@ def test_the_sdist_carries_the_documents_the_readme_links(pyproject: dict[str, A
     hatchling on its own; a ``dynamic`` one is not, so the explicit include list has to name
     it. ``CLA.md`` is the second: both the README and CONTRIBUTING.md link the agreement a
     contribution needs signed first, and an sdist reader should find it beside them.
+    ``SECURITY.md`` joined them at REL-04, linked from the README on the same reasoning.
     ``LICENSE`` and ``NOTICE`` ride in through ``license-files`` (asserted in
     :func:`test_build_backend_is_hatchling`).
     """
@@ -336,9 +337,9 @@ def test_the_sdist_carries_the_documents_the_readme_links(pyproject: dict[str, A
         assert f"/{fragment['path']}" in include, (
             f"the long-description fragment {fragment['path']} is not in the sdist"
         )
-    for document in ("/CLA.md", "/CONTRIBUTING.md", "/CHANGELOG.md"):
+    for document in ("/CLA.md", "/CONTRIBUTING.md", "/CHANGELOG.md", "/SECURITY.md"):
         assert document in include
-    assert (REPO_ROOT / "CLA.md").is_file()
+        assert (REPO_ROOT / document.lstrip("/")).is_file(), document
 
 
 def test_the_project_metadata_names_its_tracker_its_audience_and_its_maturity(

@@ -64,6 +64,24 @@ total is printed for context and gates nothing.
 That is also why `[tool.coverage.report]` carries no `fail_under`: it is one number over
 everything measured, and it compares with `>=` rather than the briefs' `>`.
 
+## The gate and the Codecov badge
+
+The measurement is also shown to readers. On the public repository, once the gate step has
+passed, the `test-locked` job uploads `coverage.xml` to Codecov — the report written in the
+same step, from the same measurement, as the `coverage.json` the gate reads — and the README's
+coverage badge shows what Codecov makes of it. The two are not peers: the gate is the floor and
+Codecov is the display, never the other way round.
+
+The gate is what CI enforces: three scopes, each strictly above 80%, by coverage.py's own
+arithmetic. Codecov computes one percentage of its own from the uploaded report, over
+everything measured, and that is the number on the badge — so the badge and the per-scope lines
+above need not agree to the decimal, and neither overrules the other. A red gate stops the job
+before anything is uploaded. And no percentage Codecov reports can fail a build or mark a
+commit: `.github/codecov.yml` turns off the commit statuses, pull-request comments and line
+annotations Codecov posts by default, because each of them would be a second verdict, by other
+arithmetic, on work the gate has already judged. A lower number on the badge is a reason to
+look, never a failure; a higher one never excuses a red gate.
+
 ## What the percentage counts
 
 `[tool.coverage.run] branch = true`, so the gated number is coverage.py's own combined
@@ -159,4 +177,5 @@ Observed on 2026-08-30, on the locked development environment (Python 3.13, the 
 suite — 9042 passed, 35 skipped — under `coverage run -m pytest`): the three scopes stand
 at 99.72%, 97.95% and 93.91%, and all nineteen exemptions in them carry a reason. CI
 prints the current numbers on every push and keeps the run's `coverage.xml` and
-`coverage.json` as the `coverage-reports` artifact.
+`coverage.json` as the `coverage-reports` artifact; on the public repository, a run whose gate
+passed also uploads that `coverage.xml` to Codecov.

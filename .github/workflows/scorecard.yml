@@ -1,0 +1,70 @@
+# OpenSSF Scorecard over the public repository (card REL-04).
+#
+# Scorecard reads a repository — its workflow files, branch settings, releases, dependency
+# manifests and recent history — and scores it on a fixed list of supply-chain checks. This
+# workflow runs it and uploads the findings to the repository's code-scanning page, where
+# the maintainers read them. It gates nothing: no step here fails on a low score, and no job
+# in `ci.yml` waits for it.
+#
+# Whether the score is also *published* — sent to the public Scorecard API, which is what a
+# Scorecard badge reads — is the owner's decision, recorded on the card, and
+# `publish_results` below follows it. `tests/test_scorecard_wiring.py` holds that flag and
+# the README badge together, so neither can appear without the other.
+#
+# A workflow of its own rather than a job in `ci.yml`, for three reasons: it needs
+# `security-events: write` and `id-token: write`, which no quality gate needs; it runs on a
+# weekly schedule and on `main`, where CI runs on every push and every pull request; and a
+# publishing run restricts the whole file it sits in — no workflow-level `env`, `defaults`
+# or write permission, and only a short list of actions in the job — which `ci.yml` is not
+# shaped for. The contributor guide counts `ci.yml`'s jobs, so the count is unchanged.
+#
+# The job runs only on `Gebra-Tech/gebra`, the way `docs-pages.yml` deploys only there: the
+# development repository carries this file byte for byte (PD-050) and never runs it.
+#
+# Pins. `ossf/scorecard-action` is pinned to a commit, as `release.yml` pins the publish
+# action: it is the step that uses this run's identity token, and what a published result
+# says about this repository is decided by the code it runs. The SHA is the commit
+# the `v2.4.4` release tag names, resolved on 2026-09-16 (the manifest at that commit runs
+# `ghcr.io/ossf/scorecard-action:v2.4.4`). The two GitHub-authored actions are pinned to
+# major tags, the way `ci.yml` pins them; `github/codeql-action`'s current major was `v4`
+# on the same date.
+name: Scorecard
+
+on:
+  push:
+    branches: [main]
+  # Weekly as well, so a quiet week still re-reads the repository's age, its activity and
+  # the advisory database the Vulnerabilities check consults.
+  schedule:
+    - cron: "17 4 * * 2"
+
+# Read-only at the workflow level: a publishing run refuses any write permission here, and
+# the one job below declares its own.
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    # The public repository is the one scored; the development repository never runs this.
+    if: github.repository == 'Gebra-Tech/gebra'
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload the findings to the code-scanning page.
+      security-events: write
+      # The identity token a published result is signed with.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run the Scorecard checks
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: false
+      - name: Upload the findings to code scanning
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif

@@ -5,6 +5,7 @@
 **Design-time verification and versioning for LangGraph agent workflows.**
 
 [![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml/badge.svg)](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Gebra-Tech/gebra/branch/main/graph/badge.svg)](https://codecov.io/gh/Gebra-Tech/gebra)
 [![PyPI](https://img.shields.io/pypi/v/gebra)](https://pypi.org/project/gebra/)
 [![Python](https://img.shields.io/pypi/pyversions/gebra)](https://pypi.org/project/gebra/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -45,6 +46,7 @@ where P-01 fails, their reports are best-effort diagnostics rather than verdicts
 - **Contribute.** [CONTRIBUTING.md](CONTRIBUTING.md) is the mechanics reference, [CLA.md](CLA.md)
   the agreement every contribution needs signed first, and the
   [contributor guide](docs/contributing/index.md) the path from a clone to a first merged change.
+  Found a vulnerability? [SECURITY.md](SECURITY.md) says where to report it privately.
 
 ## Where gebra fits
 
@@ -423,7 +425,8 @@ of this repository is in it.
 ## Contact & questions
 
 Open a [GitHub issue](https://github.com/Gebra-Tech/gebra/issues) or email
-gebra.dev@gmail.com.
+gebra.dev@gmail.com. A security vulnerability is the exception — not in an issue, please:
+[SECURITY.md](SECURITY.md) says how to report one and what happens next.
 
 ## License
 

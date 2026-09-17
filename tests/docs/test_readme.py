@@ -20,6 +20,10 @@ the install prose instead; "Start here" addresses three audiences with links tha
 (c)), held to the ruling's own text where that record is checked out; and the tagline is one
 string with `pyproject.toml`'s description and `gebra --help`.
 
+Card REL-04 added the coverage badge beside the CI badge and a link to `SECURITY.md` in the
+contributors' entry; `tests/test_scorecard_wiring.py` holds the Scorecard badge to the
+publication ruling, and `tests/test_security_policy.py` holds the policy the link reaches.
+
 Everything here reads files and calls the package over inline data. It builds no workflow,
 runs no node and opens no connection (WA-07).
 """
@@ -700,6 +704,35 @@ def test_the_version_badge_reads_the_index() -> None:
     assert "reads the index" in _unwrapped(_status_paragraph())
 
 
+#: The coverage badge (REL-04): the percentage Codecov computes from the report CI uploads
+#: once the coverage gate has passed, linked to the project's Codecov page.
+CODECOV_BADGE = (
+    "[![codecov](https://codecov.io/gh/Gebra-Tech/gebra/branch/main/graph/badge.svg)]"
+    "(https://codecov.io/gh/Gebra-Tech/gebra)"
+)
+
+
+def _badge_row() -> list[str]:
+    """The badge lines under the tagline, in the order the page shows them."""
+    return [line for line in _readme().splitlines() if line.startswith("[![")]
+
+
+def test_the_coverage_badge_sits_beside_the_ci_badge() -> None:
+    """Coverage next to the run that measured it: the CI badge, then Codecov's.
+
+    The badge shows what Codecov displays for `main` — the report `test-locked` uploads after
+    `tools/coverage_gate.py` has passed (`tests/test_coverage_upload.py`). It is the display
+    and never the floor: the floor is the per-scope gate, which CI enforces whatever the badge
+    reads (`docs/governance/coverage-gate.md`). One badge and one link, so nothing else on the
+    page reads the service.
+    """
+    row = _badge_row()
+
+    assert row[0].startswith("[![CI](https://github.com/Gebra-Tech/gebra/actions/workflows/ci.yml")
+    assert row[1] == CODECOV_BADGE
+    assert _readme().count("codecov.io") == 2
+
+
 def _status_paragraph() -> str:
     """The prose between the `## Status` heading and the table it introduces."""
     section = _section("Status")
@@ -816,7 +849,10 @@ START_HERE_ENTRIES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "](docs/ci/github-action.md)",
         ),
     ),
-    ("Contribute", ("](CONTRIBUTING.md)", "](CLA.md)", "](docs/contributing/index.md)")),
+    (
+        "Contribute",
+        ("](CONTRIBUTING.md)", "](CLA.md)", "](docs/contributing/index.md)", "](SECURITY.md)"),
+    ),
 )
 
 

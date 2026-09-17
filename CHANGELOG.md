@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Coverage shown on Codecov, an OpenSSF Scorecard workflow, and a security policy** (card
+  REL-04; `SECURITY.md`, `README.md`, `.github/`; `pyproject.toml`'s source-distribution include
+  list gains `SECURITY.md`). The coverage gate has held `gebra.verify`, `gebra.testing` and the
+  pytest plugin above 80% each since TE-12, and the figures could be read only in a CI run's log
+  and its artifacts. On the public repository the `test-locked` job now
+  uploads `coverage.xml` to Codecov once the gate has passed — a red suite or a red gate uploads
+  nothing — and the README shows the Codecov badge beside the CI badge. The gate is the floor
+  and Codecov is the display, never the other way round: `.github/codecov.yml` turns off the
+  commit statuses, pull-request comments and line annotations Codecov posts by default, and
+  `docs/governance/coverage-gate.md` says why the badge and the per-scope figures need not agree
+  to the decimal. The upload is the one step in `ci.yml` that reads a stored secret, and a
+  missing or refused token turns it red rather than letting the badge go stale quietly. A
+  workflow of its own, `.github/workflows/scorecard.yml`, runs the OpenSSF Scorecard checks over
+  the public repository weekly and on pushes to `main` and uploads the findings to the
+  repository's code-scanning page; it gates nothing, and its action is pinned to a commit the
+  way the release workflow pins its publish action. Its result is not published to the public
+  Scorecard API, and the README carries no Scorecard badge. `SECURITY.md` says where to report a
+  vulnerability privately (gebra.dev@gmail.com, never a public issue), which release line
+  receives fixes, what counts as a vulnerability in a tool that reads workflow definitions and
+  runs none of them, and what a reporter can expect after writing; the README's "Start here"
+  and contact sections and the contributor guide link it, and it ships in the source
+  distribution beside the README that links it.
 - **The documentation site is served at <https://gebra-tech.github.io/gebra/>** (card REL-03;
   `pyproject.toml` gains a `Documentation` project URL, so this reaches the index page too).
   All twenty pages were written and CI built them with `mkdocs build --strict` on every push,

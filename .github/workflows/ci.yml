@@ -3,7 +3,8 @@
 # `ruff format --check`, `mypy --strict` (knobs in `pyproject.toml`, so the gate is
 # bare `mypy`), and `pytest` — with coverage measured *and gated* on the locked test
 # job (TE-12: >80% on `gebra.verify`, `gebra.testing` and the pytest plugin, each on
-# its own).
+# its own). On the public repository that job then uploads the gated report to Codecov,
+# which displays it and judges nothing (REL-04).
 #
 # Two axes, deliberately different environments. The jobs above `test-matrix` run in
 # the *ruled default* environment: uv-managed, resolved from the committed lock, one
@@ -317,6 +318,25 @@ jobs:
       # report), which is never a pass. There is no bypass flag.
       - name: Coverage gate — >80% on gebra.verify, gebra.testing and the plugin
         run: uv run --no-sync python tools/coverage_gate.py
+      # REL-04: the measurement the gate just scored, shown to readers. The gate is the floor
+      # and Codecov is the display, never the other way round (docs/governance/coverage-gate.md;
+      # `.github/codecov.yml` turns off the statuses, comments and annotations it would post).
+      # The condition names no status function, so GitHub's implicit `success()` applies: a
+      # red suite or a red gate never uploads. It names the public repository, so the
+      # development repository — which holds no token — skips the step and stays green.
+      # `fail_ci_if_error` makes a missing or refused token a red step rather than a warning
+      # nobody reads. `files` alone would *add* to the action's own search for coverage
+      # files; `disable_search` makes the upload exactly `coverage.xml`, the XML twin of the
+      # report the gate read, both written from the one measurement above. This is the one
+      # step in this file that reads a stored secret (`tests/test_coverage_upload.py`).
+      - name: Upload the gated coverage report to Codecov
+        if: github.repository == 'Gebra-Tech/gebra'
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -722,5 +742,10 @@ jobs:
           path: drift-reports
       - name: Open or update version-gap and range-review issues
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The per-run token GitHub mints for this job, holding exactly the two permissions
+          # the job declares. `github.token` is that token — the same one the `GITHUB_TOKEN`
+          # entry of the secrets context names — spelled from the `github` context so that the
+          # Codecov upload in `test-locked` stays the one step in this file reading from the
+          # secrets context (REL-04; `tests/test_coverage_upload.py` holds it textually).
+          GITHUB_TOKEN: ${{ github.token }}
         run: python tools/drift_issues.py --reports drift-reports --apply

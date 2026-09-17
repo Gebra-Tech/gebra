@@ -251,6 +251,9 @@ include = [
     # The agreement every contribution needs signed first, linked from both the README and
     # CONTRIBUTING.md: an sdist reader following either link should find the file beside them.
     "/CLA.md",
+    # The security policy (REL-04), linked from the README for the same reason: where to
+    # report a vulnerability should be findable from the copy of the README a reader has.
+    "/SECURITY.md",
     "/NOTICE",
 ]
 

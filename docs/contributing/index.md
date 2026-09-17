@@ -590,7 +590,10 @@ The site that `docs` gates is the site that gets served: a separate workflow,
 <https://gebra-tech.github.io/gebra/>. It is a workflow of its own rather than another job in
 `ci.yml` because a deployment needs write permission on Pages and an identity token, which no
 gate above needs, and because it runs on one branch where those run on every push and every
-pull request.
+pull request. `.github/workflows/scorecard.yml` is separate for the same kind of reason — it
+needs permissions no gate needs, and runs only weekly and on `main` — and it refuses nothing:
+it runs the OpenSSF Scorecard checks over the public repository and uploads what they find to
+the repository's code-scanning page.
 
 **The honest-claims lint deserves a sentence of its own**, because it surprises people. This
 project draws a hard line between what it checks and what it does not. It reads a workflow
@@ -833,6 +836,9 @@ one.
 - **A question about whether something is a spec defect** — ask in the issue; that determination
   is a maintainer's, and section 5 is the shape of the answer.
 - **The CLA, or anything to do with signing** — `gebra.dev@gmail.com`.
+- **A security vulnerability** — not in an issue. The
+  [security policy](https://github.com/Gebra-Tech/gebra/blob/main/SECURITY.md) says where to
+  report one privately, which versions receive fixes, and what happens after a report.
 
 If this page did not answer a question you had to ask anyway, that is worth an issue too. It is
 meant to be the page that makes the second question unnecessary.

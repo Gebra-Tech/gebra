@@ -373,7 +373,7 @@ python tools/pr_checklist.py --author <handle> \
     --files $(git diff --name-only main...HEAD) --message "$(git log -1 --format=%B)"
 ```
 
-Add `--tag v0.0.2.dev1` when the change under review is the release cut itself, `--employer-owned`
+Add `--tag v0.1.1.dev1` when the change under review is the release cut itself, `--employer-owned`
 when the work is owned by your employer (which is a different row in the record), and
 `--format json` for the same report as data, each finding beside its own remediation. Exit 0
 passes, 1 is a refusal, 2 means a check reached no verdict at all — which is not a pass, and
@@ -402,7 +402,7 @@ assembly step anywhere: the tag *is* the procedure.
 |---|---|---|
 | `vX.Y.Z.devN` | routine dev cut | skipped |
 | `vX.Y.ZaN` / `vX.Y.ZbN` / `vX.Y.ZrcN` | pre-release / ship-decision candidate | skipped |
-| `vX.Y.Z` | final release (the Phase-0 launch form) | runs — PyPI via trusted publishing |
+| `vX.Y.Z` | final release | runs — PyPI via trusted publishing, after the `pypi` environment's approval |
 
 The tag must equal `v` + `[project].version` from `pyproject.toml`, byte for
 byte: the version is bumped by hand in the release commit and
@@ -413,12 +413,12 @@ can never be mistaken for a final release by its version string.
 **Cutting a dev/rc release:**
 
 1. Land the release commit through the normal review path: bump
-   `[project].version` (say `0.0.2.dev1`) and make sure `CHANGELOG.md` carries
+   `[project].version` (say `0.1.1.dev1`) and make sure `CHANGELOG.md` carries
    what the cut should ship under `## [Unreleased]`. CI's `build` job runs the
    same gate in dry-run mode (plus `twine check --strict`) on every push, so a
    tree that is not release-ready is red before any tag exists.
 2. Tag that commit on the repository the workflows run in
-   (`Gebra-Tech/gebra`): `git tag v0.0.2.dev1 && git push origin v0.0.2.dev1`.
+   (`Gebra-Tech/gebra`): `git tag v0.1.1.dev1 && git push origin v0.1.1.dev1`.
 3. The `release` workflow gates the tag, builds wheel + sdist from it
    (`uv build`), validates metadata (`twine check --strict`), verifies the
    artifacts are exactly one wheel + one sdist named for exactly the gated
@@ -426,16 +426,19 @@ can never be mistaken for a final release by its version string.
    environment and compares the installed version against the tag, extracts the
    changelog section as the run's release notes, and uploads everything to the
    run (90-day retention — run artifacts are working copies; the durable release
-   surface is PyPI, at launch).
+   surface is PyPI).
 4. The `publish-pypi` job is skipped: the gate emits `publish=true` only for the
    bare `vX.Y.Z` form, which a dev or rc tag never carries.
 
-**The launch release** is the owner's step (MANUAL-STEPS M14 in the delivery
-repo): configure the PyPI trusted publisher — repository `Gebra-Tech/gebra`,
-workflow `release.yml`, environment `pypi` — then push the final tag. Trusted
-publishing is OIDC: the workflow's identity is verified per run, so no API token
-or stored secret exists anywhere, and `tests/test_release_wiring.py` holds the
-workflow file to that.
+**A final release** (`vX.Y.Z`) is the owner's step: the release commit lands
+with the version in lockstep and its dated changelog section, the owner pushes
+the final tag once that commit's own CI run is green, and the `publish-pypi` job
+runs only after the `pypi` environment's required reviewer approves it. The PyPI
+trusted publisher — repository `Gebra-Tech/gebra`, workflow `release.yml`,
+environment `pypi` — was configured once, at the `0.0.1` launch (MANUAL-STEPS
+M14 in the delivery repo). Trusted publishing is OIDC: the workflow's identity
+is verified per run, so no API token or stored secret exists anywhere, and
+`tests/test_release_wiring.py` holds the workflow file to that.
 
 **Changelog discipline:** `CHANGELOG.md` is written by hand (Keep a Changelog);
 the gate extracts, never generates. A final tag requires its dated

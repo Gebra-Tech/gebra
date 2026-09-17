@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-17
+
+The Phase 0.5 polish release: what a first-time visitor meets, made true and served. The
+README opens with the project logo, a badge row that reads the index, a "Start here" entry
+for each of three audiences and a "Where gebra fits" section naming the tools beside gebra;
+the long description every built distribution carries is built from that page with every
+relative link and the logo rewritten to absolute GitHub URLs, and that built text is what the
+index renders as the project page. The documentation site — twenty-one pages, whose
+examples CI executes verbatim — is served at <https://gebra-tech.github.io/gebra/>. The
+`test-locked` job uploads its gated coverage report to Codecov and the README carries the
+Codecov badge; an OpenSSF Scorecard workflow is wired to run over the public repository; and
+`SECURITY.md` says where to report a vulnerability privately and which release line receives
+fixes. `gebra display --format html` writes one HTML page that renders the diagram when a
+browser opens it (the renderer is fetched from a CDN at view time; nothing on the page runs
+when it is emitted). Three example scenarios join `examples/ci_gate/` under
+`examples/scenarios/`, each a small LangGraph workflow with one seeded defect and the verdict
+gebra reaches on it, walked through on a use-cases page and run in CI two ways. The number is
+the first MINOR because the public surface grew — the HTML format, the metadata and
+classifiers the index shows, the served site — under semantic versioning's `0.y` rule that
+the public API is not yet declared stable.
+
+What moved in the library since `0.0.1`, named in full so a reader knows what did *not*: the
+five validators read an `ir_version` 1.1 document — one carrying a `dynamic` edge — and reach
+a verdict where they refused it with exit `2` (VAL-14); P-01's node conditions quantify over
+the top-level nodes, so an extracted LCEL fragment with a nested frame reaches a verdict
+(VAL-15), and with these two cards `report_format` moved from `1.1` to `1.3` by two MINOR
+steps, each adding optional members to envelope shapes — so `gebra display --report` in this
+build reads `1.3` report files only, refusing one written by `0.0.1` by name (re-running
+`gebra verify` produces a current one); a `dynamic` edge is snapshotted, diffed and freshness-checked
+(SD-13) and drawn (CLI-11), where each of those surfaces exited `2`; and the IR loader refuses
+a document that declares one node `id` twice (IR-07) or is stamped below the `ir_version` its
+edges require (IR-08). No other validator semantics moved: no condition ID was added or
+removed, and the verdicts on the fixture corpus and the committed goldens for `ir_version`
+1.0 documents are unchanged — each of those cards' entries below records the byte-for-byte
+check it made. The exit-code contract and the five CLI verbs are as at `0.0.1`; `display`
+gains the `--format html` value and nothing else on the command line moved. The `.gebra/`
+store format did not move.
+
+**The release cut itself** (card REL-07). The declared version is `0.1.0` in
+`pyproject.toml`, `gebra.__version__` and `uv.lock` together, so the release workflow's
+install smoke and the lockfile check agree with the tag; this dated section is what the
+release gate ships as the release notes; the README's status paragraph and quickstart
+transcript, the three documentation pages whose transcripts print the version and the IR
+concept page whose example names it were swept to `0.1.0` and re-executed; and
+`SECURITY.md`'s supported line is `0.1.x`. This change creates
+no tag: the tag naming this version is pushed on the public repository after this landing's
+own CI run is green, and the publish job runs only after a person approves it.
+
+Everything below is the record of how that release was built, card by card, kept verbatim
+from the `[Unreleased]` section it accumulated in after `0.0.1` — the dev cut that re-opened
+development at `0.0.2.dev0` included, since that is where this line began.
+
 ### Added
 
 - **Three example scenarios and a use-cases page** (card REL-06; `examples/scenarios/`,

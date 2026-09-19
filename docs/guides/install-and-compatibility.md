@@ -121,7 +121,7 @@ for requirement in metadata.requires("gebra") or ():
 
 <!-- gebra:output id=what-the-install-brings -->
 ```text
-gebra           0.1.0
+gebra           0.1.1.dev0
 requires-python >=3.10
 
 langchain-core<2.0,>=1.0
@@ -135,14 +135,14 @@ typer>=0.27
 
 That version is the one the tree declares, because the `docs` job runs this block against an
 editable install of the checkout — no job installs gebra from an index, as the table above
-says. At a release commit the two agree: this checkout declares `0.1.0`, the version
-`pip install gebra` reports. Between releases `main` declares what it is working towards
-rather than what it last shipped — a `.devN` off the next patch, as it declared `0.0.2.dev0`
-after `0.0.1` (the dev segment names the next patch by rule; the release that followed was
-`0.1.0`, decided at the cut) — so a checkout then reports a version the index does not serve.
-PEP 440 sorts a `.devN` before the release it names and excludes a developmental release from
-an ordinary version specifier, so `pip install gebra` does not select one unless it is asked
-to.
+says. Between releases `main` declares what it is working towards rather than what it last
+shipped — a `.devN` off the next patch — so the two numbers differ: this checkout declares
+`0.1.1.dev0`, while `pip install gebra` gives you `0.1.0`, the newest release. The dev segment
+names the next patch by rule rather than by promise; what the release that follows is actually
+numbered is decided at its own cut, as `0.0.2.dev0` was followed by `0.1.0`. At a release
+commit the two agree, for that one commit. PEP 440 sorts a `.devN` before the release it names
+and excludes a developmental release from an ordinary version specifier, so `pip install gebra`
+does not select one unless it is asked to.
 
 `langgraph` and `langchain-core` are ordinary required dependencies: gebra reads their
 builder, compiled-graph and `Runnable` surfaces to extract an IR, so an install without them
@@ -550,7 +550,7 @@ workflow.
 
 | Number | Example | What it versions | What moves it |
 |---|---|---|---|
-| The package version | `0.1.0` — the release, and what `main` declares at the release commit | gebra itself | a release, and the dev cut that re-opens development after one |
+| The package version | `0.1.0` — the newest release; `0.1.1.dev0` — what this checkout declares | gebra itself | a release, and the dev cut that re-opens development after one |
 | The substrate versions | `langgraph 1.2.10` | what gebra reads | upgrading your own dependencies |
 | `ir_version` | `1.0` | the IR *format* | a ratified change to the IR schema |
 | The V.S.F.E label | `1.2.3.3` | **your workflow definition** | your edits |

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Development re-opened at `0.1.1.dev0`** (card REL-08). `0.1.0` is published and its tag is
+  used, so `main` could not keep declaring it: while it did, every build made from a checkout
+  named a release it was not, and a second `v0.1.0` tag on a later commit would have passed the
+  release gate and fired the publish leg at a version the index already holds. `pyproject.toml`,
+  `gebra.__version__` and `uv.lock` now declare `0.1.1.dev0` together — PEP 440's dev segment off
+  the next patch, the form PD-036 ruled — so `tools/release_gate.py --tag v0.1.0` refuses with a
+  version mismatch, and the release commit that cuts the next version is what drops the segment.
+  The segment names the next patch by rule rather than by promise: what that release is numbered
+  is decided at its own cut, as `0.0.2.dev0` was followed by `0.1.0`. Nothing about the published
+  `0.1.0` moves: `pip install gebra` installs it exactly as before, the PyPI badge goes on reading
+  the index, and this entry records no code change beyond the version literal itself. What changed
+  for a reader is that the documentation names two numbers again, where at the release commit the
+  two agreed — the README status paragraph says which number the index serves and which this
+  checkout declares, its quickstart preamble says why the transcript shows the declared one, and
+  the install guide says which of the two a checkout gives you and why a `.devN` sorts where it
+  does. The pages CI executes verbatim carry the declared version, as they always have: the
+  install guide, the pytest-plugin guide and the CLI reference print it in a transcript, and the
+  IR concept page's example names it.
+
 ## [0.1.0] - 2026-09-17
 
 The Phase 0.5 polish release: what a first-time visitor meets, made true and served. The

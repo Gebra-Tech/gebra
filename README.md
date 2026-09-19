@@ -80,11 +80,12 @@ The other tools are described from their own documentation, as of 2026-09-15.
 ## Status
 
 `0.1.0` is the released version — the Phase 0.5 polish release, after `0.0.1` — and
-`pip install gebra` installs it. This checkout declares the same `0.1.0`: this is the release
-commit, so installing from the tree gives you the version the index serves, while the PyPI
-badge above reads the index and shows the number that command delivers. The table is what is
-merged in this repository, and nothing else; a row is `available` only where the capability
-is in the package and covered by its tests.
+`pip install gebra` installs it; the PyPI badge above reads the index and shows the number
+that command delivers. This checkout declares `0.1.1.dev0`, the dev segment that re-opens
+development off the next patch once a release is out, so installing from the tree gives you a
+version the index does not serve. The table is what is merged in this repository, and nothing
+else; a row is `available` only where the capability is in the package and covered by its
+tests.
 
 | Capability | Status | Notes |
 |---|---|---|
@@ -144,7 +145,9 @@ path.
 Ten minutes, from an installed package to a verification report. Every command below is run
 verbatim by CI against the built wheel, in a fresh environment holding only the package and
 what it depends on, and the transcript is that run's own output — trimmed where a `...` line
-appears, exact everywhere it does not.
+appears, exact everywhere it does not. That wheel is built from this tree, which is why the
+version banner below reads `0.1.1.dev0`, the version this checkout declares, rather than the
+`0.1.0` you get from the index.
 
 ### 1. A workflow to check
 
@@ -198,7 +201,7 @@ slot it had to guess arrives with a warning naming the node and the slot.
 <!-- gebra-quickstart:console id=verify exit=1 -->
 ```console
 $ PYTHONPATH=. gebra verify booking:workflow
-gebra 0.1.0 — booking:workflow (extracted)
+gebra 0.1.1.dev0 — booking:workflow (extracted)
 ...
 P-01 graph-well-formed — pass  [DEFENSIBLE]
   witness                 2 nodes reachable from START | 1 terminal node | no

@@ -16,15 +16,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gebra"
-# `0.1.0` is the Phase 0.5 polish release, and the first MINOR: the public surface grew past
-# `0.0.1` — `gebra display --format html`, the project page and README metadata the index
-# renders, the documentation site served from GitHub Pages, `report_format` 1.3 and the
-# `dynamic` edge read on every surface (REL-07; the number is the owner's ruling). A release
-# commit declares exactly the version its tag names — `tools/release_gate.py` refuses a tag
-# naming anything else (PD-036) — and only a release commit declares a bare `X.Y.Z`: between
-# releases `main` declares the next patch's dev segment (GOV-15's shape), so a build from an
-# ordinary checkout never names a release it is not.
-version = "0.1.0"
+# `0.1.1.dev0` re-opens development after the `0.1.0` release (REL-08, GOV-15's shape; the
+# number is the owner's ruling). Only a release commit declares a bare `X.Y.Z`: between
+# releases `main` declares the next patch's dev segment, so a build from an ordinary checkout
+# never names a release it is not, and the second half follows from the same line —
+# `tools/release_gate.py` requires the tag to equal `v` + this string (PD-036), so a second
+# `v0.1.0` tag is refused here rather than published against a used version. The dev segment
+# names the patch by rule, not by promise: what the next release is numbered is decided at its
+# own cut, as `0.0.2.dev0` was followed by `0.1.0`. PEP 440 sorts a `.devN` below the release
+# it names and keeps it out of an ordinary specifier, so `pip install gebra` still gives
+# `0.1.0`.
+version = "0.1.1.dev0"
 description = "Design-time verification and versioning for LangGraph agent workflows"
 # The long description is BUILT from `README.md`, not copied from it. PyPI renders the
 # README but never rewrites a relative link or image (pypa/readme_renderer#163, open), so

@@ -73,7 +73,7 @@ def test_the_supported_line_is_the_newest_release_the_changelog_records() -> Non
 
 
 def test_a_development_checkout_is_not_a_supported_version() -> None:
-    assert "| a checkout of `main` (a `.devN` version) | no — install the release |" in _policy()
+    assert "| a checkout of `main` (between releases, a `.devN` version) | no — install the release |" in _policy()
 
 
 def test_reports_go_to_the_projects_public_address_and_to_no_other() -> None:

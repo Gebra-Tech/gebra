@@ -56,21 +56,24 @@ where P-01 fails, their reports are best-effort diagnostics rather than verdicts
 gebra reads the definition before anything runs. The tools around it answer other questions,
 and the answers compose.
 
-An agent harness is the software that runs an agent — the loop around the model, tool
-dispatch, memory and state, retries, guardrails — and an agent built on LangGraph is one; gebra
-is not a harness and adds nothing at run time: it reads the workflow graph a harness would run
-and checks that definition before the run. LangSmith and LangGraph Studio own run content —
-tracing, evaluation, monitoring and step-through debugging over runs that happened, the runtime
-oracle answering what a run did — while gebra owns the definition's structure, the design-time
-oracle answering what its named properties hold of that definition on every path it declares,
-before any run exists; the line between them is subject matter rather than time, and the two
-are complementary — neither replaces the other.
-[auditable](https://github.com/yzhao062/auditable) (Yue Zhao, USC, 2026) is a runtime system of
-record — it captures what each agent decision relied on, replays it against live state and
-rolls back a committed action that no longer holds — so it records and repairs after a run what
-gebra verifies and versions before one, with one overlap named rather than hidden: auditable's
-PRE pillar runs read-only structural lints on a declared plan before deployment, the same
-ground gebra's P-01 graph-well-formed covers for a LangGraph definition.
+An agent harness is the software that runs an agent — the loop around the model, tool dispatch,
+memory and state, retries, guardrails — and an agent built on LangGraph is one; gebra is not a
+harness and adds nothing at run time: it reads the workflow graph a harness would run and checks
+that definition before the run. LangSmith and LangGraph Studio own run content — tracing,
+evaluation, monitoring and step-through debugging over runs that happened, the runtime oracle
+answering what a run did — while gebra owns the definition's structure, the design-time oracle
+answering what its named properties hold of that definition on every path it declares, before
+any run exists; the line between them is subject matter rather than time, and the two are
+complementary — neither replaces the other. [auditable](https://github.com/yzhao062/auditable)
+(Yue Zhao, USC, 2026) is a runtime system of record — it captures what each agent decision
+relied on, replays it against live state and rolls back a committed action that no longer holds
+— so it records and repairs after a run what gebra verifies and versions before one, with one
+overlap named rather than hidden: auditable's PRE pillar runs read-only structural lints on a
+declared plan before deployment — the same design-time, read-only stance as gebra's P-01
+graph-well-formed — though its four lints ask whether an unread, volatile or over-scoped
+dependency reaches a decision or a consequential action, nearer the dataflow ground of P-04 than
+P-01's reachability, terminal-node and unresolved-target checks: adjacent questions, not the
+same check.
 
 The other tools are described from their own documentation, as of 2026-09-15.
 
@@ -115,13 +118,13 @@ cd gebra
 pip install .
 ```
 
-Python 3.10–3.13, against `langgraph` 1.x and `langchain-core` 1.x. Those ranges are the
-installability envelope; the compatibility *promise* is the tested pair matrix inside them,
-pinned by the `compat-cell-1|2|3` extras in [pyproject.toml](pyproject.toml) and run as twelve
-CI cells. Importing gebra never fails on version grounds, and never checks either — the first
+Python 3.10–3.13 is the tested range (`requires-python` is `>=3.10`, with no ceiling), against
+`langgraph` 1.x and `langchain-core` 1.x. Those two library ranges are the installability
+envelope; the compatibility *promise* is the tested pair matrix inside them, pinned by the
+`compat-cell-1|2|3` extras in [pyproject.toml](pyproject.toml) and run as twelve CI cells. Importing gebra never fails on version grounds, and never checks either — the first
 `gebra.extract()` call is what compares what you have against that matrix. A pairing inside the
 declared ranges but outside a tested cell (including a Python newer than 3.13) runs, and warns
-once with a `GebraVersionWarning`: "extraction unverified against this pair". A substrate
+once with a `GebraVersionWarning`: "extraction is unverified against this pair". A substrate
 outside the ranges runs best-effort and carries the version fact as an `unsupported-construct`
 warning in the extraction envelope, which the report renders.
 

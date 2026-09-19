@@ -138,10 +138,11 @@ editable install of the checkout — no job installs gebra from an index, as the
 says. At a release commit the two agree: this checkout declares `0.1.0`, the version
 `pip install gebra` reports. Between releases `main` declares what it is working towards
 rather than what it last shipped — a `.devN` off the next patch, as it declared `0.0.2.dev0`
-after `0.0.1` — so a checkout then reports a version the index does not serve. PEP 440 sorts
-a `.devN` before the release it names — `0.0.2.dev0` was after `0.0.1` and before `0.0.2` —
-and excludes a developmental release from an ordinary version specifier, so
-`pip install gebra` does not select one unless it is asked to.
+after `0.0.1` (the dev segment names the next patch by rule; the release that followed was
+`0.1.0`, decided at the cut) — so a checkout then reports a version the index does not serve.
+PEP 440 sorts a `.devN` before the release it names and excludes a developmental release from
+an ordinary version specifier, so `pip install gebra` does not select one unless it is asked
+to.
 
 `langgraph` and `langchain-core` are ordinary required dependencies: gebra reads their
 builder, compiled-graph and `Runnable` surfaces to extract an IR, so an install without them

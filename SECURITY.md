@@ -9,7 +9,7 @@ on that line.
 |---|---|
 | `0.1.x` — the newest release line | yes |
 | older release lines (`0.0.x`) | no — upgrade to the newest line |
-| a checkout of `main` (a `.devN` version) | no — install the release |
+| a checkout of `main` (between releases, a `.devN` version) | no — install the release |
 
 To receive a fix, upgrade the installed package: `pip install --upgrade gebra`. `gebra
 --version` prints the version you have.

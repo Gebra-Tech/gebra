@@ -1125,10 +1125,28 @@ workflow, not `__main__`, not written into the child's cwd — so each block ass
 (the card's ruling), and `tests/docs/test_use_cases.py` records the gap as an observation: a
 body tripped *after* a fix block's own assertion leaves the trailer's verdict clean, which is
 exactly why the assertion is the block's own. That obligation is a page-level rule rather than
-this page's habit: `tests/docs/test_doc_examples.py`'s sixth derived rule (`EXAMPLES_IMPORT`)
-holds every example importing `examples.` to an own-ledger assertion whose printed-ledger line is
-the block's last statement — the print reads the live list, so a body tripped anywhere before it
-changes stdout and fails the page — the pre-review's recommendation, taken in the same change. The same module fires the controls both paths
+this page's habit: `tests/docs/test_doc_examples.py`'s sixth derived rule
+(`scenario_import_rule`) holds every example importing `examples.` to an own-ledger assertion
+whose printed-ledger line is the block's last statement — the print reads the live list, so a
+body tripped anywhere before it changes stdout and fails the page — the pre-review's
+recommendation, taken in the same change. Card REL-09 closed the two `low` notes the pre-tag
+never-invokes review left on it. The rule no longer reads import lines with one regex: the
+modules a block imports are read off Python's own parse of it (`ast.Import`, `ast.ImportFrom`
+and an `import_module("…")` string argument), so `from examples import scenarios`, a bare
+`import examples` and `import_module("examples…")` no longer escape it fail-open, and neither
+do the spacing, indentation and line-continuation shapes a per-line pattern turns on. Beside
+that reader, every `examples.scenarios.<name>` a block writes out must be accounted for by a
+module the block really imports — answered per name, so one recognised import cannot cover an
+unrecognised second — and the ledger obligation is counted per imported module rather than per
+block, so a block naming two scenarios owes two ledger assertions and a last-statement print
+that reads both, whether it imports them in two statements or in one. What the rule counts is
+distinct ledger names rather than the identity of each imported module's own list: strictly
+narrower than the single substring it replaces, and recorded on the card as the edge it leaves.
+`tests/docs/test_use_cases.py` fires each half — every read form refused without its ledger and
+accepted with it, a form the reader does not know refused even when it holds one, a block whose
+second scenario is reached by such a form refused and its unaccounted scenario named, and a
+two-module block refused until the second ledger is both asserted and printed. The same module
+fires the controls both paths
 rest on: a scenario body called inside a swallowed `try` fails the page example (before
 `main()`, the file's own assertion exits 1; after it, `WA07-LEDGER` names `__main__:<body>`)
 and fails the pytest path through the conftest sweep (a scratch test run with

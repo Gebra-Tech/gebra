@@ -41,6 +41,7 @@ import yaml
 import gebra
 from gebra.pytest_plugin import enabled_properties, findings_for
 from gebra.verify import PropertySlug, RunPolicy, StrictPolicy, verify
+from tests.docs.test_doc_examples import scenario_import_rule
 from tests.docs.test_docs_site import WRITTEN_PAGES
 from tests.test_toolchain_config import _workflow_run_steps
 from tools.docs_examples import DocExample, parse_markdown, run_example
@@ -549,6 +550,188 @@ def test_a_fix_block_asserts_its_own_ledger_because_the_sweep_does_not_reach_it(
     assert not caught.ok
     assert caught.returncode == 1
     assert f"AssertionError: ['{scenario.body}']" in caught.stderr
+
+
+# ── The page-level rule that owes this page its ledgers, fired (card REL-09) ─────────────
+
+#: The import forms the own-ledger rule reads, and what each block would then call its ledger.
+#: Three of them are the ones the pre-tag never-invokes review found *escaping* the rule: they
+#: name an example scenario in a way its single pattern did not recognise, so a block using one
+#: read as importing nothing — the rule passed over it in silence and the block owed no ledger,
+#: while the trailer sweeps that module kind under none of its three, which is the whole reason
+#: the rule exists. The fourth, ``import examples.scenarios…``, was recognised all along and is
+#: carried here as a non-regression guard rather than as an escape. Each is fired both ways, so
+#: the control shows the refusal *and* the compliant block the same form admits.
+SCENARIO_IMPORT_FORMS = (
+    pytest.param(
+        "from examples import scenarios",
+        "scenarios.research_loop.workflow",
+        id="from-examples-import-scenarios",
+    ),
+    pytest.param("import examples", "examples.scenarios.research_loop.workflow", id="bare-import"),
+    pytest.param(
+        "from importlib import import_module\n"
+        'workflow = import_module("examples.scenarios.research_loop.workflow")',
+        "workflow",
+        id="import-module",
+    ),
+    pytest.param(
+        "import examples.scenarios.research_loop.workflow",
+        "examples.scenarios.research_loop.workflow",
+        id="import-the-dotted-module-already-read",
+    ),
+)
+
+
+def _control_block(code: str) -> DocExample:
+    """A block the rule is applied to and nothing runs — the rule reads text and an AST."""
+    return DocExample(
+        path=PAGE_PATH,
+        example_id="rel-09-control",
+        line=0,
+        code=code,
+        expected_output="",
+        output_line=None,
+    )
+
+
+@pytest.mark.parametrize("scenario", SCENARIO_TABLE, ids=SCENARIO_IDS)
+def test_the_rule_these_controls_fire_is_the_one_each_fix_block_passes(
+    scenario: Scenario, examples: dict[str, DocExample]
+) -> None:
+    """Non-vacuity in the other direction: the refusals below are of the live rule."""
+    scenario_import_rule(examples[scenario.fix_example_id])
+
+
+@pytest.mark.parametrize(("importing", "ledger"), SCENARIO_IMPORT_FORMS)
+def test_an_import_form_that_escaped_the_own_ledger_rule_is_refused(
+    importing: str, ledger: str
+) -> None:
+    """Each form the rule now reads, fired both ways.
+
+    Without a ledger the block is refused — where the three escaping forms were not read as
+    importing a scenario at all, so nothing was demanded of them and the page would have gone
+    green with a ledger nothing asserted. Holding the ledger the way the page's own fix blocks
+    do, the same form is accepted: the rule was hardened, not narrowed to the forms it knew.
+    """
+    bare = _control_block(f"{importing}\nprint('verdict')\n")
+    with pytest.raises(AssertionError, match="must hold each imported ledger empty"):
+        scenario_import_rule(bare)
+
+    held = _control_block(
+        f"{importing}\n"
+        f"assert {ledger}.TRIPPED == [], {ledger}.TRIPPED\n"
+        f'print("node bodies run ", {ledger}.TRIPPED)\n'
+    )
+    scenario_import_rule(held)
+
+
+def test_a_scenario_import_form_nobody_has_written_is_refused_even_when_it_holds_a_ledger() -> None:
+    """The mention assertion: the half of the rule that cannot go stale as forms are invented.
+
+    This block is well behaved — it asserts its ledger empty and prints it last — and is
+    refused anyway, because it names a scenario in a form the reader does not know and a rule
+    that cannot count the modules a block imports cannot say how many ledgers it owes. Failing
+    closed here is what keeps the reader responsible only for real imports.
+    """
+    block = _control_block(
+        "workflow = __import__(\n"
+        '    "examples.scenarios.research_loop.workflow", fromlist=["TRIPPED"]\n'
+        ")\n"
+        "assert workflow.TRIPPED == [], workflow.TRIPPED\n"
+        'print("node bodies run ", workflow.TRIPPED)\n'
+    )
+
+    with pytest.raises(AssertionError, match="in an import form unknown here"):
+        scenario_import_rule(block)
+
+
+def test_one_recognised_import_does_not_cover_an_unrecognised_second() -> None:
+    """The mention assertion per *name*, fired — the sharpest shape the pre-review found.
+
+    A block that imports one scenario the reader knows and reaches a second by a form it does
+    not would, under a mention check asked once per block, defeat both of this card's notes at
+    once: the first import makes the block look accounted for, and the count it yields is one.
+    Each name the block writes out is therefore answered separately, and the scenario nothing
+    imports is the one the message names.
+    """
+    first, second = SCENARIO_TABLE[0], SCENARIO_TABLE[1]
+    block = _control_block(
+        f"from examples.scenarios.{first.slug} import workflow as one\n"
+        f'two = __import__("examples.scenarios.{second.slug}.workflow", fromlist=["TRIPPED"])\n'
+        "assert one.TRIPPED == [], one.TRIPPED\n"
+        "assert two.TRIPPED == [], two.TRIPPED\n"
+        'print("node bodies run ", one.TRIPPED, two.TRIPPED)\n'
+    )
+
+    with pytest.raises(AssertionError, match=f"examples.scenarios.{second.slug}"):
+        scenario_import_rule(block)
+
+
+def test_a_block_importing_two_scenarios_owes_a_ledger_for_each() -> None:
+    """The review's second note, fired: one ``TRIPPED == []`` no longer settles two imports.
+
+    The rule read one substring, so the first block below satisfied it — and the second
+    scenario's ledger was then read by nothing at all: the trailer does not sweep that module
+    kind, so a body of it that ran inside a swallowing ``try`` left the page green. The third
+    block holds both ledgers and is accepted; the middle one shows the printed half is counted
+    the same way, since the print is what reads the live lists at the end of the run.
+    """
+    first, second = SCENARIO_TABLE[0], SCENARIO_TABLE[1]
+    importing = (
+        f"from examples.scenarios.{first.slug} import workflow as one\n"
+        f"from examples.scenarios.{second.slug} import workflow as two\n"
+    )
+    asserts_one = "assert one.TRIPPED == [], one.TRIPPED\n"
+    asserts_two = "assert two.TRIPPED == [], two.TRIPPED\n"
+
+    with pytest.raises(AssertionError, match="must hold each imported ledger empty"):
+        scenario_import_rule(
+            _control_block(importing + asserts_one + 'print("node bodies run ", one.TRIPPED)\n')
+        )
+
+    with pytest.raises(AssertionError, match="last statement must print each of the 2"):
+        scenario_import_rule(
+            _control_block(
+                importing + asserts_one + asserts_two + 'print("node bodies run ", one.TRIPPED)\n'
+            )
+        )
+
+    scenario_import_rule(
+        _control_block(
+            importing
+            + asserts_one
+            + asserts_two
+            + 'print("node bodies run ", one.TRIPPED, two.TRIPPED)\n'
+        )
+    )
+
+
+def test_two_scenarios_imported_in_one_statement_owe_two_ledgers_too() -> None:
+    """The same demand where a per-line pattern read one import: ``import a, b`` is two.
+
+    Reading the forms off Python's own parse rather than off the line is what makes this block
+    count two — the shape the pre-review found satisfying a per-statement pattern while one
+    of the two ledgers went unread by anything at all.
+    """
+    one = f"examples.scenarios.{SCENARIO_TABLE[0].slug}.workflow"
+    two = f"examples.scenarios.{SCENARIO_TABLE[1].slug}.workflow"
+    importing = f"import {one}, {two}\n"
+    asserts_one = f"assert {one}.TRIPPED == [], {one}.TRIPPED\n"
+
+    with pytest.raises(AssertionError, match="must hold each imported ledger empty"):
+        scenario_import_rule(
+            _control_block(importing + asserts_one + f'print("node bodies run ", {one}.TRIPPED)\n')
+        )
+
+    scenario_import_rule(
+        _control_block(
+            importing
+            + asserts_one
+            + f"assert {two}.TRIPPED == [], {two}.TRIPPED\n"
+            + f'print("node bodies run ", {one}.TRIPPED, {two}.TRIPPED)\n'
+        )
+    )
 
 
 # ── Registration and the honest-claims vocabulary ────────────────────────────────────────

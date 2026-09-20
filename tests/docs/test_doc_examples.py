@@ -876,7 +876,80 @@ def test_the_tooling_modules_examples_import_stay_free_of_the_substrate() -> Non
 #: and fails the page, and only code after it would be uncovered. ``tests/docs/test_use_cases.py``
 #: fires the control — a body tripped before the assertion exits the block 1, and one tripped
 #: after it is invisible to the trailer, which is the reason this rule exists.
-EXAMPLES_IMPORT = re.compile(r"^\s*(?:from|import)\s+examples\.", re.MULTILINE)
+#:
+#: Card REL-09 closed the two `low` notes the pre-tag never-invokes review left on it. The rule
+#: began as one pattern, ``^\s*(?:from|import)\s+examples\.``, which recognised the two dotted
+#: forms alone: ``from examples import scenarios``, a bare ``import examples`` and
+#: ``import_module("examples…")`` each named a scenario and escaped it *fail-open*. Rather than
+#: grow a fourth pattern per form invented — the shape whose whitespace and line-continuation
+#: byte-cases the pre-review found refusing less than the single pattern had — the import forms
+#: are now read off Python's own parse of the block, so ``import a, b`` and two statements on
+#: one line count as two, and indentation, continuations and spacing cannot change the answer.
+#: What that reader yields is the ``examples``-rooted module each statement *names*, never the
+#: names it binds, so a block pulling two builders out of one scenario owes one ledger and a
+#: block naming two scenarios owes two.
+EXAMPLES_PACKAGE = "examples"
+
+#: The one form an AST cannot name for us: a module fetched by string at run time.
+IMPORT_MODULE = "import_module"
+
+#: A scenario a block names in its own text. Every one of these must be accounted for by a
+#: module the block imports in a form the reader above knows — the sibling sample-workflow
+#: rule's mention assertion (`:448`), made per *name* rather than per block, so one recognised
+#: import cannot cover an unrecognised second. This is the half that does not go stale: a form
+#: nobody has thought of is caught here, and the reader stays responsible for real imports.
+SCENARIO_NAMED = re.compile(r"examples\.scenarios\.\w+")
+
+#: An own-ledger assertion and a printed ledger, each by the object whose list it reads, so that
+#: "one per imported scenario module" counts *ledgers* rather than occurrences: the same
+#: assertion written twice still asserts one ledger. Counted, not identified — a block could
+#: reach the count with some other object's empty ``TRIPPED``; that is a narrowing of what the
+#: single substring admitted rather than a closed door, and it is recorded on card REL-09.
+LEDGER_ASSERTED = re.compile(r"(?P<ledger>[\w.]+)\.TRIPPED[ \t]*==[ \t]*\[\]")
+LEDGER_READ = re.compile(r"(?P<ledger>[\w.]+)\.TRIPPED")
+
+
+def _examples_rooted(dotted: str) -> bool:
+    """Whether a dotted module name is ``examples`` itself or something underneath it."""
+    return dotted == EXAMPLES_PACKAGE or dotted.startswith(f"{EXAMPLES_PACKAGE}.")
+
+
+def _import_module_argument(node: ast.AST) -> str | None:
+    """The module an ``import_module("…")`` call names, or ``None`` if this is not one."""
+    if not isinstance(node, ast.Call) or not node.args:
+        return None
+    if isinstance(node.func, ast.Attribute):
+        called = node.func.attr
+    elif isinstance(node.func, ast.Name):
+        called = node.func.id
+    else:
+        return None
+    first = node.args[0]
+    if called != IMPORT_MODULE or not isinstance(first, ast.Constant):
+        return None
+    return first.value if isinstance(first.value, str) else None
+
+
+def _scenario_modules_in(code: str) -> set[str]:
+    """Every ``examples``-rooted module `code` imports, read off Python's own parse of it."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(code)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names if _examples_rooted(alias.name))
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0 and node.module and _examples_rooted(node.module):
+                found.add(node.module)
+        else:
+            fetched = _import_module_argument(node)
+            if fetched is not None and _examples_rooted(fetched):
+                found.add(fetched)
+    return found
+
+
+def _accounts_for(module: str, named: str) -> bool:
+    """Whether an imported module covers a name, compared on whole dotted segments."""
+    shorter, longer = sorted((module, named), key=len)
+    return longer == shorter or longer.startswith(f"{shorter}.")
 
 
 def _last_statement(code: str) -> str:
@@ -886,21 +959,50 @@ def _last_statement(code: str) -> str:
     return ast.get_source_segment(code, tree.body[-1]) or ""
 
 
+def scenario_import_rule(example: DocExample) -> None:
+    """The sixth derived rule over one example, raising on the first thing it refuses.
+
+    Reads and parses; it runs nothing. Named rather than inlined into the test below so that
+    ``tests/docs/test_use_cases.py`` can fire it — a rule whose corpus happens to satisfy it
+    says nothing about the block that will not, and both halves here were fail-open until a
+    control was written against them (card REL-09).
+    """
+    imported = _scenario_modules_in(example.code)
+    unaccounted = sorted(
+        named
+        for named in set(SCENARIO_NAMED.findall(example.code))
+        if not any(_accounts_for(module, named) for module in imported)
+    )
+    assert not unaccounted, (
+        f"{example.name} names {unaccounted} in an import form unknown here, so the own-ledger "
+        "rule cannot count the ledgers it owes. Teach _scenario_modules_in the form rather than "
+        "leave the block reading as importing nothing."
+    )
+    if not imported:
+        return
+
+    owed = len(imported)
+    asserted = {match.group("ledger") for match in LEDGER_ASSERTED.finditer(example.code)}
+    assert len(asserted) >= owed, (
+        f"{example.name} imports {owed} scenario module(s) {sorted(imported)} and asserts "
+        f"{len(asserted)} ledger(s) {sorted(asserted)}; the harness trailer sweeps that module "
+        "kind under none of its three, so the example must hold each imported ledger empty."
+    )
+    last = _last_statement(example.code)
+    printed = {match.group("ledger") for match in LEDGER_READ.finditer(last)}
+    assert last.startswith("print(") and len(printed) >= owed, (
+        f"{example.name}: the block's last statement must print each of the {owed} imported "
+        f"ledger(s) — the print reads the live lists — got {last!r}"
+    )
+
+
 def test_an_example_importing_a_scenario_module_asserts_and_prints_its_own_ledger() -> None:
     """The sixth page-level rule, for the module kind the sweep does not reach."""
-    owing = [example for example in EXAMPLES if EXAMPLES_IMPORT.search(example.code)]
+    owing = [example for example in EXAMPLES if _scenario_modules_in(example.code)]
     assert owing, "no example imports a scenario module — the rule below would be vacuous"
 
-    for example in owing:
-        assert "TRIPPED == []" in example.code, (
-            f"{example.name} imports a scenario module and asserts no ledger; the harness "
-            "trailer does not sweep that module, so the example must hold its own ledger empty."
-        )
-        last = _last_statement(example.code)
-        assert last.startswith("print(") and "TRIPPED" in last, (
-            f"{example.name}: the printed-ledger line must be the block's last statement, "
-            f"got {last!r}"
-        )
+    for example in EXAMPLES:
+        scenario_import_rule(example)
 
 
 @requires_an_example

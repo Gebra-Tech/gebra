@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-21
+
+A patch release: four things a visitor or an adopter can see, and nothing at all in what the
+library does. The README's "Where gebra fits" section now describes record-and-replay tooling
+as a **category** — LangGraph's own checkpoint time travel, cassette-style replay in tests, and
+runtime systems of record such as auditable — where it used to single out one research project
+by author and year; the boundary the section draws is the one it always drew, that each of
+those tools needs a run to have happened while gebra versions and verifies the definition
+before any run exists. Every workflow in `.github/workflows/` now declares its own token grant
+at the file level, `contents: read`, with each write named on the single job that needs it, and
+a test enumerates the workflow tree against that table so a new workflow fails until it is
+registered. Every commit that lands on the public repository now arrives as a pull request
+carrying the maintainer's review note, whose checks re-run the CI matrix on the identical tree,
+and it is merged by fast-forwarding that reviewed commit — so what sits on `main` is
+byte-identical to what the checks ran on. And `SECURITY.md` names GitHub's private
+vulnerability reporting — the "Report a vulnerability" button under the repository's Security
+tab, enabled on 2026-09-20 — as the first route for a report, with the email address as the
+second for a reporter who would rather not use GitHub.
+
+Nothing in the library moved, which is why the number is a PATCH under semantic versioning's
+`0.y` rule rather than the MINOR `0.1.0` was: the public surface did not grow. No source file
+changed beyond the version literal itself — no public API, no IR field, no `ir_version`, no
+condition ID, no `report_format`, no CLI verb, option or exit code, no dependency and no golden
+byte. Upgrading from `0.1.0` changes what the project's pages, policy and workflows say and
+nothing about what `gebra verify` reads or reports.
+
+**The release cut itself** (card REL-11). The declared version is `0.1.1` in `pyproject.toml`,
+`gebra.__version__` and `uv.lock` together, so the release workflow's install smoke and the
+lockfile check agree with the tag; this dated section is what the release gate ships as the
+release notes; the README's status paragraph and quickstart transcript, the three documentation
+pages whose transcripts print the version and the IR concept page whose example names it were
+swept to `0.1.1` and re-executed; `SECURITY.md`'s supported line stays `0.1.x`, the line this
+release is on; and `CONTRIBUTING.md`'s dev-cut examples name `0.1.2.dev1`, the next routine cut
+off this declaration. This change creates no tag: the tag naming this version is pushed on the
+public repository after this landing's own CI run is green, and the publish job runs only after
+a person approves it.
+
+Everything below is the record of how that release was built, card by card, kept verbatim from
+the `[Unreleased]` section it accumulated in after `0.1.0` — the dev cut that re-opened
+development at `0.1.1.dev0` included, since that is where this line began.
+
 ### Changed
 
 - **The ruled "Where gebra fits" third sentence now describes record-and-replay tooling as a

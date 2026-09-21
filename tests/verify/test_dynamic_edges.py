@@ -73,7 +73,7 @@ def envelope_of(ir: WorkflowIR) -> ExtractionEnvelope:
         extracted_from=ExtractedFrom(
             source="langgraph:StateGraph",
             family=ObjectFamily.BUILDER,
-            extractor_version="0.1.1.dev0",
+            extractor_version="0.1.1",
         ),
     )
 

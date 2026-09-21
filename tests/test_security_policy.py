@@ -95,6 +95,24 @@ def test_the_policy_asks_for_private_reporting_first() -> None:
     )
 
 
+def test_the_github_private_route_is_named_before_the_email() -> None:
+    """Two routes, in the order a reporter should try them (REL-11).
+
+    Private vulnerability reporting was enabled on the public repository on 2026-09-20, and
+    it is the route that keeps the report, the thread and the draft advisory in one place
+    the maintainers already watch — so the policy names it first and the address second,
+    rather than leaving a reporter to guess that the button exists. The email stays because
+    a reporter without a GitHub account has to be able to reach someone; `ADDRESS` is still
+    the only address in the file, which the test above holds.
+    """
+    policy = _unwrapped(_policy())
+    button = 'the "Report a vulnerability" button'
+
+    assert f"Use GitHub's private vulnerability reporting instead: {button}" in policy
+    assert "[Security tab](https://github.com/Gebra-Tech/gebra/security)" in policy
+    assert policy.index(button) < policy.index(f"**{ADDRESS}**")
+
+
 def test_the_policy_names_what_gebra_calls_because_it_was_asked_to() -> None:
     """The boundary a report is judged against, drawn where the tripwires draw it.
 

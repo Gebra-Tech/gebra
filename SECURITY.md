@@ -17,9 +17,14 @@ To receive a fix, upgrade the installed package: `pip install --upgrade gebra`. 
 ## Reporting a vulnerability
 
 **Please do not report a security problem in a public issue, pull request or discussion.**
-Email **gebra.dev@gmail.com** instead, with "security" in the subject line. The same address
-handles the contributor agreement and general questions, so the subject line is what routes
-your report.
+Use GitHub's private vulnerability reporting instead: the "Report a vulnerability" button
+under the repository's [Security tab](https://github.com/Gebra-Tech/gebra/security), enabled
+on 2026-09-20. It opens a draft advisory that only you and the maintainers can read, and the
+thread stays there until the advisory is published.
+
+If you would rather not use GitHub, email **gebra.dev@gmail.com** with "security" in the
+subject line. The same address handles the contributor agreement and general questions, so the
+subject line is what routes your report.
 
 Include what you can of:
 

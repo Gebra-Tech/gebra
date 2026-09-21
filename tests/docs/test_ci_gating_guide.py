@@ -232,6 +232,9 @@ def test_the_documented_workflow_is_the_real_one_without_its_self_check(
 
     assert shown["name"] == workflow["name"]
     assert _triggers(shown) == _triggers(workflow) == {"push": None, "pull_request": None}
+    # The token grant is part of what an adopter copies (REL-10), so the fence and the file
+    # cannot come apart on it either.
+    assert shown["permissions"] == workflow["permissions"] == {"contents": "read"}
     assert shown["jobs"][JOB]["name"] == workflow["jobs"][JOB]["name"]
     assert shown["jobs"][JOB]["runs-on"] == workflow["jobs"][JOB]["runs-on"]
     assert shown["jobs"][JOB]["steps"] == _steps(workflow)[:-1]

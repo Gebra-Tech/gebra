@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The ruled "Where gebra fits" third sentence now describes record-and-replay tooling as a
+  category** (card PUB-10). PD-061's ruling (c) sentence 3, which the README carries verbatim,
+  was amended on 2026-09-20: it singled out one research project with an author line, and a
+  positioning sentence that names one third party dates itself and invites a "who else?"
+  reading. The paragraph now names the category and three examples of it — LangGraph's own
+  checkpoint time travel, cassette-style replay in tests, and runtime systems of record such as
+  auditable — each described only as its own documentation describes it, read the same day:
+  LangGraph's time travel re-executes the nodes after the checkpoint it resumes, so the sentence
+  says it resumes a saved state and re-runs the tail rather than that it replays a recording.
+  The boundary the sentence draws is unchanged and is what the section was always for: each of
+  those tools needs a run to have happened, where gebra versions and verifies the definition
+  before any run exists, and the two are complementary. The link on the word auditable stays;
+  its author, affiliation and year are gone, and the overlap detail the sentence used to carry
+  now lives where the comparison itself lives. `tests/docs/test_readme.py` re-pins the section
+  to that boundary — the phrase list asks for "needs a run to have happened" and "before any run
+  exists" in place of the two phrases naming one tool's pillar and one gebra property, and the
+  check that holds the section to PD-061's own three paragraphs is green against the amended
+  ruling. The section's date line reads 2026-09-20, the day those descriptions were read. No
+  code, IR field, condition ID or version literal moves.
+
 - **Development re-opened at `0.1.1.dev0`** (card REL-08). `0.1.0` is published and its tag is
   used, so `main` could not keep declaring it: while it did, every build made from a checkout
   named a release it was not, and a second `v0.1.0` tag on a later commit would have passed the
@@ -27,6 +47,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does. The pages CI executes verbatim carry the declared version, as they always have: the
   install guide, the pytest-plugin guide and the CLI reference print it in a transcript, and the
   IR concept page's example names it.
+
+### Security
+
+- **Every workflow declares its token grant, and the file level is read-only** (card REL-10).
+  `ci.yml`, `gebra-gate-example.yml` and `drift-issue-drill.yml` declared no top-level
+  `permissions:` block, so every job in them ran with whatever the repository's default token
+  grant happens to be — the shape OpenSSF Scorecard's Token-Permissions check reads as the
+  weakest a workflow can have, and the one it raised for each of the three files. All three now
+  declare `contents: read` above their jobs, which is what a checkout needs and what
+  `release.yml` and `scorecard.yml` already carried. The two jobs that open issues keep their
+  own `contents: read` + `issues: write` blocks — `ci.yml`'s `drift-issues`, which writes the
+  version-gap records the compatibility watch depends on, and the drill's job — because a
+  job-level block replaces the file-level one rather than being narrowed by it. For the same
+  reason `docs-pages.yml`'s `pages: write` and `id-token: write` moved from the file level onto
+  its `deploy` job, the only job that deploys: the two writes were reachable from anywhere in
+  that file and now are not. The copyable workflow in the CI-gating guide prints the same two
+  lines, since that is the file adopters start from. Closing the gap that let this land
+  unnoticed, `tests/test_workflow_permissions.py` enumerates the workflow tree against a
+  declared table with a reason per workflow: a new workflow fails until it is registered, every
+  workflow's top-level grant must equal its entry, no entry may grant a write, and every
+  job-level write in the tree must be named with the job that holds it. This entry records what
+  the files declare; what a Scorecard run reports about them is read on the code-scanning page.
 
 ## [0.1.0] - 2026-09-17
 

@@ -615,6 +615,10 @@ on:
   push:
   pull_request:
 
+# The gate reads a checkout and runs a test suite; nothing here writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   gebra-gate-example:
     name: "The documented gate, on all three rungs"

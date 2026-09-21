@@ -45,10 +45,11 @@ on:
   # failure, without an empty commit to trigger it.
   workflow_dispatch:
 
+# REL-10: read-only at the file level, the shape every workflow in this tree declares;
+# the `deploy` job below carries the two writes a Pages deployment needs, and a job-level
+# block replaces this one for that job.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One deployment at a time, and the one in flight finishes (the default is not to cancel):
 # an interrupted Pages deployment can leave the site on a half-uploaded artifact.
@@ -59,6 +60,12 @@ jobs:
     # The public mirror serves the site; the development repository never deploys.
     if: github.repository == 'Gebra-Tech/gebra'
     runs-on: ubuntu-latest
+    permissions:
+      # Read the tree, write the deployment, mint the token that authorizes it — and no
+      # more. Declared here, so nothing else in the file could ever reach the two writes.
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

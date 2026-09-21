@@ -64,18 +64,15 @@ evaluation, monitoring and step-through debugging over runs that happened, the r
 answering what a run did — while gebra owns the definition's structure, the design-time oracle
 answering what its named properties hold of that definition on every path it declares, before
 any run exists; the line between them is subject matter rather than time, and the two are
-complementary — neither replaces the other. [auditable](https://github.com/yzhao062/auditable)
-(Yue Zhao, USC, 2026) is a runtime system of record — it captures what each agent decision
-relied on, replays it against live state and rolls back a committed action that no longer holds
-— so it records and repairs after a run what gebra verifies and versions before one, with one
-overlap named rather than hidden: auditable's PRE pillar runs read-only structural lints on a
-declared plan before deployment — the same design-time, read-only stance as gebra's P-01
-graph-well-formed — though its four lints ask whether an unread, volatile or over-scoped
-dependency reaches a decision or a consequential action, nearer the dataflow ground of P-04 than
-P-01's reachability, terminal-node and unresolved-target checks: adjacent questions, not the
-same check.
+complementary — neither replaces the other. Record-and-replay tooling works from what a run
+produced rather than from the definition — LangGraph's own checkpoint time travel resumes a
+saved state and re-runs the tail, cassette-style replay in tests replays recorded responses, and
+runtime systems of record such as [auditable](https://github.com/yzhao062/auditable) capture
+what each decision relied on and can roll a committed action back — so each of them needs a run
+to have happened; gebra versions and verifies the definition before any run exists, and the two
+are complementary: a record of what ran beside a check of what is declared.
 
-The other tools are described from their own documentation, as of 2026-09-15.
+The other tools are described from their own documentation, as of 2026-09-20.
 
 ## Status
 

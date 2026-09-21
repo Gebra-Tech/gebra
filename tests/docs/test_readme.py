@@ -872,7 +872,13 @@ def test_start_here_is_the_first_section_and_addresses_three_audiences() -> None
 
 
 def test_where_gebra_fits_precedes_the_status_table_and_names_its_neighbours() -> None:
-    """Three sentences on three kinds of tool, "complementary" said, one overlap named."""
+    """Three sentences on three kinds of tool, "complementary" said, no example singled out.
+
+    The third sentence is about record-and-replay tooling as a category (PD-061 amendment 2,
+    2026-09-20), so the phrases pinned here are the category's boundary — each example needs a
+    run to have happened, gebra checks the definition before any run exists — not one tool's
+    name, author or pillar.
+    """
     headings = _headings()
     assert headings.index("Where gebra fits") < headings.index("Status")
 
@@ -882,8 +888,8 @@ def test_where_gebra_fits_precedes_the_status_table_and_names_its_neighbours() -
         "gebra is not a harness and adds nothing at run time",
         "LangSmith and LangGraph Studio own run content",
         "the two are complementary — neither replaces the other",
-        "auditable's PRE pillar",
-        "gebra's P-01 graph-well-formed",
+        "needs a run to have happened",
+        "before any run exists",
         "as of 2026-",
     ):
         assert phrase in section, phrase

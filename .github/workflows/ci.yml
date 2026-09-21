@@ -33,6 +33,12 @@ on:
     - cron: "23 6 * * 1"
   workflow_dispatch:
 
+# REL-10: quality gates read the tree and write nothing, so every job below runs on a
+# read-only token instead of the repository's default grant. The one exception declares
+# itself: `drift-issues` carries its own block, which replaces this one for that job.
+permissions:
+  contents: read
+
 env:
   # The uv release that produced the committed `uv.lock`.
   UV_VERSION: "0.12.0"

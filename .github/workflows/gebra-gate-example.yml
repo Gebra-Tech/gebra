@@ -27,6 +27,11 @@ on:
   push:
   pull_request:
 
+# REL-10: the gate reads a checkout and runs a test suite; nothing here writes to the
+# repository. An adopter copying this file starts from a read-only token.
+permissions:
+  contents: read
+
 jobs:
   gebra-gate-example:
     name: "The documented gate, on all three rungs"

@@ -119,13 +119,18 @@ def test_the_deployment_runs_only_on_the_public_mirror(pages: dict[Any, Any]) ->
 def test_the_workflow_asks_for_exactly_what_a_pages_deployment_needs(
     pages: dict[Any, Any],
 ) -> None:
-    """Read the tree, write the deployment, mint the token that authorizes it — and no more."""
-    assert pages["permissions"] == {
+    """Read the tree, write the deployment, mint the token that authorizes it — and no more.
+
+    The two writes sit on the job rather than on the file (REL-10): the file level is
+    read-only, the way every workflow in this tree declares it, and a job-level block
+    replaces the file-level one for the job that carries it.
+    """
+    assert pages["permissions"] == {"contents": "read"}
+    assert pages["jobs"][DEPLOY_JOB]["permissions"] == {
         "contents": "read",
         "pages": "write",
         "id-token": "write",
     }
-    assert "permissions" not in pages["jobs"][DEPLOY_JOB]
 
 
 def test_one_deployment_runs_at_a_time(pages: dict[Any, Any]) -> None:

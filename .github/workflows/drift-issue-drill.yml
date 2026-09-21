@@ -17,6 +17,11 @@ name: drift-issue-drill
 on:
   workflow_dispatch:
 
+# REL-10: read-only at the file level; the drill job below declares the `issues: write`
+# it needs to open the demonstration issues, and that block replaces this one for it.
+permissions:
+  contents: read
+
 env:
   # The uv release that produced the committed `uv.lock` (same as ci.yml).
   UV_VERSION: "0.12.0"

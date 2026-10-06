@@ -104,7 +104,12 @@ LANDED_PAGES = frozenset(
 #: and DOC-04 is the repository README.
 #: DOC-20 is a regression card (interpreter-stable diagnostic copy) — its output is a
 #: source fix and a tutorial-block correction, not a page.
-CARDS_WITHOUT_A_SITE_PAGE = frozenset({"DOC-01", "DOC-04", "DOC-20"})
+#: The Phase 1 DOC cards (filed 2026-10-06) hold no reservation here: each adds its page to
+#: `WRITTEN_PAGES` in the same change that lands it, so a page never describes an unlanded
+#: capability (WA-12).
+CARDS_WITHOUT_A_SITE_PAGE = frozenset(
+    {"DOC-01", "DOC-04", "DOC-20", "DOC-21", "DOC-22", "DOC-23", "DOC-24", "DOC-25"}
+)
 
 #: The tables `concepts/what-gebra-checks.md` transcribes from the property catalog rather
 #: than paraphrases, keyed by their header line. Card DOC-02's acceptance is that they match

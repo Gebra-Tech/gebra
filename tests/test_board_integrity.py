@@ -1591,8 +1591,9 @@ def test_the_real_boards_are_clean_as_merged(capsys: pytest.CaptureFixture[str])
     assert main(["--plan", str(COMPANION_PLAN)]) == 0
     assert len(plan.cards) >= 139
     # G0–G7 are Phase 0's gates; G8 (polish release) and G9 (outreach kit) were filed with
-    # the Phase 0.5 addendum (master plan §4, 2026-09-14), so the table now has ten rows.
-    assert len(plan.gates) == 10
+    # the Phase 0.5 addendum (master plan §4, 2026-09-14); G10–G17 with the Phase 1 addendum
+    # (2026-10-06), so the table now has eighteen rows.
+    assert len(plan.gates) == 18
     assert capsys.readouterr().out.splitlines()[-1].startswith("board integrity: clean")
 
 

@@ -24,6 +24,7 @@ import pytest
 
 from gebra.testing.harness import PROJECTION_RULES, run_corpus
 from gebra.verify import PROPERTY_REGISTRY
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 from tools.golden_harness import (
     GateReport,
@@ -276,9 +277,11 @@ def test_a_matrix_without_a_required_table_is_an_error(tmp_path: Path) -> None:
 
 
 def test_the_gate_command_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
+    """The summary's two counts are the census read without the harness (``tests/_corpus.py``)."""
     assert main(["--corpus", str(FIXTURES_DIR), "--matrix", str(MATRIX)]) == 0
     out = capsys.readouterr().out
-    assert "89 obligation(s) over 71 fixture(s)" in out
+    expected = census()
+    assert f"{expected.obligations} obligation(s) over {expected.fixtures} fixture(s)" in out
     assert "FIDELITY-MATRIX.md: OK" in out
 
 
@@ -300,7 +303,7 @@ def test_the_gate_command_exits_one_on_an_unreadable_matrix(
 def test_the_report_lists_every_obligation(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--corpus", str(FIXTURES_DIR), "--matrix", str(MATRIX), "--report"]) == 0
     lines = capsys.readouterr().out.splitlines()
-    assert sum(1 for line in lines if "::" in line) == 89
+    assert sum(1 for line in lines if "::" in line) == census().obligations
 
 
 def test_the_deviation_listing_carries_the_detail(capsys: pytest.CaptureFixture[str]) -> None:

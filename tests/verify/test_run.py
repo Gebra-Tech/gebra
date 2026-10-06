@@ -16,7 +16,7 @@ watched rather than by an assertion about the code:
   P-04 and P-06 results only over P-01-clean topology, so the run reports them as best-effort
   *and* its gate is shown to be invariant under any answer they could have given;
 * **hermeticity** — a fresh interpreter with socket and DNS raisers armed runs ``verify()``
-  over all 67 IR snapshots of the vendored corpus and reports its own import closure, with
+  over every IR snapshot of the vendored corpus and reports its own import closure, with
   four negative controls proving the raisers are live.
 
 Nothing here executes a workflow node, calls a model or opens a network connection (WA-07).
@@ -81,6 +81,7 @@ from gebra.verify import (
     verify,
 )
 from gebra.verify import run as run_module
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
 # ── IR shapes, each the smallest one that reaches the rung it is named for ───────────────
@@ -1248,7 +1249,7 @@ def _tripwire_script(probe: str = "") -> str:
         "        to_json(report)\n"
         "        to_json(promoted)\n"
         "        seen += 1\n"
-        "assert seen == 78, seen\n"
+        f"assert seen == {census().ir_blocks}, seen\n"
         "assert codes[2] == 0, codes\n"
         "assert codes[0] and codes[1], codes\n"
         f"{probe}"
@@ -1263,14 +1264,15 @@ def test_running_verify_over_the_corpus_creates_no_socket_and_resolves_no_name()
     Three claims, separately enforced: no execution-substrate or HTTP/LLM-client package
     enters the import closure of ``gebra.verify`` — the aggregation, the models, all five
     validators and the serialization profile; no socket is created and no name resolved,
-    either while importing or while running ``verify()`` over all 67 IR snapshots of the
+    either while importing or while running ``verify()`` over every IR snapshot of the
     vendored corpus under both a relaxed and a bare-strict policy; and a swallowed exception
     still fails the run, because every attempt is recorded before the raise and also announced
     on stderr.
 
     The child asserts its own counts, so a glob that silently stopped matching would fail the
-    tripwire rather than pass it vacuously: 67 snapshots, **no** tool error anywhere (every
-    wedge validator registers at import, and none of them raises on any corpus IR), and both
+    tripwire rather than pass it vacuously: every snapshot the provenance manifest's fixtures
+    carry, **no** tool error anywhere (every wedge validator registers at import, and none of
+    them raises on any corpus IR), and both
     the zero and the non-zero exit codes reached — so the sweep demonstrably exercises both
     verdict paths of the gate rather than one.
 

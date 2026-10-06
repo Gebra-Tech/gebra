@@ -8,7 +8,7 @@ projection rules, the comparison routing, the classification order, and a seeded
 proves the green run is not green by construction.
 
 **What green means here** is PD-006 R3, the owner-signed reading of SOW §2 criterion 2. Its
-three layers map onto the items below: all 71 fixtures load (``test_fixture_loads``); every
+three layers map onto the items below: every fixture loads (``test_fixture_loads``); every
 wedge obligation is asserted by structural model equality or explained
 (``test_obligation``); every non-wedge component is a structured skip naming its property and
 citing SOW §8, counted and surfaced, never rendered as a pass
@@ -74,12 +74,13 @@ from gebra.verify import (
     validate_report,
     validator_for,
 )
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
-#: PD-006 R3's own arithmetic at the DEC-16 extension (vault ``e6ea366``): 71 fixtures,
-#: 89 obligations over them.
-CORPUS_SIZE = 71
-OBLIGATION_COUNT = 89
+# PD-006 R3's own arithmetic — at the DEC-16 extension (vault ``e6ea366``) 71 fixtures and
+# 89 obligations over them — is the census ``tests/_corpus.py`` derives: the fixture set from
+# the provenance manifest, the obligations from the fixtures' ``expected:`` blocks read
+# without the harness, so the run below is compared with a count it did not compute.
 
 #: The six P-08 fixtures — acceptance box 2's four plus the DEC-16 3+3 top-up (TE-14);
 #: green since VAL-04 landed.
@@ -366,11 +367,13 @@ def test_every_non_wedge_property_with_a_fixture_is_counted(run: CorpusRun) -> N
 
 def test_the_run_counts_every_obligation_exactly_once(run: CorpusRun) -> None:
     """The counted summary PD-006 R3.3 asks be surfaced adds up, and the ids are unique."""
-    assert len(run.outcomes) == OBLIGATION_COUNT
-    assert len(run.fixture_ids) == CORPUS_SIZE
-    assert sum(run.counts.values()) == OBLIGATION_COUNT
+    expected = census()
+    assert len(run.outcomes) == expected.obligations
+    assert set(run.fixture_ids) == set(expected.fixture_ids)
+    assert len(run.fixture_ids) == expected.fixtures
+    assert sum(run.counts.values()) == expected.obligations
     assert tuple(run.counts) == STATUS_ORDER
-    assert len({outcome.obligation.id for outcome in run.outcomes}) == OBLIGATION_COUNT
+    assert len({outcome.obligation.id for outcome in run.outcomes}) == expected.obligations
 
 
 def test_the_deviations_are_exactly_the_pinned_ones(run: CorpusRun) -> None:

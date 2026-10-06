@@ -37,12 +37,12 @@ from gebra.testing import (
     yaml_loader,
 )
 from gebra.verify import PropertyReport, to_data, validate_report
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
-#: The corpus README's grand total, and the block count the seven evolution pairs imply.
-CORPUS_SIZE = 71
-IR_BLOCK_COUNT = 78
-EVOLUTION_PAIRS = 7
+# The corpus size, its IR-block count and its evolution-pair count are the census
+# ``tests/_corpus.py`` derives from the provenance manifest and the fixtures' own YAML, so a
+# re-vendor moves the record and these pins follow it.
 
 #: Every fixture whose ``expected:`` block composes into a §0.3 ``PropertyReport`` today.
 #:
@@ -152,8 +152,9 @@ def _minimal(**overrides: Any) -> dict[str, Any]:
 
 
 def test_every_vendored_fixture_loads(corpus: tuple[PropertyFixture, ...]) -> None:
-    """All 71 fixtures become models — the card's first acceptance, on the IR side."""
-    assert len(corpus) == CORPUS_SIZE
+    """Every manifest-listed fixture becomes a model — the card's first acceptance, IR side."""
+    assert len(corpus) == census().fixtures
+    assert {fixture.fixture_id for fixture in corpus} == set(census().fixture_ids)
     for fixture in corpus:
         assert fixture.irs, f"{fixture.fixture_id}: no IR block loaded"
         for ir in fixture.irs:
@@ -162,10 +163,11 @@ def test_every_vendored_fixture_loads(corpus: tuple[PropertyFixture, ...]) -> No
 
 
 def test_the_corpus_carries_the_expected_block_count(corpus: tuple[PropertyFixture, ...]) -> None:
-    """71 fixtures, 78 IR blocks: 64 single-snapshot plus 7 evolution pairs."""
-    assert sum(len(fixture.irs) for fixture in corpus) == IR_BLOCK_COUNT
+    """One IR block per single-snapshot fixture, two per evolution pair, as the YAML spells it."""
+    assert sum(len(fixture.irs) for fixture in corpus) == census().ir_blocks
+    assert census().ir_blocks == census().single_snapshot + 2 * census().pairs
     pairs = [fixture for fixture in corpus if fixture.is_pair]
-    assert len(pairs) == EVOLUTION_PAIRS
+    assert len(pairs) == census().pairs
     for fixture in pairs:
         assert fixture.ir is None
         assert isinstance(fixture.ir_before, WorkflowIR)
@@ -197,7 +199,10 @@ def test_iter_fixture_paths_is_sorted_and_excludes_the_schema() -> None:
     paths = iter_fixture_paths(FIXTURES_DIR)
     assert list(paths) == sorted(paths)
     assert all(path.name != "schema.yaml" for path in paths)
-    assert len(paths) == CORPUS_SIZE
+    assert len(paths) == census().fixtures
+    assert {path.relative_to(FIXTURES_DIR).as_posix() for path in paths} == set(
+        census().fixture_ids
+    )
 
 
 # ── PC-6: the ``expected:`` block and a validator's output are one model ─────────────────

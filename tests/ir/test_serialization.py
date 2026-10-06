@@ -69,6 +69,7 @@ from gebra.ir import (
     read_ir,
     write_ir,
 )
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
 GOLDEN_DIR = Path(__file__).parent / "golden" / "roundtrip"
@@ -229,7 +230,7 @@ def corpus_ir_payloads() -> list[tuple[str, dict[str, Any]]]:
 
 
 def test_every_vendored_corpus_payload_round_trips_in_both_formats() -> None:
-    """The corpus samples of the acceptance box: 67 payloads, model equality, both formats.
+    """The corpus samples of the acceptance box: every payload, model equality, both formats.
 
     Each payload is re-emitted as YAML, loaded, dumped and loaded again in each format, and
     the two formats are cross-checked against each other.
@@ -243,7 +244,7 @@ def test_every_vendored_corpus_payload_round_trips_in_both_formats() -> None:
         assert from_json == source, label
         assert from_yaml == from_json, label
         count += 1
-    assert count == 78
+    assert count == census().ir_blocks
 
 
 def test_corpus_payloads_load_identically_through_both_entry_points() -> None:
@@ -419,7 +420,7 @@ def test_the_digest_survives_a_round_trip(stem: str) -> None:
 
 
 def test_the_digest_survives_a_round_trip_over_the_whole_corpus() -> None:
-    """The same claim over all 67 vendored payloads, in both formats."""
+    """The same claim over every vendored payload, in both formats."""
     count = 0
     for label, payload in corpus_ir_payloads():
         ir = load_yaml(WorkflowIR, yaml.safe_dump(payload, allow_unicode=True))
@@ -427,7 +428,7 @@ def test_the_digest_survives_a_round_trip_over_the_whole_corpus() -> None:
         assert graph_version(load_yaml(WorkflowIR, dump_yaml(ir))) == digest, label
         assert graph_version(load_json(WorkflowIR, dump_json(ir))) == digest, label
         count += 1
-    assert count == 78
+    assert count == census().ir_blocks
 
 
 def test_an_empty_optional_array_survives_as_itself() -> None:

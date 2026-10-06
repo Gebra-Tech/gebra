@@ -42,6 +42,7 @@ from gebra.testing.fixtures import (
     load_fixture,
 )
 from gebra.verify import NON_WEDGE_SLUGS, PROPERTY_REGISTRY
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 from tools.corpus_green import (
     COMPOSE_CAUSES,
@@ -59,8 +60,9 @@ SCHEMA = FIXTURES_DIR / SCHEMA_FILENAME
 MATRIX = Path(__file__).resolve().parents[2] / "docs" / "governance" / "FIDELITY-MATRIX.md"
 
 #: What the corpus is today, clause by clause. Each is a *fact about the vendored corpus*, so
-#: a re-vendor that moves one fails here by name rather than by a changed summary line.
-FIXTURE_COUNT = 71
+#: a re-vendor that moves one fails here by name rather than by a changed summary line. The
+#: corpus size itself is the provenance manifest's fixture set (``tests/_corpus.py``): the
+#: record a re-vendor moves, so that pin follows the re-vendor rather than breaking on it.
 COMPOSING = 44
 R32_SCOPED = 52
 R32_MATCHED = 52
@@ -149,10 +151,12 @@ def test_r31_load_layer_counts(report: GreenReport, fixtures: tuple[PropertyFixt
     """All 60 load and lint; 33 compose; the rest are attributed, none merely asserted."""
     clause = _clause(report, "R3.1")
     assert clause.violations == []
-    assert len(fixtures) == FIXTURE_COUNT
-    assert f"{FIXTURE_COUNT} fixture(s) loaded" in clause.findings[0]
+    fixture_count = census().fixtures
+    assert {fixture.fixture_id for fixture in fixtures} == set(census().fixture_ids)
+    assert len(fixtures) == fixture_count
+    assert f"{fixture_count} fixture(s) loaded" in clause.findings[0]
     assert "corpus lint OK" in clause.findings[0]
-    assert f"{COMPOSING}/{FIXTURE_COUNT}" in clause.findings[1]
+    assert f"{COMPOSING}/{fixture_count}" in clause.findings[1]
 
 
 def test_every_non_composing_block_is_attributed_to_a_named_cause(
@@ -174,7 +178,7 @@ def test_every_non_composing_block_is_attributed_to_a_named_cause(
             assert item.evidence, "an attribution states what was checked, never only a label"
             counts[item.cause] += 1
     assert counts == CAUSE_COUNTS
-    assert sum(counts.values()) == FIXTURE_COUNT - COMPOSING
+    assert sum(counts.values()) == census().fixtures - COMPOSING
 
 
 def test_the_non_wedge_component_cause_is_verified_not_labelled(

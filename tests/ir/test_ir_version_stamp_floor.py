@@ -60,6 +60,7 @@ from gebra.ir import (
     read_ir,
     write_ir,
 )
+from tests._corpus import census
 from tests.ir.test_node_id_uniqueness import (
     CANONICAL_ENTRIES,
     CANONICAL_FINGERPRINT,
@@ -117,9 +118,9 @@ MINIMALLY_STAMPED: Final = json.dumps({**json.loads(OVER_STAMPED), "ir_version":
 #: with no second signal — so the justification recorded there has to cover both.
 STAMP_FLOOR_FINGERPRINT: Final = CANONICAL_FINGERPRINT
 
-#: The vendored corpus census DEC-34 §4 measured at ratification, as an assertion.
-CORPUS_PAYLOADS: Final = 78
-CORPUS_FILES: Final = 71
+# The vendored corpus census DEC-34 §4 measured at ratification (78 payloads over 71 files)
+# is asserted below as the census ``tests/_corpus.py`` derives from the provenance manifest,
+# so a sanctioned re-vendor moves the record and the sweep's expectation follows it.
 
 
 # ── Box 1: an under-stamped document is rejected at model validation ──────────────────────
@@ -402,7 +403,8 @@ def test_every_corpus_payload_and_committed_golden_still_loads() -> None:
     """
     blocks = _ir_blocks()
     files = {label.split("::")[0] for label, _ in blocks}
-    assert (len(blocks), len(files)) == (CORPUS_PAYLOADS, CORPUS_FILES)
+    assert len(blocks) == census().ir_blocks
+    assert files == set(census().fixture_ids)
 
     for label, block in blocks:
         kinds = {edge.get("kind", "normal") for edge in block["edges"]}

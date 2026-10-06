@@ -182,6 +182,16 @@ new bytes, which is precisely the reviewable event.
 
    If the changed files span both repositories, that is one commit per
    repository, each citing the same vault hash.
+
+   The test suite's corpus counts follow the regenerated manifest: the fixture
+   set, the number of IR blocks and the number of golden-harness obligations are
+   read from the manifest's fixture entries and the fixtures' own YAML
+   (`tests/_corpus.py`), never written as literals, and every test that pins the
+   corpus size compares against that set. A fixture without its manifest entry,
+   or an entry without its file, still fails those tests by name. What a re-vendor
+   still moves by hand is what a ruling decides — which fixtures compose, which
+   obligations match, which deviations stay open — because those are facts about
+   the new bytes, not about how many there are.
 6. **Review.** The reviewer checks the routing evidence — vault decision record,
    fixture review sign-off where applicable, matching hashes — before merge.
    The manifest diff makes the scope of a re-vendor impossible to miss.

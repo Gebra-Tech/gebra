@@ -21,6 +21,7 @@ from gebra.testing import load_corpus
 from gebra.verify import RunPolicy, StrictPolicy, SubjectRef, verify
 from gebra.verify.report import PropertyReport
 from gebra.verify.run import RunReport
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 from tests.report.variants import CASES
 
@@ -45,7 +46,7 @@ def test_the_walk_agrees_with_the_gate_on_the_catalog(case: Any) -> None:
 
 
 def test_the_walk_agrees_with_the_gate_over_the_whole_corpus() -> None:
-    """The strongest available cross-check: 60 vendored fixtures, real validators, real gates."""
+    """The strongest available cross-check: every vendored fixture, real validators and gates."""
     corpus = load_corpus(FIXTURES_DIR)
     single = [fixture for fixture in corpus if fixture.ir is not None]
     checked = 0
@@ -66,10 +67,10 @@ def test_the_walk_agrees_with_the_gate_over_the_whole_corpus() -> None:
             "warning": counts.warning,
         }, fixture.fixture_id
         checked += 1
-    # The seven the loop skips are the evolution pairs, which carry `ir_before`/`ir_after`
+    # The ones the loop skips are the evolution pairs, which carry `ir_before`/`ir_after`
     # rather than one snapshot — P-12 is a two-snapshot property outside the wedge.
-    assert len(corpus) == 71
-    assert checked == len(single) == 64
+    assert {fixture.fixture_id for fixture in corpus} == set(census().fixture_ids)
+    assert checked == len(single) == census().single_snapshot
 
 
 def test_an_advisory_keeps_its_own_owner_and_its_host() -> None:

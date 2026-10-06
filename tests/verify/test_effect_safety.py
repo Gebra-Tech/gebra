@@ -84,6 +84,7 @@ from gebra.verify.properties.effect_safety import (
     UNPROTECTED_EFFECT_IN_RETRY_REGION,
     check_effect_safety,
 )
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
 #: The eight P-06 property fixtures (§6.6's six + the DEC-16 negatives, TE-14), by path.
@@ -1405,7 +1406,7 @@ def _tripwire_script(probe: str = "") -> str:
         "        report = check_effect_safety(ir)\n"
         "        failed += report.result == 'fail'\n"
         "        seen += 1\n"
-        "assert (seen, failed) == (78, 8), (seen, failed)\n"
+        f"assert (seen, failed) == ({census().ir_blocks}, 8), (seen, failed)\n"
         f"{probe}"
         f"print([m for m in sys.modules if m.split('.')[0] in {_FORBIDDEN}] + attempts)\n"
     )
@@ -1419,8 +1420,9 @@ def test_running_p06_over_the_corpus_creates_no_socket_and_resolves_no_name() ->
     import closure; no socket is created and no name resolved, either while importing the module
     or while validating every IR snapshot in the vendored corpus; and a swallowed exception still
     fails the run, because every attempt is recorded before the raise and also announced on
-    stderr. The child asserts its own counts (78 snapshots, 8 failing) so a glob that silently
-    stopped matching would fail the tripwire rather than pass it vacuously.
+    stderr. The child asserts its own counts (every snapshot the provenance manifest's fixtures
+    carry, 8 failing) so a glob that silently stopped matching would fail the tripwire rather
+    than pass it vacuously.
 
     One residual, named rather than left implicit, the same one VAL-03/VAL-05/VAL-06/VAL-09
     recorded: the package leg is a post-hoc ``sys.modules`` scan, not an import blocker.

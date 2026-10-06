@@ -45,6 +45,7 @@ from gebra.ir.models import (
     Runtime,
     WorkflowIR,
 )
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
@@ -1032,7 +1033,7 @@ def test_every_vendored_corpus_payload_canonicalizes_reproducibly() -> None:
     """§1.3 layer 1: the corpus is the document-conformance surface. Every embedded IR
     canonicalizes, its canonical bytes are valid JSON and a valid §2 document, and
     re-canonicalizing the reloaded document reproduces the bytes and the digest —
-    recompute-and-compare (§1.2) across all 67 payloads."""
+    recompute-and-compare (§1.2) across every vendored payload."""
     count = 0
     for label, payload in corpus_ir_payloads():
         ir = load_ir(payload)
@@ -1044,7 +1045,7 @@ def test_every_vendored_corpus_payload_canonicalizes_reproducibly() -> None:
         assert canonical_bytes(reloaded) == blob, label
         assert verify_graph_version(reloaded, digest), label
         count += 1
-    assert count == 78
+    assert count == census().ir_blocks
 
 
 def test_authored_yaml_noise_never_reaches_the_digest() -> None:

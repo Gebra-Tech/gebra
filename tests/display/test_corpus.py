@@ -1,6 +1,6 @@
 """The corpus-wide validity claim — CLI-06's acceptance box, exercised in full.
 
-Every IR block the vendored corpus carries (71 fixtures; the P-12 pairs contribute two
+Every IR block the vendored corpus carries (every fixture; the P-12 pairs contribute two
 each) is rendered twice — plain, and overlaid with its own ``verify()`` run — and every
 emission is parse-checked by the guide's §9 conformance checker, which refuses any
 construct outside the licensed subset rather than skipping it. Beside validity, the
@@ -19,6 +19,7 @@ from gebra.display import render_mermaid
 from gebra.ir import WorkflowIR
 from gebra.testing import load_fixture
 from gebra.verify import verify
+from tests._corpus import census
 from tools.honest_claims_lint import load_phrases
 from tools.mermaid_check import mermaid_problems
 
@@ -44,9 +45,11 @@ CASES = _corpus_irs()
 
 
 def test_the_corpus_is_the_size_the_claim_needs() -> None:
-    """71 fixtures, every one contributing at least one IR — the sweep below is not
-    quietly running over an empty parametrization."""
-    assert len(CASES) >= 60
+    """Every fixture the provenance manifest lists, every one contributing its IR blocks —
+    the sweep below is not quietly running over a partial or empty parametrization."""
+    files = {label.split("::")[0].replace("\\", "/") for label, _ in CASES}
+    assert files == set(census().fixture_ids)
+    assert len(CASES) == census().ir_blocks
 
 
 @pytest.mark.parametrize(("name", "ir"), CASES, ids=[name for name, _ in CASES])

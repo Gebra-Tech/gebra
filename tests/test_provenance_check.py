@@ -67,6 +67,7 @@ from tools.provenance_guard import (
     load_manifest,
     normalize_selection,
     parse_living_documents,
+    parse_provenance_rows,
     regenerate,
     scope_report,
     verify,
@@ -94,6 +95,9 @@ STAGED_SKILL = COMPANION / "docs" / "setups" / "TOOL-05" / "provenance-check-SKI
 #: The installed skill, reached through the companion's neutral ``tools/`` surface so the public
 #: tree pins it without naming an agent-tooling path (PD-050 hygiene, as for the other skills).
 INSTALLED_SKILL = COMPANION / "tools" / "provenance-check.md"
+#: The companion-held row the record-edit reproduction seeds. Its vault source and commit are
+#: read from the record at run time, never restated here, so a re-vendor needs no edit.
+IR_SPEC = "docs/specs/IR-SPEC.md"
 
 requires_companion = pytest.mark.skipif(
     not PROVENANCE_DOC.is_file(),
@@ -665,16 +669,24 @@ def test_a_scope_naming_only_unguarded_paths_still_fails_a_tampered_tree(tmp_pat
 def test_a_provenance_row_edit_fails_the_scoped_run_too(
     companion_sandbox: tuple[Path, Path, Path],
 ) -> None:
-    """Reproduction (B): the diff touches only the record; the finding lands on the row's file."""
+    """Reproduction (B): the diff touches only the record; the finding lands on the row's file.
+
+    The row is read from the record itself, so a sanctioned re-vendor of IR-SPEC moves the
+    record and this seed follows it: the edit always replaces whatever vault commit the row
+    cites today with one it does not cite.
+    """
     root, manifest_path, doc = companion_sandbox
+    source, commit = parse_provenance_rows(doc)[IR_SPEC]
+    seeded = "0000000" if commit != "0000000" else "1111111"
     original = doc.read_text(encoding="utf-8")
     edited = original.replace(
-        "`09-RnD-Docs/R-06/drafts/IR-SPEC.draft.md` | `39e44b6`",
-        "`09-RnD-Docs/R-06/drafts/IR-SPEC.draft.md` | `0000000`",
+        f"`{source}` | `{commit}`",
+        f"`{source}` | `{seeded}`",
         1,
     )
     assert edited != original, "the seed must actually move the row it names"
     doc.write_text(edited, encoding="utf-8")
+    assert parse_provenance_rows(doc)[IR_SPEC] == (source, seeded)
     common = [
         "--root",
         str(root),
@@ -688,7 +700,7 @@ def test_a_provenance_row_edit_fails_the_scoped_run_too(
     scoped = _run_guard(*common, "--only", "docs/PROVENANCE.md")
 
     assert bare.returncode == 1
-    assert "manifest:" in bare.stderr and "docs/specs/IR-SPEC.md" in bare.stderr
+    assert "manifest:" in bare.stderr and IR_SPEC in bare.stderr
     assert scoped.returncode == 1, (
         "the record is not itself guarded; the verdict is still the run's"
     )

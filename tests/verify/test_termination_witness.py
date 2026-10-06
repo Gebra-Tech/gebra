@@ -93,6 +93,7 @@ from gebra.verify.properties.termination_witness import (
     PROPERTY_SLUG,
     check_termination_witness,
 )
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 from tools import honest_claims_lint
 from tools.honest_claims_lint import load_phrases
@@ -461,7 +462,7 @@ def test_the_two_condition_ids_are_the_registrys_p02_entries() -> None:
 
 
 def test_no_corpus_report_carries_a_string_outside_the_two() -> None:
-    """Over all 67 snapshots, every emitted condition ID is one of P-02's own two.
+    """Over every corpus snapshot, every emitted condition ID is one of P-02's own two.
 
     The §0.4 registry discipline made observable: PROPOSED names are not emittable, another
     property's names are refused by the ownership gate, and the note kinds are §2.3's closed
@@ -1988,7 +1989,7 @@ def test_exactly_the_blanket_only_fixture_is_promoted_across_the_corpus() -> Non
             assert _strict_gate(report)[0] == (1 if report.result == "fail" else 0), identity
         swept += 1
 
-    assert swept == 78
+    assert swept == census().ir_blocks
 
 
 def test_no_condition_id_but_the_pinned_one_appears_on_the_strict_path() -> None:
@@ -2467,7 +2468,8 @@ def _tripwire_script(probe: str = "") -> str:
         "        promoted += len(strict_promotions(report))\n"
         "        failed += report.result == 'fail'\n"
         "        seen += 1\n"
-        "assert (seen, failed, promoted) == (78, 23, 1), (seen, failed, promoted)\n"
+        f"assert (seen, failed, promoted) == ({census().ir_blocks}, 23, 1), "
+        "(seen, failed, promoted)\n"
         # Since DEC-16, one corpus snapshot (positive-05) carries the blanket note, so the
         # sweep above reaches the promotable branch on vendored bytes. The hand-built
         # blanket-only IR below keeps that branch — the severity filter, the identity
@@ -2498,8 +2500,8 @@ def test_running_p02_over_the_corpus_creates_no_socket_and_resolves_no_name() ->
     enters the import closure; no socket is created and no name resolved, either while
     importing the module or while validating every IR snapshot in the vendored corpus; and
     a swallowed exception still fails the run, because every attempt is recorded before the
-    raise and also announced on stderr. The child asserts its own counts — 67 snapshots, 22
-    failing: **seven** a fixture states a P-02 failure for (the four `termination-witness/`
+    raise and also announced on stderr. The child asserts its own counts — every corpus
+    snapshot the provenance manifest's fixtures carry, 22 failing: **seven** a fixture states a P-02 failure for (the four `termination-witness/`
     negatives plus `mixed/02`, `mixed/08` and `mixed/05`'s `ir_after`, the last being the
     `unmodelled` `FM-005` record, which is why VAL-07's gloss filed the same 22 as six plus
     sixteen), and **fifteen** snapshot-fails of the quoted-comparison router idiom

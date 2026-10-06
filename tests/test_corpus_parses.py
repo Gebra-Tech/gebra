@@ -9,6 +9,11 @@ This is the scaffold gate, kept as a dependency-light floor. The full corpus lin
 schema v2.2 conformance, one IR shape per fixture, per-directory minimums, serial
 collisions, witness/failure presence — is ``tools/corpus_lint.py``, exercised by
 ``tests/testing/test_corpus_lint.py`` and run as its own CI job.
+
+The presence pin is a set equality against the fixture entries of
+``tools/provenance-manifest.json`` (read through ``tests/_corpus.py``), so a sanctioned
+re-vendor moves the record and the pin follows it, while a fixture without its entry, or an
+entry without its file, still fails here.
 """
 
 from __future__ import annotations
@@ -17,10 +22,10 @@ from pathlib import Path
 
 import yaml
 
+from tests._corpus import listed_fixture_ids
 from tests.conftest import FIXTURES_DIR
 
 IR_BLOCK_KEYS = ("ir", "ir_before", "ir_after")
-MIN_FIXTURES = 71
 
 
 def _fixture_files() -> list[Path]:
@@ -28,10 +33,13 @@ def _fixture_files() -> list[Path]:
 
 
 def test_corpus_present() -> None:
-    files = _fixture_files()
-    assert len(files) >= MIN_FIXTURES, (
-        f"expected at least {MIN_FIXTURES} fixture files under {FIXTURES_DIR}, "
-        f"found {len(files)} — is the fixture corpus complete?"
+    """Exactly the fixtures ``tools/provenance-manifest.json`` lists — no more, no fewer."""
+    found = {path.relative_to(FIXTURES_DIR).as_posix() for path in _fixture_files()}
+    listed = set(listed_fixture_ids())
+    assert listed, "the provenance manifest lists no fixture — is it the right file?"
+    assert found == listed, (
+        f"fixture files under {FIXTURES_DIR} and the manifest's entries differ — "
+        f"unlisted: {sorted(found - listed)}, missing: {sorted(listed - found)}"
     )
 
 

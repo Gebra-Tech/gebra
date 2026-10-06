@@ -28,6 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   install guide, the pytest-plugin guide and the CLI reference print it in a transcript, and the
   IR concept page's example names it.
 
+- **The test suite's corpus pins read the provenance manifest instead of literals** (card
+  TE-17). The fixture count, the IR-block count and the golden-harness obligation count were
+  written as literals, or stated in docstrings, across eighteen test modules, so every sanctioned re-vendor that added or
+  removed a fixture had to edit each of them. They now come from `tests/_corpus.py`, which
+  reads the fixture entries of `tools/provenance-manifest.json` — the record the provenance
+  guard already holds byte-exact — and compares them with the files on disk as a set: a
+  fixture with no manifest entry, or an entry with no file, fails by name, exactly as a
+  wrong literal did. The IR-block and pair counts are read from the fixtures' own YAML, and
+  the obligation count from their `expected:` blocks by the harness's planning rule restated
+  over the raw documents, so the harness's run is compared with a count it did not compute.
+  `tests/test_provenance_check.py` reads the IR-SPEC row it seeds from the companion
+  `docs/PROVENANCE.md` rather than restating its vault commit. A token scan keeps the old
+  literals out of test code, and two mutation tests on a copied corpus show that an unlisted
+  extra fixture and a removed listed fixture each still fail. No fixture, manifest entry or
+  vendored byte moved, and nothing in the installed package changed.
+
 ## [0.1.1] - 2026-09-21
 
 A patch release: four things a visitor or an adopter can see, and nothing at all in what the

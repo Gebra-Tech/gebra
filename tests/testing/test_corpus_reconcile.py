@@ -41,6 +41,7 @@ import pytest
 from gebra.testing import FixtureError, load_corpus, load_fixture
 from gebra.verify import check_determinism_replay, condition
 from gebra.verify.properties.determinism_replay import render_remediation
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 from tools import corpus_lint, corpus_reconcile
 from tools.corpus_reconcile import (
@@ -477,7 +478,7 @@ def test_emitting_from_the_reconciled_corpus_is_a_plain_copy(tmp_path: Path) -> 
 def test_the_vendored_corpus_is_lint_green() -> None:
     report = corpus_lint.check(FIXTURES_DIR, FIXTURES_DIR / "schema.yaml")
     assert report.ok, [violation.rendered() for violation in report.violations]
-    assert report.fixtures_checked == 71
+    assert report.fixtures_checked == census().fixtures
 
 
 def test_every_wedge_directory_fixture_composes_after_the_pass() -> None:

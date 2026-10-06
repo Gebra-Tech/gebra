@@ -5,8 +5,8 @@ The corpus exists so that the validators can be tested "without importing langgr
 executing any Python" (``schema.yaml``), and the card that built the loader asks for that to
 be *test-proven* rather than reviewed. It is proven the only way a transitive import can be:
 in a fresh interpreter where importing a substrate package raises and where creating a socket
-or resolving a name raises, the whole load path runs — import :mod:`gebra.testing`, load all
-seventy-one vendored fixtures, compose every ``expected:`` block that composes, run the corpus lint
+or resolving a name raises, the whole load path runs — import :mod:`gebra.testing`, load every
+vendored fixture, compose every ``expected:`` block that composes, run the corpus lint
 end to end, and (since TE-02) run the golden harness, which **executes** every registered
 validator over every fixture inside the guard. That last leg is the qualitative change: the
 validators were already in the import closure, and are now run there.
@@ -142,6 +142,7 @@ from typing import Any
 import pytest
 
 from gebra.testing import load_corpus
+from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -457,7 +458,7 @@ def guarded() -> dict[str, Any]:
 def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     guarded: dict[str, Any],
 ) -> None:
-    """Load seventy-one fixtures, lint them, audit the reconciliation, run the harness,
+    """Load every vendored fixture, lint them, audit the reconciliation, run the harness,
     generate, mutate — all guarded.
 
     The substrate import, the socket and the name resolution each raise inside this child, so
@@ -485,13 +486,14 @@ def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     the set of causes it derived are asserted, so a leg that silently attributed nothing fails
     here rather than reporting a shorter list.
     """
-    assert guarded["loaded"] == 71
+    expected = census()
+    assert guarded["loaded"] == expected.fixtures
     assert guarded["composed"] == 44
     assert guarded["reconciliation_outstanding"] == 0
     assert guarded["reconciliation_verified"] == 14
-    assert guarded["harness_obligations"] == 89
+    assert guarded["harness_obligations"] == expected.obligations
     assert guarded["harness_matched"] == 55
-    assert guarded["harness_rendered"] == 89
+    assert guarded["harness_rendered"] == expected.obligations
     assert guarded["generated"] == 25
     assert guarded["generated_verdicts"] == ["pass"]
     assert guarded["mutated"] == 75

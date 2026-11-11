@@ -20,12 +20,13 @@ table, so a form the spec names cannot be missing from the suite without the tab
 
 from __future__ import annotations
 
+import enum
 import subprocess
 import sys
 import types
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 import pytest
 from langgraph.graph import END, START, StateGraph
@@ -33,7 +34,7 @@ from langgraph.types import Send
 
 from gebra.extraction import extract
 from gebra.extraction.builder import _router_hint
-from gebra.extraction.routing import RouterHint, declared_return_hint
+from gebra.extraction.routing import RouterHint, declared_return_hint, spell_routing_label
 from gebra.ir.models import ConditionalEdge, DynamicEdge, Edge, SendEdge
 from tests.extraction.test_builder import constructs
 from tests.sample_workflows import sentinel_graph as sg
@@ -353,6 +354,396 @@ def test_the_codomain_record_never_moves_the_digest() -> None:
 
     assert wider.extracted_from.router_codomains != ()
     assert wider.graph_version() == extract(narrow).graph_version()
+
+
+# ── §6's non-string-labels dispatch, shared by keys and codomain members (DEC-38) ────────
+#
+# Card EX-27. One rule spells a routing label wherever §6 reads one, in one order: a `str`
+# instance verbatim, then a plain `Enum` member whose stored value is an exact `str` by that
+# value, then nothing. The classes below are the measured shapes of DEC-38 §5, each named for the
+# row it reproduces; every hook they carry records into `HOOKS` rather than raising, so a read
+# that reached one is visible even where a caller would swallow an exception.
+
+HOOKS: list[str] = []
+
+
+class _RecordingKey(str):
+    """A ``str`` subclass whose own hash and comparison record — the planted-key shape (row 8b)."""
+
+    __slots__ = ()
+
+    def __hash__(self) -> int:
+        HOOKS.append("_RecordingKey.__hash__")
+        return str.__hash__(self)
+
+    def __eq__(self, other: object) -> bool:
+        HOOKS.append("_RecordingKey.__eq__")
+        return str.__eq__(self, other)
+
+
+class _RecordingEnumMeta(enum.EnumMeta):
+    """A metaclass recording its three hooks — none of which the read may reach (row 6)."""
+
+    def __getattribute__(cls, name: str) -> Any:
+        HOOKS.append(f"meta.__getattribute__:{name}")
+        return super().__getattribute__(name)
+
+    def __instancecheck__(cls, instance: object) -> bool:
+        HOOKS.append("meta.__instancecheck__")
+        return super().__instancecheck__(instance)
+
+    def __subclasscheck__(cls, subclass: type) -> bool:
+        HOOKS.append("meta.__subclasscheck__")
+        return super().__subclasscheck__(subclass)
+
+
+class _Plain(enum.Enum):
+    TOOL = "tool"
+    END = "finished"
+
+
+class _StrMixin(str, enum.Enum):
+    TOOL = "tool"
+
+
+class _MetaHostile(enum.Enum, metaclass=_RecordingEnumMeta):
+    TOOL = "tool"
+
+
+class _Flag(enum.Flag):
+    A = 1
+    B = 2
+
+
+class _BoolValued(enum.Enum):
+    YES = True
+
+
+class _NoneValued(enum.Enum):
+    NOTHING = None
+
+
+class _TupleValued(enum.Enum):
+    PAIR = ("a", "b")
+
+
+class _Computed(enum.Enum):
+    """A custom ``__new__`` storing a computed exact ``str`` — admitted as stored (row 1)."""
+
+    def __new__(cls, raw: str) -> Any:
+        member = object.__new__(cls)
+        member._value_ = raw.upper()
+        return member
+
+    LOUD = "loud"
+
+
+class _PlantedNonStr:
+    def __new__(cls, raw: str) -> Any:
+        member = object.__new__(cls)
+        object.__setattr__(member, "_value_", 7)
+        return member
+
+
+class _PlantedNonStrValue(_PlantedNonStr, enum.Enum):
+    """A mixin ``__new__`` storing an ``int`` — refused by ``type(value) is str`` (row 9)."""
+
+    A = "a"
+
+
+class _PlantedKey:
+    def __new__(cls, raw: str) -> Any:
+        member = object.__new__(cls)
+        member.__dict__[_RecordingKey("_value_")] = raw
+        return member
+
+
+class _PlantedKeyMember(_PlantedKey, enum.Enum):
+    """A ``str``-subclass ``_value_`` key planted in the member's dictionary — refused (row 8b)."""
+
+    A = "a"
+
+
+def _stored_by_new(cls: type, raw: str) -> Any:
+    """A mixin ``__new__`` writing an exact-``str`` ``_value_`` into the member's own dictionary."""
+    member: Any = object.__new__(cls)
+    object.__setattr__(member, "_value_", raw)
+    return member
+
+
+#: A mixin namespace holding a ``str``-subclass ``_value_`` key, planted through ``type()`` — the
+#: half of DEC-38 §5 row 8b a hashing probe of the namespace would reach.
+_PlantedNamespace: Any = type("_PlantedNamespace", (), {_RecordingKey("_value_"): "planted"})
+
+#: The same planted key beside a mixin ``__new__`` that stores an exact-``str`` value.
+_PlantedNamespaceStored: Any = type(
+    "_PlantedNamespaceStored",
+    (),
+    {_RecordingKey("_value_"): "planted", "__new__": _stored_by_new},
+)
+
+
+class _NamespaceKeyed(_PlantedNamespace, enum.Enum):  # type: ignore[misc]  # a dynamic base
+    """The machinery's own lookup finds the planted key, so no ``_value_`` is stored — refused."""
+
+    A = "a"
+
+
+class _NamespaceKeyedStored(_PlantedNamespaceStored, enum.Enum):  # type: ignore[misc]
+    """The planted key beside a stored exact-``str`` value — admitted knowingly (DEC-38 §3.2)."""
+
+    A = "a"
+
+
+class _IntFlag(enum.IntFlag):
+    READ = 1
+
+
+class _Slotted(enum.Enum):
+    """``__slots__ = ()`` — the member still carries an instance dictionary (row 10)."""
+
+    __slots__ = ()
+    A = "a"
+
+
+class _Aliased(enum.Enum):
+    """Aliases are one member object, so one label (row 14)."""
+
+    A = "a"
+    B = "a"  # noqa: PIE796  # the alias is the fixture
+
+
+class _Accent(enum.Enum):
+    """A decomposed stored value — spelled NFC like every label (row 13)."""
+
+    CAFE = "café"
+
+
+class _Late(enum.Enum):
+    """``_value_`` set on the enum class after creation — the class is in its own MRO (row 8d)."""
+
+    A = "a"
+
+
+_Late._value_ = property(lambda self: "SHADOW")  # the post-creation shadow is the fixture
+
+
+SPELLINGS: tuple[tuple[str, object, str | None], ...] = (
+    ("str", "tool", "tool"),
+    ("str-mixin member", _StrMixin.TOOL, "tool"),
+    ("plain enum", _Plain.TOOL, "tool"),
+    ("plain enum, name differs from value", _Plain.END, "finished"),
+    ("hostile metaclass", _MetaHostile.TOOL, "tool"),
+    ("custom __new__, computed exact str", _Computed.LOUD, "LOUD"),
+    ("__slots__ = ()", _Slotted.A, "a"),
+    ("alias", _Aliased.B, "a"),
+    ("decomposed value", _Accent.CAFE, "café"),
+    ("armed AgentDecision", sg.AgentDecision.END, "finished"),
+    ("planted recording dict", sg.PlantedDecision.TOOL, "tool"),
+    ("IntEnum", sg.IntDecision.TOOL, None),
+    ("int-valued enum", sg.IntValuedDecision.TOOL, None),
+    ("str-subclass value", sg.SubclassValuedDecision.TOOL, None),
+    ("MRO-shadowed _value_", sg.ShadowedDecision.TOOL, None),
+    ("_value_ set on the class later", _Late.A, None),
+    ("planted non-str _value_", _PlantedNonStrValue.A, None),
+    ("planted str-subclass key", _PlantedKeyMember.A, None),
+    ("planted namespace key, no stored value", _NamespaceKeyed.A, None),
+    ("planted namespace key beside a stored value", _NamespaceKeyedStored.A, "a"),
+    ("IntFlag", _IntFlag.READ, None),
+    ("Flag", _Flag.A, None),
+    ("composite Flag", _Flag.A | _Flag.B, None),
+    ("bool-valued enum", _BoolValued.YES, None),
+    ("None-valued enum", _NoneValued.NOTHING, None),
+    ("tuple-valued enum", _TupleValued.PAIR, None),
+    ("bool", True, None),
+    ("int", 1, None),
+    ("None", None, None),
+    ("bytes", b"tool", None),
+    ("object", object(), None),
+)
+
+
+@pytest.mark.parametrize(("form", "key", "expected"), SPELLINGS, ids=[row[0] for row in SPELLINGS])
+def test_the_label_dispatch_spells_exactly_the_ruled_forms(
+    form: str, key: object, expected: str | None
+) -> None:
+    """INTROSPECTION-SPEC §6's dispatch, row by row against DEC-38 §5's measurements.
+
+    Admitted: a ``str`` instance, and a plain ``Enum`` member whose stored value is an exact
+    ``str`` — a custom ``__new__``'s computed value, a ``__slots__ = ()`` enum and an alias
+    included — spelled by that stored value, NFC-normalized. Refused: every flavour whose
+    stored value is not an exact ``str`` (``IntEnum``, ``Flag`` and composite flags, ``bool``,
+    ``None``, ``tuple`` and ``str``-subclass values), an MRO-shadowed ``_value_`` (a mixin's, or
+    one set on the enum class after creation), a planted non-``str`` value or ``str``-subclass
+    key, and every object that is neither a string nor an enum member. And on every row the
+    read reaches no hook: not the planted key's hash or comparison, not the metaclass's three
+    hooks, not the recording member dictionary, not ``AgentDecision``'s raising renderings.
+    """
+    tripped = len(sg.TRIPPED)
+    HOOKS.clear()
+    sg.LABEL_READS.clear()
+
+    spelling = spell_routing_label(key)
+
+    assert spelling.label == expected, form
+    assert (spelling.refusal is None) is (expected is not None), form
+    assert type(spelling.label) is (str if expected is not None else type(None)), form
+    assert HOOKS == [], form
+    assert sg.LABEL_READS == [], form
+    assert len(sg.TRIPPED) == tripped, form
+
+
+def test_the_dispatch_table_covers_both_poles_and_the_field_case() -> None:
+    """A floor under the table above, so it cannot narrow to one verdict unnoticed."""
+    admitted = [row for row in SPELLINGS if row[2] is not None]
+    refused = [row for row in SPELLINGS if row[2] is None]
+
+    assert len(admitted) >= 10
+    assert len(refused) >= 15
+    assert ("armed AgentDecision", sg.AgentDecision.END, "finished") in SPELLINGS
+
+
+def test_the_barred_reads_do_reach_the_hooks_the_dispatch_avoids() -> None:
+    """Armed controls: each read DEC-38 §3.2 bars reaches the hook this suite records.
+
+    Without these the empty ledgers above would prove nothing — a recorder that never records
+    passes every zero-read assertion. ``isinstance`` (the gate before EX-27) reads
+    ``__class__`` through the member's own attribute access; ``.value`` runs the member's
+    ``__getattribute__``; a bound ``items()`` on a planted member dictionary runs its own
+    method; a hashing probe of a planted key runs that key's comparison; and the metaclass's
+    attribute hook runs on any attribute read of the class.
+    """
+    member = sg.RecordingDecision.TOOL
+    sg.LABEL_READS.clear()
+    assert not isinstance(member, str)
+    assert sg.LABEL_READS == ["RecordingDecision.__getattribute__:__class__"]
+
+    sg.LABEL_READS.clear()
+    assert member.value == "tool"
+    assert sg.LABEL_READS[0] == "RecordingDecision.__getattribute__:value"
+
+    planted = enum.Enum.__dict__["__dict__"].__get__(sg.PlantedDecision.TOOL)
+    assert type(planted) is sg.RecordingMemberDict
+    sg.LABEL_READS.clear()
+    planted.items()
+    assert sg.LABEL_READS == ["RecordingMemberDict.items"]
+
+    HOOKS.clear()
+    stored = enum.Enum.__dict__["__dict__"].__get__(_PlantedKeyMember.A)
+    assert dict.get(stored, "_value_") == "a"
+    assert "_RecordingKey.__eq__" in HOOKS
+
+    HOOKS.clear()
+    assert _MetaHostile.__name__ == "_MetaHostile"
+    assert HOOKS == ["meta.__getattribute__:__name__"]
+
+    HOOKS.clear()
+    assert not isinstance(object(), _MetaHostile)
+    assert not issubclass(int, _MetaHostile)
+    assert {"meta.__instancecheck__", "meta.__subclasscheck__"} <= set(HOOKS)
+
+    HOOKS.clear()
+    assert "_value_" in type.__dict__["__dict__"].__get__(_PlantedNamespace)
+    assert "_RecordingKey.__eq__" in HOOKS
+
+    sg.LABEL_READS.clear()
+    assert member.name == "TOOL"
+    assert sg.LABEL_READS[0] == "RecordingDecision.__getattribute__:name"
+
+    sg.LABEL_READS.clear()
+    assert enum.Enum.__dict__["value"].__get__(member) == "tool"
+    assert "RecordingDecision.__getattribute__:_value_" in sg.LABEL_READS
+
+    sg.LABEL_READS.clear()
+    list(planted)
+    "_value_" in planted  # noqa: B015  # the bound membership test is what is armed
+    # `list()` also asks `__len__` for a length hint; what matters is that both bound reads
+    # the rule bars reach the planted dictionary's own methods.
+    assert {"RecordingMemberDict.__iter__", "RecordingMemberDict.__contains__"} <= set(
+        sg.LABEL_READS
+    )
+
+    tripped = len(sg.TRIPPED)
+    with pytest.raises(sg.SentinelExecutedError):
+        str(sg.AgentDecision.TOOL)
+    with pytest.raises(sg.SentinelExecutedError):
+        getattr(sg.AgentDecision.TOOL, "name")  # noqa: B009  # the shadowing getter is armed
+    assert len(sg.TRIPPED) == tripped + 2
+
+
+def test_a_literal_hint_s_members_are_spelled_by_the_same_dispatch_with_no_read() -> None:
+    """The codomain read takes the key dispatch, with ``Literal`` arguments as leaves (DEC-38 §3.6).
+
+    A member the dispatch spells is collected under its stored value; one it cannot spell is
+    left out (provenance evidence never refuses the object); and the walk applies
+    ``typing.get_origin``/``get_args`` to the ``Literal`` alias only, never to an argument — on
+    the substrate each of those would read the member's ``__class__`` through its own attribute
+    access. The hint is set as an evaluated object, so nothing is evaluated during the read.
+    """
+
+    def route(state: object) -> object:
+        raise sg.SentinelExecutedError("'route' was invoked — the read must never call it")
+
+    route.__annotations__ = {
+        "return": Literal[
+            sg.RecordingDecision.TOOL,
+            "plain",
+            3,
+            sg.IntDecision.TOOL,
+            sg.RecordingDecision.WAIT,
+        ]
+    }
+    sg.LABEL_READS.clear()
+    tripped = len(sg.TRIPPED)
+
+    hint = declared_return_hint(route)
+
+    assert hint.codomain == ("tool", "plain", "waiting")
+    assert hint.kind == "conditional"
+    assert hint.degraded is None
+    assert sg.LABEL_READS == []
+    assert len(sg.TRIPPED) == tripped
+
+
+def test_a_codomain_label_is_nfc_like_the_key_it_is_compared_with() -> None:
+    """A hint member is spelled NFC, as a ``path_map`` key is, so equal labels compare equal.
+
+    Before EX-27 a decomposed ``Literal`` member was compared raw with the NFC key it equals, so
+    a router declaring the same label in both places recorded a codomain disagreement that was
+    not there. Spelled by the shared dispatch, the two agree and nothing is recorded.
+    """
+
+    def route(state: object) -> object:
+        raise sg.SentinelExecutedError("'route' was invoked — the read must never call it")
+
+    route.__annotations__ = {"return": Literal["cafe\u0301"]}
+    builder: StateGraph[sg.SentinelState] = StateGraph(sg.SentinelState)
+    builder.add_node("plan_step", sg.raiser("plan_step"))
+    builder.add_node("act_step", sg.raiser("act_step"))
+    builder.add_edge(START, "plan_step")
+    builder.add_conditional_edges("plan_step", route, {"caf\u00e9": "act_step"})
+    builder.add_edge("act_step", END)
+
+    assert declared_return_hint(route).codomain == ("caf\u00e9",)
+    assert extract(builder).extracted_from.router_codomains == ()
+
+
+def test_an_annotated_metadata_string_is_not_a_codomain_label() -> None:
+    """Only a ``Literal``'s arguments are labels; a metadata *string* is not one (§6).
+
+    The walk used to collect every string it met with ``Literal`` descent switched on, so the
+    metadata string of an ``Annotated[Literal["a"], "doc"]`` hint was recorded as a codomain
+    label. The leaf walk collects ``Literal`` arguments and nothing else. A ``Literal`` placed
+    *as* metadata is still walked — reading an ``Annotated`` hint as its first argument only is
+    the exact alias-type walk DEC-40 assigns to EX-23, not this read.
+    """
+
+    def route(state: object) -> object:
+        raise sg.SentinelExecutedError("'route' was invoked — the read must never call it")
+
+    route.__annotations__ = {"return": Annotated[Literal["a"], "doc"]}
+
+    assert declared_return_hint(route).codomain == ("a",)
 
 
 # ── WA-07: the annotation-evaluation hazard §1 rule 3 names ──────────────────────────────

@@ -32,19 +32,24 @@ belong to other cards are named where they would go rather than left to be notic
   as "absent (never guessed) at builder level" (§7.1), and ``recursion_limit`` is
   annotation-only. So the block is absent here by all three routes.
 
-**Where this path stops — one boundary refusal, and why only one.** §2 puts hard failure at
-the object boundary and nowhere else ("extraction is total over supported objects"), so a
-construct this path cannot map is warned inside the IR rather than raised. One shape is still
-refused, because for it every other option is ruled out in terms:
+**Where this path stops — the boundary refusals, and why only these.** §2 puts hard failure
+at the object boundary and nowhere else ("extraction is total over supported objects"), so a
+construct this path cannot map is warned inside the IR rather than raised. Three routing
+shapes are still refused, because for each every other option is ruled out in terms:
 
-* A non-string routing label. ir 1.0/1.1 types a ``path_map`` key ``str``, the substrate
-  types it ``Hashable``, and the spec specifies refusal for the difference
-  (INTROSPECTION-SPEC §6, ruled at DEC-32; a closed projection table stays a future-minor
-  candidate in the extractor freeze backlog). Coercing would fix a digest surface by
-  improvisation *and* run the label's own ``__str__``.
-* Two declared routing labels resolving to one ``path_map`` key after NFC normalization
-  (DEC-32: an error, never a merge — a merged key silently drops a declared edge from
-  ``graph_version``).
+* A non-string routing label outside the one form INTROSPECTION-SPEC §6 admits. ir 1.0/1.1
+  types a ``path_map`` key ``str`` and the substrate types it ``Hashable``; §6 spells a ``str``
+  instance verbatim and a plain ``Enum`` member whose stored value is an exact ``str`` by that
+  value (DEC-32, amended by DEC-38 — the dispatch is
+  :func:`gebra.extraction.routing.spell_routing_label`), and refuses everything else. Coercing
+  would fix a digest surface by improvisation *and* run the label's own ``__str__``.
+* A routing *target* that is not a string. Targets are node names or END; the admission is
+  for labels only (DEC-38 §3.5), so a member in a target position is refused before any
+  comparison, hashing or escaping can run one of its methods.
+* Two declared routing labels resolving to one ``path_map`` key after projection — NFC
+  normalization, or an admitted enum member's stored value meeting a string label (DEC-32
+  ruling 2, its reach restated at DEC-38: an error, never a merge — a merged key silently drops
+  a declared edge from ``graph_version``).
 
 Everything else extracts. In particular ``StateNodeSpec.ends`` — which the substrate fills
 from ``destinations=`` **and from a ``Command[Literal[...]]`` return annotation** — is
@@ -72,15 +77,18 @@ declaration:
 **And §6's third rule, which has no ir carrier.** A ``Literal[...]`` return hint declaring a
 codomain *distinct* from the declared ``path_map`` is read and recorded in provenance —
 ``extracted_from.router_codomains`` — never merged into ``path_map``. ir 1.0 has no codomain
-slot (§7.3 item 5), so beside the IR is the only place it can go.
+slot (§7.3 item 5), so beside the IR is the only place it can go. The record is a ``.branches``
+router's only: a node routing declaration (``StateNodeSpec.ends``) is keyed by its *targets*,
+and the ``Command[Literal[...]]`` hint beside it names goto targets too, so comparing that hint
+with the declaration's labels would record a disagreement on every ``destinations=`` dict whose
+labels are not its targets.
 """
 
 from __future__ import annotations
 
-import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final, Literal, TypeGuard
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeGuard, cast
 
 from langgraph.graph import END, START
 from langgraph.types import RetryPolicy as SubstrateRetryPolicy
@@ -93,7 +101,7 @@ from gebra.extraction.contracts import resolve_node, state_schema_of
 from gebra.extraction.digests import NodeDigests, digests_for
 from gebra.extraction.envelope import ExtractedFrom, ExtractionEnvelope, RouterCodomain
 from gebra.extraction.errors import ExtractionError, ExtractionErrorReason
-from gebra.extraction.routing import RouterHint, declared_return_hint
+from gebra.extraction.routing import RouterHint, declared_return_hint, spell_routing_label
 from gebra.extraction.sidecar import sidecar_warnings, unknown_node_warnings
 from gebra.extraction.state import read_state
 from gebra.extraction.warnings import ExtractionWarning, ExtractionWarningCode
@@ -159,10 +167,11 @@ def extract_builder(
         cannot be known before the node set exists.
 
     Raises:
-        ExtractionError: at the object boundary — a node name with no representable node id,
-            or a declared construct whose ir 1.0 form this build does not carry. Never a
-            silent partial IR (§2); nothing about the sidecar is ever raised (§2 puts that
-            surface wholly at warning grade).
+        ExtractionError: at the object boundary — a node name or a routing target with no
+            representable node id (a target that is not a string has none), a routing label
+            §6's dispatch cannot spell, or two routing labels that collide after projection.
+            Never a silent partial IR (§2); nothing about the sidecar is ever raised (§2 puts
+            that surface wholly at warning grade).
     """
     builder = dispatch.builder
     if builder is None:  # pragma: no cover - classify() sets it for every BUILDER dispatch
@@ -511,6 +520,17 @@ def _read_declared_destinations(
     carries no ``condition``: ``condition`` is "the declared branch name", and inventing one
     would put a string this build made up inside ``graph_version``.
 
+    **The dict's orientation is the substrate's: keys are targets, values are labels.**
+    ``add_node`` documents a dict-valued ``destinations=`` as ``{target node: edge label}``, its
+    own ``validate()`` checks the keys as targets, its drawing labels each target's edge with the
+    value, and the vendored A1 memo records the same orientation. So ``{"tool": "go to the
+    tool"}`` is ``path_map: {"go to the tool": "tool"}`` — the edge to ``tool``, labelled. (This
+    path read the dict the other way round until EX-27 corrected it — a changelog-named
+    correction that moves ``graph_version`` for a graph declaring a dict whose labels are not
+    its targets; PD-067's ruling.) A label is spelled by the dispatch every label takes, so a
+    label value that is an admitted enum member carries its stored value, and two targets
+    declared under one label are a ``LABEL_COLLISION``: a ``path_map`` cannot hold both edges.
+
     **One recorded reading.** §3 says only "*dict-valued* ``ends`` supplies ``path_map``",
     and a ``Command[Literal[...]]`` hint yields a **tuple**. The tuple projects to the
     identity map ``{target: target}`` — which is the substrate's own conversion for the
@@ -518,24 +538,34 @@ def _read_declared_destinations(
     becomes ``{"n2": "n2"}``), so it is that convention read across rather than a new one.
     It is latitude resolved, not semantics improvised, and it is recorded as such.
 
+    **What is read, and how** (WA-07; DEC-38 §3.2's discipline, the re-probe PD-067
+    records). The member is the author's own object, stored as handed to ``add_node``, so it
+    is read only through unbound accessors of a type it has been checked to be — see
+    :func:`_declared_destinations` — and never through a truthiness test or a bound method,
+    which a ``dict`` or ``tuple`` subclass could answer with code of its own.
+
     An empty ``ends`` is not the §6 targetless form and emits no ``dynamic`` edge: the member is
     ``()`` on every node that declares no routing at all, so reading it as "a router with
     unknowable targets" would put a dynamic edge on every plain node in every graph. §6's
     targetless form is a *router* that declares no targets, and a router is a ``BranchSpec``.
+
+    No codomain is recorded for this declaration: §6's codomain-capture rule is a ``.branches``
+    router's (the module docstring says why), so :func:`_emit_routing` is told so.
     """
-    ends = getattr(spec, "ends", ()) or ()
-    if not ends:
+    declared = _declared_destinations(
+        getattr(spec, "ends", None), reading, node=node_id, name=name, workflow=workflow
+    )
+    if not declared:
         return
     where = f"node {name!r}'s routing declaration"
     hint = _router_hint(spec, reading, where=where, node=node_id)
-    declared = ends if isinstance(ends, Mapping) else {target: target for target in ends}
     path_map: dict[str, str] = {}
     seen_labels: set[str] = set()
-    for declared_label, target in declared.items():
+    for declared_label, target in declared:
         label = _path_map_label(declared_label, workflow=workflow, where=where)
         _refuse_label_collision(label, seen_labels, workflow=workflow, where=where)
         resolved = _path_map_target(
-            target,
+            _routing_target(target, workflow=workflow, where=where),
             reading,
             workflow=workflow,
             location={"node": node_id, "label": label},
@@ -546,7 +576,106 @@ def _read_declared_destinations(
             path_map[label] = resolved
     if not path_map:
         return
-    _emit_routing(reading, node_id, path_map, hint, condition=None, where=where)
+    _emit_routing(reading, node_id, path_map, hint, condition=None, where=where, codomain=False)
+
+
+def _declared_destinations(
+    ends: object, reading: _Reading, *, node: str, name: str, workflow: object
+) -> list[tuple[object, object]]:
+    """A node's ``StateNodeSpec.ends``, as ``(label, target)`` pairs read without running it.
+
+    Three shapes reach this member. A **dict** — ``destinations={target: label}`` — is iterated
+    as ``dict.items(ends)``, which reads the hash table directly whatever ``dict`` subclass
+    holds it, and inverted into ``(label, target)`` pairs. A **sequence of names** — a
+    ``destinations=`` tuple, or the tuple a ``Command[Literal[...]]`` hint makes — is iterated
+    through its own type's unbound ``__iter__`` (``tuple``, ``list``, ``set`` or
+    ``frozenset``), each name paired with itself; repeated names collapse as the substrate's own
+    list-to-dict conversion collapses them, and a set's names are sorted, since its iteration
+    order is the process's string-hash seed — which is also why a set holding anything but
+    strings is refused whole, with ``UNREPRESENTABLE_NODE_ID``, before any member is read as a
+    label: which member a label read met first would otherwise decide the refusal's reason, and
+    the seed would decide which member came first. **Anything else** — a non-``dict`` mapping, a
+    string, a generator — has no reading that would not run its own code, and the substrate
+    types the member ``dict | tuple``: it is warned as a known field with an unmappable value
+    (§8, the ``retry-policy-unrecognized`` precedent) and declares nothing here.
+
+    Size is never asked of the object and no truthiness test runs on it: an empty declaration is
+    an empty list *this* function built.
+    """
+    if ends is None:
+        return []
+    kind = type(ends)
+    if issubclass(kind, dict):
+        return [(label, target) for target, label in dict.items(cast(dict[object, object], ends))]
+    members = _sequence_members(ends)
+    if members is None:
+        reading.warn_unsupported(
+            "routing-declaration-unreadable",
+            f"the node's routing declaration is a {type_identity(ends)}, which is neither a "
+            "dict of target names to labels nor a sequence of target names, so reading it "
+            "would run its own code; no routing edge is derived from it",
+            location={"node": node},
+            ir_partial=True,
+            node=node,
+        )
+        return []
+    unordered = issubclass(kind, (set, frozenset))
+    if unordered and not all(issubclass(type(member), str) for member in members):
+        raise ExtractionError.for_object(
+            workflow,
+            f"node {name!r}'s routing declaration is a {type_identity(ends)} holding a target "
+            "that is not a string; a routing target is a node name or END, so this build "
+            "refuses before reading any member (INTROSPECTION-SPEC §6, DEC-38: the admission "
+            "of an Enum member is for labels only) — declare the targets by name",
+            reason=ExtractionErrorReason.UNREPRESENTABLE_NODE_ID,
+            family=ObjectFamily.BUILDER,
+        )
+    names = _distinct_names(members, unordered=unordered)
+    return [(name, name) for name in names]
+
+
+def _sequence_members(ends: object) -> list[object] | None:
+    """The members of a ``tuple``/``list``/``set``/``frozenset``, read through the type's own slot.
+
+    ``tuple.__iter__(ends)`` and its three siblings call the built-in type's C iterator on the
+    object, so a subclass that overrides ``__iter__`` (or ``__len__``, or ``__bool__``) is
+    never asked. ``None`` for any other type — nothing about it is read.
+    """
+    kind = type(ends)
+    if issubclass(kind, tuple):
+        return list(tuple.__iter__(cast(tuple[object, ...], ends)))
+    if issubclass(kind, list):
+        return list(list.__iter__(cast(list[object], ends)))
+    if issubclass(kind, set):
+        return list(set.__iter__(cast(set[object], ends)))
+    if issubclass(kind, frozenset):
+        return list(frozenset.__iter__(cast(frozenset[object], ends)))
+    return None
+
+
+def _distinct_names(members: list[object], *, unordered: bool) -> list[object]:
+    """Declared target names with repeats collapsed; a string member projected to a built-in ``str``.
+
+    A string member goes through ``"".join((member,))`` before it is compared with anything, so
+    the comparison is ``str.__eq__`` whatever subclass it was. A member that is not a string is
+    kept as it is and in place — read as a label it is refused by the label dispatch, or, when
+    the dispatch admits it, by the target guard — and nothing here hashes or compares it. An
+    unordered container reaches this function holding strings only (the caller refuses it
+    otherwise), and its names are sorted.
+    """
+    names: list[object] = []
+    seen: set[str] = set()
+    for member in members:
+        if not issubclass(type(member), str):
+            names.append(member)
+            continue
+        name = "".join((cast(str, member),))
+        if name not in seen:
+            seen.add(name)
+            names.append(name)
+    if unordered and len(seen) == len(names):
+        return [*sorted(seen)]
+    return names
 
 
 def _project_retry_policy(
@@ -816,8 +945,15 @@ def _read_conditional_entry(
     A declared target of END is dropped with its own warning: START-to-END is the same
     unrepresentable sentinel incidence a plain ``(START, END)`` edge is, reached by another
     route.
+
+    This site reads its targets itself rather than through :func:`_path_map_target`, so it
+    takes the target guard itself, before the reserved-segment test: a target that is not a
+    string is refused there and a string target is read as a built-in ``str``
+    (:func:`_routing_target`; DEC-38 §3.5). The labels take the same dispatch as every other
+    label, and the ``ends`` mapping is read as the router's is — see :func:`_branch_ends`.
     """
-    if spec.ends is None:
+    ends = spec.ends
+    if ends is None:
         reading.warn_unsupported(
             "conditional-entry-without-path-map",
             "the entry router declares no targets, so which node runs first is decided at "
@@ -826,8 +962,11 @@ def _read_conditional_entry(
             ir_partial=True,
         )
         return
-    for declared_label, target in spec.ends.items():
-        label = _path_map_label(declared_label, workflow=workflow, where=f"entry router {name!r}")
+    where = f"entry router {name!r}"
+    declared = _branch_ends(ends, reading, location={"branch": name, "source": START})
+    for declared_label, declared_target in declared:
+        label = _path_map_label(declared_label, workflow=workflow, where=where)
+        target = _routing_target(declared_target, workflow=workflow, where=where)
         if target in RESERVED_SEGMENTS:
             # Including END: an entry member names a node, and a START→END incidence has no
             # ir 1.0 carrier at all — the same unrepresentable shape a plain `(START, END)`
@@ -864,10 +1003,18 @@ def _read_router(
     §6 licenses the kind from the hint but still requires declared targets to emit one, and
     there are none. The edge stays in hash scope and the ``unsupported-construct`` §8 keeps for
     dynamic dispatch says what is not known.
+
+    The declared ``ends`` mapping is whatever the substrate's ``path_map.copy()`` returned —
+    the author's own ``dict`` subclass, when it overrides ``copy`` — so it is read through
+    :func:`_branch_ends` and never through a method of its own. Each label takes §6's
+    dispatch, each target the guard (:func:`_routing_target`) before :func:`_path_map_target`
+    compares it with anything.
     """
     source_id = _node_id(source, workflow=workflow, role="router source")
-    hint = _router_hint(spec, reading, where=f"router {name!r} on node {source!r}", node=source_id)
-    if spec.ends is None:
+    where = f"router {name!r} on node {source!r}"
+    hint = _router_hint(spec, reading, where=where, node=source_id)
+    ends = spec.ends
+    if ends is None:
         reading.conditional_edges.append(
             DynamicEdge(kind="dynamic", **{"from": source_id}, condition=name)
         )
@@ -883,12 +1030,13 @@ def _read_router(
         return
     path_map: dict[str, str] = {}
     seen_labels: set[str] = set()
-    for declared_label, target in spec.ends.items():
-        where = f"router {name!r} on node {source!r}"
+    for declared_label, target in _branch_ends(
+        ends, reading, location={"branch": name, "source": source_id}
+    ):
         label = _path_map_label(declared_label, workflow=workflow, where=where)
         _refuse_label_collision(label, seen_labels, workflow=workflow, where=where)
         resolved = _path_map_target(
-            target,
+            _routing_target(target, workflow=workflow, where=where),
             reading,
             workflow=workflow,
             location={"branch": name, "source": source_id, "label": label},
@@ -903,14 +1051,46 @@ def _read_router(
         # `kind: dynamic` would be a *stronger* claim than the declaration supports — targets
         # were declared, they just have no carrier — so the group is not emitted at all.
         return
-    _emit_routing(
-        reading,
-        source_id,
-        path_map,
-        hint,
-        condition=name,
-        where=f"router {name!r} on node {source!r}",
+    _emit_routing(reading, source_id, path_map, hint, condition=name, where=where, codomain=True)
+
+
+def _branch_ends(
+    ends: object, reading: _Reading, *, location: Mapping[str, Any]
+) -> list[tuple[object, object]]:
+    """A ``BranchSpec.ends`` mapping as ``(label, target)`` pairs, read without running it.
+
+    The substrate builds this member as a ``dict`` — a copy of the declared ``path_map``, the
+    identity map of a list, or the map of a ``Literal`` hint — and ``copy()`` is the author's
+    when the ``path_map`` was a ``dict`` subclass that overrides it. So the mapping is admitted
+    by ``issubclass(type(ends), dict)`` and read as ``dict.items(ends)``, which iterates the
+    hash table directly: a subclass's own ``items``, ``__iter__``, ``__len__`` or ``__bool__``
+    never runs (measured in the re-probe PD-067 records). A member that is not a ``dict`` —
+    reachable through a ``path_map`` whose own ``copy()`` returns something else, or a
+    ``BranchSpec`` assigned into ``builder.branches`` by hand — is warned as unreadable and
+    declares nothing, which leaves the router to the existing all-dropped rule: no edge for a
+    group none of whose declared targets this build can carry, the reading the module already
+    takes for a group whose every target is the reserved START. Two cases differ in what they
+    were before EX-27. A member that is no mapping at all (a tuple) cannot compile, and the
+    old bound ``items()`` raised an ``AttributeError`` out of ``extract()``. A mapping that
+    is not a ``dict`` compiles and routes — the substrate's ``validate()`` and
+    ``BranchSpec.run`` use only its ``values()`` and ``items()`` — and the old read ran its
+    own ``items()``, user code the ruled read does not run, and emitted the edge; it is now
+    warned and omitted, which moves that graph's ``graph_version`` (the CHANGELOG names it).
+    DEC-18 D4 rules ``path_map: {}`` and edge omission out for the *targetless* conditional
+    edge; whether omission is the right posture for declared targets held where they cannot
+    be read without running the holder's code is not ruled anywhere, so this is recorded as
+    the existing posture applied, not generalized.
+    """
+    if issubclass(type(ends), dict):
+        return list(dict.items(cast(dict[object, object], ends)))
+    reading.warn_unsupported(
+        "routing-declaration-unreadable",
+        f"the router's declared targets are held in a {type_identity(ends)}, which is not a "
+        "dict, so reading them would run its own code; no routing edge is derived from them",
+        location=location,
+        ir_partial=True,
     )
+    return []
 
 
 def _router_hint(spec: Any, reading: _Reading, *, where: str, node: str | None) -> RouterHint:
@@ -951,11 +1131,15 @@ def _emit_routing(
     *,
     condition: str | None,
     where: str,
+    codomain: bool,
 ) -> None:
     """One declared-target routing declaration as edges, kind per §6's classification.
 
     ``conditional`` keeps the ``path_map`` verbatim — the labels are the declaration, and §6
-    has extraction "preserve labels verbatim" and expand nothing.
+    has extraction "preserve labels verbatim" and expand nothing. ``codomain`` says whether
+    §6's codomain-capture rule applies to the declaration at all, carried explicitly by the
+    caller: ``True`` for a ``.branches`` router, ``False`` for a node routing declaration, whose
+    hint names goto targets rather than labels (the module docstring).
 
     ``send`` is a **template**: §6 says "emit one ``{from, to, kind: send}`` edge per declared
     target", and a send edge has no ``path_map``, so the labels have nowhere to ride. Three
@@ -984,7 +1168,8 @@ def _emit_routing(
                 path_map=path_map,
             )
         )
-        _record_codomain(reading, source_id, path_map, hint, condition=condition)
+        if codomain:
+            _record_codomain(reading, source_id, path_map, hint, condition=condition)
         return
     relabelled = sorted(label for label, target in path_map.items() if label != target)
     if relabelled:
@@ -1101,6 +1286,10 @@ def _path_map_target(
     reader would resolve as a node named ``END``. The substrate rejects ``Send(END, …)`` at
     runtime anyway (§6), so nothing is lost that could have run; what would have been lost is
     the honesty of the record.
+
+    ``target`` arrives as a built-in ``str``: every caller runs :func:`_routing_target` on the
+    declared object first, so the comparison, the reserved-segment test and the escaping below
+    only ever see ``str``'s own methods.
     """
     if target == END:
         if kind == "send":
@@ -1142,42 +1331,87 @@ def _path_map_label(label: object, *, workflow: object, where: str) -> str:
 
     The substrate types ``path_map`` keys ``Hashable``, not ``str``, so a label may be an
     enum member, an ``int``, a ``bool``, or any user object. ir 1.0 types the key ``str`` and
-    puts it in the NFC identifier role (IR-SPEC §6.3), and **the spec specifies refusal for
-    a non-string label** (INTROSPECTION-SPEC §6, ruled at DEC-32 — a closed projection table
-    for selected forms stays a future-minor candidate in the extractor freeze backlog).
+    puts it in the NFC identifier role (IR-SPEC §6.3), and INTROSPECTION-SPEC §6 rules the
+    spelling by one dispatch, in this order and no other (DEC-32, amended by DEC-38):
 
-    So a non-``str`` label is refused at the object boundary rather than coerced. Both halves
-    matter. Coercing would improvise a digest-affecting spelling: the key lands verbatim in
-    ``path_map``, which is in ``graph_version`` hash scope, so choosing ``str(label)`` here
-    would silently fix what two conforming extractors must agree on (§1.2). And ``str()``
-    would *call* the label's ``__str__`` — arbitrary user code, which §1's closed operation
-    list does not admit and which the never-invokes tripwires exist to catch.
+    1. a ``str`` instance — ``str`` subclasses and string-mixin enum members included — carries
+       its verbatim value;
+    2. a plain ``Enum`` member whose stored value is an exact ``str`` carries that stored value
+       — so ``AgentDecision.END = "finished"`` is the label ``"finished"``, never ``"END"`` and
+       never ``"AgentDecision.END"``, and the plain enum extracts byte-identical to its
+       string-mixin twin and to the plain-string graph;
+    3. every other key is refused at the object boundary rather than coerced.
 
-    A ``str`` label is NFC-normalized and otherwise used as it is, with no call of any kind on
-    it. The normalization is not optional and not a choice: IR-SPEC §6.3 puts ``path_map``
-    labels in the NFC identifier role, and canonicalization *refuses* a label that is not in
-    that form rather than normalizing one. Emitting the authored bytes would therefore produce
-    an IR that §2 says must exist and that raises ``CanonicalizationError`` the moment anyone
-    asks it for a ``graph_version`` — extraction total in name only. §5.1 already applies the
-    same rule one level down, normalizing a node-id segment before escaping it.
+    :func:`gebra.extraction.routing.spell_routing_label` is that dispatch, shared with the
+    codomain read so a key and its codomain member carry one spelling. It reads the label's
+    type slot, the MRO and namespaces of its class and the member's own instance dictionary,
+    all through unbound accessors, and nothing else: no ``isinstance`` (which reads
+    ``__class__`` through the object's own attribute access when the type check fails), no
+    ``str()``, ``repr()``, ``format()``, ``.name``, ``.value`` or ``getattr``.
+
+    Both halves of the refusal matter. Coercing would improvise a digest-affecting spelling:
+    the key lands verbatim in ``path_map``, which is in ``graph_version`` hash scope, so
+    choosing ``str(label)`` here would silently fix what two conforming extractors must agree
+    on (§1.2). And ``str()`` would *call* the label's ``__str__`` — arbitrary user code, which
+    §1's closed operation list does not admit and which the never-invokes tripwires exist to
+    catch. The refusal names the label's type and why it has no spelling, never a rendering of
+    the label.
+
+    Every spelled label is NFC-normalized. The normalization is not optional and not a choice:
+    IR-SPEC §6.3 puts ``path_map`` labels in the NFC identifier role, and canonicalization
+    *refuses* a label that is not in that form rather than normalizing one. Emitting the
+    authored bytes would therefore produce an IR that §2 says must exist and that raises
+    ``CanonicalizationError`` the moment anyone asks it for a ``graph_version`` — extraction
+    total in name only. §5.1 already applies the same rule one level down, normalizing a
+    node-id segment before escaping it.
     """
-    if isinstance(label, str):
-        # ``"".join((label,))`` first: it reads the buffer at C level and returns a
-        # built-in ``str`` from any subclass without calling one of its methods. The
-        # label becomes a dict key and (EX-18) a collision-set member, and a subclass
-        # ``__hash__``/``__eq__``/``__str__`` — a str-mixin enum's, say — must never
-        # run on this path (§1 rule 3; probe-verified: ``str()`` calls ``__str__``,
-        # and NFC's already-normal fast path returns the subclass object unchanged).
-        return unicodedata.normalize("NFC", "".join((label,)))  # noqa: FLY002 — an f-string calls __format__ (user code)
+    spelling = spell_routing_label(label)
+    if spelling.label is not None:
+        return spelling.label
     raise ExtractionError.for_object(
         workflow,
         f"the {where} declares the non-string routing label of type "
-        f"{type_identity(label)}; ir types a path_map key as a string and the spec "
-        "specifies refusal for any other type (INTROSPECTION-SPEC §6, DEC-32), so this "
-        "build refuses rather than coercing — a coerced spelling would land inside "
-        "graph_version. Use string labels: return strings from the router and key "
-        "path_map with the same strings (e.g. 'yes'/'no' instead of True/False)",
+        f"{type_identity(label)}, which ir cannot spell: {spelling.refusal}. A path_map key "
+        "is a string, or a plain Enum member whose stored value is a str, spelled as that "
+        "value (INTROSPECTION-SPEC §6; DEC-32 as amended by DEC-38); every other key is "
+        "refused rather than coerced, because a coerced spelling would land inside "
+        "graph_version. Use string labels, or a str-valued Enum (plain or string-mixin), with "
+        "the router returning the same members or strings (e.g. 'yes'/'no' instead of "
+        "True/False)",
         reason=ExtractionErrorReason.CONSTRUCT_NOT_CARRIED,
+        family=ObjectFamily.BUILDER,
+    )
+
+
+def _routing_target(target: object, *, workflow: object, where: str) -> str:
+    """A declared routing target as a built-in ``str``, or a refusal before anything touches it.
+
+    INTROSPECTION-SPEC §6 (DEC-38 §3.5): "A ``path_map`` **value** (a routing target) that is
+    not a ``str`` instance is likewise refused, before any comparison, hashing or escaping runs
+    on it — targets are node names or ``END``, and the admission is for keys only." Two routes
+    put a member there: a ``Literal[E.A]`` return hint on a router with no ``path_map``
+    (``ends = {E.A: E.A}``), and a node routing declaration naming one. On a member,
+    ``target == END`` would run its ``__eq__``, the reserved-segment test would hash it
+    (``Enum.__hash__`` reads ``_name_`` through the member's own attribute access), and the
+    escaping would fail with a raw ``TypeError`` out of ``extract()`` — so the test here is
+    ``issubclass(type(target), str)``, which reads nothing from the object, and it runs at every
+    target-reading site, ahead of each of those operations. A target with no name at all has no
+    node id, so the reason is ``UNREPRESENTABLE_NODE_ID``.
+
+    A ``str`` target — a ``str`` subclass included — is projected through
+    ``"".join((target,))`` first, the C-level read DEC-32 gives a label: a subclass's own
+    ``__eq__`` and ``__hash__`` would otherwise run under ``== END`` and the reserved-segment
+    test, and NFC hands a subclass object back unchanged on CPython 3.10–3.13.
+    """
+    if issubclass(type(target), str):
+        return "".join((cast(str, target),))
+    raise ExtractionError.for_object(
+        workflow,
+        f"the {where} routes to a target of type {type_identity(target)}; a routing target "
+        "is a node name or END, so it has no node id and this build refuses before reading "
+        "it (INTROSPECTION-SPEC §6, DEC-38: the admission of an Enum member is for labels "
+        "only) — route to the node's name, and keep the enum member for the label",
+        reason=ExtractionErrorReason.UNREPRESENTABLE_NODE_ID,
         family=ObjectFamily.BUILDER,
     )
 
@@ -1185,21 +1419,29 @@ def _path_map_label(label: object, *, workflow: object, where: str) -> str:
 def _refuse_label_collision(
     label: str, seen_labels: set[str], *, workflow: object, where: str
 ) -> None:
-    """Refuse two declared labels that resolve to one ``path_map`` key (DEC-32).
+    """Refuse two declared labels that resolve to one ``path_map`` key (DEC-32, DEC-38).
 
-    ``_path_map_label`` NFC-normalizes (IR-SPEC §6.3), so distinct authored spellings —
-    composed vs decomposed accents being the live case — can name one key. Keeping the
-    last writer would silently drop a declared edge from ``graph_version``: a partial IR
-    through the back door, which §2's posture forbids. The collision is a fact about the
-    handed object, never the build, so the fix is the caller's — rename one label.
+    The check runs over the **projected** labels — what :func:`_path_map_label` made of each
+    declared key — so it sees every collision the projection itself produces: distinct authored
+    spellings sharing one NFC form (composed vs decomposed accents being the live case), an
+    admitted enum member's stored value meeting a string label (``{E.TOOL: …, "tool": …}``,
+    which the substrate keeps as two keys), members of two enum classes with one stored value,
+    and, on a ``destinations=`` dict, two targets declared under one label. Keeping the last
+    writer would silently drop a declared edge from ``graph_version``: a partial IR through the
+    back door, which §2's posture forbids. The collision is a fact about the handed object,
+    never the build, so the fix is the caller's — rename one label.
+
+    ``label`` and every member of ``seen_labels`` are built-in ``str`` objects (the projection
+    returns nothing else), so the membership test runs ``str``'s own hash and comparison only.
     """
     if label in seen_labels:
         raise ExtractionError.for_object(
             workflow,
             f"the {where} declares two routing labels that resolve to the single "
-            f"path_map key {label!r} after NFC normalization; a merged key would "
-            "silently drop a declared edge from graph_version, so this build refuses "
-            "— rename one label (a collision is an error, never a merge; DEC-32)",
+            f"path_map key {label!r} after projection (NFC normalization, or an Enum "
+            "member's stored value); a merged key would silently drop a declared edge from "
+            "graph_version, so this build refuses — rename one label (a collision is an "
+            "error, never a merge; DEC-32, DEC-38)",
             reason=ExtractionErrorReason.LABEL_COLLISION,
             family=ObjectFamily.BUILDER,
         )

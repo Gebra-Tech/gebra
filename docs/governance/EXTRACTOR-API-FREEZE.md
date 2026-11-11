@@ -109,7 +109,7 @@ freeze exists to keep explicit rather than let drift into a quiet local call.
 | 16 | Synthetic composition kinds beyond §5.2 | New segment-kind tokens for compositions 1.0 refuses | PD-025 | *(added 2026-08-13)* — **needs future DEC** |
 | 17 | Router-contract surface | `@gebra.contract` on a router is silently inert in 1.0/1.1 (PD-044 D13) | PD-044 D13 | *(added 2026-08-13)* — **needs future DEC** |
 | 18 | Send-classified codomain recording | `_record_codomain` is conditional-branch-only in 1.0/1.1 (PD-044 D14) | PD-044 D14 | *(added 2026-08-13)* — **needs future DEC** |
-| 19 | Non-string `path_map` label projection | Declined in 1.0/1.1 — DEC-32 rules refusal; a closed projection table (exact-type `bool` first: `"true"`/`"false"`, matching §7.4(d) Coercion K's JCS rendering) is the candidate. Design constraints from the 2026-08-20 probes bind any future table: explicit dispatch order (enum-int hybrids match two rows); no instance dunder reads (`int.__str__` resolves through `object.__str__` to a subclass `__repr__`; the safe spellings are `int.__repr__(x)` and the enum machinery's own `name` getter); composite `Flag` `.name` is `None` on py3.10 vs `"A|B"` on 3.13 (interpreter-varying — cannot enter hash scope); source-dict equal-hash merges (`{True: 'a', 1: 'b'}`) happen before extraction can see them, so collision-is-error is enforceable only post-projection; str-subclass labels never reach the table (verbatim-value, DEC-32). Trigger: a genuine production refusal report. | DEC-32 | *(added 2026-08-22)* — **needs future DEC** |
+| 19 | Non-string `path_map` label projection | One form admitted by DEC-38 (2026-11-03, amending DEC-32 ruling 1; landed by EX-27 with no `ir_version` bump, §3): a plain `Enum` member whose stored value is an exact `str` is spelled as that value, read from the member's own instance dictionary through unbound accessors. Every other non-string label is still declined — DEC-32 rules refusal; a wider closed projection table (exact-type `bool` first: `"true"`/`"false"`, matching §7.4(d) Coercion K's JCS rendering) is the candidate for those residual forms. Design constraints from the 2026-08-20 probes, as corrected by DEC-38, bind any further row: explicit dispatch order (a `str` instance, then the admitted `Enum` form, then refusal; enum-int hybrids would match two rows of a wider table); no instance dunder reads and no attribute read of a member (`int.__str__` resolves through `object.__str__` to a subclass `__repr__`; `int.__repr__(x)` is a safe spelling, but the enum machinery's own `name` getter is not — it reads `_name_` through the member's attribute access, and a class-body `name` property overrides it — so the one read of a member that reaches no user code is its own instance dictionary through unbound accessors, DEC-38 §3.11); composite `Flag` `.name` is `None` on py3.10 vs `"A|B"` on 3.13 (interpreter-varying — cannot enter hash scope); source-dict equal-hash merges (`{True: 'a', 1: 'b'}`) happen before extraction can see them, so collision-is-error is enforceable only post-projection; str-subclass labels never reach the table (verbatim-value, DEC-32). Trigger for every residual form: a genuine production refusal report (waived for the admitted form alone, DEC-38 §3.9). | DEC-32; DEC-38 | *(added 2026-08-22; the admitted form and the `name`-getter correction recorded 2026-11-11, EX-27)* — each residual form **needs future DEC** |
 
 Items 9 and 10 are EX-05's non-mirrored-fields disposition (PD-023 D6), taken here
 verbatim per that decision's own "Consequences" clause ("EX-15 takes D6 verbatim as the
@@ -126,23 +126,50 @@ surface in §1 or emit one of the §2 rows — a refactor, a new test, a bug fix
 declined/refused shape — is unaffected by this freeze and follows the usual WA-08 review
 (IR-spec and never-invokes pre-review, then human merge).
 
-A change that would emit any §2 item — landing `projection`, `join_key`, `codomain`,
-`kind: join`, a managed-value marker, checkpointer type, tool projection, or a new ledger
-slot for any §3/§4.1 non-mirrored field — is a **minor `ir_version` bump** under
-IR-SPEC §8's additive-optional rule, and per WA-03/WA-04 that requires a vault decision
-record *first*: a proposal, R-06 vault sign-off, a re-vendored commit citing the new vault
-hash, and the `ir_version` bump landed alongside the code change in one PR. None of the
-backlog rows may be improvised into an existing slot, coerced into provenance-as-data, or
+A change that would emit a §2 item as a new slot or a new token — landing `projection`,
+`join_key`, `codomain`, `kind: join`, a managed-value marker, checkpointer type, tool
+projection, or a new ledger slot for any §3/§4.1 non-mirrored field — is a **minor
+`ir_version` bump** under IR-SPEC §8's additive-optional rule, and per WA-03/WA-04 that
+requires a vault decision record *first*: a proposal, R-06 vault sign-off, a re-vendored
+commit citing the new vault hash, and the `ir_version` bump landed alongside the code change
+in one PR. A §2 item whose landing adds no slot and no token — an extractor-admission rule
+that begins populating an existing, ratified slot from a newly admitted source, with no slot
+shape, hash-scope or canonicalization rule change (DEC-15's class) — still needs its vault
+decision record first, and is **not** an `ir_version` event: IR-SPEC §8 names a new optional
+slot or a new closed-vocabulary token as the minor and a change to the canonical bytes or
+digests of existing valid documents as the major, and such a landing is neither. Row 19's
+admitted form is that case, ruled so by DEC-38 §3.8 (2026-11-03): its label is spelled into
+the existing `path_map: dict[str, str]`, every document it produces is one the format
+already admits, and no refused object ever produced IR, so no existing digest moves. None of
+the backlog rows may be improvised into an existing slot, coerced into provenance-as-data, or
 inferred from a heuristic in the meantime — the extractor's present posture (decline, or
 provenance-only, per §2's "Status" column) is the conforming one until its DEC lands.
+
+A correction to how the extractor reads a construct the format already carries — at the same
+`ir_version` floor, moving the bytes of the documents that construct produces — is a
+changelog-named change to extraction output, never an `ir_version` event (ruled 2026-11-03
+with DEC-38's ratification, PD-067): it reaches an adopter as an edit — the next snapshot of an
+affected workflow differs from the last in the moved bytes, which `gebra diff` reports like any
+other change — and the CHANGELOG entry names the correction and the documents it moves.
+EX-27's reading of a dict-valued `destinations=` in the orientation the substrate documents
+(keys are targets, values are labels) is such a correction: it moves `graph_version` for a
+graph whose `destinations=` dict carries labels that are not its own targets — the diff shows
+the misread conditional edge removed and its corrected twin added, or, on a node hinted to
+return `Send`, the `send` edges whose `to` changes. EX-27's correction also refuses one shape
+the misreading extracted: two targets declared under one label now refuse at the boundary with
+`LABEL_COLLISION`, as INTROSPECTION-SPEC §6's collision rule requires of any `path_map`. That
+is no edit an adopter's diff can show, so the CHANGELOG entry names it beside the bytes the
+correction moves.
 
 ## 4. What this freeze does not claim
 
 This record states extractor/annotation API surface stability and the 1.x backlog's spec
 anchors only. It does not claim: that gate **G5** is signed (G5's exit-card list, master
 plan §4, is larger than this one card — TE-11 is also still open as of this writing); that
-any §2 backlog item is ratified (every row awaits a future DEC — "candidate" and "needs
-future DEC" throughout, never "planned" or "coming"); that the IR-models freeze (IR-06) or
+any §2 backlog item is ratified beyond what its row's Status column records (row 19 records
+DEC-38's one admitted form; a row the record has not yet brought up to date with a later DEC
+is amended by the card that lands that DEC — "candidate" and "needs future DEC" throughout,
+never "planned" or "coming"); that the IR-models freeze (IR-06) or
 the validator-result freeze (VAL-12) are this document's to record — each is its own
 card's; or that the rows in §2 are the *complete* set of everything ir 1.x might ever
 need — they are the deferred items the specs and the EX-05/EX-16 cards name today, and a

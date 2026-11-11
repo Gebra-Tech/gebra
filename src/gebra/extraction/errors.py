@@ -55,23 +55,37 @@ class ExtractionErrorReason(str, Enum):
             "unsupported" — but a refusal all the same, because the alternative is a partial
             IR and §2 forbids exactly that.
         CONSTRUCT_NOT_CARRIED: The object's family *is* carried, but it declares a construct
-            whose ir 1.0 form this build cannot write — either because the rules that decide
-            that form are a later card, or because the form itself is a pending ruling. The
-            same reasoning as :data:`EXTRACTOR_NOT_REGISTERED`, one level in: a caller can do
-            nothing about it either way, so the two share a message shape and differ only in
-            what the message names.
-        UNREPRESENTABLE_NODE_ID: A declared name has no node id under the IR-SPEC §5.1
-            grammar — the substrate admits an empty node name, and no grammar admits ``""``.
-            Unlike the two refusals above this is not about the build: no future version
-            carries it, and the fix is to rename the node.
-        LABEL_COLLISION: Two declared routing labels resolve to one ``path_map`` key —
-            distinct source strings sharing one NFC normal form (IR-SPEC §6.3 puts labels
-            in the NFC identifier role, so both authored spellings name the same key).
-            Like :data:`UNREPRESENTABLE_NODE_ID` this is a fact about the object, never
-            the build: no version can carry two identical ``dict[str, str]`` keys, a merge
-            would silently drop a declared edge from ``graph_version`` (the partial IR §2
-            forbids), and the fix is to rename one label (ruled — DEC-32: a collision is
-            an error, never a merge).
+            whose ir 1.0 form this build cannot write — because the rules that decide that
+            form are a later card, because the form itself is a pending ruling, or because a
+            ruling leaves it without a carrier. The last is the routing label INTROSPECTION-SPEC
+            §6's dispatch cannot spell: a ``str`` instance and a plain ``Enum`` member whose
+            stored value is an exact ``str`` are labels, and every other key — ``bool``,
+            ``int``, an ``IntEnum`` or ``Flag`` member, an enum whose stored value is not an
+            exact ``str``, an enum with an MRO-shadowed ``_value_`` — is refused rather than
+            coerced (DEC-32, amended by DEC-38); the message names the label's type and the
+            admitted form, never a rendering of the label. The same reasoning as
+            :data:`EXTRACTOR_NOT_REGISTERED`, one level in: a caller can do nothing about it
+            short of changing the declaration, so the two share a message shape and differ
+            only in what the message names.
+        UNREPRESENTABLE_NODE_ID: A node name or a declared routing target has no node id under
+            the IR-SPEC §5.1 grammar, or no name at all — the substrate admits an empty node
+            name, and no grammar admits ``""``; and a routing target that is not a ``str`` (an
+            enum member from a ``Literal[E.A]`` hint with no ``path_map``, or one named in a
+            node routing declaration or a conditional entry) is no node name, so it is refused
+            at every target-reading site before any comparison, hashing or escaping runs on it
+            (DEC-38: the enum admission is for labels only). Unlike the two refusals above
+            this is not about the build: no future version carries it, and the fix is to
+            rename the node or route to its name.
+        LABEL_COLLISION: Two declared routing labels resolve to one ``path_map`` key after
+            projection — distinct source strings sharing one NFC normal form (IR-SPEC §6.3
+            puts labels in the NFC identifier role, so both authored spellings name the same
+            key), an admitted enum member's stored value meeting a string label, members of
+            two enum classes with one stored value, or two ``destinations=`` targets declared
+            under one label. Like :data:`UNREPRESENTABLE_NODE_ID` this is a fact about the
+            object, never the build: no version can carry two identical ``dict[str, str]``
+            keys, a merge would silently drop a declared edge from ``graph_version`` (the
+            partial IR §2 forbids), and the fix is to rename one label (ruled — DEC-32: a
+            collision is an error, never a merge; its reach restated at DEC-38).
     """
 
     UNSUPPORTED_OBJECT = "unsupported-object"

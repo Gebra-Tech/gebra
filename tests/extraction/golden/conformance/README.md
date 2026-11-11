@@ -36,10 +36,15 @@ review-only (IR-spec pre-review) until the CI guard lands with GOV-08.
 
 **Provenance of the current set** — taken 2026-08-10 under EX-14 (initial creation, not a
 change), at the locked development substrate: langgraph 1.2.10, langchain-core 1.5.2,
-langgraph-checkpoint 4.1.1, pydantic 2.13.4. Routing goldens are deliberately post-EX-03
+langgraph-checkpoint 4.1.1, pydantic 2.13.4 (`lcel-tool-bound`, which a langchain-core lock
+bump retakes, is held at the 1.5.3 gate below). Routing goldens are deliberately post-EX-03
 (PD-044's consequence note: routing shapes golden only after the `send`/`dynamic`
 classification landed) and the tool-bound golden is post-EX-16 (its admission moved the
-node set for tool-bound workflows by design).
+node set for tool-bound workflows by design). `builder-enum-labels` was added on 2026-11-11
+under EX-27 — a new case, not a change: DEC-38 admits a plain `Enum` routing label whose
+stored value is exactly a `str`, `ir_version` stays `1.0`, and every golden above kept its
+bytes. It was taken at langgraph 1.2.10, langchain-core 1.5.3, pydantic 2.13.4, and its
+commit carries the WA-05 trailer `Golden-Justification: DEC-38 ir_version=1.0 …`.
 
 ## Composition — what each golden pins
 
@@ -49,6 +54,7 @@ node set for tool-bound workflows by design).
 | `builder-surface` | builder | conditional edge (`condition` + `path_map`), `retry_policy`, all three §6.3 Σ value forms (bare string / reducer object / optional flag), `%2F` node-id escaping, list `entry`/`finish` |
 | `builder-send` | builder | `send` edges, one per declared target of a `-> list[Send]`-hinted router (§6) |
 | `builder-dynamic` | builder | the `kind: dynamic` edge — an `ir_version` "1.1" document (DEC-28) |
+| `builder-enum-labels` | builder | a `path_map` keyed by plain `Enum` members whose stored values are exactly `str`, spelled as those values (INTROSPECTION-SPEC §6, DEC-38) — the same bytes as the graph keyed by the string-mixin twin or by plain strings |
 | `compiled-runtime` | compiled | §3.7 `runtime`: `interrupts.before`/`after` + `checkpointer.present` |
 | `lcel-composite` | lcel | six §5.2 synthetic kinds (`seq`, `map`, `lambda`+dep, `branch`, `retry`, `bind`) and a `prompt_digest` carrier |
 | `lcel-tool-bound` | lcel | the EX-16 admission: `prompt \| model.bind(tools=…)` with the model's `config_digest` carrying the tool overlay — **substrate-gated**, see below |
@@ -58,14 +64,17 @@ Version portability: EX-17 bisected the surfaces that move across the frozen VER
 §3 matrix. Every golden above except `lcel-tool-bound` must hold byte-identically on every
 matrix cell and Python (verified against all three cells' substrate pins at the EX-14
 acceptance run; the executions are recorded in that card's `artifacts` on the extractor
-board).
+board). `builder-enum-labels` postdates that run: it was taken on the development
+substrate, and the CI matrix run on the commit that adds it is its first observation on
+the other cells and Pythons.
 `lcel-tool-bound` embeds a `BaseChatModel` `config_digest`, which projects the installed
 core's `model_fields` (INTROSPECTION-SPEC §7.4 (c)) — and from core 1.4.7 that projection
 contains `metadata.lc_versions`, **the installed core's own version string**, merged in at
 construction even over an explicitly passed `metadata`. Every core release therefore moves
 this digest (§7.4 (e)'s ruled movement at its sharpest), so the committed bytes can hold
 only at the **exact** release they were taken at: the comparison is gated on
-`langchain-core == 1.5.2` (the locked development pin, where the locked-env CI jobs run)
+`langchain-core == 1.5.3` (the locked development pin since PD-049's lock regeneration,
+where the locked-env CI jobs run; `TOOL_BOUND_CORE_PIN` in the conformance module)
 and skips with that stated reason anywhere else — including matrix cell 3, whose core pin
 deliberately floats ("1.2.latest + latest core in band", re-resolved per PD-030 Q2). The
 extraction *capability* for tool-bound chains stays tested on every cell by

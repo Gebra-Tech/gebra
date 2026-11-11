@@ -42,22 +42,46 @@ answer — ``conditional`` — which is the pole §6 sends an unclassifiable rou
 conditional edge over declared targets claims strictly less than a send template does. There is
 no path here from an unreadable declaration to ``send``.
 
+**§6's non-string-labels dispatch lives here too.** A routing label is spelled by one rule
+wherever §6 reads one — a ``path_map`` key on a router, a node routing declaration or the
+conditional entry, and a ``Literal[...]`` hint member read as codomain evidence — so that "a
+declaration's key and its codomain member carry one spelling" (INTROSPECTION-SPEC §6, ruled at
+DEC-32 and amended by DEC-38). :func:`spell_routing_label` is that rule:
+
+1. a key that **is** a ``str`` instance — ``str`` subclasses and string-mixin enum members
+   included — carries its verbatim value, NFC-normalized, tested as ``issubclass(type(key),
+   str)`` and never as ``isinstance(key, str)``, which reads ``__class__`` through the object's
+   own attribute access when the type check fails;
+2. otherwise a plain ``Enum`` member whose **stored value** is an exact ``str`` carries that
+   value, NFC-normalized, read from the member's own instance dictionary through unbound
+   accessors only — no attribute lookup on the member, no method of the member or of its
+   class, no hashing probe and no bound method of either dictionary (DEC-38 §3.1–§3.2);
+3. every other key has no spelling, and the caller decides what that means: the builder path
+   refuses the object at the boundary, while the codomain read leaves the member out.
+
 Nothing in this module invokes a router, a node, an LLM or a network connection (WA-07). The
 hazard it *does* carry — annotation evaluation, §1 rule 4's named tripwire obligation — has its
-own tripwire in ``tests/extraction/test_routing.py``.
+own tripwire in ``tests/extraction/test_routing.py``. The label dispatch reads no attribute
+of a label and calls none of its methods, its class's or its dictionaries' — recording
+fixtures in ``tests/extraction/test_routing.py`` and ``tests/extraction/test_builder.py`` pin
+it; what a *refusal message* then reads is the label's type name, through
+:func:`gebra.naming.type_identity`, the spelling every boundary refusal uses.
 """
 
 from __future__ import annotations
 
+import enum
+import types
 import typing
+import unicodedata
 from dataclasses import dataclass
-from typing import Any, Final, Literal, get_args, get_origin
+from typing import Any, Final, Literal, cast, get_args, get_origin
 
 from langgraph.types import Send
 
 from gebra.extraction.contracts import walk
 
-__all__ = ["RouterHint", "declared_return_hint"]
+__all__ = ["LabelSpelling", "RouterHint", "declared_return_hint", "spell_routing_label"]
 
 #: How deep the walk over a type expression goes.
 #:
@@ -68,6 +92,114 @@ _MAX_DEPTH: Final = 16
 
 #: The annotation member a declared return hint lives in.
 _RETURN: Final = "return"
+
+#: The four unbound accessors the enum read uses, taken once from the classes that own them.
+#:
+#: Each is a descriptor read off ``type``'s or ``enum.Enum``'s own namespace, so applying it
+#: runs C code of the interpreter and no hook of the object it is applied to: a metaclass
+#: ``__getattribute__`` on the label's class is bypassed by the first two, and the member's own
+#: ``__getattribute__`` by the third (DEC-38 §3.2, §5 rows 5–6).
+_MRO: Final = type.__dict__["__mro__"]
+_NAMESPACE: Final = type.__dict__["__dict__"]
+_MEMBER_DICT: Final = enum.Enum.__dict__["__dict__"]
+_PROXY_ITEMS: Final = types.MappingProxyType.items
+
+#: The one instance-dictionary key the enum machinery stores a member's value under.
+_STORED_VALUE: Final = "_value_"
+
+
+@dataclass(frozen=True)
+class LabelSpelling:
+    """What §6's non-string-labels dispatch made of one declared routing label.
+
+    Attributes:
+        label: The label's IR spelling — an exact, NFC-normalized ``str`` — or ``None`` when
+            the dispatch has none for it.
+        refusal: Why the dispatch has no spelling — a fixed phrase that follows "which ir
+            cannot spell:" in a message; ``None`` when ``label`` is set. It names no type and
+            renders nothing of the label, so building a message from it runs none of the
+            label's code.
+    """
+
+    label: str | None = None
+    refusal: str | None = None
+
+
+def spell_routing_label(key: object) -> LabelSpelling:
+    """Spell one declared routing label by INTROSPECTION-SPEC §6's dispatch, in its order.
+
+    The order is the ruled one and no other (DEC-38 §3.3): a ``str`` instance first, then the
+    admitted ``Enum`` form, then no spelling. Its first step is why a string-mixin member
+    (``class X(str, Enum)``, ``StrEnum``) is read as the string it is and its ``_value_`` is
+    never consulted, and why no ``IntEnum``-style hybrid can match two rows: an ``IntEnum``
+    member is not a ``str`` and its stored value is not one either.
+
+    **The admitted form, exactly** (DEC-38 §3.1). A key whose class derives from ``enum.Enum``,
+    whose MRO holds no class carrying an exact-``str`` ``'_value_'`` key in its own namespace
+    (a mixin base's ``_value_`` property, or one set on the enum class after creation, makes
+    ``.value`` user code — the "MRO-shadowed ``_value_``" refusal), and whose own instance
+    dictionary is a ``dict`` holding an exact-``str`` ``'_value_'`` key with an exact-``str``
+    value. That stored value is what the enum machinery wrote at class creation — the class-body
+    literal, or whatever a custom ``__new__`` stored at import — so it is read, never computed,
+    and two extractors reading one object agree (IR-SPEC §1.2). Spelled by value,
+    ``class X(Enum)`` and ``class X(str, Enum)`` with equal values extract byte-identical.
+
+    **How it is read** (DEC-38 §3.2). ``type(key)`` reads the object's type slot; ``issubclass``
+    dispatches on its *second* argument's metaclass (``str``'s and ``enum.Enum``'s, both plain
+    ``type.__subclasscheck__``), so a user metaclass on the label's class runs nothing; the MRO
+    and each class namespace come through ``type``'s own descriptors, the instance dictionary
+    through ``enum.Enum``'s; the namespaces are iterated through the proxy type's own ``items``
+    (the proxy wraps the class's own dictionary, an exact ``dict``) and the instance dictionary
+    through ``dict.items`` — never a hashing probe (``in``, ``get``, ``[]``), which would run a
+    planted ``str``-subclass key's ``__eq__``, and never a bound method, which would run a
+    planted ``dict`` subclass's own ``items`` or ``__iter__``. A key counts only when
+    ``type(key) is str``, tested before the one comparison, so every comparison is
+    ``str.__eq__``.
+
+    Barred, and why (each reaches user code or varies by interpreter): ``str()``, ``repr()``,
+    ``format()``, ``.name``, ``.value``, ``getattr`` and the base class's own ``value`` getter.
+
+    Args:
+        key: A declared routing label as the substrate holds it — a ``path_map`` key, a
+            ``destinations=`` label, or a ``Literal[...]`` argument.
+
+    Returns:
+        The spelling. Total: an object the dispatch cannot spell is a :class:`LabelSpelling`
+        carrying its ``refusal`` — a fixed phrase that names no type and renders nothing —
+        never an exception.
+    """
+    kind = type(key)
+    if issubclass(kind, str):
+        # ``"".join((key,))`` reads the buffer at C level and returns a built-in ``str`` from
+        # any subclass without calling one of its methods; NFC's already-normal fast path would
+        # otherwise hand a subclass object back unchanged (DEC-32's str-subclass clause).
+        return LabelSpelling(label=unicodedata.normalize("NFC", "".join((cast(str, key),))))
+    if not issubclass(kind, enum.Enum):
+        return LabelSpelling(refusal="it is neither a string nor an Enum member")
+    for klass in _MRO.__get__(kind):
+        for name, _member in _PROXY_ITEMS(_NAMESPACE.__get__(klass)):
+            if type(name) is str and name == _STORED_VALUE:
+                return LabelSpelling(
+                    refusal=(
+                        "its class or a base in its MRO defines `_value_` in its own "
+                        "namespace, so its value is answered by that definition rather than "
+                        "read as the stored value (an MRO-shadowed `_value_`)"
+                    )
+                )
+    try:
+        stored = _MEMBER_DICT.__get__(key)
+    except (AttributeError, TypeError):  # pragma: no cover - DEC-38 §3.2: cannot arise
+        return LabelSpelling(refusal="the member carries no instance dictionary to read")
+    if not issubclass(type(stored), dict):
+        return LabelSpelling(refusal="the member's instance dictionary is not a dict")
+    for name, value in dict.items(stored):
+        if type(name) is str and name == _STORED_VALUE:
+            if type(value) is str:
+                return LabelSpelling(label=unicodedata.normalize("NFC", value))
+            # The value's own type is not named: the refusal names the label's type, and
+            # nothing of the stored object — its class included — is read beyond `type(value)`.
+            return LabelSpelling(refusal="its stored value is not exactly a str")
+    return LabelSpelling(refusal="the member's instance dictionary holds no stored value")
 
 
 @dataclass(frozen=True)
@@ -80,8 +212,11 @@ class RouterHint:
             both are the no-hint case.
         names_send: Whether the declared hint names ``Send`` — §6's classification bit. Only
             ever ``True`` on a hint that was actually read; a degraded read is ``False``.
-        codomain: The ``Literal`` string labels the hint declares, in declaration order, or
-            ``()`` when it declares none. §6's codomain-capture rule is what reads this.
+        codomain: The ``Literal`` labels the hint declares, each spelled by
+            :func:`spell_routing_label` — the dispatch a ``path_map`` key takes, so a key and
+            its codomain member carry one spelling — in declaration order, deduplicated, or
+            ``()`` when it declares none. A member the dispatch cannot spell is left out, as a
+            non-string member always was. §6's codomain-capture rule is what reads this.
         degraded: Why the read fell back to "no hint", or ``None`` when it did not. Present iff
             an annotation was declared and could not be turned into a hint — which is a fact
             about *this* declaration and is worth reporting, unlike the absence of one.
@@ -262,33 +397,72 @@ def _names_send(hint: object) -> bool:
 
 
 def _literal_labels(hint: object) -> tuple[str, ...]:
-    """The ``Literal`` string labels ``hint`` declares, in declaration order, deduplicated.
+    """The ``Literal`` labels ``hint`` declares, spelled by §6's dispatch, in order, deduplicated.
 
     §6's codomain-capture rule reads this: a ``Literal[...]`` return hint declares the router's
     codomain, and when a ``path_map`` is declared beside it the substrate gives the ``path_map``
-    precedence and the hint "never reaches ``BranchSpec.ends``". Only ``str`` members are
-    collected — an IR ``path_map`` label is a string, and a non-string ``Literal`` member has no
-    more of a spelling here than a non-string ``path_map`` key does.
+    precedence and the hint "never reaches ``BranchSpec.ends``".
+
+    Each member is spelled by :func:`spell_routing_label`, the same dispatch a ``path_map`` key
+    takes, so a declaration's key and its codomain member carry one spelling (INTROSPECTION-SPEC
+    §6, DEC-38): a ``str`` member verbatim, an admitted plain ``Enum`` member by its stored
+    value, both NFC-normalized. A member the dispatch cannot spell is left out — this is
+    provenance evidence, never a routing declaration the substrate enforces, so it is no ground
+    to refuse the object. Deduplication compares the spelled labels, which are exact ``str``
+    objects, so no member's own ``__eq__`` runs here.
     """
     labels: list[str] = []
-    for member in _expression(hint, literals=True):
-        if isinstance(member, str) and member not in labels:
-            labels.append(member)
+    for member in _literal_arguments(hint):
+        label = spell_routing_label(member).label
+        if label is not None and label not in labels:
+            labels.append(label)
     return tuple(labels)
 
 
-def _expression(hint: object, *, literals: bool = False) -> tuple[object, ...]:
+def _literal_arguments(hint: object) -> tuple[object, ...]:
+    """Every ``Literal[...]`` argument in a type expression, in walk order — read as leaves.
+
+    The same bounded, cycle-guarded breadth-first walk as :func:`_expression`, with one
+    difference that is the point of having it: a ``Literal``'s arguments are **values**, not
+    type expressions, so they are collected and never walked. ``typing.get_origin`` and
+    ``typing.get_args`` each run an ``isinstance`` on what they are given, and an ``isinstance``
+    that fails reads the object's ``__class__`` through its own attribute access — a user
+    ``__getattribute__`` on an enum member would run, ten times per member on the pinned
+    substrate (DEC-38 §3.6, §5 row 19). Applied to the ``Literal`` alias they read the alias,
+    which is the hint's own typing object; applied to its arguments they would read the author's
+    objects, so they never are.
+    """
+    arguments: list[object] = []
+    frontier: list[object] = [hint]
+    seen: set[int] = set()
+    depth = 0
+    while frontier and depth < _MAX_DEPTH:
+        depth += 1
+        next_frontier: list[object] = []
+        for member in frontier:
+            if id(member) in seen:
+                continue
+            seen.add(id(member))
+            if get_origin(member) is Literal:
+                arguments.extend(get_args(member))
+                continue
+            next_frontier.extend(get_args(member))
+        frontier = next_frontier
+    return tuple(arguments)
+
+
+def _expression(hint: object) -> tuple[object, ...]:
     """Every member of a type expression, outermost first, bounded and cycle-guarded.
 
     A breadth-first flattening of ``typing.get_args`` — the read-only introspection accessor
-    for a parametrized generic — so that the two questions §6 asks ("does it name ``Send``",
-    "which ``Literal`` labels does it declare") are each one pass over the same flattening
+    for a parametrized generic — so that the two questions §6 asks of a hint's *types* ("does
+    it need evaluating", "does it name ``Send``") are each one pass over the same flattening
     rather than two special-cased recursions.
 
     ``Literal`` is the one construct whose arguments are *values* rather than types
-    (``Literal["a"]``'s argument is the string ``"a"``), so descending into it would put bare
-    strings into a walk whose other members are types. It is therefore descended into only when
-    the caller is asking for exactly those values, which is what ``literals`` selects.
+    (``Literal["a"]``'s argument is the string ``"a"``), so the walk never descends into it:
+    the alias is a member, its arguments are not. :func:`_literal_arguments` is the walk that
+    collects them, as leaves.
     """
     members: list[object] = []
     frontier: list[object] = [hint]
@@ -302,7 +476,7 @@ def _expression(hint: object, *, literals: bool = False) -> tuple[object, ...]:
                 continue
             seen.add(id(member))
             members.append(member)
-            if get_origin(member) is Literal and not literals:
+            if get_origin(member) is Literal:
                 continue
             next_frontier.extend(get_args(member))
         frontier = next_frontier

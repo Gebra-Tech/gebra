@@ -427,6 +427,24 @@ def test_the_surface_golden_carries_all_three_state_value_forms() -> None:
     assert state["query"] == {"optional": True, "type": "str"}
 
 
+def test_the_enum_labels_golden_is_also_its_str_mixin_and_plain_string_twins() -> None:
+    """DEC-38 §3.1: spelled by its stored value, a plain-``Enum`` label is the twins' label.
+
+    The golden was taken from the plain ``Enum``; the same graph keyed by the string-mixin twin
+    with equal values, and by the plain strings, must reproduce the committed bytes exactly —
+    the claim the golden README's row makes, executed rather than quoted. Each label is the
+    stored value: ``AgentDecision.END`` is ``"finished"``, never ``"END"``.
+    """
+    committed = committed_canonical("builder-enum-labels")
+    twins = ((cf.AgentDecisionStr.TOOL, cf.AgentDecisionStr.END), ("tool", "finished"))
+
+    for tool, end in twins:
+        assert canonical_bytes(extract(cf.build_enum_labels(tool, end)).ir) == committed
+    conditional = next(e for e in document("builder-enum-labels")["edges"] if "path_map" in e)
+    assert conditional["path_map"] == {"finished": "END", "tool": "tool"}
+    assert document("builder-enum-labels")["ir_version"] == "1.0"
+
+
 def test_the_surface_golden_escapes_the_node_id_grammar() -> None:
     """§5.1: a ``/`` in an authored name is ``%2F`` in the id, everywhere the id appears."""
     payload = document("builder-surface")

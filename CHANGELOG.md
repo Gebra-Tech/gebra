@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A plain `Enum` member whose stored value is a string is now a routing label** (card EX-27;
+  DEC-38, which amends DEC-32's ruling 1). A router whose `path_map` is keyed by members of
+  `class AgentDecision(Enum)` with `TOOL = "tool"` and `END = "finished"` was refused at the
+  boundary; it now extracts, each label spelled as the member's stored value — `"finished"`,
+  never `"END"` and never `"AgentDecision.END"` — so the plain enum, its `(str, Enum)` twin and
+  the same graph keyed by plain strings extract byte-identical. Reading a label touches nothing
+  of the member but its type and its own instance dictionary, through unbound accessors: no
+  attribute of the member is looked up and none of its methods runs (no `str()`, `repr()`,
+  `format()`, `.name` or `.value`), and the label gate is now `issubclass(type(label), str)`
+  where it was `isinstance`, which read `__class__` through the member's own attribute access.
+  Every other non-string label is still refused with `construct-not-carried` — `bool`, `int`,
+  `IntEnum`, `IntFlag` and `Flag` members, an enum whose stored value is not exactly a `str`, an
+  enum whose class or a base defines `_value_` — and the message now names the label's type,
+  why it has no spelling, the admitted form and the workaround. A routing **target** that is an
+  enum member is refused with `unrepresentable-node-id` — on a router, a node routing
+  declaration or a conditional entry — before anything compares, hashes or escapes it; a member
+  as a router's or a conditional entry's `path_map` target used to escape `extract()` as a raw
+  `TypeError`. Where one object is both label and target — the identity map a `Literal[...]`
+  hint with no `path_map` makes, or a `destinations=` tuple or list — it is read as a label
+  first, so a key the label rule cannot spell keeps `construct-not-carried`, and an admitted
+  member is then refused as a target. A string target, a `str` subclass included, is read as a
+  built-in `str` first. Two labels that collide after projection, such as an enum value meeting
+  a string label, refuse with `label-collision`. The `Literal` members of a router's return
+  hint are spelled by the same rule in the `router_codomains` provenance record, outside hash
+  scope: NFC-normalized as keys are, so a decomposed member equal to its key no longer records a
+  disagreement, and a metadata string beside a `Literal` (`Annotated[Literal["a"], "doc"]`) is
+  no longer recorded as a label. A return hint written as a string is still evaluated by
+  `typing.get_type_hints()`, which reads each `Literal` member's `__class__` and hashes it;
+  extraction adds no read of its own to that evaluation. **The admission moves neither
+  `ir_version` nor any existing digest**: the label lands in the existing `path_map`, every
+  document the admitted form produces is one the format already admits, and no refused object
+  ever produced IR. A new conformance golden, `builder-enum-labels`, pins the admitted form, and
+  every existing conformance, round-trip and drift golden is byte-identical. The rule applies
+  wherever the builder is read — an uncompiled graph, or a compiled one through its `.builder`;
+  a compiled graph with no builder keeps the labels the substrate drew. On a compiled graph whose
+  `destinations=` dict holds an enum member as a label, extraction used to stop at a raw
+  `TypeError` before the compiled-level cross-check; it now completes, and LangGraph's own
+  drawing for that cross-check hashes the member, reading its `_name_` inside the substrate.
+  That read is LangGraph's, and this change does not alter it.
+
 ### Changed
 
 - **Development re-opened at `0.1.2.dev0`** (card REL-12). `0.1.1` is published and its tag is
@@ -43,6 +85,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   literals out of test code, and two mutation tests on a copied corpus show that an unlisted
   extra fixture and a removed listed fixture each still fail. No fixture, manifest entry or
   vendored byte moved, and nothing in the installed package changed.
+
+### Fixed
+
+- **A dict-valued `destinations=` is read the way LangGraph documents it: keys are targets,
+  values are labels** (card EX-27). `add_node(..., destinations={"tool": "go to the tool"})`
+  declares the edge to `tool`, labelled `"go to the tool"` — that is how the substrate documents
+  the argument, validates it and draws it. The builder path read the dict the other way round
+  and emitted `path_map: {"tool": "go to the tool"}`, a target that names no node: `gebra
+  verify` failed P-01 on a well-formed graph (`path-map-target-undefined`), and extracting the
+  compiled graph warned `builder-compiled-divergence`, because its drawing reads the dict
+  correctly. It now emits `path_map: {"go to the tool": "tool"}`; P-01 passes and the
+  cross-check agrees. **This moves `graph_version` for a graph whose `destinations=` dict
+  carries labels that are not its own targets**: the next snapshot of such a workflow differs
+  from the last in that edge, which `gebra diff` reports as an edit — a removed and an added
+  conditional edge, an `S` change; on a node whose function is hinted to return `Send`, the
+  corrected targets are the `send` edges' `to`, so those edges are what the diff shows removed
+  and added. `ir_version` does not move, and no conformance golden carried the construct. Two
+  targets declared under one label, which used to extract, now refuse with `label-collision`,
+  because a `path_map` keeps one target per label — no edit a diff can show. A `destinations=`
+  set holding a member that is not a string, whose member used to be refused as a label, is now
+  refused whole as a target set (`unrepresentable-node-id`), so the string-hash seed cannot pick
+  the reason. A `destinations=` dict whose label value is an admitted enum member, which used to
+  escape `extract()` as a raw `TypeError`, extracts with the member's stored value as the label.
+  A node routing declaration — `destinations=` or a `Command[Literal[...]]` return hint — no
+  longer records a `router_codomains` entry: §6's codomain-capture rule runs on an
+  `add_conditional_edges` router and nowhere else, because a node declaration's hint names goto
+  targets, a role `path_map` keys do not share — and read in the corrected orientation, the
+  `path_map` keys of a `destinations=` dict are its values, the labels, so comparing them with
+  that hint would record a disagreement on every such node whose labels are not its targets.
+  The routing mappings
+  are read through `dict.items` and the built-in sequence types' own iterators, so a `dict`,
+  `tuple`, `list`, `set` or `frozenset` subclass's own methods never run; a tuple-, list- or
+  set-valued `destinations=` reads as before (a set's names in sorted order). A container that
+  is none of those is warned `unsupported-construct` (`routing-declaration-unreadable`) and
+  declares nothing, instead of being iterated through its own methods — which moves
+  `graph_version` in one case that compiles: a router whose `path_map` is a `dict` subclass with
+  its own `copy()` returning a mapping that is not a `dict` was read through that mapping's
+  `items()` and is now warned and left without an edge.
 
 ## [0.1.1] - 2026-09-21
 

@@ -18,15 +18,26 @@ fixtures/properties/
 ├── termination-witness/      # P-02 — ≥7 positive + ≥5 negative (flagship)
 ├── signature-soundness/      # P-03 — ≥3 positive + ≥3 negative
 ├── dataflow-completeness/    # P-04 — ≥4 positive + ≥4 negative
+├── guard-exhaustiveness/     # P-05 — ≥3 positive + ≥3 negative (allocated — DEC-35; fixtures land with §P-05)
 ├── effect-safety/            # P-06 — ≥3 positive + ≥5 negative
 ├── retry-coherence/          # P-07 — ≥2 positive + ≥2 negative
 ├── determinism-replay/       # P-08 — ≥3 positive + ≥3 negative
 ├── parallel-safety/          # P-09 — ≥2 positive + ≥2 negative
+├── subgraph-consistency/     # P-10 — ≥3 positive + ≥3 negative (allocated — DEC-35; fixtures land with §P-10)
+├── join-key-soundness/       # P-11 — ≥3 positive + ≥3 negative (allocated — DEC-35; fixtures land with §P-11)
 ├── evolution-safety/         # P-12 — ≥3 positive + ≥3 negative (ir_before/ir_after pairs)
+├── interrupt-gate-coverage/  # P-13 — ≥3 positive + ≥3 negative (allocated — DEC-35; fixtures land with §P-13)
 └── mixed/                    # ≥10 cross-property fixtures
 ```
 
-Directories for P-05 `guard-exhaustiveness`, P-10 `subgraph-consistency`, P-11 `join-key-soundness`, and P-13 `interrupt-gate-coverage` are allocated when their validators are scheduled (Phase-0-Plan catalog scope); the schema's `property` enum already admits all 13 slugs.
+**Allocated directories (DEC-35, the Phase-1 catalog charter).** The four directories below are allocated at the house minimum — ≥3 positive + ≥3 negative each, the DEC-16 minimum — and hold no fixtures until their property's PROPERTY-CATALOG-SPEC section is ratified: each directory's first fixtures land with that section's decision record (landing class A — the property is still deferred at ratification), and the *Counts* row below, together with the corpus lint's mirrored minimum, moves in that same re-vendor and never before. The schema's `property` enum already admits all 13 slugs.
+
+| Property | Directory | Minimum (positive + negative) | First fixtures land with | Landing class |
+|---|---|---|---|---|
+| P-05 `guard-exhaustiveness` | `guard-exhaustiveness/` | ≥3 + ≥3 | the §P-05 decision record | A |
+| P-10 `subgraph-consistency` | `subgraph-consistency/` | ≥3 + ≥3 (IR 1.2 child expansion and `projection`) | the §P-10 decision record | A |
+| P-11 `join-key-soundness` | `join-key-soundness/` | ≥3 + ≥3 (IR 1.2 `join_key`) | the §P-11 decision record | A |
+| P-13 `interrupt-gate-coverage` | `interrupt-gate-coverage/` | ≥3 + ≥3 (expected blocks evaluated with the policy pack enabled) | the §P-13 decision record | A |
 
 ## Naming convention
 

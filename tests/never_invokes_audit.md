@@ -44,7 +44,9 @@ enum + `type_identity`), `envelope.py` (envelope models), `errors.py` (`Extracti
 `warnings.py` (the §8 warning taxonomy), and `sidecar.py` (the loader→extraction seam — it builds
 records from a parsed reading; the `gebra.toml` loader itself is `tests/annotations/test_sidecar.py`).
 These hold and serialize IR/envelope/warning data; they read no channel, node, router, model, or
-drawing, so there is no body for them to run.
+drawing, so there is no body for them to run. `type_identity` reads the type of the value it
+names and nothing of the value itself; the one lookup it makes in that type's own namespace is
+recorded in §4's EX-27 entry (residue 3).
 
 ## 2. The six `get_graph()` drawing routes (DEC-19 · INTROSPECTION §1 rule 3/4)
 
@@ -1153,6 +1155,72 @@ and fails the pytest path through the conftest sweep (a scratch test run with
 `-p examples.conftest` errors at teardown naming the scenario and the body), and every body of
 every scenario is called once and shown to record and raise. Nothing in the scenarios, the page
 or the tests compiles a graph, invokes a runnable, calls a model or opens a connection.
+
+### EX-27 — enum routing labels, non-string targets, and the routing mappings read unbound
+
+No extraction path is added — `builder.py` and `routing.py` keep their §1 rows — but the reads
+on four of their routes change, and each change lands with fixtures that would record a
+regression (DEC-38, as INTROSPECTION-SPEC §6 now states it). **The label.**
+`routing.spell_routing_label` replaces `_path_map_label`'s `isinstance(label, str)`, which read
+`__class__` through the label's own attribute access, with `issubclass(type(label), str)`; a
+plain `Enum` member is then read through `type`'s and `enum.Enum`'s own descriptors (the MRO,
+each class namespace through its proxy's `items`, the member's instance dictionary through
+`dict.items`), with `type(key) is str` tested before the one comparison. **The target.**
+`builder._routing_target` runs at each of the three target-reading sites — router, node routing
+declaration, conditional entry — before `== END`, the reserved-segment test or node-id escaping:
+a non-`str` target is refused, a `str` one is projected through `"".join((target,))`. **The
+mappings.** `BranchSpec.ends` and `StateNodeSpec.ends` are read through
+`issubclass(type(ends), dict)` and `dict.items(ends)`, or the built-in `tuple`/`list`/`set`/
+`frozenset` type's own `__iter__`, never a truthiness test, a `len` or a bound method; any other
+container is warned and not read. **The codomain.** `routing._literal_arguments` makes a
+`Literal`'s arguments leaves of the walk, so `typing.get_origin`/`get_args` never run on a
+`Literal` argument; the walk over the rest of a hint — `Annotated` metadata included — is
+unchanged here.
+
+The fixtures live in `tests/sample_workflows/sentinel_graph.py` and record into its `LABEL_READS`
+ledger rather than raising (a raise inside the hint reader is degraded to "no hint" and
+swallowed): `RecordingDecision`, `IntDecision` and `IntValuedDecision` record every
+`__getattribute__` call; `RecordingMemberDict` the read methods it overrides on a member
+dictionary a mixin `__new__` planted; `RecordingEnds` and `RecordingMapping` the read methods
+of a routing mapping, a `dict` subclass and a mapping that is not a `dict`; `RecordingTuple`,
+`RecordingList`, `RecordingSet` and `RecordingFrozenset` their container methods (`__iter__`,
+`__len__`, `__bool__`, `__contains__` and, for the two sequences, `__getitem__`);
+`RecordingName` the hash, comparisons and renderings (`repr`, `str`, `format`) of a `str`-subclass target; `_LabelString` and
+`_ArmedValue` the renderings, hash and comparison of a refused stored value. `AgentDecision`
+raises `SentinelExecutedError` from `__str__`, `__repr__`, `__format__` and its class-body
+`name`/`value`. Seven new `EXTRACTABLE_BUILDERS` and eleven new `REFUSED_BUILDERS` (one
+non-string target per site among them) join `test_builder.py`'s guarded child, which clears
+`LABEL_READS` after building and asserts it and `TRIPPED` empty after extracting every shape;
+two armed controls in the same child (`label-ledger`, `enum-rendering`) show the ledger records
+and the rendering raises, and `test_every_recorder_the_label_fixtures_use_does_record` fires
+every recording hook above in-process. `test_routing.py`'s dispatch table runs the read over
+DEC-38 §5's measured shapes — a hostile metaclass, a `str`-subclass `_value_` key planted in a
+member's dictionary and in a mixin's namespace, an MRO-shadowed `_value_`, `__slots__ = ()`,
+aliases — asserting zero hooks on each, beside armed controls for the barred reads it names
+(`isinstance`, `.value`, `.name`, the base `value` getter, a bound `items`/`list`/`in` on a planted
+dictionary, a hashing probe of a planted key, `str()` and the shadowing `name` on
+`AgentDecision`, the metaclass's three hooks).
+
+Three residues are stated rather than hidden. (1) A router hint written as a string is
+evaluated by `typing.get_type_hints()` (§1 rule 3), which reads `__class__` on each `Literal`
+value and hashes each member through `_name_`; the string-annotation twin records those reads in
+the separate `EVALUATED_READS` ledger, and `test_builder.py` asserts extraction makes exactly
+the reads one `get_type_hints()` call makes in the same typing-cache state — and none on the
+resolved twin. (2) On a **compiled** graph whose `destinations=` dict holds an enum member as a
+label, extraction now succeeds where it used to stop at a raw `TypeError`, and the compiled-level
+cross-check's `get_graph()` drawing — LangGraph's own code — hashes the member while drawing
+(reads of `_name_` through the member's attribute access, all inside
+`langgraph/pregel/_draw.py` on the pinned substrate and none by gebra's own code — measured
+when this card landed, not pinned by a test). That is the substrate-side
+route DEC-38 §3.10 records outside A1-D19's six pinned drawing routes, and it is not changed
+here: the armed `AgentDecision` is never compiled (the substrate calls `str()` on every branch
+label at `compile()`), and no compiled fixture with an enum label value is added. (3) Naming a
+type goes through `gebra.naming.type_identity`, which reads `__module__` through `type`'s own
+descriptor — a lookup in that class's namespace, where a planted `str`-subclass `__module__`
+key's comparison would run. On these routes it names the label's type and a refused target's
+type in a refusal message, and a container's type in the `routing-declaration-unreadable`
+warning and in the set refusal; the helper predates this card and every boundary refusal uses
+it, and the label dispatch itself names no type.
 
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 

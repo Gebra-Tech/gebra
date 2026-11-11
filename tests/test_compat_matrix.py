@@ -360,6 +360,18 @@ def test_the_pre_cell_runs_on_the_newest_tested_python(workflow: dict[str, Any])
     assert [step["with"]["python-version"] for step in setups] == [TESTED_PYTHONS[-1]]
 
 
+@pytest.mark.parametrize("name", ["ci.yml", "drift-issue-drill.yml"])
+def test_the_locked_default_environment_names_a_tested_python(name: str) -> None:
+    """The uv-managed jobs take their interpreter from ``UV_PYTHON``, inside §1's tested range.
+
+    Unpinned, ``uv sync`` takes the runner image's own ``python3``. When the image moved past
+    the tested range, the locked test job ran there and went red on a change that every
+    matrix cell passed.
+    """
+    data: dict[str, Any] = yaml.safe_load((CI_WORKFLOW.parent / name).read_text(encoding="utf-8"))
+    assert data["env"]["UV_PYTHON"] in TESTED_PYTHONS
+
+
 def test_the_pre_cell_is_not_cached(workflow: dict[str, Any]) -> None:
     """A cell that exists to see today's index must not be served yesterday's."""
     setups = [

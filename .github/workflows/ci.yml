@@ -42,6 +42,10 @@ permissions:
 env:
   # The uv release that produced the committed `uv.lock`.
   UV_VERSION: "0.12.0"
+  # The interpreter of the uv-managed default environment: the newest tested Python
+  # (VERSION-COMPAT §1). Unpinned, `uv sync` takes the runner image's own `python3`, so the
+  # locked jobs moved outside the tested range the day the image did.
+  UV_PYTHON: "3.13"
 
 jobs:
   # ── The ruled default environment: uv-managed, resolved from the committed lock ──

@@ -44,6 +44,14 @@ DIGEST_LITERAL = "PINNED"
 PAGE_TABLE = "| In the digest? | What it covers |"
 SPEC_TABLE = "| In digest? | Fields |"
 SCOPE_ROWS = ("**INCLUDE**", "**EXCLUDE**")
+#: Members later decision records added to the digest scope after DEC-10 fixed the table.
+INCLUDED_SINCE_THE_RULING = {
+    "projection",  # DEC-39, IR 1.2 part A
+    "subgraph",  # DEC-39, IR 1.2 part A
+    "barriers",  # DEC-40, IR 1.2 part B
+    "codomain",  # DEC-40, IR 1.2 part B
+    "join_key",  # DEC-40, IR 1.2 part B
+}
 
 # The development-process repository: present in a working checkout, absent in the library
 # repository's own CI. Cross-repository assertions are skipped there rather than faked —
@@ -192,15 +200,19 @@ def test_the_ruling_and_its_normative_home_still_agree() -> None:
 
     IR-SPEC §6.4 is the normative home of the scope table and DEC-10 is the ruling that
     fixed it. The spec's exclude row names two further things in code spans — the model's
-    `extra="forbid"` behaviour and the fixture schema — so the check is equality on the
-    include row and containment on the exclude row.
+    `extra="forbid"` behaviour and the fixture schema — so the check is containment on the
+    exclude row; the include row is DEC-10's set plus the members later records added to
+    hash scope, each named here with its record (DEC-39: IR 1.2's `subgraph` and
+    `projection`; DEC-40: part B's `join_key`, `barriers` and `codomain`), so an unnamed
+    addition still fails.
     """
     ruling = RULING.read_text(encoding="utf-8")
     spec = IR_SPEC.read_text(encoding="utf-8")
 
-    assert _fields(_table_row(spec, SPEC_TABLE, "**INCLUDE**")[1]) == _fields(
-        _table_row(ruling, SPEC_TABLE, "**INCLUDE**")[1]
-    )
+    spec_include = set(_fields(_table_row(spec, SPEC_TABLE, "**INCLUDE**")[1]))
+    ruling_include = set(_fields(_table_row(ruling, SPEC_TABLE, "**INCLUDE**")[1]))
+    assert ruling_include <= spec_include
+    assert spec_include - ruling_include <= INCLUDED_SINCE_THE_RULING
     assert set(_fields(_table_row(ruling, SPEC_TABLE, "**EXCLUDE**")[1])) <= set(
         _fields(_table_row(spec, SPEC_TABLE, "**EXCLUDE**")[1])
     )

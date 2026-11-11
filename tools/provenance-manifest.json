@@ -19,9 +19,9 @@
   "entries": [
     {
       "path": "tests/fixtures/properties/README.md",
-      "sha256": "fd26a7c069707188318ec46873ceea981a7f2a5914703e7ecac6ad76c160ea00",
+      "sha256": "30e3ec42497aa57e22daecdb8bd0fc66b5023991232ff49330675dd6e7600164",
       "vault_source": "09-RnD-Docs/fixtures/properties/README.md",
-      "vault_commit": "e6ea366"
+      "vault_commit": "7664a17"
     },
     {
       "path": "tests/fixtures/properties/Review-Checklist.md",

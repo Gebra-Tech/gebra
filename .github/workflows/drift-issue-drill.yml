@@ -25,6 +25,8 @@ permissions:
 env:
   # The uv release that produced the committed `uv.lock` (same as ci.yml).
   UV_VERSION: "0.12.0"
+  # The uv-managed environment's interpreter, inside the tested range (same as ci.yml).
+  UV_PYTHON: "3.13"
 
 jobs:
   drill:

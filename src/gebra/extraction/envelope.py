@@ -109,9 +109,13 @@ class RouterCodomain(ExtractionModel):
 
     Attributes:
         node: The router's source node id.
-        condition: The declared branch name the edge carries, or ``None`` for a routing
-            declaration with no ``BranchSpec`` behind it.
-        labels: The ``Literal`` labels the return hint declares, in declaration order.
+        condition: The declared branch name the edge carries. The member stays optional in
+            the model, which is frozen, but extraction no longer writes ``None`` here: a routing
+            declaration with no ``BranchSpec`` behind it — a node's ``destinations=`` or
+            ``Command[Literal[...]]`` — records no codomain at all (EX-27), since its hint names
+            goto targets rather than labels.
+        labels: The ``Literal`` labels the return hint declares, in declaration order, each
+            spelled as a ``path_map`` key is (INTROSPECTION-SPEC §6's dispatch, NFC-normalized).
         path_map_labels: The labels the emitted edge actually carries, so the two are readable
             side by side — which is the whole content of "distinct from ``path_map``".
     """

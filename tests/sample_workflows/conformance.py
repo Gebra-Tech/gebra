@@ -13,8 +13,8 @@ conformance set is a published evidence surface (SOW §2 criterion 3) whose gold
 only under the WA-05 lifecycle. A shared fixture edit must never be able to move a
 conformance golden as a side effect.
 
-**Composition** (the EX-14 ``decisions_to_implementer`` call). Eight workflows spanning the
-three INTROSPECTION-SPEC §2 object families plus annotation resolution:
+**Composition** (the EX-14 ``decisions_to_implementer`` call, extended by EX-27). Nine
+workflows spanning the three INTROSPECTION-SPEC §2 object families plus annotation resolution:
 
 * ``builder-linear`` — the minimal builder: normal edges, scalar ``entry``/``finish``, and
   the PD-021 D1 Σ reading of a single-schema graph (every key a graph input, so every
@@ -27,6 +27,10 @@ three INTROSPECTION-SPEC §2 object families plus annotation resolution:
   edges, one per declared target (INTROSPECTION-SPEC §6, DEC-28 lineage).
 * ``builder-dynamic`` — a ``Send``-hinted router declaring **no** targets: the ruled
   ``kind: dynamic`` edge, so this golden is an ``ir_version`` ``"1.1"`` document (DEC-28).
+* ``builder-enum-labels`` — a router whose ``path_map`` is keyed by plain ``Enum`` members
+  with ``str`` stored values, the one non-string label form INTROSPECTION-SPEC §6 admits
+  (DEC-38, card EX-27): the labels are the stored values, ``"tool"`` and ``"finished"``, and
+  the same graph keyed by the string-mixin twin or by plain strings has the same bytes.
 * ``compiled-runtime`` — the §4 compiled path: interrupt gates and checkpointer presence
   land on ``runtime`` (§3.7), which the builder path never carries.
 * ``lcel-composite`` — a model-free stock composition covering six of the seven §5.2
@@ -74,7 +78,9 @@ deliberately. The conformance set pins the mainstream form.
 """
 
 import operator
+from collections.abc import Hashable
 from dataclasses import dataclass
+from enum import Enum
 from typing import Annotated, Any, Final, TypedDict
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -265,6 +271,58 @@ def build_dynamic() -> StateGraph[FanState]:
     builder.add_edge(START, "plan_legs")
     builder.add_conditional_edges("plan_legs", dispatch_legs)
     builder.add_edge("book_leg", END)
+    return builder
+
+
+# ── builder-enum-labels ──────────────────────────────────────────────────────────────────
+
+
+class AgentDecision(Enum):
+    """A plain ``Enum`` with ``str`` stored values — the routing-label form DEC-38 admits.
+
+    The shape of the field case DEC-38 rules on: names and values differ (``END`` /
+    ``"finished"``), and extraction spells each label as the stored value.
+    """
+
+    TOOL = "tool"
+    END = "finished"
+
+
+class AgentDecisionStr(str, Enum):
+    """``AgentDecision``'s string-mixin twin, equal values — a ``str``, spelled verbatim."""
+
+    TOOL = "tool"
+    END = "finished"
+
+
+class LoopState(TypedDict):
+    question: str
+    scratchpad: Annotated[list[str], operator.add]
+
+
+def _reason(state: LoopState) -> dict[str, Any]:
+    return _trip("builder-enum-labels.agent")  # type: ignore[no-any-return]
+
+
+def _act(state: LoopState) -> dict[str, Any]:
+    return _trip("builder-enum-labels.tool")  # type: ignore[no-any-return]
+
+
+def route_decision(state: LoopState) -> AgentDecision:
+    """The router returns members of the enum its ``path_map`` is keyed by."""
+    return _trip("builder-enum-labels.route_decision")  # type: ignore[no-any-return]
+
+
+def build_enum_labels(
+    tool: Hashable = AgentDecision.TOOL, end: Hashable = AgentDecision.END
+) -> StateGraph[LoopState]:
+    """A reason-act loop routed by ``AgentDecision`` members; the twins pass their own labels."""
+    builder = StateGraph(LoopState)
+    builder.add_node("agent", _reason)
+    builder.add_node("tool", _act)
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges("agent", route_decision, {tool: "tool", end: END})
+    builder.add_edge("tool", "agent")
     return builder
 
 
@@ -580,6 +638,7 @@ CASES: Final[dict[str, ConformanceCase]] = {
     "builder-surface": ConformanceCase(family="builder", build=build_surface),
     "builder-send": ConformanceCase(family="builder", build=build_send),
     "builder-dynamic": ConformanceCase(family="builder", build=build_dynamic),
+    "builder-enum-labels": ConformanceCase(family="builder", build=build_enum_labels),
     "compiled-runtime": ConformanceCase(family="compiled", build=build_gated),
     "lcel-composite": ConformanceCase(family="lcel", build=build_composite),
     "lcel-tool-bound": ConformanceCase(family="lcel", build=build_tool_bound, gate=TOOL_BOUND_GATE),

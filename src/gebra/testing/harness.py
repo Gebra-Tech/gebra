@@ -14,12 +14,14 @@ says comparison is "set-comparison where order is not normative". Which fields t
 a per-property spec statement carried on the models themselves, so this module chooses
 nothing about ordering: it asks the envelope.
 
-**Three outcomes are not failures, and none of them is a pass.** SOW §8 puts eight of the
-thirteen properties outside Phase 0, so every non-wedge obligation is
-:attr:`~OutcomeStatus` ``deferred-to-phase-1`` — named, counted and surfaced, never
+**Three outcomes are not failures, and none of them is a pass.** An obligation whose
+property has no validator in this release — its registry row is ``deferred-to-phase-1`` —
+is :attr:`~OutcomeStatus` ``deferred-to-phase-1``: named, counted and surfaced, never
 rendered as a pass (the same discipline :func:`gebra.verify.not_implemented` applies at the
-API level). A wedge obligation whose validator has not been wired yet is
-``pending-validator``. An obligation whose expected value does not satisfy the §0.3 envelope
+API level). The predicate is the registry's scope, read when the obligation runs — never
+"not one of the wedge five" — so a property that lands under the catalog charter is
+compared from that build on, like the wedge (DEC-35 §3.5 (b)). An obligation of a shipped
+property whose validator has not been wired into this build is ``pending-validator``. An obligation whose expected value does not satisfy the §0.3 envelope
 at all is ``unmodelled`` — a fact about the corpus, and one of the two statuses this module
 calls a **deviation**.
 
@@ -43,7 +45,7 @@ fixtures are read through :mod:`gebra.testing.fixtures`, and a validator is a he
 function over a validated :class:`~gebra.ir.WorkflowIR`. The hermeticity of the *call* is
 inherited rather than intrinsic: :func:`run_obligation` invokes whatever callable the
 process-global registry holds for a slug, and what keeps that safe is
-:func:`gebra.verify.register_validator`'s wedge gate plus the tripwire in
+:func:`gebra.verify.register_validator`'s scope gate plus the tripwire in
 ``tests/testing/test_hermeticity.py``, which runs this module over the whole corpus in an
 interpreter where a substrate import, a socket and a name resolution each raise.
 """
@@ -66,6 +68,9 @@ from gebra.testing.fixtures import (
     load_fixture,
 )
 from gebra.verify import (
+    DEFERRED_READING,
+    MARKER_REASONS,
+    NO_VERDICT,
     NON_WEDGE_SLUGS,
     AnyLocation,
     CoFailure,
@@ -299,8 +304,22 @@ class Obligation:
 
     @property
     def wedge(self) -> bool:
-        """Whether this obligation's property is one of the Phase-0 wedge five (SOW §1)."""
+        """Whether this obligation's property is one of the Phase-0 wedge five (SOW §1).
+
+        A fact about Phase-0's scope only. Whether the obligation is *live* is
+        :attr:`deferred`'s question, and no outcome keys on this one.
+        """
         return self.property_slug not in _NON_WEDGE
+
+    @property
+    def deferred(self) -> bool:
+        """Whether this obligation's property has no validator in this release.
+
+        The registry row's own scope, read when asked (``deferred-to-phase-1``,
+        :attr:`gebra.verify.PropertyEntry.deferred`) — the predicate DEC-35 §3.5 (b) rules
+        for the harness, and the one :func:`run_obligation` keys its deferral on.
+        """
+        return property_entry(self.property_slug).deferred
 
 
 @dataclass(frozen=True)
@@ -545,22 +564,21 @@ def _validate(
 def run_obligation(fixture: PropertyFixture, obligation: Obligation) -> Outcome:
     """Run one obligation and classify it.
 
-    The order of the questions is the ruling's own. **Scope first**: SOW §8 puts the eight
-    non-wedge properties outside Phase 0, so a non-wedge obligation is deferred whatever
-    shape its expected value has — checking the shape first would report a provisional
-    non-wedge witness as a corpus deviation, which it is not (``schema.yaml`` calls those
-    shapes provisional by design). **Then modelling**, because whether the corpus states an
+    The order of the questions is the ruling's own. **Scope first**: an obligation whose
+    property's registry row is ``deferred-to-phase-1`` is deferred whatever shape its
+    expected value has — checking the shape first would report a provisional witness of a
+    property with no ratified section as a corpus deviation, which it is not
+    (``schema.yaml`` calls those shapes provisional by design). **Then modelling**, because whether the corpus states an
     obligation in the frozen envelope is a fact about the corpus that does not wait on a
     validator. **Then wiring**, and only then the comparison.
     """
-    if not obligation.wedge:
+    if obligation.deferred:
         entry = property_entry(obligation.property_slug)
         return Outcome(
             obligation,
             "deferred-to-phase-1",
-            f"{entry.property_id} {entry.slug} is outside the Phase-0 wedge (SOW §8); no "
-            f"validator exists in this release and none is claimed. Its contract is "
-            f"{entry.spec_ref}.",
+            f"{entry.property_id} {entry.slug} {DEFERRED_READING}, and no comparison is "
+            f"claimed for it. Its contract is {entry.spec_ref}. {NO_VERDICT}",
         )
     try:
         expected = expected_for(fixture, obligation)
@@ -572,9 +590,9 @@ def run_obligation(fixture: PropertyFixture, obligation: Obligation) -> Outcome:
         return Outcome(
             obligation,
             "pending-validator",
-            f"{entry.property_id} {entry.slug} is one of the Phase-0 wedge five, but no "
-            f"validator is registered in this build; its card has not landed. The expected "
-            f"value is modelled and this obligation is live the moment one registers.",
+            f"{entry.property_id} {entry.slug} {MARKER_REASONS['not-yet-implemented']}. "
+            f"The expected value is modelled and this obligation is live the moment one "
+            f"registers.",
         )
     return _compare(fixture, obligation, expected, validator)
 

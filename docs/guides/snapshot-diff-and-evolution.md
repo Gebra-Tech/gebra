@@ -334,6 +334,9 @@ workflow diff
   after                   1.2.1.2  sha256:fafd89ddc8199092...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 state schema
@@ -484,6 +487,9 @@ workflow diff
   after                   1.2.3.3  sha256:7e6584a57ef85ae6...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 contracts
@@ -626,6 +632,9 @@ workflow diff
   after                   sha256:e10cdc0550c540b6...
   bump class              S
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 topology
@@ -772,8 +781,8 @@ kind     not-implemented
 property P-12 evolution-safety
 status   deferred-to-phase-1
 detail
-    P-12 evolution-safety is outside the Phase-0 wedge (SOW §8) and has no validator in
-    this release; the catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub;
+    P-12 evolution-safety has no validator in this release; its catalog section is not
+    yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub;
     Verification-Properties §2 authoritative). No verdict was reached — this is not a
     pass.
 

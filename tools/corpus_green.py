@@ -20,6 +20,23 @@ executed together:
     A run-level report lists all thirteen properties, the eight non-wedge slugs carrying
     structured not-implemented markers.
 
+**How the clauses read a property that is not yet live** (DEC-35 §3.5 (b), the Phase-1
+catalog charter). PD-006 R3 wrote "non-wedge" when the eight non-wedge properties and the
+properties with no validator were one set. Under the charter they part: a property that
+lands moves its registry row to ``catalog`` and is live without ever joining the wedge. So
+every clause here keys *not live* on the registry's own predicate —
+:attr:`gebra.verify.PropertyEntry.deferred`, scope ``deferred-to-phase-1``, read when the
+gate runs — and never on "not wedge". In this build the two sets coincide, so no answer
+moves; the day they part, a live property's block is compared by R3.2 rather than
+laundered as a skip by R3.3 or as a non-wedge cause by R3.1. The four cause names keep
+their PD-039 spelling — it is the closed set, and no fifth cause is admitted — while the
+property each one names must be a deferred one. R3.3's skip names its property and states
+the charter's copy for the token (``DEFERRED_READING``); DEC-35 §3.1 moved the SOW §8
+citation out of the skip's copy into the registry's docstring and the governance records,
+this report among them — SOW §8 is the reason the ``deferred-to-phase-1`` token exists. That
+is R3.3 as PD-072 §1 reads it and the product owner re-signed it on 2026-11-11, C2 clause
+(3)'s wording unchanged — the way R3.1 holds as re-signed under PD-039.
+
 Three of the four already had a gate: ``tools/corpus_lint.py`` owns most of R3.1,
 ``tools/golden_harness.py`` owns R3.2 and R3.3 obligation by obligation, and R3.4 is
 ``verify()``'s. What none of them states is criterion 2 **as one thing**, which is what an
@@ -92,11 +109,14 @@ from gebra.testing.harness import (
     run_corpus,
 )
 from gebra.verify import (
-    NON_WEDGE_SLUGS,
+    DEFERRED_READING,
     PROPERTY_REGISTRY,
     NotImplementedMarker,
     PropertySlug,
+    deferred_slugs,
     is_registered,
+    property_entry,
+    registry_counts,
     verify,
 )
 
@@ -204,7 +224,8 @@ class ClauseResult:
 
     @property
     def met(self) -> bool:
-        """The clause holds as PD-006 wrote it — no residue and no violation."""
+        """The clause holds as PD-006 wrote it — R3.1 and R3.3 as re-signed (PD-039, PD-072)
+        — with no residue and no violation."""
         return not self.residue and not self.violations
 
 
@@ -229,7 +250,8 @@ class GreenReport:
 
     @property
     def met(self) -> bool:
-        """Criterion 2 holds as PD-006 R3 literally wrote it — the ``--strict`` question."""
+        """Criterion 2 holds as PD-006 R3 wrote it, R3.1 and R3.3 as re-signed (PD-039, PD-072)
+        — the ``--strict`` question."""
         return self.accounted and not self.residue
 
 
@@ -250,22 +272,24 @@ def attribute(fixture: PropertyFixture) -> Attribution:
     2. ``held-back-condition-id`` — the owning property cannot be derived, because the block's
        primary names a condition ID absent from the §0.4 registry. This repository never
        emits an unregistered id (§0.4 holds P-03's three back by name, DEC-05 D6), so no §0.3
-       report over it can exist. **Narrowed to a fixture that declares no wedge property**,
-       because §0.4's registry is closed: an unregistered id on a fixture that *does* exercise
-       the wedge is a misspelling or an invented name, and laundering it as an accounted cause
+       report over it can exist. **Narrowed to a fixture that declares no live property** —
+       every property it declares has a ``deferred-to-phase-1`` row — because §0.4's
+       registry is closed: an unregistered id on a fixture that *does* exercise a live
+       property is a misspelling or an invented name, and laundering it as an accounted cause
        would weaken the one check that would notice. `mixed/07` — the only fixture that takes
        this branch — declares `[signature-soundness, parallel-safety]`, both deferred.
 
     Then, given an owner, is the shape §0.3 refuses a non-wedge one?
 
-    3. ``non-wedge-owner`` — the owner lies outside the Phase-0 wedge (SOW §8). Its witness
-       and location shapes are the ones ``schema.yaml`` marks provisional and §0.3 does not
-       model.
-    4. ``non-wedge-component`` — the owner is a wedge property, and the block carries a
-       record or advisory a non-wedge property holds. This is the only cause that is not true
+    3. ``non-wedge-owner`` — the owner's registry row is ``deferred-to-phase-1``: it has no
+       validator in this release, and its witness and location shapes are the ones
+       ``schema.yaml`` marks provisional and §0.3 does not model. A live owner — wedge or
+       ``catalog`` — never takes this cause, whatever the name says (DEC-35 §3.5 (b)).
+    4. ``non-wedge-component`` — the owner is a live property, and the block carries a
+       record or advisory a deferred property holds. This is the only cause that is not true
        by inspection alone — it is a claim about what *would* happen — so it is **verified**:
        the owner's ``PR-1`` projection is composed, and the cause holds only if restricting
-       the non-wedge records out is what makes the block compose.
+       the deferred records out is what makes the block compose.
 
     Returns:
         An :class:`Attribution` whose ``cause`` is ``None`` when none of the four holds —
@@ -284,8 +308,8 @@ def attribute(fixture: PropertyFixture) -> Attribution:
         owner = fixture.owning_property
     except FixtureError as exc:
         unregistered = _unregistered_conditions(fixture)
-        wedge_declared = sorted(set(fixture.properties) - set(NON_WEDGE_SLUGS))
-        if unregistered and not wedge_declared:
+        live_declared = sorted(set(fixture.properties) - set(deferred_slugs()))
+        if unregistered and not live_declared:
             return Attribution(
                 fixture.fixture_id,
                 "held-back-condition-id",
@@ -300,28 +324,28 @@ def attribute(fixture: PropertyFixture) -> Attribution:
                 fixture.fixture_id,
                 None,
                 f"the block names {', '.join(repr(name) for name in unregistered)}, which "
-                f"§0.4 does not carry — but the fixture declares the wedge propert(y/ies) "
-                f"{', '.join(wedge_declared)}, so this is a misspelled or invented id rather "
+                f"§0.4 does not carry — but the fixture declares the live propert(y/ies) "
+                f"{', '.join(live_declared)}, so this is a misspelled or invented id rather "
                 f"than a deferred one. §0.4's registry is closed",
             )
         return Attribution(fixture.fixture_id, None, f"the owning property is unresolved: {exc}")
 
-    if owner in NON_WEDGE_SLUGS:
+    if property_entry(owner).deferred:
         return Attribution(
             fixture.fixture_id,
             "non-wedge-owner",
-            f"the block is {owner!r}'s report, and SOW §8 puts that property outside the "
-            f"Phase-0 wedge — §0.3 models no witness or failure shape for it",
+            f"the block is {owner!r}'s report, and {owner!r} {DEFERRED_READING} — §0.3 "
+            f"models no witness or failure shape for it",
         )
 
-    foreign = _non_wedge_records(fixture, owner)
+    foreign = _deferred_records(fixture, owner)
     if foreign and _projection_composes(fixture, owner):
         return Attribution(
             fixture.fixture_id,
             "non-wedge-component",
             f"the block is {owner!r}'s report carrying {', '.join(sorted(foreign))} "
-            f"record(s); its wedge share composes once they are restricted out (PR-1), so "
-            f"the shapes §0.3 does not model are exactly the non-wedge ones",
+            f"record(s); its live share composes once they are restricted out (PR-1), so "
+            f"the shapes §0.3 does not model are exactly the deferred ones",
         )
     if foreign:
         return Attribution(
@@ -329,13 +353,13 @@ def attribute(fixture: PropertyFixture) -> Attribution:
             None,
             f"the block carries {', '.join(sorted(foreign))} record(s), but restricting "
             f"them out does not make {owner!r}'s share compose — so a wedge shape is what "
-            f"§0.3 refuses, which is a corpus question and not a non-wedge deferral",
+            f"§0.3 refuses, which is a corpus question and not a deferral",
         )
     return Attribution(
         fixture.fixture_id,
         None,
-        f"the block is {owner!r}'s report, {owner!r} is inside the wedge, and nothing "
-        f"non-wedge rides on it — §0.3 refuses a wedge shape",
+        f"the block is {owner!r}'s report, {owner!r} is live, and nothing deferred rides "
+        f"on it — §0.3 refuses a live property's shape",
     )
 
 
@@ -354,15 +378,16 @@ def _unregistered_conditions(fixture: PropertyFixture) -> tuple[str, ...]:
     return tuple(dict.fromkeys(names))
 
 
-def _non_wedge_records(fixture: PropertyFixture, owner: PropertySlug) -> set[str]:
-    """The non-wedge properties whose records ride ``owner``'s block."""
+def _deferred_records(fixture: PropertyFixture, owner: PropertySlug) -> set[str]:
+    """The deferred properties whose records ride ``owner``'s block."""
     failure = fixture.expected_failure or {}
+    deferred = set(deferred_slugs())
     return {
         str(record["property"])
         for record in (*_records(failure.get("co_failures")), *_records(failure.get("advisories")))
         if isinstance(record.get("property"), str)
         and record["property"] != owner
-        and record["property"] in NON_WEDGE_SLUGS
+        and record["property"] in deferred
     }
 
 
@@ -446,7 +471,12 @@ def _clause_r31(lint: CorpusReport, fixtures: tuple[PropertyFixture, ...]) -> Cl
 
 
 def _clause_r32(run: CorpusRun, matrix: Matrix | None) -> ClauseResult:
-    """R3.2 — every wedge assertion obligation green by structural model equality.
+    """R3.2 — every live assertion obligation green by structural model equality.
+
+    "Wedge" in PD-006 R3.2 is read as *live* (DEC-35 §3.5 (b)): an obligation whose
+    property's registry row is not ``deferred-to-phase-1``. In this build that is the wedge
+    five exactly; a property that lands under the catalog charter joins the scope the moment
+    its row moves, so its obligations are compared here and never skipped by R3.3.
 
     A shortfall here is residue **only if it is routed**, and that is read off
     ``FIDELITY-MATRIX.md`` §3 rather than assumed: an R3.2-scoped obligation that is not
@@ -456,22 +486,22 @@ def _clause_r32(run: CorpusRun, matrix: Matrix | None) -> ClauseResult:
     no longer reproduces) stays ``tools/golden_harness.py``'s; this reads the same table for
     the one question criterion 2 turns on.
     """
-    clause = ClauseResult("R3.2", "assertion layer — wedge obligations by model equality")
+    clause = ClauseResult("R3.2", "assertion layer — live obligations by model equality")
     routed = frozenset[str]() if matrix is None else open_obligations(matrix)
     log = "the fidelity matrix" if matrix is None else matrix.path.name
     scoped = [
         outcome
         for outcome in run.outcomes
-        if outcome.obligation.wedge and outcome.obligation.kind in R32_KINDS
+        if not outcome.obligation.deferred and outcome.obligation.kind in R32_KINDS
     ]
     beyond = [
         outcome
         for outcome in run.outcomes
-        if outcome.obligation.wedge and outcome.obligation.kind not in R32_KINDS
+        if not outcome.obligation.deferred and outcome.obligation.kind not in R32_KINDS
     ]
     matched = [outcome for outcome in scoped if outcome.status == "matched"]
     clause.findings.append(
-        f"{len(matched)}/{len(scoped)} R3.2-scoped wedge obligation(s) matched by "
+        f"{len(matched)}/{len(scoped)} R3.2-scoped live obligation(s) matched by "
         f"PROPERTY-CATALOG-SPEC §0.3 model equality (structural — never string equality)"
     )
     clause.findings.append(
@@ -484,7 +514,7 @@ def _clause_r32(run: CorpusRun, matrix: Matrix | None) -> ClauseResult:
             continue
         if outcome.status == "pending-validator":
             clause.violations.append(
-                f"R3.2 {outcome.obligation.id}: no validator is registered for a wedge "
+                f"R3.2 {outcome.obligation.id}: no validator is registered for a live "
                 f"property — criterion 2 has nothing to assert"
             )
         elif outcome.obligation.id in routed:
@@ -504,28 +534,49 @@ def _clause_r32(run: CorpusRun, matrix: Matrix | None) -> ClauseResult:
 
 
 def _clause_r33(run: CorpusRun) -> ClauseResult:
-    """R3.3 — every non-wedge component an explicit structured skip, counted and surfaced."""
-    clause = ClauseResult("R3.3", "skip layer — non-wedge components structured-skipped")
-    non_wedge = [outcome for outcome in run.outcomes if not outcome.obligation.wedge]
+    """R3.3 — every deferred component an explicit structured skip, counted and surfaced.
+
+    The components are the obligations whose property's registry row is
+    ``deferred-to-phase-1`` (DEC-35 §3.5 (b)). Each must be a ``deferred-to-phase-1`` skip —
+    the registry token SOW §8's exclusion is the reason for — whose reason names its property
+    and states the charter's copy for the token (``DEFERRED_READING``), so a reader is never
+    left guessing why nothing was compared. DEC-35 §3.1 moved the SOW §8 citation out of the
+    skip's own copy and into the registry's docstring and the governance records, this
+    report among them: its first line names SOW §8 as the reason the token exists whatever
+    the run found. That is C2 clause (3) as PD-072 §1 reads it and the product owner
+    re-signed it on 2026-11-11, its wording unchanged — and, as R3.1's compose clause is
+    printed MET as re-signed under PD-039 only when it has no violation, R3.3 is printed MET
+    as re-signed only when every deferred component is the skip the reading asks for.
+    """
+    clause = ClauseResult("R3.3", "skip layer — deferred components structured-skipped")
+    deferred = [outcome for outcome in run.outcomes if outcome.obligation.deferred]
     clause.findings.append(
-        f"{len(non_wedge)} non-wedge obligation(s) over "
-        f"{len({outcome.obligation.property_slug for outcome in non_wedge})} propert(y/ies), "
-        f"every one a structured skip naming the property and citing SOW §8"
+        f"{len(deferred)} deferred obligation(s) over "
+        f"{len({outcome.obligation.property_slug for outcome in deferred})} propert(y/ies); "
+        f"SOW §8 is the reason the `deferred-to-phase-1` token exists (DEC-35 §3.1)"
     )
-    for outcome in non_wedge:
+    for outcome in deferred:
         if outcome.status != "deferred-to-phase-1":
             clause.violations.append(
-                f"R3.3 {outcome.obligation.id}: a non-wedge obligation reports "
-                f"{outcome.status!r}; SOW §8 puts it outside Phase 0 and it must be a named "
-                f"skip, never a pass and never a comparison"
+                f"R3.3 {outcome.obligation.id}: a deferred obligation reports "
+                f"{outcome.status!r}; its property has no validator in this release, so it "
+                f"must be a named skip, never a pass and never a comparison"
             )
         elif (
-            outcome.obligation.property_slug not in outcome.detail or "SOW §8" not in outcome.detail
+            outcome.obligation.property_slug not in outcome.detail
+            or DEFERRED_READING not in outcome.detail
         ):
             clause.violations.append(
-                f"R3.3 {outcome.obligation.id}: the skip reason names neither the property "
-                f"nor SOW §8 — R3.3 requires both, so a reader is never left guessing"
+                f"R3.3 {outcome.obligation.id}: the skip reason does not name both the "
+                f"property and the charter's copy for its deferral — R3.3 requires both, "
+                f"so a reader is never left guessing"
             )
+    if not clause.violations:
+        clause.findings.append(
+            f"R3.3 is MET as re-signed (C2 clause (3), 2026-11-11 — PD-072 §1): every one is "
+            f"a structured `deferred-to-phase-1` skip naming the property and stating the "
+            f"charter's copy for the token — that it {DEFERRED_READING}"
+        )
     return clause
 
 
@@ -533,8 +584,18 @@ def _clause_r33(run: CorpusRun) -> ClauseResult:
 
 
 def _clause_r34(fixtures: tuple[PropertyFixture, ...]) -> ClauseResult:
-    """R3.4 — a run report lists all thirteen properties with the eight non-wedge markers."""
-    clause = ClauseResult("R3.4", "run layer — thirteen outcomes, eight not-implemented markers")
+    """R3.4 — a run report lists every catalog property, each unanswered one a marker.
+
+    Which properties a run over one IR answers with a marker is read off the registry when
+    the gate runs (:attr:`gebra.verify.PropertyEntry.reports_on_one_snapshot`), never off a
+    count stated here: in this build they are the ``deferred-to-phase-1`` rows, which are the
+    eight PD-006 R3.4 names (DEC-35 §3.5 (b), (c)).
+    """
+    counts = registry_counts()
+    clause = ClauseResult(
+        "R3.4",
+        f"run layer — {counts.total} outcomes, {counts.not_checked} not-implemented markers",
+    )
     subject = next((fixture for fixture in fixtures if fixture.ir is not None), None)
     if subject is None:  # pragma: no cover - the corpus always carries single-snapshot fixtures
         clause.violations.append("R3.4: no single-snapshot fixture to run verify() over")
@@ -556,10 +617,13 @@ def _clause_r34(fixtures: tuple[PropertyFixture, ...]) -> ClauseResult:
             f"R3.4: the run report lists {list(slugs)}; the catalog order is "
             f"{list(PROPERTY_REGISTRY)}"
         )
-    if markers != set(NON_WEDGE_SLUGS):
+    expected = {
+        slug for slug in PROPERTY_REGISTRY if not property_entry(slug).reports_on_one_snapshot
+    }
+    if markers != expected:
         clause.violations.append(
-            f"R3.4: the not-implemented markers cover {sorted(markers)}; the eight non-wedge "
-            f"slugs are {sorted(NON_WEDGE_SLUGS)}"
+            f"R3.4: the not-implemented markers cover {sorted(markers)}; the registry's "
+            f"unanswered slugs are {sorted(expected)}"
         )
     return clause
 
@@ -617,7 +681,10 @@ def format_report(report: GreenReport, *, strict: bool = False) -> str:
         lines += [f"  - {item}" for item in report.violations]
     lines.append("")
     if report.met:
-        lines.append("verdict: criterion 2 MET — every clause holds as PD-006 R3 wrote it.")
+        lines.append(
+            "verdict: criterion 2 MET — every clause holds as PD-006 R3 wrote it, R3.1 and R3.3 "
+            "as re-signed (PD-039, PD-072)."
+        )
     elif report.accounted:
         lines.append(
             f"verdict: criterion 2 NOT YET MET — {len(report.residue)} accounted shortfall(s), "

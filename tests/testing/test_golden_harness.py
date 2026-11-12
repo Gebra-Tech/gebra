@@ -9,14 +9,16 @@ proves the green run is not green by construction.
 
 **What green means here** is PD-006 R3, the owner-signed reading of SOW §2 criterion 2. Its
 three layers map onto the items below: every fixture loads (``test_fixture_loads``); every
-wedge obligation is asserted by structural model equality or explained
-(``test_obligation``); every non-wedge component is a structured skip naming its property and
-citing SOW §8, counted and surfaced, never rendered as a pass
-(``test_no_non_wedge_obligation_is_asserted``).
+live obligation is asserted by structural model equality or explained
+(``test_obligation``); every deferred component is a structured skip naming its property and
+stating the registry's reading of its deferral, counted and surfaced, never rendered as a
+pass (``test_no_deferred_obligation_is_asserted``). Live and deferred are the registry's own
+scope, read when the harness runs (DEC-35 §3.5 (b)) — in this build the wedge five and the
+other eight.
 
 **A skip is never a pass, and never an xfail.** ``xfail`` would read as "we expect this to be
-wrong", which is a claim about the corpus; the truth is that Phase 0 does not check the
-property (SOW §8) or has not wired its validator yet. The two skip reasons are exactly the two
+wrong", which is a claim about the corpus; the truth is that no validator for the property
+ships in this release, or its validator is not wired yet. The two skip reasons are exactly the two
 members of ``NotImplementedStatus`` the registry already uses at the API level, so the harness
 and ``verify()`` say the same thing about the same absence.
 
@@ -59,7 +61,8 @@ from gebra.testing.harness import (
     run_obligation,
 )
 from gebra.verify import (
-    NON_WEDGE_SLUGS,
+    DEFERRED_READING,
+    NO_VERDICT,
     WEDGE_SLUGS,
     NodeLocation,
     PropertyReport,
@@ -74,13 +77,18 @@ from gebra.verify import (
     validate_report,
     validator_for,
 )
+from gebra.verify.registry import deferred_slugs
 from tests._corpus import census
+from tests._registry import failing_validator, synthetic_catalog_row
 from tests.conftest import FIXTURES_DIR
 
 # PD-006 R3's own arithmetic — at the DEC-16 extension (vault ``e6ea366``) 71 fixtures and
 # 89 obligations over them — is the census ``tests/_corpus.py`` derives: the fixture set from
 # the provenance manifest, the obligations from the fixtures' ``expected:`` blocks read
 # without the harness, so the run below is compared with a count it did not compute.
+
+#: A P-07 negative — a fixture of a deferred property, for the synthetic ``catalog`` row test.
+_P07_NEGATIVE = "negative-01-nonidempotent-fare-poll-reentry.yaml"
 
 #: The six P-08 fixtures — acceptance box 2's four plus the DEC-16 3+3 top-up (TE-14);
 #: green since VAL-04 landed.
@@ -334,22 +342,70 @@ def test_the_p08_witness_entry_of_mixed_10_is_asserted_through_pr_4(
     assert outcome.status == "matched"
 
 
-# ── PD-006 R3.3: non-wedge components are structured skips, never passes ─────────────────
+# ── PD-006 R3.3: deferred components are structured skips, never passes ──────────────────
 
 
-def test_no_non_wedge_obligation_is_asserted(run: CorpusRun) -> None:
-    """Every one of the eight is deferred, by name, with SOW §8 in the reason."""
-    non_wedge = [
-        outcome for outcome in run.outcomes if outcome.obligation.property_slug in NON_WEDGE_SLUGS
-    ]
-    assert non_wedge
-    for outcome in non_wedge:
+def test_no_deferred_obligation_is_asserted(run: CorpusRun) -> None:
+    """Every deferred obligation is skipped by name, in the charter's words (DEC-35 §3.1).
+
+    The reason names the property, states :data:`~gebra.verify.DEFERRED_READING` and keeps
+    the "not a pass" sentence; it names no phase as the present.
+    """
+    deferred = set(deferred_slugs())
+    skipped = [outcome for outcome in run.outcomes if outcome.obligation.property_slug in deferred]
+    assert skipped
+    for outcome in skipped:
+        assert outcome.obligation.deferred
         assert outcome.status == "deferred-to-phase-1", outcome.obligation.id
         assert outcome.obligation.property_slug in outcome.detail
-        assert "SOW §8" in outcome.detail
+        assert DEFERRED_READING in outcome.detail
+        assert outcome.detail.endswith(NO_VERDICT)
+        assert "Phase-0" not in outcome.detail and "SOW" not in outcome.detail
 
 
-def test_every_non_wedge_property_with_a_fixture_is_counted(run: CorpusRun) -> None:
+def test_a_catalog_row_is_read_as_live_by_the_harness() -> None:
+    """DEC-35 §3.5 (b): the deferral predicate is the registry's scope, never "not wedge".
+
+    P-07's row moved to ``catalog`` (synthetically) with a throwaway validator is answered
+    like a wedge obligation — scope, then modelling, then wiring — although P-07 is not one of
+    the wedge five. Its corpus shape is one ``schema.yaml`` calls provisional, so the live
+    obligation is ``unmodelled``: a corpus question for the fidelity matrix, which is what
+    DEC-35 §3.5 (a) has a landing settle (matched, or an ``FM-`` row), never a skip. On exit
+    P-07 defers again.
+    """
+    fixture = load_fixture(FIXTURES_DIR / "retry-coherence" / _P07_NEGATIVE)
+    (obligation,) = [
+        item for item in plan_fixture(fixture) if item.property_slug == "retry-coherence"
+    ]
+    stub = failing_validator(
+        "retry-coherence", "reentrant-node-neither-pure-nor-idempotent", "error"
+    )
+    with synthetic_catalog_row("retry-coherence", stub):
+        read_as = (obligation.wedge, obligation.deferred)
+        live = run_obligation(fixture, obligation)
+    restored = run_obligation(fixture, obligation)
+    assert read_as == (False, False)  # not one of the five, and live all the same
+    assert live.status == "unmodelled" and live.is_deviation
+    assert restored.status == "deferred-to-phase-1"
+
+
+def test_an_unwired_shipped_obligation_is_pending_in_scope_neutral_words() -> None:
+    """``pending-validator`` names no phase: it is the absence of a shipped property's wiring."""
+    fixture = load_fixture(FIXTURES_DIR / f"{P08_FIXTURES[0]}.yaml")
+    (obligation,) = plan_fixture(fixture)
+    shipped = validator_for("determinism-replay")
+    assert shipped is not None
+    unregister_validator("determinism-replay")
+    try:
+        outcome = run_obligation(fixture, obligation)
+    finally:
+        register_validator("determinism-replay", shipped)
+    assert outcome.status == "pending-validator"
+    assert "has a validator in this release, but none is registered" in outcome.detail
+    assert "Phase-0" not in outcome.detail
+
+
+def test_every_deferred_property_with_a_fixture_is_counted(run: CorpusRun) -> None:
     """Deferrals are surfaced and counted per property — never absent from the run report."""
     deferred = {
         outcome.obligation.property_slug

@@ -81,7 +81,9 @@ from gebra.verify import (
     verify,
 )
 from gebra.verify import run as run_module
+from gebra.verify.registry import deferred_slugs, property_entry, registry_counts
 from tests._corpus import census
+from tests._registry import failing_validator, passing_validator, synthetic_catalog_row
 from tests.conftest import FIXTURES_DIR
 
 # ── IR shapes, each the smallest one that reaches the rung it is named for ───────────────
@@ -278,11 +280,15 @@ def test_a_verdict_run_carries_all_thirteen_properties_in_catalog_order() -> Non
     report = verify(_clean())
 
     assert tuple(outcome.property for outcome in report.properties) == PROPERTY_SLUGS
-    assert len(report.properties) == 13
+    assert len(report.properties) == registry_counts().total
 
 
-def test_the_eight_non_wedge_properties_answer_with_markers_never_passes() -> None:
-    """SOW §8 out-of-scope is a structured status, not a silent pass (§4.2's copy rule 5)."""
+def test_every_deferred_property_answers_with_a_marker_never_a_pass() -> None:
+    """No validator in this release is a structured status, not a silent pass (§4.2 rule 5).
+
+    Which properties those are is the registry's answer (``deferred-to-phase-1`` rows), read
+    when the test runs — a property that lands leaves the set without an edit here.
+    """
     report = verify(_clean())
     markers = {
         outcome.property: outcome
@@ -290,19 +296,22 @@ def test_the_eight_non_wedge_properties_answer_with_markers_never_passes() -> No
         if isinstance(outcome, NotImplementedMarker)
     }
 
-    assert set(markers) == set(PROPERTY_SLUGS) - set(WEDGE_SLUGS)
+    assert set(markers) == set(deferred_slugs())
     assert {marker.status for marker in markers.values()} == {"deferred-to-phase-1"}
     assert all("not a pass" in marker.detail for marker in markers.values())
 
 
-def test_every_wedge_property_produces_a_verdict() -> None:
-    """The other half of the same rule: the five in scope answer with reports."""
+def test_every_shipped_property_produces_a_verdict() -> None:
+    """The other half of the same rule: every property that ships answers with a report."""
     report = verify(_clean())
     verdicts = {
         outcome.property for outcome in report.properties if isinstance(outcome, PropertyReport)
     }
 
-    assert verdicts == set(WEDGE_SLUGS)
+    assert verdicts == {
+        slug for slug in PROPERTY_SLUGS if property_entry(slug).reports_on_one_snapshot
+    }
+    assert set(WEDGE_SLUGS) <= verdicts
 
 
 def test_the_subject_carries_the_ir_s_own_identity_and_the_caller_s_label() -> None:
@@ -484,6 +493,110 @@ def test_exit_2_when_a_wedge_validator_is_not_registered(clean_registrations: No
     assert "effect-safety" in report.error.detail
     assert report.properties == ()
     assert report.gate.snapshot_eligible is False
+
+
+def test_exit_2_when_a_catalog_row_has_no_registered_validator() -> None:
+    """§1.4 rule 2 read over both shipped scopes (DEC-35 §3.1): never a thinner gate.
+
+    A synthetic ``catalog`` row with nothing registered is a ``dispatch`` tool error, exactly as
+    an unregistered wedge validator is — the run does not quietly answer it with a marker.
+    """
+    with synthetic_catalog_row("retry-coherence"):
+        report = verify(_clean())
+
+    assert (report.gate.exit_code, report.gate.outcome) == (2, "tool-error")
+    assert report.error is not None and report.error.stage == "dispatch"
+    assert "retry-coherence" in report.error.detail
+    assert report.properties == ()
+
+
+def test_a_registered_catalog_property_gates_from_its_landing_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DEC-35 §3.2's default, on a synthetic registration: nothing is built for it.
+
+    A property that registers gates like any other — its ERROR joins the finding set and moves
+    the exit code, and ``outcome_for`` answers with its verdict — through the unchanged §2
+    derivation. Nothing reads the installed version to decide whether it gates: the same run
+    under two different version strings derives the same gate.
+    """
+    stub = failing_validator(
+        "retry-coherence", "reentrant-node-neither-pure-nor-idempotent", "error"
+    )
+    with synthetic_catalog_row("retry-coherence", stub):
+        report = verify(_clean())
+        monkeypatch.setattr("gebra.__version__", "0.2.0")
+        early = verify(_clean()).gate
+        monkeypatch.setattr("gebra.__version__", "9.9.0")
+        late = verify(_clean()).gate
+
+    assert (report.gate.exit_code, report.gate.outcome) == (1, "fail")
+    assert report.gate.counts == SeverityCounts(fatal=0, error=1, warning=0)
+    assert report.gate.snapshot_eligible is True
+    outcome = report.outcome_for("retry-coherence")
+    assert isinstance(outcome, PropertyReport) and outcome.result == "fail"
+    assert early == late == report.gate
+
+
+def test_strict_promotes_a_catalog_propertys_warning_like_any_others() -> None:
+    """§0.2 reaches a landed property's WARNING records as it reaches any property's.
+
+    Off, the synthetic property's WARNING leaves the run at exit 0 with notes; a per-property
+    strict flag naming it promotes the record to the gate — and the record keeps its grade.
+    """
+    stub = failing_validator(
+        "parallel-safety", "concurrent-writers-without-reducer", "warning", "heuristic"
+    )
+    strict = RunPolicy(strict=StrictPolicy(mode="per-property", properties=("parallel-safety",)))
+    with synthetic_catalog_row("parallel-safety", stub):
+        relaxed = verify(_clean())
+        promoted = verify(_clean(), strict)
+
+    assert (relaxed.gate.exit_code, relaxed.gate.outcome) == (0, "pass-with-notes")
+    assert (promoted.gate.exit_code, promoted.gate.outcome) == (1, "fail")
+    assert [(p.property, p.origin) for p in promoted.gate.promotions] == [
+        ("parallel-safety", "failure")
+    ]
+    record = promoted.outcome_for("parallel-safety")
+    assert isinstance(record, PropertyReport) and record.failure is not None
+    assert record.failure.severity == "warning"
+
+
+def test_p12_in_a_one_snapshot_run_is_a_marker_and_moves_nothing() -> None:
+    """DEC-35 §3.6 as this build stands, on the shipped table and on a synthetic row.
+
+    P-12's row is ``deferred-to-phase-1``, so a run over one IR answers it with the deferred
+    marker in the charter's copy, exit code untouched and no SARIF result for it. Its
+    single-snapshot marker (``two-snapshot-only``) needs both its registration shape and its
+    status token, which are P-12's landing's (§3.6; §3.3, §4) — so a synthetic ``catalog``
+    P-12, which nothing here can register, is the §1.4 rule 2 tool error rather than a gate
+    that silently skips a shipped property.
+    """
+    from gebra.report import sarif_log
+
+    report = verify(_clean())
+    marker = report.outcome_for("evolution-safety")
+    assert isinstance(marker, NotImplementedMarker)
+    assert marker.status == "deferred-to-phase-1"
+    assert (report.gate.exit_code, report.gate.outcome) == (0, "pass")
+    results = [result for run in sarif_log(report)["runs"] for result in run["results"]]
+    assert results == []
+
+    with synthetic_catalog_row("evolution-safety"):
+        refused = verify(_clean())
+    assert (refused.gate.exit_code, refused.gate.outcome) == (2, "tool-error")
+    assert refused.error is not None and refused.error.stage == "dispatch"
+    assert "evolution-safety" in refused.error.detail
+
+
+def test_a_registered_catalog_property_answers_in_catalog_order() -> None:
+    """A landed property takes its catalog slot — never appended, never reordered."""
+    with synthetic_catalog_row("signature-soundness", passing_validator("signature-soundness")):
+        report = verify(_clean())
+
+    assert tuple(outcome.property for outcome in report.properties) == PROPERTY_SLUGS
+    assert isinstance(report.outcome_for("signature-soundness"), PropertyReport)
+    assert report.gate.exit_code == 0
 
 
 def test_exit_2_when_a_validator_raises(clean_registrations: None) -> None:

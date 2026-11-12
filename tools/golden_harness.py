@@ -5,8 +5,9 @@ Two jobs, one command.
 **Run the corpus.** Every vendored fixture becomes one obligation per property it exercises
 (:mod:`gebra.testing.harness`), each obligation is compared against the validator that owns
 it as PROPERTY-CATALOG-SPEC §0.3 model equality, and every outcome is counted:
-``matched``, the two structured skips (``pending-validator`` for a wedge validator whose card
-has not landed, ``deferred-to-phase-1`` for the eight properties SOW §8 puts outside Phase 0),
+``matched``, the two structured skips (``pending-validator`` for a shipped property whose
+validator is not registered in this build, ``deferred-to-phase-1`` for a property whose
+registry row is ``deferred-to-phase-1`` — no validator in this release, DEC-35 §3.1),
 and the two deviation statuses. PD-006 R3.3 asks that the skips be "surfaced in the run report
 and counted, never a silent pass"; ``--report`` is that report.
 

@@ -17,7 +17,7 @@ import pytest
 
 from gebra.report import render_human, write_human
 from gebra.report.human import TerminalOptions
-from gebra.verify.registry import property_entry
+from gebra.verify.registry import DEFERRED_READING, property_entry, registry_counts
 from gebra.verify.report import PropertyReport
 from gebra.verify.run import StrictPolicy
 from tests.report.goldens import compare_golden
@@ -214,12 +214,19 @@ def test_pass_reports_are_shown_with_a_class_and_a_witness_summary() -> None:
 
 
 def test_markers_are_shown_and_never_as_a_pass() -> None:
-    """Rule 5 and §4.6 rule 5: *not checked*, with the status, and explicitly not a pass."""
+    """Rule 5 and §4.6 rule 5: *not checked*, with the status, and explicitly not a pass.
+
+    The deferred marker's reason is the charter's own words (DEC-35 §3.1), and how many
+    properties produced no verdict is read off the registry, never stated.
+    """
     text = render_human(CASES[0].report, GOLDEN_OPTIONS)
+    flat = _flat(text)
     assert "P-03 signature-soundness — not checked" in text
     assert "[deferred-to-phase-1]" in text
     assert "this is not a pass" in text
-    assert "8 produced no verdict" in text
+    assert f"no verdict was reached — this is not a pass: it {DEFERRED_READING}" in flat
+    assert "Phase-0" not in text
+    assert f"{registry_counts().not_checked} produced no verdict" in text
 
 
 def test_the_summary_closes_the_run_with_the_gate_it_was_given() -> None:
@@ -229,7 +236,8 @@ def test_the_summary_closes_the_run_with_the_gate_it_was_given() -> None:
     counts = report.gate.counts
     assert f"{counts.fatal} fatal | {counts.error} error | {counts.warning} warning" in text
     assert f"exit                    {report.gate.exit_code}" in text
-    assert "5 reported | 8 produced no verdict" in text
+    tally = registry_counts()
+    assert f"{tally.reported} reported | {tally.not_checked} produced no verdict" in text
 
 
 def test_snapshot_ineligibility_is_stated_with_its_reason() -> None:

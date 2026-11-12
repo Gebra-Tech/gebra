@@ -157,3 +157,44 @@ def test_no_banned_phrase() -> None:
     text = _text().lower()
     hits = [phrase for phrase in phrases if phrase.lower() in text]
     assert not hits, f"banned phrase(s) found in VALIDATOR-API-FREEZE.md: {hits}"
+
+
+#: The names DEC-35's amendment entry (VAL-16) adds to the frozen surface: the counts and
+#: scope views, each derived from the registry table (DEC-35 §3.5 (c)), and the charter's
+#: copy as stated constants — the words of §0.6 item 1 and the reason each status states.
+_DEC_35_ADDITIONS: Final = {
+    "SHIPPED_SCOPES",
+    "DEFERRED_READING",
+    "MARKER_REASONS",
+    "NO_VERDICT",
+    "deferred_slugs",
+    "shipped_slugs",
+    "RegistryCounts",
+    "registry_counts",
+}
+
+
+def _amendment(card: str) -> str:
+    """The text of one "Amendments landed under this policy" entry, by its card id."""
+    section = _text().split("**Amendments landed under this policy.**")[1].split("## 5.")[0]
+    (entry,) = [item for item in section.split("\n- ") if item.startswith(f"**{card} ")]
+    return entry
+
+
+def test_the_charter_amendment_is_recorded_with_its_r05_route() -> None:
+    """VAL-16's entry: DEC-35 as the R-05 decision, and every surface change it names.
+
+    §4 makes a property's move off `DeferredToPhase1`, a run-level rule and a new field
+    R-05-routed; the charter is that decision for the scope token, the registration and
+    dispatch rules and the derived counts, and the entry says what did *not* move as plainly
+    as what did.
+    """
+    entry = _amendment("VAL-16")
+    assert "DEC-35" in entry
+    for change in ("`PropertyScope`", "`catalog`", "`register_validator`", "`verify()`"):
+        assert change in entry, change
+    mentioned = set(re.findall(r"`(\w+)`", entry))
+    assert _DEC_35_ADDITIONS <= mentioned
+    assert _DEC_35_ADDITIONS <= set(verify_module.__all__)
+    assert "`NotImplementedStatus` keeps exactly the two" in entry
+    assert "`report_format` stays `1.3`" in entry

@@ -30,9 +30,9 @@ along, so a page never reads as the whole store.
 
 **Nothing here grades a change.** A step says which counters moved; :func:`compare` returns a
 :class:`~gebra.diff.workflow.WorkflowDiff`, which carries the property registry's own
-deferred-P-12 marker in the slot where a safe/breaking classification would sit (SOW §8;
-PD-006 R4). Neither says whether an evolution is safe, because Phase 0 ships no classifier
-that could.
+deferred-P-12 marker in the slot where a safe/breaking classification would sit (its
+registry row is ``deferred-to-phase-1``; PD-006 R4). Neither says whether an evolution is
+safe, because no classifier that could ships in this release.
 
 **What this package is not.** It is not a CLI verb. D-12's OQ-12-04 — whether the verb is
 ``gebra trace`` or ``gebra history``, and whether its output is a table, a timeline, or

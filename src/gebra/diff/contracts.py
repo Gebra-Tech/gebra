@@ -38,8 +38,9 @@ calls identical-or-not. The slot vocabulary is never hard-coded here: it is read
 canonical views, so a slot added to a future ``annotations`` classifies without an edit.
 
 **No verdicts.** Nothing here says an escalated ``effect`` list or a removed ``variant`` is
-breaking, or that an added slot is safe: P-12 ``evolution-safety`` is out of Phase-0 scope
-(SOW §8) and its deferral is ratified by PD-006 R4. This module reports which contract slots
+breaking, or that an added slot is safe: P-12 ``evolution-safety`` has no validator in this
+release (its registry row is ``deferred-to-phase-1``; the Phase-0 deferral was ratified by
+PD-006 R4). This module reports which contract slots
 moved and to what; :mod:`gebra.diff.workflow` carries the marker that says the classification
 is deferred.
 

@@ -6,8 +6,8 @@ each passing or carrying that property's findings. This module is the ``pytest11
 that does it. Two surfaces, and each does exactly one thing. A passing *item* still renders
 nothing — an item is a verdict, not a report — but the run does not end silent: the closing
 ``gebra`` section carries REPORT-FORMAT-SPEC §5.1's obligations and §4's fact sets onto a
-pytest run, and it is where the witness summaries, the notes and the eight not-checked
-properties are (D-10's Definition of Done line 1 asks for the witnesses beside the verdicts).
+pytest run, and it is where the witness summaries, the notes and the not-checked properties
+are (D-10's Definition of Done line 1 asks for the witnesses beside the verdicts).
 It is not `gebra verify`'s human profile and does not claim to be: that surface is CLI-03's,
 and the one bound worth naming here is that the §4.3 witness rows are rendered as **summaries**
 — every witness in full is on ``gebra_verification.report``.
@@ -65,10 +65,11 @@ a ``runtime`` block the builder extraction does not and therefore a different
 compares an item against a stored snapshot needs the two to be the same level.
 
 **Which properties get an item.** Every catalog property this build can actually answer, in
-PROPERTY-CATALOG-SPEC order — the wedge five in Phase-0 (:func:`enabled_properties` reads the
-registry rather than restating a list, so a validator that lands gets an item without an edit
-here). The eight properties SOW §8 defers get **no item**, and that is a deliberate distinction
-rather than a silence: :func:`gebra.verify.run_property` answers for them with a structured
+PROPERTY-CATALOG-SPEC order — every property with a registered validator
+(:func:`enabled_properties` reads the registry rather than restating a list, so a validator
+that lands gets an item without an edit here). A property whose registry row is
+``deferred-to-phase-1`` — it has no validator in this release — gets **no item**, and that is
+a deliberate distinction rather than a silence: :func:`gebra.verify.run_property` answers for them with a structured
 :class:`~gebra.verify.NotImplementedMarker`, never a pass, and a run that minted a green item
 out of one would be exactly the silent pass the registry exists to refuse. They are visible
 where they are honest — ``gebra_verification``'s ``properties`` carries all thirteen outcomes,
@@ -133,7 +134,8 @@ the definition did not change (PD-059 D7b)::
 **store**, not a fourteenth property: it never runs a validator, it never writes — recording is
 :func:`gebra.snapshot.snapshot`'s and a check that fixed itself would be a gate that always
 passes — and it says the content moved and which of S/F/E moved with it, never whether the
-change is safe (P-12 ``evolution-safety`` is deferred; SOW §8). :func:`check_freshness` is the
+change is safe (P-12 ``evolution-safety`` has no validator in this release).
+:func:`check_freshness` is the
 same question programmatically, for a suite that would rather assert on the outcome.
 
 **Never-invokes (WA-07).** *gebra* runs nothing on this path. It calls the function you
@@ -655,7 +657,7 @@ def _parse_policy(config: pytest.Config) -> GatePolicy | None:
     if raw_strict is None and not raw_select and not raw_skip:
         return None
 
-    from gebra.verify import STRICT_ALL, STRICT_OFF, StrictPolicy, is_implemented
+    from gebra.verify import NO_VERDICT, STRICT_ALL, STRICT_OFF, StrictPolicy, is_implemented
 
     strict = STRICT_OFF
     if raw_strict is _BARE_STRICT:
@@ -672,17 +674,39 @@ def _parse_policy(config: pytest.Config) -> GatePolicy | None:
     select: tuple[PropertySlug, ...] | None = None
     if raw_select:
         select = _requested_slugs(raw_select, SELECT_OPTION)
-        deferred = [slug for slug in select if not is_implemented(slug)]
-        if deferred:
+        unanswered = [slug for slug in select if not is_implemented(slug)]
+        if unanswered:
             raise pytest.UsageError(
-                f"{SELECT_OPTION} names {deferred!r}, which no validator in this build "
-                "answers (SOW §8 defers them to Phase 1). Selecting one could only produce "
-                "an item that asserts nothing, so it is refused rather than silently "
-                f"dropped — those properties are visible as not-implemented markers on "
+                f"{SELECT_OPTION} names {unanswered!r}, {_unanswered_reason(unanswered)}. "
+                f"{NO_VERDICT} Selecting one could only produce an item that asserts "
+                "nothing, so it is refused rather than silently dropped — those properties "
+                "are visible as not-implemented markers on "
                 "`gebra_verification.report.properties`."
             )
     skip = _requested_slugs(raw_skip, SKIP_OPTION) if raw_skip else ()
     return GatePolicy(strict=strict, select=select, skip=skip)
+
+
+def _unanswered_reason(slugs: list[PropertySlug]) -> str:
+    """Why no validator answers the selected ``slugs``, in the registry's own words.
+
+    Keyed on each row's scope, never on "not wedge" (DEC-35 §3.5 (b)), and worded by the
+    registry's reason table (:data:`~gebra.verify.MARKER_REASONS`): a deferred row has no
+    validator in this release, in the charter's words (DEC-35 §3.1); a shipped row lands
+    here only in a build whose validator module was never imported.
+    """
+    from gebra.verify import MARKER_REASONS, property_entry
+
+    deferred = [slug for slug in slugs if property_entry(slug).deferred]
+    unwired = [slug for slug in slugs if not property_entry(slug).deferred]
+    reasons = []
+    if deferred:
+        each = "; ".join(f"{slug} {MARKER_REASONS['deferred-to-phase-1']}" for slug in deferred)
+        reasons.append(f"which no validator in this release answers ({each})")
+    if unwired:
+        each = "; ".join(f"{slug} {MARKER_REASONS['not-yet-implemented']}" for slug in unwired)
+        reasons.append(f"which no validator registered in this build answers ({each})")
+    return "; and ".join(reasons)
 
 
 def gate_policy(config: pytest.Config | None = None) -> GatePolicy:
@@ -703,10 +727,10 @@ def enabled_properties(config: pytest.Config | None = None) -> tuple[PropertySlu
     """The catalog properties this run generates an item for, in catalog order.
 
     The base set is read off the registry rather than listed here, so it is whatever
-    :func:`gebra.verify.register_validator` actually accepted: the wedge five in Phase-0,
-    and a later validator without an edit to this module. The eight properties SOW §8 defers
-    are absent by construction, since registration refuses them — and their absence is not a
-    verdict about them (see this module's docstring).
+    :func:`gebra.verify.register_validator` actually accepted: the wedge five, and a property
+    that lands under the catalog charter without an edit to this module. A property whose
+    row is ``deferred-to-phase-1`` is absent by construction, since registration refuses it —
+    and its absence is not a verdict about it (see this module's docstring).
 
     ``--gebra-select`` and ``--gebra-skip`` subset exactly that set, in that order:
     ``enabled ∩ select \\ skip``. Overlap between the two flags is a subtraction and not a
@@ -1495,7 +1519,8 @@ def _render_property_line(outcome: PropertyOutcome, report: RunReport) -> list[s
     slug on every one; on a pass, the claim class read from the catalog (a pass carries no
     per-record grade — §4.6 rule 1) and a §4.3 witness summary; on a fail, the primary finding
     per §4.4 and **every** co-failure and advisory rendered too, "never summarized away"; on a
-    marker, *not checked*, that it is outside the Phase-0 wedge, and explicitly not a pass.
+    marker, *not checked*, the registry's own copy of why (DEC-35 §3.1's words for a
+    ``deferred-to-phase-1`` row), and explicitly not a pass.
     """
     from gebra.verify import PropertyReport, property_entry
 
@@ -1760,8 +1785,8 @@ def pytest_terminal_summary(terminalreporter: Any) -> None:
     its own. Printed with no flag, because that is what makes §5.1's obligations and
     INTROSPECTION-SPEC §8's "warnings are never silently droppable" hold for the primary
     adoption path: a marker-only adopter never touches ``gebra_verification``, so without this
-    the passing witnesses and the eight not-checked properties would be invisible and a
-    default ``pytest`` run would show five green items and nothing else.
+    the passing witnesses and the not-checked properties would be invisible and a default
+    ``pytest`` run would show its green items and nothing else.
 
     One bound on the claim, stated rather than left to be found: the blocks are assembled in
     the process that ran the items, off that process's ``Config`` stash. Under a plugin that
@@ -2105,7 +2130,7 @@ def _render_freshness(check: FreshnessCheck, outcome: FreshnessOutcome) -> str:
         footer = (
             "this is a check on the store, not a verdict about the workflow: it reports that "
             "the content moved and which counters move with it, never whether the change is "
-            "safe (P-12 evolution-safety is deferred — SOW §8)."
+            "safe (P-12 evolution-safety has no validator in this release)."
         )
     return f"gebra · {check.target} · snapshot freshness\n{body}\n    {footer}"
 
@@ -2292,7 +2317,7 @@ def gebra_verification(
     A :class:`TargetVerification`, not a bare report, and named for what it is: ``.report`` is
     the :class:`~gebra.verify.RunReport` and ``.extraction_notes`` the warnings extraction
     raised on the way. ``.report.properties`` carries all thirteen catalog outcomes, so this
-    is where the eight properties Phase-0 defers are visible as the structured
+    is where the properties with no validator in this release are visible as the structured
     :class:`~gebra.verify.NotImplementedMarker`\\ s they are; ``.report.gate`` is the §2.2
     exit code and counts.
     """

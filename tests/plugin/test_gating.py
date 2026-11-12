@@ -59,6 +59,8 @@ from gebra.verify import (
     STRICT_OFF,
     PropertyReport,
     RunPolicy,
+    property_entry,
+    registry_counts,
     verify,
 )
 from tests.sample_workflows import travel_booking
@@ -72,13 +74,12 @@ pytest_plugins = ["pytester"]
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CORPUS = REPO_ROOT / "tests" / "fixtures" / "properties"
 
-#: The five wedge slugs, in catalog order.
-WEDGE: tuple[PropertySlug, ...] = (
-    "graph-well-formed",
-    "termination-witness",
-    "dataflow-completeness",
-    "effect-safety",
-    "determinism-replay",
+#: The properties a target gets an item for, in catalog order: every row a run over one IR
+#: answers with a report, read off the registry rather than listed, so a property that lands
+#: joins every total in this module with no literal edited (DEC-35 §3.5 (c)). In this build
+#: they are the wedge five.
+ITEMIZED: tuple[PropertySlug, ...] = tuple(
+    slug for slug in PROPERTY_SLUGS if property_entry(slug).reports_on_one_snapshot
 )
 
 _PREAMBLE = f"""
@@ -243,41 +244,41 @@ def _run(report: RunReport, slug: str) -> PropertyReport:
 
 # ── Acceptance box 1: the severity matrix, end to end through pytest ─────────────────────
 
-#: ``(rung, flags, passed, failed, failing item ids)`` — one row per cell of the matrix the
-#: card asks to have integration-tested. The rows are stated as pytest outcomes because that
-#: is what the contract is about: FATAL/ERROR fail the item, WARNING does not, and a strict
-#: policy naming the property changes the *gate* for exactly that item.
-MATRIX: tuple[tuple[str, tuple[str, ...], int, int, tuple[str, ...]], ...] = (
+#: ``(rung, flags, failed, failing item ids)`` — one row per cell of the matrix the card
+#: asks to have integration-tested. The rows are stated as pytest outcomes because that is
+#: what the contract is about: FATAL/ERROR fail the item, WARNING does not, and a strict
+#: policy naming the property changes the *gate* for exactly that item. Every other item
+#: passes, so the pass count is :data:`ITEMIZED` less the failures — derived, not stated.
+MATRIX: tuple[tuple[str, tuple[str, ...], int, tuple[str, ...]], ...] = (
     # A clean graph is clean under every policy — the control that shows the flags are not
     # simply failing whatever they touch.
-    ("clean", (), 5, 0, ()),
-    ("clean", (STRICT_OPTION,), 5, 0, ()),
+    ("clean", (), 0, ()),
+    ("clean", (STRICT_OPTION,), 0, ()),
     # FATAL: fails exactly its own item. Strict changes nothing — there is no WARNING here.
-    ("dangling_target", (), 4, 1, ("graph-well-formed",)),
-    ("dangling_target", (STRICT_OPTION,), 4, 1, ("graph-well-formed",)),
+    ("dangling_target", (), 1, ("graph-well-formed",)),
+    ("dangling_target", (STRICT_OPTION,), 1, ("graph-well-formed",)),
     # ERROR: same rung behaviour, one step down the ladder.
-    ("unprotected_retry", (), 4, 1, ("effect-safety",)),
-    ("unprotected_retry", (STRICT_OPTION,), 4, 1, ("effect-safety",)),
+    ("unprotected_retry", (), 1, ("effect-safety",)),
+    ("unprotected_retry", (STRICT_OPTION,), 1, ("effect-safety",)),
     # WARNING finding: noted by default; promoted by bare strict and by the per-property form
     # that names it; untouched by a per-property form that names something else.
-    ("seedless_llm", (), 5, 0, ()),
-    ("seedless_llm", (STRICT_OPTION,), 4, 1, ("determinism-replay",)),
-    ("seedless_llm", (f"{STRICT_OPTION}=determinism-replay",), 4, 1, ("determinism-replay",)),
-    ("seedless_llm", (f"{STRICT_OPTION}=termination-witness",), 5, 0, ()),
+    ("seedless_llm", (), 0, ()),
+    ("seedless_llm", (STRICT_OPTION,), 1, ("determinism-replay",)),
+    ("seedless_llm", (f"{STRICT_OPTION}=determinism-replay",), 1, ("determinism-replay",)),
+    ("seedless_llm", (f"{STRICT_OPTION}=termination-witness",), 0, ()),
     # WARNING-grade witness note: the same three cells, on the record that rides a witness.
-    ("blanket_only", (), 5, 0, ()),
-    ("blanket_only", (STRICT_OPTION,), 4, 1, ("termination-witness",)),
-    ("blanket_only", (f"{STRICT_OPTION}=termination-witness",), 4, 1, ("termination-witness",)),
-    ("blanket_only", (f"{STRICT_OPTION}=determinism-replay",), 5, 0, ()),
+    ("blanket_only", (), 0, ()),
+    ("blanket_only", (STRICT_OPTION,), 1, ("termination-witness",)),
+    ("blanket_only", (f"{STRICT_OPTION}=termination-witness",), 1, ("termination-witness",)),
+    ("blanket_only", (f"{STRICT_OPTION}=determinism-replay",), 0, ()),
 )
 
 
-@pytest.mark.parametrize(("rung", "flags", "passed", "failed", "failing"), MATRIX)
+@pytest.mark.parametrize(("rung", "flags", "failed", "failing"), MATRIX)
 def test_the_severity_matrix_holds_through_a_real_session(
     pytester: pytest.Pytester,
     rung: str,
     flags: tuple[str, ...],
-    passed: int,
     failed: int,
     failing: tuple[str, ...],
 ) -> None:
@@ -289,7 +290,7 @@ def test_the_severity_matrix_holds_through_a_real_session(
     """
     pytester.makepyfile(test_target=_ir_source(RUNGS[rung], name=rung))
     result = pytester.runpytest(*flags)
-    result.assert_outcomes(passed=passed, failed=failed)
+    result.assert_outcomes(passed=len(ITEMIZED) - failed, failed=failed)
     expected_exit = pytest.ExitCode.TESTS_FAILED if failed else pytest.ExitCode.OK
     assert result.ret == expected_exit
     for slug in failing:
@@ -362,13 +363,13 @@ def test_a_promoted_p08_finding_keeps_severity_warning_in_the_record(
     # Every other item is untouched — a bare strict policy promotes what is there, not more.
     assert all(
         item_outcome(verification, slug).failed is False
-        for slug in WEDGE
+        for slug in ITEMIZED
         if slug != "determinism-replay"
     )
 
     pytester.makepyfile(test_target=_ir_source(SEEDLESS_LLM, name="seedless_llm"))
     result = pytester.runpytest(STRICT_OPTION)
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
     result.stdout.fnmatch_lines(["*FAILED*test_gebra[[]seedless_llm-determinism-replay[]]*"])
     # The message says what it is: a promotion, with the record's own grade and claim class.
     result.stdout.fnmatch_lines(
@@ -389,7 +390,7 @@ def test_the_same_finding_is_a_note_and_not_a_failure_without_the_flag(
     """
     pytester.makepyfile(test_target=_ir_source(SEEDLESS_LLM, name="seedless_llm"))
     result = pytester.runpytest("-rA")
-    result.assert_outcomes(passed=5, failed=0)
+    result.assert_outcomes(passed=len(ITEMIZED), failed=0)
     assert result.ret == pytest.ExitCode.OK
     # Rendered as the finding it is — the envelope's own severity word (§5.1 obligation 3),
     # not under the `note` label that obligation reserves for witness notes — with the fact
@@ -441,7 +442,7 @@ def test_a_warning_grade_witness_note_is_reached_by_strict(pytester: pytest.Pyte
 
     pytester.makepyfile(test_target=_ir_source(BLANKET_ONLY, name="blanket_only"))
     result = pytester.runpytest(f"{STRICT_OPTION}=termination-witness")
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
     result.stdout.fnmatch_lines(["*FAILED*test_gebra[[]blanket_only-termination-witness[]]*"])
 
 
@@ -474,7 +475,7 @@ def test_a_promoted_note_is_never_rendered_with_its_condition_ids_registered_gra
 
     pytester.makepyfile(test_target=_ir_source(BLANKET_ONLY, name="blanket_only"))
     result = pytester.runpytest(STRICT_OPTION)
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
     result.stdout.fnmatch_lines(["*witness note scc-covered-only-by-recursion-limit*"])
     result.stdout.fnmatch_lines(
         ["*reported under cycle-without-termination-witness — the promoted item's identity*"]
@@ -496,7 +497,7 @@ def _collected(result: pytest.RunResult) -> list[str]:
 @pytest.mark.parametrize(
     ("flags", "expected"),
     [
-        ((), WEDGE),
+        ((), ITEMIZED),
         ((f"{SELECT_OPTION}=graph-well-formed",), ("graph-well-formed",)),
         (
             (f"{SELECT_OPTION}=effect-safety,graph-well-formed",),
@@ -551,7 +552,7 @@ def test_a_skipped_property_still_fails_nothing_and_a_selected_one_still_fails(
     pytester.makepyfile(test_target=_ir_source(UNPROTECTED_RETRY, name="retry"))
 
     skipped = pytester.runpytest(f"{SKIP_OPTION}=effect-safety")
-    skipped.assert_outcomes(passed=4, failed=0)
+    skipped.assert_outcomes(passed=len(ITEMIZED) - 1, failed=0)
     assert skipped.ret == pytest.ExitCode.OK
 
     selected = pytester.runpytest(f"{SELECT_OPTION}=effect-safety")
@@ -640,7 +641,15 @@ def test_the_gate_is_strict(gebra_verification):
         ((f"{STRICT_OPTION}=P-08",), "*not a property slug*"),
         ((f"{SELECT_OPTION}=graph-well-formed,",), "*empty property slug*"),
         # A deferred property cannot be selected: the item it asks for cannot exist.
-        ((f"{SELECT_OPTION}=retry-coherence",), "*no validator in this build answers*"),
+        ((f"{SELECT_OPTION}=retry-coherence",), "*no validator in this release answers*"),
+        # ... in the charter's words, with the sentence it keeps verbatim (DEC-35 §3.1).
+        (
+            (f"{SELECT_OPTION}=retry-coherence",),
+            (
+                "*has no validator in this release; its catalog section is not yet ratified)*"
+                "No verdict was reached — this is not a pass.*"
+            ),
+        ),
     ],
 )
 def test_an_unreadable_gate_flag_ends_the_session(
@@ -669,7 +678,7 @@ def test_skipping_every_property_is_refused_at_collection(pytester: pytest.Pytes
     subset assembled from ``addopts`` plus a command line is otherwise a puzzle.
     """
     pytester.makepyfile(test_target=_ir_source(CLEAN, name="clean"))
-    result = pytester.runpytest(f"{SKIP_OPTION}={','.join(WEDGE)}")
+    result = pytester.runpytest(f"{SKIP_OPTION}={','.join(ITEMIZED)}")
     assert result.ret == pytest.ExitCode.INTERRUPTED
     result.stdout.fnmatch_lines(["*has no property to check*"])
     result.stdout.fnmatch_lines([f"*{SKIP_OPTION} left nothing to check*"])
@@ -718,7 +727,7 @@ def test_a_bare_strict_flag_at_the_end_of_the_command_line_is_bare(
     """
     pytester.makepyfile(test_target=_ir_source(SEEDLESS_LLM, name="seedless_llm"))
     result = pytester.runpytest("test_target.py", STRICT_OPTION)
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
     result.stdout.fnmatch_lines(["*exit 1 — fail; strict --gebra-strict; 1 promoted*"])
     # §5.1 obligation 6 asks for "the strict policy in force with what it promoted" — a count
     # is not a *what*, so the closing summary names each promoted record beside the policy.
@@ -746,7 +755,7 @@ def test_the_closing_report_states_what_a_default_run_would_otherwise_hide(
     """
     pytester.makepyfile(test_target=_ir_source(CLEAN, name="clean"))
     result = pytester.runpytest()
-    result.assert_outcomes(passed=5, failed=0)
+    result.assert_outcomes(passed=len(ITEMIZED), failed=0)
     result.stdout.fnmatch_lines(["*= gebra =*"])
     # (1) a subject line, with the digest recognizable as a prefix.
     result.stdout.fnmatch_lines(["*sha256:*… · ir 1.0 · ir-document*"])
@@ -757,10 +766,73 @@ def test_the_closing_report_states_what_a_default_run_would_otherwise_hide(
     for slug in ("signature-soundness", "retry-coherence", "evolution-safety"):
         result.stdout.fnmatch_lines([f"*not checked*{slug} [[]deferred-to-phase-1[]]*"])
     # (6) a closing summary: counts, exit code and reason, and the policy in force.
-    result.stdout.fnmatch_lines(
-        ["*5 properties reported · 8 not checked · 0 fatal · 0 error · 0 warning*"]
+    counts = registry_counts()  # the tally reads the registry, never a stated number
+    tally = (
+        f"*{counts.reported} properties reported · {counts.not_checked} not checked · "
+        "0 fatal · 0 error · 0 warning*"
     )
+    result.stdout.fnmatch_lines([tally])
     result.stdout.fnmatch_lines(["*exit 0 — pass; strict off*"])
+
+
+#: An inner conftest that lands P-07 synthetically: its row moved to `catalog` and a throwaway
+#: validator reporting one ERROR on a RESERVED P-07 string registered for it (DEC-35 §4: the
+#: charter's mechanism "exercised by a synthetic registration and no real property").
+_SYNTHETIC_P07_CONFTEST = (
+    _PREAMBLE
+    + """
+from gebra.verify import register_validator
+from tests._registry import failing_validator, move_to_catalog
+
+move_to_catalog("retry-coherence")
+register_validator(
+    "retry-coherence",
+    failing_validator("retry-coherence", "reentrant-node-neither-pure-nor-idempotent", "error"),
+)
+"""
+)
+
+
+def test_a_property_that_lands_gets_an_item_and_gates_from_its_landing_release(
+    pytester: pytest.Pytester,
+) -> None:
+    """DEC-35 §3.2 on the plugin surface: a registered property gates; nothing is built for it.
+
+    In a child process — the registry is process-global — P-07 lands synthetically. The plugin
+    reads the registry, so P-07 gets an item with no edit to the plugin and is read as live,
+    never as deferred: the item fails on its finding, the run's exit code is 1, and the closing
+    tally counts it among the reported properties.
+
+    WA-07: the child is a different process the parent's sentinel ledger cannot speak for,
+    and needs no cover — its target is a literal ``WorkflowIR``, which takes ``resolve_ir``'s
+    fixture-only branch before any extraction, and its conftest imports only ``gebra.verify``
+    and ``tests._registry``, so it constructs no workflow object.
+    """
+    counts = registry_counts()
+    pytester.makeconftest(_SYNTHETIC_P07_CONFTEST)
+    pytester.makepyfile(test_target=_ir_source(CLEAN, name="clean"))
+    result = pytester.runpytest_subprocess()
+    result.assert_outcomes(passed=counts.reported, failed=1)
+    result.stdout.fnmatch_lines(["*FAILED*test_gebra[[]clean-retry-coherence[]]*"])
+    tally = (
+        f"*{counts.reported + 1} properties reported · {counts.not_checked - 1} not checked · "
+        "0 fatal · 1 error · 0 warning*"
+    )
+    result.stdout.fnmatch_lines([tally])
+    result.stdout.fnmatch_lines(["*exit 1 — fail; strict off*"])
+
+
+def test_a_property_that_lands_can_be_selected(pytester: pytest.Pytester) -> None:
+    """``--gebra-select`` refuses only what no validator answers — a landed slug is selectable.
+
+    WA-07: as above, the child runs a literal ``WorkflowIR`` through the fixture-only branch
+    and constructs no workflow object, so the parent's ledger owes it no cover.
+    """
+    pytester.makeconftest(_SYNTHETIC_P07_CONFTEST)
+    pytester.makepyfile(test_target=_ir_source(CLEAN, name="clean"))
+    result = pytester.runpytest_subprocess(f"{SELECT_OPTION}=retry-coherence")
+    result.assert_outcomes(passed=0, failed=1)
+    result.stdout.fnmatch_lines(["*FAILED*test_gebra[[]clean-retry-coherence[]]*"])
 
 
 def test_the_report_says_which_properties_a_subset_run_actually_itemized(
@@ -842,7 +914,7 @@ def test_the_report_qualifies_a_best_effort_answer_where_the_answer_is(
     """
     pytester.makepyfile(test_target=_ir_source(DANGLING_TARGET, name="dangling"))
     result = pytester.runpytest()
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
     result.stdout.fnmatch_lines(
         [
             "*pass*termination-witness*",
@@ -856,7 +928,7 @@ def test_the_report_qualifies_a_best_effort_answer_where_the_answer_is(
 def test_one_target_gets_one_block_however_many_items_it_has(
     pytester: pytest.Pytester,
 ) -> None:
-    """Five items, one extraction each, one report block — not five copies of one.
+    """One item per property, one extraction each, one report block — not a copy per item.
 
     The de-duplication key is the item's nodeid with the gebra parametrization stripped, so a
     target parametrized *another* way keeps its own block. Both halves are asserted, because
@@ -877,7 +949,7 @@ def test_gebra(shape):
 """
     )
     result = pytester.runpytest()
-    result.assert_outcomes(passed=10, failed=0)
+    result.assert_outcomes(passed=2 * len(ITEMIZED), failed=0)
     blocks = [line for line in result.stdout.lines if "properties reported" in line]
     assert len(blocks) == 2, blocks
     # The two are different runs, and the report shows it: one has the WARNING, one does not.
@@ -938,7 +1010,7 @@ def test_zz_no_node_body_ran_in_this_process():
 """
     )
     result = pytester.runpytest_subprocess()
-    result.assert_outcomes(passed=2, failed=4)
+    result.assert_outcomes(passed=2, failed=len(ITEMIZED) - 1)
     result.stdout.fnmatch_lines(["*no verdict was reached*dispatch*"])
     # Once per surface, in the closing section, with no `-r` flag: the marker target's block
     # and the `gebra_verification` block. Both are tool-error blocks, which is the point.
@@ -973,7 +1045,7 @@ def test_the_travel_booking_agent_is_clean_under_every_strict_form(
     pytester.makepyfile(test_target=_agent_source())
     for flags in ((STRICT_OPTION,), (f"{STRICT_OPTION}=determinism-replay",)):
         result = pytester.runpytest(*flags)
-        result.assert_outcomes(passed=5, failed=0)
+        result.assert_outcomes(passed=len(ITEMIZED), failed=0)
         assert result.ret == pytest.ExitCode.OK
         result.stdout.fnmatch_lines(["*exit 0 — pass; strict*"])
     assert travel_booking.TRIPPED == []
@@ -1018,15 +1090,15 @@ def test_the_default_policy_is_strict_off_and_subsets_nothing() -> None:
     assert policy == GatePolicy(strict=STRICT_OFF)
     assert policy.select is None
     assert policy.skip == ()
-    assert enabled_properties() == tuple(slug for slug in PROPERTY_SLUGS if slug in WEDGE)
+    assert enabled_properties() == tuple(slug for slug in PROPERTY_SLUGS if slug in ITEMIZED)
 
 
 @pytest.mark.parametrize(
     ("select", "skip", "expected"),
     [
-        (None, (), WEDGE),
+        (None, (), ITEMIZED),
         (("effect-safety", "graph-well-formed"), (), ("graph-well-formed", "effect-safety")),
-        (None, ("graph-well-formed",), WEDGE[1:]),
+        (None, ("graph-well-formed",), ITEMIZED[1:]),
         (("graph-well-formed", "effect-safety"), ("effect-safety",), ("graph-well-formed",)),
         (("graph-well-formed",), ("graph-well-formed",), ()),
     ],
@@ -1166,7 +1238,7 @@ def test_a_subset_policy_leaves_promotions_no_item_can_fail_and_the_report_says_
     )
     report = verification.report
     assert report.gate.exit_code == 1
-    itemized = tuple(slug for slug in WEDGE if slug != "determinism-replay")
+    itemized = tuple(slug for slug in ITEMIZED if slug != "determinism-replay")
     assert promotions_for(report, "determinism-replay")
     assert not [promotion for promotion in report.gate.promotions if promotion.property in itemized]
 

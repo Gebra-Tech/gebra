@@ -393,12 +393,39 @@ def test_the_pipeline_examples_digest_is_the_one_the_agent_has(page: str) -> Non
 
 
 def test_the_property_counts_are_the_registrys_own(page: str) -> None:
-    """Thirteen slugs, five wedge, eight not — the three numbers stage 3 states in words."""
-    from gebra.verify import NON_WEDGE_SLUGS, PROPERTY_SLUGS, WEDGE_SLUGS
+    """The three numbers stage 3 states in words, each read off the registry.
 
-    assert (len(PROPERTY_SLUGS), len(WEDGE_SLUGS), len(NON_WEDGE_SLUGS)) == (13, 5, 8)
-    assert "thirteen property slugs" in page
-    assert "Five are implemented — the wedge five — and the other eight" in page
+    The catalog's size, how many properties ship a validator and how many do not: the
+    words the page uses must be the registry's counts, so a landing that moves a row and
+    leaves the sentence behind fails here rather than going stale.
+    """
+    from gebra.verify import registry_counts
+
+    counts = registry_counts()
+    words = [
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+    ]  # how the page spells a count — a spelling table, not a count
+    assert f"{words[counts.total]} property slugs" in page
+    # The page names the implemented ones "the wedge five" — true exactly while no row
+    # carries `catalog`; a landing that adds one makes the test demand the plain count.
+    implemented = " — the wedge five —" if counts.catalog == 0 else ""
+    assert (
+        f"{words[counts.shipped].capitalize()} are implemented{implemented} and the "
+        f"other {words[counts.deferred]}"
+    ) in page
 
 
 def test_the_diff_stage_names_the_deferred_marker(page: str) -> None:

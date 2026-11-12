@@ -51,7 +51,7 @@ from gebra.cli.resolve import (
     store_for,
 )
 from gebra.report import TerminalOptions, write
-from gebra.verify import STRICT_OFF, RunPolicy, RunReport, verify
+from gebra.verify import MARKER_REASONS, NO_VERDICT, STRICT_OFF, RunPolicy, RunReport, verify
 from gebra.versioning import Component
 
 if TYPE_CHECKING:
@@ -325,9 +325,12 @@ def _outcome_lines(outcome: SnapshotOutcome) -> list[Text]:
     lines.append(kv("previous", outcome.previous))
     lines.append(kv("moved", _bump_phrase(outcome.bump_class)))
     marker = outcome.diff.evolution_safety
-    # The §4.2 marker fact set: property id + slug, the not-checked wording, the status.
+    # The §4.2 marker fact set: property id + slug, the not-checked wording, the status — and
+    # why it answered and that it is not a pass, in the registry's words (DEC-35 §3.1 names
+    # this line among the marker surfaces; it names no release as the present).
     lines.append(kv(f"{marker.property_id} {marker.property}", f"not checked [{marker.status}]"))
-    lines.append(kv("", "no safe/breaking classification exists in Phase 0"))
+    lines.append(kv("", f"it {MARKER_REASONS[marker.status]}"))
+    lines.append(kv("", NO_VERDICT))
     return lines
 
 

@@ -45,8 +45,8 @@ card SD-13). Brief D-11's enumeration "kind normal | conditional | send" predate
 the universe is the hash scope's, which is what that enumeration was naming.
 
 **No verdicts.** The diff says what is different, never what the difference means: no
-safe/breaking classification exists in Phase 0 (P-12 ``evolution-safety`` is deferred by
-SOW §8). The S bump class *is* derived from these categories, by
+safe/breaking classification exists in this release (P-12 ``evolution-safety`` has no
+validator in it). The S bump class *is* derived from these categories, by
 :attr:`~gebra.diff.workflow.WorkflowDiff.bump_class`; which domain moved is a structural
 fact, and what the move means is not.
 

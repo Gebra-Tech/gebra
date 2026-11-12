@@ -9,8 +9,10 @@ skips, 13 outcomes with 8 markers. Those numbers are asserted, not printed, beca
 whose counts drift silently is a gate that stopped checking.
 
 **Backward:** each refusal is armed. A non-composing block with no non-wedge cause is a
-violation; a non-wedge obligation that reports anything but a structured skip is a violation;
-a skip reason that names neither the property nor SOW §8 is a violation. Seeded corpora and
+violation; a deferred obligation that reports anything but a structured skip is a violation;
+a skip reason that does not name both the property and the charter's copy for its deferral
+is a violation; and a property that lands (a synthetic ``catalog`` row) is read as live by
+every clause, never laundered as a deferral (DEC-35 §3.5 (b)). Seeded corpora and
 seeded runs prove each one fails rather than passing in silence — which is the half a
 "criterion 2 is green" claim cannot rest on prose for.
 
@@ -41,8 +43,9 @@ from gebra.testing.fixtures import (
     iter_fixture_paths,
     load_fixture,
 )
-from gebra.verify import NON_WEDGE_SLUGS, PROPERTY_REGISTRY
+from gebra.verify import DEFERRED_READING, PROPERTY_REGISTRY, registry_counts
 from tests._corpus import census
+from tests._registry import passing_validator, synthetic_catalog_row
 from tests.conftest import FIXTURES_DIR
 from tools.corpus_green import (
     COMPOSE_CAUSES,
@@ -66,7 +69,7 @@ MATRIX = Path(__file__).resolve().parents[2] / "docs" / "governance" / "FIDELITY
 COMPOSING = 44
 R32_SCOPED = 52
 R32_MATCHED = 52
-NON_WEDGE_OBLIGATIONS = 31
+DEFERRED_OBLIGATIONS = 31
 
 #: How the 27 non-composing blocks divide. The sum is pinned separately, so a cause that
 #: silently absorbed another's fixtures fails on the split rather than on the total.
@@ -220,22 +223,32 @@ def test_r32_scopes_itself_to_the_obligation_kinds_the_ruling_enumerates(
     assert "beyond what R3.2's enumeration asks for" in clause.findings[1]
 
 
-def test_r33_every_non_wedge_component_is_a_structured_skip(report: GreenReport) -> None:
+def test_r33_every_deferred_component_is_a_structured_skip(report: GreenReport) -> None:
     """R3.3 in full: named, counted, surfaced — and the clause is met, not merely reported."""
     clause = _clause(report, "R3.3")
     assert clause.met
-    assert f"{NON_WEDGE_OBLIGATIONS} non-wedge obligation(s)" in clause.findings[0]
-    assert "SOW §8" in clause.findings[0]
+    first, met = clause.findings
+    assert f"{DEFERRED_OBLIGATIONS} deferred obligation(s)" in first
+    # PD-072 §1: SOW §8 is named as the reason the token exists, on every run ...
+    assert "SOW §8 is the reason the `deferred-to-phase-1` token exists" in first
+    # ... and the clause is printed MET as re-signed only because it has no violation.
+    assert met.startswith("R3.3 is MET as re-signed (C2 clause (3), 2026-11-11 — PD-072")
+    assert DEFERRED_READING in met
+    assert "`deferred-to-phase-1`" in met
 
 
 def test_r34_is_asserted_against_verify_rather_than_restated(report: GreenReport) -> None:
     """R3.4 is ``verify()``'s obligation, so the gate runs it instead of describing it."""
     clause = _clause(report, "R3.4")
+    counts = registry_counts()
     assert clause.met
     assert f"{len(PROPERTY_REGISTRY)} propert(y/ies) in catalog order" in clause.findings[0]
     assert (
-        f"{len(NON_WEDGE_SLUGS)} of them with structured not-implemented markers"
+        f"{counts.not_checked} of them with structured not-implemented markers"
         in (clause.findings[0])
+    )
+    assert clause.title == (
+        f"run layer — {counts.total} outcomes, {counts.not_checked} not-implemented markers"
     )
 
 
@@ -344,10 +357,10 @@ def test_running_without_a_matrix_reads_a_shortfall_as_a_violation(tmp_path: Pat
     assert not any("mixed/08" in item for item in report.residue)
 
 
-def test_a_non_wedge_obligation_that_is_not_a_skip_is_a_violation() -> None:
+def test_a_deferred_obligation_that_is_not_a_skip_is_a_violation() -> None:
     """R3.3's refusal, on a hand-built run rather than a seeded corpus.
 
-    The status has to be forged: nothing in the corpus can produce a non-wedge obligation
+    The status has to be forged: nothing in the corpus can produce a deferred obligation
     that is anything but ``deferred-to-phase-1``, which is the point — the check is a floor
     under a future change, not a description of today.
     """
@@ -359,17 +372,17 @@ def test_a_non_wedge_obligation_that_is_not_a_skip_is_a_violation() -> None:
     run = run_corpus(FIXTURES_DIR)
     forged = CorpusRun(
         tuple(
-            replace(outcome, status="matched") if not outcome.obligation.wedge else outcome
+            replace(outcome, status="matched") if outcome.obligation.deferred else outcome
             for outcome in run.outcomes
         )
     )
     clause = _clause_r33(forged)
-    assert len(clause.violations) == NON_WEDGE_OBLIGATIONS
+    assert len(clause.violations) == DEFERRED_OBLIGATIONS
     assert all("never a pass" in item for item in clause.violations)
 
 
-def test_a_skip_reason_that_cites_neither_the_property_nor_sow_8_is_a_violation() -> None:
-    """R3.3 asks for a *named* skip; "skipped" alone is what it forbids."""
+def test_a_skip_reason_without_the_property_and_its_reading_is_a_violation() -> None:
+    """R3.3 asks for a *named* skip that says why; "skipped" alone is what it forbids."""
     from dataclasses import replace
 
     from gebra.testing.harness import CorpusRun, run_corpus
@@ -378,13 +391,89 @@ def test_a_skip_reason_that_cites_neither_the_property_nor_sow_8_is_a_violation(
     run = run_corpus(FIXTURES_DIR)
     forged = CorpusRun(
         tuple(
-            replace(outcome, detail="skipped") if not outcome.obligation.wedge else outcome
+            replace(outcome, detail="skipped") if outcome.obligation.deferred else outcome
             for outcome in run.outcomes
         )
     )
     clause = _clause_r33(forged)
-    assert len(clause.violations) == NON_WEDGE_OBLIGATIONS
-    assert all("names neither the property nor SOW §8" in item for item in clause.violations)
+    assert len(clause.violations) == DEFERRED_OBLIGATIONS
+    assert all(
+        "does not name both the property and the charter's copy" in item
+        for item in clause.violations
+    )
+
+
+def test_a_skip_that_names_its_property_but_not_why_is_a_violation() -> None:
+    """Half a reason is not a reason: the property alone, without the reading, still fails."""
+    from dataclasses import replace
+
+    from gebra.testing.harness import CorpusRun, run_corpus
+    from tools.corpus_green import _clause_r33
+
+    run = run_corpus(FIXTURES_DIR)
+    forged = CorpusRun(
+        tuple(
+            replace(outcome, detail=f"{outcome.obligation.property_slug} skipped")
+            if outcome.obligation.deferred
+            else outcome
+            for outcome in run.outcomes
+        )
+    )
+    assert len(_clause_r33(forged).violations) == DEFERRED_OBLIGATIONS
+
+
+# ── A property that lands is live to every clause (DEC-35 §3.5 (b)) ──────────────────────
+
+
+def test_a_catalog_owner_is_never_attributed_a_non_wedge_cause(
+    fixtures: tuple[PropertyFixture, ...],
+) -> None:
+    """Cause 3 and cause 4 name *deferred* properties, whatever their PD-039 spelling says.
+
+    With P-07's row moved to ``catalog`` (synthetically), its own non-composing blocks and the
+    wedge blocks carrying its records lose the cause that accounted for them — the block of a
+    live property that does not compose is a violation, never laundered as a deferral
+    (PD-063 critique objection 7). On exit the causes come back exactly.
+    """
+    by_id = {fixture.fixture_id: fixture for fixture in fixtures}
+    owned = by_id["retry-coherence/negative-01-nonidempotent-fare-poll-reentry.yaml"]
+    carried = by_id["mixed/01-witnessed-cycle-with-unkeyed-billable-node.yaml"]
+    assert attribute(owned).cause == "non-wedge-owner"
+    assert attribute(carried).cause == "non-wedge-component"
+
+    with synthetic_catalog_row("retry-coherence"):
+        assert attribute(owned).cause is None
+        assert attribute(carried).cause is None
+
+    assert attribute(owned).cause == "non-wedge-owner"
+    assert attribute(carried).cause == "non-wedge-component"
+
+
+def test_a_catalog_propertys_obligations_move_from_r33_to_r32() -> None:
+    """R3.2 asserts what is live and R3.3 skips what is deferred — both read the registry.
+
+    Under a synthetic ``catalog`` row with a throwaway validator, P-07's obligations leave
+    R3.3's skip count and join R3.2's scope, where — their corpus shape being provisional — they
+    are shortfalls with no routed row: violations, which is what a landing settles (DEC-35
+    §3.5 (a)). R3.4 runs ``verify()`` with P-07 answered by its validator, not a marker.
+    """
+    from gebra.testing.harness import run_corpus
+    from tools.corpus_green import _clause_r32, _clause_r33, _clause_r34
+
+    fixtures = tuple(load_fixture(path) for path in iter_fixture_paths(FIXTURES_DIR))
+    with synthetic_catalog_row("retry-coherence", passing_validator("retry-coherence")):
+        run = run_corpus(FIXTURES_DIR)
+        r32 = _clause_r32(run, None)
+        r33 = _clause_r33(run)
+        r34 = _clause_r34(fixtures)
+
+    p07 = [o for o in run.outcomes if o.obligation.property_slug == "retry-coherence"]
+    assert p07 and not any(o.status == "deferred-to-phase-1" for o in p07)
+    assert f"{DEFERRED_OBLIGATIONS - len(p07)} deferred obligation(s)" in r33.findings[0]
+    assert r33.violations == []
+    assert any("retry-coherence" in item for item in r32.violations)
+    assert r34.violations == []
+    assert "not-implemented markers" in r34.title
 
 
 def test_an_unrunnable_corpus_is_a_tool_error_not_a_verdict(tmp_path: Path) -> None:

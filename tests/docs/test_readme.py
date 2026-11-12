@@ -135,19 +135,25 @@ def _the_annotation_surface_is_present() -> None:
 
 def _the_five_validators_are_present() -> None:
     from gebra.verify import verify  # noqa: F401 - the aggregation the row names
-    from gebra.verify.registry import WEDGE_SLUGS, is_implemented
+    from gebra.verify.registry import WEDGE_SLUGS, is_implemented, registry_counts
 
-    assert len(WEDGE_SLUGS) == 5
+    assert len(WEDGE_SLUGS) == registry_counts().wedge
     assert all(is_implemented(slug) for slug in WEDGE_SLUGS)
 
 
 def _the_other_eight_are_not_implemented() -> None:
     """The other direction of the same registry: a deferred property has no validator."""
-    from gebra.verify.registry import NON_WEDGE_SLUGS, is_implemented, not_implemented
+    from gebra.verify.registry import (
+        deferred_slugs,
+        is_implemented,
+        not_implemented,
+        registry_counts,
+    )
 
-    assert len(NON_WEDGE_SLUGS) == 8
-    assert not any(is_implemented(slug) for slug in NON_WEDGE_SLUGS)
-    assert all(not_implemented(slug) is not None for slug in NON_WEDGE_SLUGS)
+    deferred = deferred_slugs()
+    assert len(deferred) == registry_counts().deferred
+    assert not any(is_implemented(slug) for slug in deferred)
+    assert all(not_implemented(slug).status == "deferred-to-phase-1" for slug in deferred)
 
 
 def _the_plugin_and_the_action_are_present() -> None:

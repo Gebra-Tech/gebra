@@ -33,7 +33,8 @@ and the wedge's concrete subtypes; :mod:`gebra.verify.witnesses` holds the five 
 witness models; :mod:`gebra.verify.report` holds ``Failure``/``CoFailure``/``Advisory`` and
 ``PropertyReport``; :mod:`gebra.verify.conditions` holds the §0.4 condition-ID registry, the
 tier rules and the emission constructors; :mod:`gebra.verify.registry` holds the thirteen-slug
-property table, validator registration and dispatch; :mod:`gebra.verify.graph` holds the shared
+property table with its scope vocabulary and derived counts, validator registration and
+dispatch; :mod:`gebra.verify.graph` holds the shared
 pre-analysis the four topology-facing validators read their graph from — label expansion,
 sentinel-augmented model construction, Tarjan SCC and the condensation utilities;
 :mod:`gebra.verify.guards` holds P-02's form-(a) recognizer — the TERMINATION-WITNESS-SPEC
@@ -176,9 +177,13 @@ from gebra.verify.properties.termination_witness import (
     strict_promotions,
 )
 from gebra.verify.registry import (
+    DEFERRED_READING,
+    MARKER_REASONS,
+    NO_VERDICT,
     NON_WEDGE_SLUGS,
     PROPERTY_REGISTRY,
     PROPERTY_SLUGS,
+    SHIPPED_SCOPES,
     WEDGE_SLUGS,
     NotImplementedMarker,
     NotImplementedStatus,
@@ -186,12 +191,16 @@ from gebra.verify.registry import (
     PropertyEntry,
     PropertyRegistryError,
     PropertyScope,
+    RegistryCounts,
     Validator,
+    deferred_slugs,
     is_implemented,
     not_implemented,
     property_entry,
     register_validator,
+    registry_counts,
     run_property,
+    shipped_slugs,
     unregister_validator,
     validator_for,
 )
@@ -261,11 +270,14 @@ __all__ = [
     "CMP_OPS",
     "CONDITION_IDS",
     "CONDITION_REGISTRY",
+    "DEFERRED_READING",
     "EMITTABLE_CONDITION_IDS",
     "END",
     "END_VERTEX",
     "IN_PROCESS_SOURCE",
+    "MARKER_REASONS",
     "NON_WEDGE_SLUGS",
+    "NO_VERDICT",
     "PROMOTION_ORIGINS",
     "PROPERTY_REGISTRY",
     "PROPERTY_SLUGS",
@@ -275,6 +287,7 @@ __all__ = [
     "RESERVED_CONDITION_IDS",
     "RESERVED_WORDS",
     "SENTINEL_VERTICES",
+    "SHIPPED_SCOPES",
     "START",
     "START_VERTEX",
     "STRICT_ALL",
@@ -349,6 +362,7 @@ __all__ = [
     "RecursionLimitSource",
     "ReferenceRole",
     "Region",
+    "RegistryCounts",
     "ReportModel",
     "RunPolicy",
     "RunReport",
@@ -388,6 +402,7 @@ __all__ = [
     "classify_guard",
     "condition",
     "conditions_for",
+    "deferred_slugs",
     "emit_advisory",
     "emit_co_failure",
     "emit_failure",
@@ -406,8 +421,10 @@ __all__ = [
     "qualify_counter_guard",
     "recognize_bounded_comparison",
     "register_validator",
+    "registry_counts",
     "run_property",
     "set_compared_fields",
+    "shipped_slugs",
     "strict_promotions",
     "to_data",
     "to_display",

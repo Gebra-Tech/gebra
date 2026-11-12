@@ -56,6 +56,8 @@ from gebra.verify import (
     PROPERTY_SLUGS,
     WEDGE_SLUGS,
     PropertyReport,
+    property_entry,
+    shipped_slugs,
     validate_report,
     verify,
 )
@@ -73,13 +75,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CORPUS = REPO_ROOT / "tests" / "fixtures" / "properties"
 
-#: The five wedge slugs, in catalog order — what a Phase-0 build generates an item for.
-EXPECTED_SLUGS: tuple[str, ...] = (
-    "graph-well-formed",
-    "termination-witness",
-    "dataflow-completeness",
-    "effect-safety",
-    "determinism-replay",
+#: What a build generates an item for, in catalog order — every property a run over one IR
+#: answers with a report, read off the registry's scopes rather than listed, so a property
+#: that lands joins every item count here with no literal edited (DEC-35 §3.5 (c)). It is an
+#: independent reading of what ``enabled_properties()`` derives from registration, which is
+#: what keeps the comparison below meaningful. In this build: the wedge five.
+EXPECTED_SLUGS: tuple[str, ...] = tuple(
+    slug for slug in PROPERTY_SLUGS if property_entry(slug).reports_on_one_snapshot
 )
 
 _PREAMBLE = f"""
@@ -240,7 +242,7 @@ def test_the_enabled_set_is_read_off_the_registry(pytester: pytest.Pytester) -> 
     enabled set *is* the wedge five today, and the generated items *are* the enabled set.
     """
     assert enabled_properties() == EXPECTED_SLUGS
-    assert enabled_properties() == WEDGE_SLUGS
+    assert enabled_properties() == shipped_slugs()
     assert set(enabled_properties()) <= set(PROPERTY_SLUGS)
     items = pytester.getitems(_agent_source())
     assert len(items) == len(enabled_properties())
@@ -322,7 +324,7 @@ def test_a_fatal_finding_fails_exactly_the_item_that_owns_it(
 
     pytester.makepyfile(test_target=_fixture_source(relative, name="reflection_loop"))
     result = pytester.runpytest()
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(EXPECTED_SLUGS) - 1, failed=1)
     assert result.ret == pytest.ExitCode.TESTS_FAILED
     result.stdout.fnmatch_lines(
         [
@@ -380,7 +382,7 @@ def test_a_fatal_p01_leaves_the_topology_items_marked_best_effort(
 
     pytester.makepyfile(test_target=_fixture_source(relative, name="escalation"))
     result = pytester.runpytest("-rA")
-    result.assert_outcomes(passed=4, failed=1)
+    result.assert_outcomes(passed=len(EXPECTED_SLUGS) - 1, failed=1)
     result.stdout.fnmatch_lines(["*FAILED*test_gebra[[]escalation-graph-well-formed[]]*"])
     # The qualifier rides the three *passing* items — a qualified pass is still qualified —
     # so it is read out of their report sections rather than out of the failure text.
@@ -743,12 +745,13 @@ def test_the_release_path_is_wired(gebra_graph):
 def test_the_gebra_verification_fixture_carries_all_thirteen_outcomes(
     pytester: pytest.Pytester,
 ) -> None:
-    """Where the eight deferred properties are visible — as markers, never as passes.
+    """Where the deferred properties are visible — as markers, never as passes.
 
     The marker surface generates no item for them, and this is the reason that is a
     distinction rather than a silence: the run report the plugin holds answers for all
-    thirteen, and the eight carry the structured ``NotImplementedMarker`` the registry
-    exists to return.
+    thirteen, and every property with no validator in this release carries the structured
+    ``NotImplementedMarker`` the registry exists to return — which ones is the registry's
+    answer, read inside the child, never a list stated here.
     """
     pytester.makeconftest(
         _PREAMBLE
@@ -762,13 +765,13 @@ def gebra_workflow():
     )
     pytester.makepyfile(
         test_report="""
-from gebra.verify import NON_WEDGE_SLUGS, PROPERTY_SLUGS, NotImplementedMarker
+from gebra.verify import PROPERTY_SLUGS, NotImplementedMarker, deferred_slugs
 
 def test_the_run_answers_for_every_catalog_property(gebra_verification):
     report = gebra_verification.report
     assert tuple(o.property for o in report.properties) == PROPERTY_SLUGS
     deferred = {o.property for o in report.properties if isinstance(o, NotImplementedMarker)}
-    assert deferred == set(NON_WEDGE_SLUGS)
+    assert deferred == set(deferred_slugs())
     assert report.gate.exit_code == 0
 """
     )

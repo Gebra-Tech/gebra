@@ -33,9 +33,9 @@ under-reported component is two workflow contents under one file.
 
 **No verdicts.** A removed key that some node still declares in ``input`` is the shape brief
 D-11 names as a canonical case, and this engine will report the removal — never that the
-removal is breaking. P-12 ``evolution-safety`` is out of Phase-0 scope (SOW §8), its deferral
-ratified by PD-006 R4, and whether any node reads a removed key is P-04's question over one
-IR, not this diff's over two.
+removal is breaking. P-12 ``evolution-safety`` has no validator in this release (its registry
+row is ``deferred-to-phase-1``; the Phase-0 deferral was ratified by PD-006 R4), and whether
+any node reads a removed key is P-04's question over one IR, not this diff's over two.
 
 Nothing here imports langgraph, opens a socket, or executes anything (WA-07): the input is an
 IR model, and there is no user object in reach to invoke.

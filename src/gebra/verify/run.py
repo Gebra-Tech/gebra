@@ -3,8 +3,8 @@
 PROPERTY-CATALOG-SPEC §0.3 specifies one property's report and hands everything above it —
 "all thirteen ``PropertyReport``s + IR identity + exit-code derivation + serialization
 profile" — to ``REPORT-FORMAT-SPEC``. This module is that document as built: §1.2's models,
-§2's exit-code derivation, and :func:`verify`, which runs the wedge five over one IR and
-returns the :class:`RunReport` the CLI, the pytest plugin and the audit export all read.
+§2's exit-code derivation, and :func:`verify`, which runs every registered validator over one
+IR and returns the :class:`RunReport` the CLI, the pytest plugin and the audit export all read.
 
 **The record is per-property; the gate is per-run.** A validator answers one question and
 never sees a flag: §2.4 of the catalog takes no strict parameter, and §0.2 has promotion
@@ -25,7 +25,7 @@ escaping a validator is a tool error rather than a failing property (§2.4).
 P-06 results "only over P-01-clean topology"; where P-01 fails, their reports on that IR are
 "best-effort diagnostics, not contract-bearing verdicts". Two things follow, and this module
 does both rather than only the first. P-01 runs first, and its FATAL findings alone already
-fix the run's gate — exit ``1`` with no snapshot recorded, whatever the other four say. And
+fix the run's gate — exit ``1`` with no snapshot recorded, whatever the others say. And
 the run report *says so*: :attr:`RunReport.best_effort` names the three properties whose
 outcomes a consumer must read as diagnostics on that run, so the distinction survives into
 the artifact instead of living only in the spec.
@@ -79,10 +79,10 @@ from gebra.verify.locations import (
 from gebra.verify.properties.termination_witness import strict_promotions
 from gebra.verify.registry import (
     PROPERTY_SLUGS,
-    WEDGE_SLUGS,
     NotImplementedMarker,
     PropertyRegistryError,
     is_implemented,
+    property_entry,
     run_property,
 )
 from gebra.verify.report import PropertyReport
@@ -760,16 +760,18 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
     and §0.3's P-01-clean precondition reported in ``best_effort``.
 
     Order is P-01-gated: P-01 runs first, and where it finds a FATAL the run's gate is already
-    fixed — exit ``1``, no snapshot — whatever the other four say. Their reports are still
+    fixed — exit ``1``, no snapshot — whatever the others say. Their reports are still
     produced and still carried, because §1.4 wants an outcome per slug and a diagnostic on
     ill-formed topology is worth reading; ``best_effort`` is what stops one being read as a
     contract-bearing verdict.
 
     Four things become a tool error rather than a verdict (§2.4), because exit ``2`` means
     "no verdict was reached" and each of them means exactly that: an IR with no computable
-    digest (``ir-validation``); an unregistered member of the wedge five, since a run that
-    silently checked four of the five would be a weakened gate wearing a pass (``dispatch``,
-    §1.4 rule 2); an exception escaping a validator, or a validator answering for the wrong
+    digest (``ir-validation``); a shipped property — a row in either shipped scope,
+    ``phase-0-wedge`` or ``catalog`` — with no registered validator, since a run that silently
+    checked four of the five would be a weakened gate wearing a pass (``dispatch``; §1.4
+    rule 2, read over both shipped scopes by DEC-35 §3.1); an exception
+    escaping a validator, or a validator answering for the wrong
     property — a crash is not a finding (``dispatch``); and a gate that could not be derived
     from the outcomes, which is what a property's own promotion refusal surfaces as
     (``dispatch``). Between them they make this function **total**: it returns a report or it
@@ -801,7 +803,15 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
             subject=None,
             strict=strict,
         )
-    unregistered = tuple(slug for slug in WEDGE_SLUGS if not is_implemented(slug))
+    # Read off the table when called, so a row that moves to `catalog` is required here the
+    # moment it moves — a landing that forgot to import its validator is exit 2, not a green
+    # run one property short. A newly registered property then gates like any other: nothing
+    # below reads a release or a landing date (DEC-35 §3.2). No arity is exempt: a shipped
+    # two-snapshot row counts as registered only through its own registration shape, which
+    # P-12's landing adds, so until then such a row is this same tool error.
+    unregistered = tuple(
+        slug for slug in PROPERTY_SLUGS if property_entry(slug).shipped and not is_implemented(slug)
+    )
     if unregistered:
         return _tool_error_report(
             "dispatch",

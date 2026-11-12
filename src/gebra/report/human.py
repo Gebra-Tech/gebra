@@ -38,7 +38,7 @@ from gebra.report.evidence import note_lines, witness_lines, witness_summary
 from gebra.report.findings import Finding, findings_of, notes_of
 from gebra.report.rules import RULE_COPY
 from gebra.verify.base import ClaimClass, PropertySlug, Severity
-from gebra.verify.registry import NotImplementedMarker, property_entry
+from gebra.verify.registry import MARKER_REASONS, NotImplementedMarker, property_entry
 from gebra.verify.report import PropertyReport
 from gebra.verify.run import GateOutcome, Promotion, RunReport, Subject
 
@@ -297,17 +297,19 @@ def _report_lines(report: PropertyReport, *, best_effort: bool) -> list[Text]:
 
 
 def _marker_lines(marker: NotImplementedMarker) -> list[Text]:
-    """§4.2's two ``NotImplementedMarker`` rows — *not checked*, and explicitly not a pass."""
+    """§4.2's two ``NotImplementedMarker`` rows — *not checked*, and explicitly not a pass.
+
+    The reason each status states is the registry's, keyed by the status itself
+    (:data:`~gebra.verify.registry.MARKER_REASONS` — for ``deferred-to-phase-1`` the
+    charter's own words, DEC-35 §3.1), and the detail beneath it carries the registry's copy
+    with its "No verdict was reached — this is not a pass." verbatim.
+    """
     header = Text()
     header.append(f"{marker.property_id} {marker.property}", style=_HEADING_STYLE)
     header.append(" — ")
     header.append("not checked", style=_SEVERITY_STYLE["not checked"])
     header.append(f"  [{marker.status}]", style=_LABEL_STYLE)
-    reason = (
-        "no verdict was reached — this is not a pass, and it is outside the Phase-0 wedge"
-        if marker.status == "deferred-to-phase-1"
-        else "no verdict was reached — this is not a pass; no validator is registered in this build"
-    )
+    reason = f"no verdict was reached — this is not a pass: it {MARKER_REASONS[marker.status]}"
     return [header, _kv("status", reason, indent=_RECORD_INDENT), _kv("detail", marker.detail)]
 
 

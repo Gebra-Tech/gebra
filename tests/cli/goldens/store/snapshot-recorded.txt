@@ -4,4 +4,6 @@ recorded 1.1.1.1
   previous                1.0.0.0
   moved                   S F E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          no safe/breaking classification exists in Phase 0
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.

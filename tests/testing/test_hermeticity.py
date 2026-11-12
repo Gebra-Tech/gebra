@@ -507,7 +507,10 @@ def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     assert guarded["structural_targets"] == ["graph-well-formed", "termination-witness"]
     assert guarded["structural_as_predicted"] is True
     assert guarded["green_clauses"] == ["R3.1", "R3.2", "R3.3", "R3.4"]
-    assert guarded["green_findings"] == 11
+    # R3.1's seven lines (lint, compose count, four causes, "MET as re-signed"), R3.2's two,
+    # R3.3's two (its count with the SOW §8 line, then "MET as re-signed" — PD-072 §1, printed
+    # only when the clause has no violation), R3.4's one.
+    assert guarded["green_findings"] == 12
     assert guarded["green_attributed"] == [
         "held-back-condition-id",
         "non-wedge-component",

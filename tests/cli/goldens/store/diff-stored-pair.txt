@@ -3,6 +3,9 @@ workflow diff
   after                   1.2.2.1  sha256:296bc4bf3ba66166...
   bump class              S F E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 topology

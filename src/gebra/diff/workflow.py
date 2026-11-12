@@ -48,13 +48,15 @@ anchors carry the stamps, and every surface above this engine reports it as what
 than as a change (the recorder's ``no-version-movement``, ``gebra diff``'s stamp line, the
 freshness check's ``restamped`` state — PD-059 D7b as ratified).
 
-**What this diff never says is whether a change is safe.** P-12 ``evolution-safety`` is out of
-Phase-0 scope (SOW §8), a deferral ratified in PD-006 R4 with the owner's signature, and
-PD-006's checklist §S2 requires the diff to carry "the deferred-P-12 marker and no
+**What this diff never says is whether a change is safe.** P-12 ``evolution-safety`` has no
+validator in this release (its registry row is ``deferred-to-phase-1``; the Phase-0
+deferral was ratified in PD-006 R4 with the owner's signature), and PD-006's checklist §S2
+requires the diff to carry "the deferred-P-12 marker and no
 safe/breaking wording". :attr:`WorkflowDiff.evolution_safety` is that marker, and it is
 deliberately **not a new shape**: it is the same structured
 :class:`~gebra.verify.registry.NotImplementedMarker` the property registry answers with for
-every out-of-scope property (``status="deferred-to-phase-1"``), so a per-version audit export
+every property with no validator in this release (``status="deferred-to-phase-1"``), so a
+per-version audit export
 carrying P-01…P-13 markers and a diff carry one vocabulary, not two. The field sits exactly
 where a classification would go — occupied by the statement that there is none.
 

@@ -43,7 +43,7 @@ this card had to take, because the frozen text does not decide them:
   names rather than covers. The snapshot recorder reports it as no version movement.)
 * **Bumps are derived from canonical field slices, not "via P-12 diff classes"** — the route
   IR-SPEC §4.1's parenthetical and the field ledger §7 gloss for ``version``. P-12
-  ``evolution-safety`` is out of Phase-0 scope (SOW §8), so its classes do not exist to
+  ``evolution-safety`` has no validator in this release, so its classes do not exist to
   derive from; what is decidable without it is which *domain* moved, which is what S, F and
   E are defined over in the first place.
 

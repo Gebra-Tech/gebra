@@ -45,7 +45,7 @@ annotations below are the ones your type checker enforces.
 |---|---|---|---|
 | [`gebra`](#gebra) | 10 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
 | [`gebra.ir`](#gebrair) | 68 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
-| [`gebra.verify`](#gebraverify) | 162 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
+| [`gebra.verify`](#gebraverify) | 170 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
 | [`gebra.extraction`](#gebraextraction) | 72 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
 | [`gebra.annotations`](#gebraannotations) | 55 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
 
@@ -79,11 +79,11 @@ print(f"\n{total} names across {len(SURFACES)} frozen surfaces, every one import
 ```text
 gebra                 10/10 resolved
 gebra.ir              68/68 resolved
-gebra.verify         162/162 resolved
+gebra.verify         170/170 resolved
 gebra.extraction      72/72 resolved
 gebra.annotations     55/55 resolved
 
-367 names across 5 frozen surfaces, every one importable
+375 names across 5 frozen surfaces, every one importable
 ```
 
 ## `gebra`
@@ -1288,9 +1288,9 @@ Property validators P-01..P-13 and the §0.3 result envelope every report is wri
 
 The result envelope, the condition-ID and property registry, the five wedge validators and the run-level aggregation. A finding is a model here, not a string: the same model the golden harness asserts on.
 
-Frozen by card VAL-12, recorded in `docs/governance/VALIDATOR-API-FREEZE.md` §1 — 162 names.
+Frozen by card VAL-12, recorded in `docs/governance/VALIDATOR-API-FREEZE.md` §1 — 170 names.
 
-[`BOUND_DIRECTIONS`](#gebraverifybound_directions) · [`CMP_OPS`](#gebraverifycmp_ops) · [`CONDITION_IDS`](#gebraverifycondition_ids) · [`CONDITION_REGISTRY`](#gebraverifycondition_registry) · [`EMITTABLE_CONDITION_IDS`](#gebraverifyemittable_condition_ids) · [`END`](#gebraverifyend) · [`END_VERTEX`](#gebraverifyend_vertex) · [`IN_PROCESS_SOURCE`](#gebraverifyin_process_source) · [`NON_WEDGE_SLUGS`](#gebraverifynon_wedge_slugs) · [`PROMOTION_ORIGINS`](#gebraverifypromotion_origins) · [`PROPERTY_REGISTRY`](#gebraverifyproperty_registry) · [`PROPERTY_SLUGS`](#gebraverifyproperty_slugs) · [`PROPOSED_CONDITION_IDS`](#gebraverifyproposed_condition_ids) · [`RATIFIED_CONDITION_IDS`](#gebraverifyratified_condition_ids) · [`REPORT_FORMAT`](#gebraverifyreport_format) · [`RESERVED_CONDITION_IDS`](#gebraverifyreserved_condition_ids) · [`RESERVED_WORDS`](#gebraverifyreserved_words) · [`SENTINEL_VERTICES`](#gebraverifysentinel_vertices) · [`START`](#gebraverifystart) · [`START_VERTEX`](#gebraverifystart_vertex) · [`STRICT_ALL`](#gebraverifystrict_all) · [`STRICT_OFF`](#gebraverifystrict_off) · [`TOPOLOGY_SLUGS`](#gebraverifytopology_slugs) · [`UNREGISTERED_CORPUS_STRINGS`](#gebraverifyunregistered_corpus_strings) · [`WEDGE_SLUGS`](#gebraverifywedge_slugs) · [`Advisory`](#gebraverifyadvisory) · [`AdvisoryCarriageError`](#gebraverifyadvisorycarriageerror) · [`AnyFailure`](#gebraverifyanyfailure) · [`AnyLocation`](#gebraverifyanylocation) · [`BoundDirection`](#gebraverifybounddirection) · [`BoundedComparison`](#gebraverifyboundedcomparison) · [`ClaimClass`](#gebraverifyclaimclass) · [`CoFailure`](#gebraverifycofailure) · [`Components`](#gebraverifycomponents) · [`ConditionEntry`](#gebraverifyconditionentry) · [`ConditionId`](#gebraverifyconditionid) · [`ConditionOwnershipError`](#gebraverifyconditionownershiperror) · [`ConditionRegistryError`](#gebraverifyconditionregistryerror) · [`ConditionTier`](#gebraverifyconditiontier) · [`CounterGuardSource`](#gebraverifycounterguardsource) · [`CounterQualification`](#gebraverifycounterqualification) · [`CycleCensus`](#gebraverifycyclecensus) · [`CycleLocation`](#gebraverifycyclelocation) · [`DataflowCoverage`](#gebraverifydataflowcoverage) · [`DataflowLocation`](#gebraverifydataflowlocation) · [`DataflowWitness`](#gebraverifydataflowwitness) · [`DeterminismClaim`](#gebraverifydeterminismclaim) · [`DeterminismNodeLocation`](#gebraverifydeterminismnodelocation) · [`DeterminismWitness`](#gebraverifydeterminismwitness) · [`DischargeScope`](#gebraverifydischargescope) · [`DisplayNodeRef`](#gebraverifydisplaynoderef) · [`EdgeKind`](#gebraverifyedgekind) · [`EdgeLocation`](#gebraverifyedgelocation) · [`EdgeOrigin`](#gebraverifyedgeorigin) · [`EffectSafetyWitness`](#gebraverifyeffectsafetywitness) · [`ExpandedEdge`](#gebraverifyexpandededge) · [`Failure`](#gebraverifyfailure) · [`GateOutcome`](#gebraverifygateoutcome) · [`GraphModel`](#gebraverifygraphmodel) · [`GuardClassification`](#gebraverifyguardclassification) · [`GuardEdgeLabels`](#gebraverifyguardedgelabels) · [`GuardEdgeRef`](#gebraverifyguardedgeref) · [`GuardGate`](#gebraverifyguardgate) · [`Location`](#gebraverifylocation) · [`NodeId`](#gebraverifynodeid) · [`NodeLocation`](#gebraverifynodelocation) · [`NonEmittableConditionError`](#gebraverifynonemittableconditionerror) · [`NotImplementedMarker`](#gebraverifynotimplementedmarker) · [`NotImplementedStatus`](#gebraverifynotimplementedstatus) · [`P01EdgeLocation`](#gebraverifyp01edgelocation) · [`P02CycleLocation`](#gebraverifyp02cyclelocation) · [`P02SccLocation`](#gebraverifyp02scclocation) · [`P04Failure`](#gebraverifyp04failure) · [`P06EffectRecord`](#gebraverifyp06effectrecord) · [`P06NodeLocation`](#gebraverifyp06nodelocation) · [`PathLocation`](#gebraverifypathlocation) · [`Promotion`](#gebraverifypromotion) · [`PromotionOrigin`](#gebraverifypromotionorigin) · [`PropertyArity`](#gebraverifypropertyarity) · [`PropertyEntry`](#gebraverifypropertyentry) · [`PropertyId`](#gebraverifypropertyid) · [`PropertyOutcome`](#gebraverifypropertyoutcome) · [`PropertyRegistryError`](#gebraverifypropertyregistryerror) · [`PropertyReport`](#gebraverifypropertyreport) · [`PropertyScope`](#gebraverifypropertyscope) · [`PropertySlug`](#gebraverifypropertyslug) · [`QualificationOutcome`](#gebraverifyqualificationoutcome) · [`RecognizedGuard`](#gebraverifyrecognizedguard) · [`RecursionLimitDecl`](#gebraverifyrecursionlimitdecl) · [`RecursionLimitSource`](#gebraverifyrecursionlimitsource) · [`ReferenceRole`](#gebraverifyreferencerole) · [`Region`](#gebraverifyregion) · [`ReportModel`](#gebraverifyreportmodel) · [`RunPolicy`](#gebraverifyrunpolicy) · [`RunReport`](#gebraverifyrunreport) · [`RunReportModel`](#gebraverifyrunreportmodel) · [`SccLocation`](#gebraverifyscclocation) · [`SetCompared`](#gebraverifysetcompared) · [`Severity`](#gebraverifyseverity) · [`SeverityCounts`](#gebraverifyseveritycounts) · [`StateKeyLocation`](#gebraverifystatekeylocation) · [`StrictPolicy`](#gebraverifystrictpolicy) · [`StrictPromotion`](#gebraverifystrictpromotion) · [`Subject`](#gebraverifysubject) · [`SubjectRef`](#gebraverifysubjectref) · [`TerminationWitness`](#gebraverifyterminationwitness) · [`Tool`](#gebraverifytool) · [`ToolError`](#gebraverifytoolerror) · [`UnregisteredConditionError`](#gebraverifyunregisteredconditionerror) · [`UnresolvedReference`](#gebraverifyunresolvedreference) · [`Validator`](#gebraverifyvalidator) · [`VariantDecl`](#gebraverifyvariantdecl) · [`VariantSource`](#gebraverifyvariantsource) · [`WellFormednessWitness`](#gebraverifywellformednesswitness) · [`Witness`](#gebraverifywitness) · [`WitnessElement`](#gebraverifywitnesselement) · [`WitnessInventoryEntry`](#gebraverifywitnessinventoryentry) · [`WitnessNote`](#gebraverifywitnessnote) · [`WitnessNoteKind`](#gebraverifywitnessnotekind) · [`WitnessSource`](#gebraverifywitnesssource) · [`anchor_location`](#gebraverifyanchor_location) · [`build_graph_model`](#gebraverifybuild_graph_model) · [`canonical_rotation`](#gebraverifycanonical_rotation) · [`check_dataflow_completeness`](#gebraverifycheck_dataflow_completeness) · [`check_determinism_replay`](#gebraverifycheck_determinism_replay) · [`check_effect_safety`](#gebraverifycheck_effect_safety) · [`check_graph_well_formed`](#gebraverifycheck_graph_well_formed) · [`check_termination_witness`](#gebraverifycheck_termination_witness) · [`classify_guard`](#gebraverifyclassify_guard) · [`condition`](#gebraverifycondition) · [`conditions_for`](#gebraverifyconditions_for) · [`emit_advisory`](#gebraverifyemit_advisory) · [`emit_co_failure`](#gebraverifyemit_co_failure) · [`emit_failure`](#gebraverifyemit_failure) · [`emittable_condition`](#gebraverifyemittable_condition) · [`from_display`](#gebraverifyfrom_display) · [`is_emittable`](#gebraverifyis_emittable) · [`is_implemented`](#gebraverifyis_implemented) · [`is_integer_compatible`](#gebraverifyis_integer_compatible) · [`is_registered`](#gebraverifyis_registered) · [`json_text`](#gebraverifyjson_text) · [`ledger_sort_key`](#gebraverifyledger_sort_key) · [`models_equivalent`](#gebraverifymodels_equivalent) · [`not_implemented`](#gebraverifynot_implemented) · [`property_entry`](#gebraverifyproperty_entry) · [`property_for_condition`](#gebraverifyproperty_for_condition) · [`qualify_counter_guard`](#gebraverifyqualify_counter_guard) · [`recognize_bounded_comparison`](#gebraverifyrecognize_bounded_comparison) · [`register_validator`](#gebraverifyregister_validator) · [`run_property`](#gebraverifyrun_property) · [`set_compared_fields`](#gebraverifyset_compared_fields) · [`strict_promotions`](#gebraverifystrict_promotions) · [`to_data`](#gebraverifyto_data) · [`to_display`](#gebraverifyto_display) · [`to_json`](#gebraverifyto_json) · [`unregister_validator`](#gebraverifyunregister_validator) · [`validate_failure`](#gebraverifyvalidate_failure) · [`validate_location`](#gebraverifyvalidate_location) · [`validate_report`](#gebraverifyvalidate_report) · [`validate_witness`](#gebraverifyvalidate_witness) · [`validator_for`](#gebraverifyvalidator_for) · [`verify`](#gebraverifyverify)
+[`BOUND_DIRECTIONS`](#gebraverifybound_directions) · [`CMP_OPS`](#gebraverifycmp_ops) · [`CONDITION_IDS`](#gebraverifycondition_ids) · [`CONDITION_REGISTRY`](#gebraverifycondition_registry) · [`DEFERRED_READING`](#gebraverifydeferred_reading) · [`EMITTABLE_CONDITION_IDS`](#gebraverifyemittable_condition_ids) · [`END`](#gebraverifyend) · [`END_VERTEX`](#gebraverifyend_vertex) · [`IN_PROCESS_SOURCE`](#gebraverifyin_process_source) · [`MARKER_REASONS`](#gebraverifymarker_reasons) · [`NON_WEDGE_SLUGS`](#gebraverifynon_wedge_slugs) · [`NO_VERDICT`](#gebraverifyno_verdict) · [`PROMOTION_ORIGINS`](#gebraverifypromotion_origins) · [`PROPERTY_REGISTRY`](#gebraverifyproperty_registry) · [`PROPERTY_SLUGS`](#gebraverifyproperty_slugs) · [`PROPOSED_CONDITION_IDS`](#gebraverifyproposed_condition_ids) · [`RATIFIED_CONDITION_IDS`](#gebraverifyratified_condition_ids) · [`REPORT_FORMAT`](#gebraverifyreport_format) · [`RESERVED_CONDITION_IDS`](#gebraverifyreserved_condition_ids) · [`RESERVED_WORDS`](#gebraverifyreserved_words) · [`SENTINEL_VERTICES`](#gebraverifysentinel_vertices) · [`SHIPPED_SCOPES`](#gebraverifyshipped_scopes) · [`START`](#gebraverifystart) · [`START_VERTEX`](#gebraverifystart_vertex) · [`STRICT_ALL`](#gebraverifystrict_all) · [`STRICT_OFF`](#gebraverifystrict_off) · [`TOPOLOGY_SLUGS`](#gebraverifytopology_slugs) · [`UNREGISTERED_CORPUS_STRINGS`](#gebraverifyunregistered_corpus_strings) · [`WEDGE_SLUGS`](#gebraverifywedge_slugs) · [`Advisory`](#gebraverifyadvisory) · [`AdvisoryCarriageError`](#gebraverifyadvisorycarriageerror) · [`AnyFailure`](#gebraverifyanyfailure) · [`AnyLocation`](#gebraverifyanylocation) · [`BoundDirection`](#gebraverifybounddirection) · [`BoundedComparison`](#gebraverifyboundedcomparison) · [`ClaimClass`](#gebraverifyclaimclass) · [`CoFailure`](#gebraverifycofailure) · [`Components`](#gebraverifycomponents) · [`ConditionEntry`](#gebraverifyconditionentry) · [`ConditionId`](#gebraverifyconditionid) · [`ConditionOwnershipError`](#gebraverifyconditionownershiperror) · [`ConditionRegistryError`](#gebraverifyconditionregistryerror) · [`ConditionTier`](#gebraverifyconditiontier) · [`CounterGuardSource`](#gebraverifycounterguardsource) · [`CounterQualification`](#gebraverifycounterqualification) · [`CycleCensus`](#gebraverifycyclecensus) · [`CycleLocation`](#gebraverifycyclelocation) · [`DataflowCoverage`](#gebraverifydataflowcoverage) · [`DataflowLocation`](#gebraverifydataflowlocation) · [`DataflowWitness`](#gebraverifydataflowwitness) · [`DeterminismClaim`](#gebraverifydeterminismclaim) · [`DeterminismNodeLocation`](#gebraverifydeterminismnodelocation) · [`DeterminismWitness`](#gebraverifydeterminismwitness) · [`DischargeScope`](#gebraverifydischargescope) · [`DisplayNodeRef`](#gebraverifydisplaynoderef) · [`EdgeKind`](#gebraverifyedgekind) · [`EdgeLocation`](#gebraverifyedgelocation) · [`EdgeOrigin`](#gebraverifyedgeorigin) · [`EffectSafetyWitness`](#gebraverifyeffectsafetywitness) · [`ExpandedEdge`](#gebraverifyexpandededge) · [`Failure`](#gebraverifyfailure) · [`GateOutcome`](#gebraverifygateoutcome) · [`GraphModel`](#gebraverifygraphmodel) · [`GuardClassification`](#gebraverifyguardclassification) · [`GuardEdgeLabels`](#gebraverifyguardedgelabels) · [`GuardEdgeRef`](#gebraverifyguardedgeref) · [`GuardGate`](#gebraverifyguardgate) · [`Location`](#gebraverifylocation) · [`NodeId`](#gebraverifynodeid) · [`NodeLocation`](#gebraverifynodelocation) · [`NonEmittableConditionError`](#gebraverifynonemittableconditionerror) · [`NotImplementedMarker`](#gebraverifynotimplementedmarker) · [`NotImplementedStatus`](#gebraverifynotimplementedstatus) · [`P01EdgeLocation`](#gebraverifyp01edgelocation) · [`P02CycleLocation`](#gebraverifyp02cyclelocation) · [`P02SccLocation`](#gebraverifyp02scclocation) · [`P04Failure`](#gebraverifyp04failure) · [`P06EffectRecord`](#gebraverifyp06effectrecord) · [`P06NodeLocation`](#gebraverifyp06nodelocation) · [`PathLocation`](#gebraverifypathlocation) · [`Promotion`](#gebraverifypromotion) · [`PromotionOrigin`](#gebraverifypromotionorigin) · [`PropertyArity`](#gebraverifypropertyarity) · [`PropertyEntry`](#gebraverifypropertyentry) · [`PropertyId`](#gebraverifypropertyid) · [`PropertyOutcome`](#gebraverifypropertyoutcome) · [`PropertyRegistryError`](#gebraverifypropertyregistryerror) · [`PropertyReport`](#gebraverifypropertyreport) · [`PropertyScope`](#gebraverifypropertyscope) · [`PropertySlug`](#gebraverifypropertyslug) · [`QualificationOutcome`](#gebraverifyqualificationoutcome) · [`RecognizedGuard`](#gebraverifyrecognizedguard) · [`RecursionLimitDecl`](#gebraverifyrecursionlimitdecl) · [`RecursionLimitSource`](#gebraverifyrecursionlimitsource) · [`ReferenceRole`](#gebraverifyreferencerole) · [`Region`](#gebraverifyregion) · [`RegistryCounts`](#gebraverifyregistrycounts) · [`ReportModel`](#gebraverifyreportmodel) · [`RunPolicy`](#gebraverifyrunpolicy) · [`RunReport`](#gebraverifyrunreport) · [`RunReportModel`](#gebraverifyrunreportmodel) · [`SccLocation`](#gebraverifyscclocation) · [`SetCompared`](#gebraverifysetcompared) · [`Severity`](#gebraverifyseverity) · [`SeverityCounts`](#gebraverifyseveritycounts) · [`StateKeyLocation`](#gebraverifystatekeylocation) · [`StrictPolicy`](#gebraverifystrictpolicy) · [`StrictPromotion`](#gebraverifystrictpromotion) · [`Subject`](#gebraverifysubject) · [`SubjectRef`](#gebraverifysubjectref) · [`TerminationWitness`](#gebraverifyterminationwitness) · [`Tool`](#gebraverifytool) · [`ToolError`](#gebraverifytoolerror) · [`UnregisteredConditionError`](#gebraverifyunregisteredconditionerror) · [`UnresolvedReference`](#gebraverifyunresolvedreference) · [`Validator`](#gebraverifyvalidator) · [`VariantDecl`](#gebraverifyvariantdecl) · [`VariantSource`](#gebraverifyvariantsource) · [`WellFormednessWitness`](#gebraverifywellformednesswitness) · [`Witness`](#gebraverifywitness) · [`WitnessElement`](#gebraverifywitnesselement) · [`WitnessInventoryEntry`](#gebraverifywitnessinventoryentry) · [`WitnessNote`](#gebraverifywitnessnote) · [`WitnessNoteKind`](#gebraverifywitnessnotekind) · [`WitnessSource`](#gebraverifywitnesssource) · [`anchor_location`](#gebraverifyanchor_location) · [`build_graph_model`](#gebraverifybuild_graph_model) · [`canonical_rotation`](#gebraverifycanonical_rotation) · [`check_dataflow_completeness`](#gebraverifycheck_dataflow_completeness) · [`check_determinism_replay`](#gebraverifycheck_determinism_replay) · [`check_effect_safety`](#gebraverifycheck_effect_safety) · [`check_graph_well_formed`](#gebraverifycheck_graph_well_formed) · [`check_termination_witness`](#gebraverifycheck_termination_witness) · [`classify_guard`](#gebraverifyclassify_guard) · [`condition`](#gebraverifycondition) · [`conditions_for`](#gebraverifyconditions_for) · [`deferred_slugs`](#gebraverifydeferred_slugs) · [`emit_advisory`](#gebraverifyemit_advisory) · [`emit_co_failure`](#gebraverifyemit_co_failure) · [`emit_failure`](#gebraverifyemit_failure) · [`emittable_condition`](#gebraverifyemittable_condition) · [`from_display`](#gebraverifyfrom_display) · [`is_emittable`](#gebraverifyis_emittable) · [`is_implemented`](#gebraverifyis_implemented) · [`is_integer_compatible`](#gebraverifyis_integer_compatible) · [`is_registered`](#gebraverifyis_registered) · [`json_text`](#gebraverifyjson_text) · [`ledger_sort_key`](#gebraverifyledger_sort_key) · [`models_equivalent`](#gebraverifymodels_equivalent) · [`not_implemented`](#gebraverifynot_implemented) · [`property_entry`](#gebraverifyproperty_entry) · [`property_for_condition`](#gebraverifyproperty_for_condition) · [`qualify_counter_guard`](#gebraverifyqualify_counter_guard) · [`recognize_bounded_comparison`](#gebraverifyrecognize_bounded_comparison) · [`register_validator`](#gebraverifyregister_validator) · [`registry_counts`](#gebraverifyregistry_counts) · [`run_property`](#gebraverifyrun_property) · [`set_compared_fields`](#gebraverifyset_compared_fields) · [`shipped_slugs`](#gebraverifyshipped_slugs) · [`strict_promotions`](#gebraverifystrict_promotions) · [`to_data`](#gebraverifyto_data) · [`to_display`](#gebraverifyto_display) · [`to_json`](#gebraverifyto_json) · [`unregister_validator`](#gebraverifyunregister_validator) · [`validate_failure`](#gebraverifyvalidate_failure) · [`validate_location`](#gebraverifyvalidate_location) · [`validate_report`](#gebraverifyvalidate_report) · [`validate_witness`](#gebraverifyvalidate_witness) · [`validator_for`](#gebraverifyvalidator_for) · [`verify`](#gebraverifyverify)
 
 ### Defined in `gebra.verify.base`
 
@@ -2643,6 +2643,26 @@ What `--gebra-strict` promotes on a P-02 report — §6.1's third row, as a look
 
 Source: [`src/gebra/verify/registry.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/verify/registry.py)
 
+#### `gebra.verify.DEFERRED_READING`
+
+```python
+DEFERRED_READING: Final = ...
+```
+
+*constant*, defined in `gebra.verify.registry`.
+
+What a `deferred-to-phase-1` marker says about its property, on every surface that renders one — PROPERTY-CATALOG-SPEC §0.6 item 1's words, verbatim (DEC-35 §3.1). A surface lays the words out as it needs; it does not reword them.
+
+#### `gebra.verify.MARKER_REASONS`
+
+```python
+MARKER_REASONS: Final[Mapping[NotImplementedStatus, str]] = ...
+```
+
+*constant*, defined in `gebra.verify.registry`.
+
+Why a marker of each wire status answered where a report would have — the reason every surface that renders a marker states beside its status (DEC-35 §3.1), written to follow the property's name. One entry per `NotImplementedStatus`, held in lockstep with it by the registry's tests: a status a later landing admits (`not-enabled`, `two-snapshot-only`) cannot reach a surface without its entry here, and no surface falls back to another status's words. The words for those two are already fixed — PROPERTY-CATALOG-SPEC §0.6 items 6 and 7; the charter owns both statuses' copy and a section's landing admits the token, never the words (DEC-35 §3.7, §4).
+
 #### `gebra.verify.NON_WEDGE_SLUGS`
 
 ```python
@@ -2653,14 +2673,22 @@ NON_WEDGE_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(
 
 *constant*, defined in `gebra.verify.registry`.
 
-The eight properties out of Phase-0 scope (SOW §8) — markers, never silent passes.
+The eight properties outside the wedge five (SOW §8 put them out of Phase-0 scope). A fact about Phase-0's scope, fixed with the table: a non-wedge property that lands stays in this tuple and is live all the same. Which properties have no validator in this release is `deferred_slugs()`' question, not this one's.
+
+#### `gebra.verify.NO_VERDICT`
+
+```python
+NO_VERDICT: Final = "No verdict was reached — this is not a pass."
+```
+
+*constant*, defined in `gebra.verify.registry`.
+
+The sentence every marker surface keeps verbatim (DEC-35 §3.1; §0.6 item 1).
 
 #### `gebra.verify.PROPERTY_REGISTRY`
 
 ```python
-PROPERTY_REGISTRY: Final[Mapping[PropertySlug, PropertyEntry]] = MappingProxyType(
-    {entry.slug: entry for entry in _ENTRIES}
-)
+PROPERTY_REGISTRY: Final[Mapping[PropertySlug, PropertyEntry]] = MappingProxyType(_TABLE)
 ```
 
 *constant*, defined in `gebra.verify.registry`.
@@ -2676,6 +2704,16 @@ PROPERTY_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(PROPERTY_REGISTRY)
 *constant*, defined in `gebra.verify.registry`.
 
 The thirteen slugs, in catalog order.
+
+#### `gebra.verify.SHIPPED_SCOPES`
+
+```python
+SHIPPED_SCOPES: Final[tuple[PropertyScope, ...]] = ("phase-0-wedge", "catalog")
+```
+
+*constant*, defined in `gebra.verify.registry`.
+
+The two scopes whose properties have a validator in this release. Registration accepts either; a run that finds either with no registered validator is a `dispatch` tool error.
 
 #### `gebra.verify.WEDGE_SLUGS`
 
@@ -2718,7 +2756,7 @@ NotImplementedStatus: TypeAlias = Literal["deferred-to-phase-1", "not-yet-implem
 
 *type alias*, defined in `gebra.verify.registry`.
 
-Why no verdict was produced. `deferred-to-phase-1` is D-09's own vocabulary for its stub discipline; `not-yet-implemented` is the wedge property whose card has not landed.
+Why no verdict was produced. `deferred-to-phase-1` is D-09's own vocabulary for its stub discipline, read since DEC-35 as "scheduled for Phase 1, not landed in this release"; `not-yet-implemented` is a shipped property whose validator is not wired into this build.
 
 #### `gebra.verify.PropertyArity`
 
@@ -2756,7 +2794,7 @@ One row of the property registry.
 - `severities` — Every §0.2 grade this property's findings can carry, on the same terms.
 - `derivation` — What the property is derived *from*, as the catalog states it — the derivation reference D-09 Deliverable 2 asks this table to carry.
 - `spec_ref` — Where its contract lives.
-- `scope` — Phase-0 wedge, or out of scope for Phase-0 (SOW §8).
+- `scope` — Where the property stands in the catalog (`PropertyScope`).
 - `arity` — How many IR snapshots the validator reads.
 
 #### `gebra.verify.PropertyRegistryError`
@@ -2772,12 +2810,39 @@ A property slug was used in a way the registry does not license.
 #### `gebra.verify.PropertyScope`
 
 ```python
-PropertyScope: TypeAlias = Literal["phase-0-wedge", "deferred-to-phase-1"]
+PropertyScope: TypeAlias = Literal["phase-0-wedge", "catalog", "deferred-to-phase-1"]
 ```
 
 *type alias*, defined in `gebra.verify.registry`.
 
-Whether a property is in the Phase-0 wedge or out of scope for it (SOW §1/§8).
+Where a property stands in the catalog (DEC-35 §3.1; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property whose ratified section's validator ships, or a property whose section is not yet ratified.
+
+#### `gebra.verify.RegistryCounts`
+
+```python
+class RegistryCounts:
+    total: int
+    wedge: int
+    catalog: int
+    deferred: int
+    registered: int
+    reported: int
+```
+
+*class*, defined in `gebra.verify.registry`.
+
+Every property count the registry derives — the one source a count is read from.
+
+DEC-35 §3.5 (c): counts derive from the registry, so a property's landing moves no literal. Each field is a count of table rows or registrations, taken when `registry_counts()` is called; nothing here is stated, so nothing here can go stale.
+
+**Attributes**
+
+- `total` — Rows in the table — the catalog's size.
+- `wedge` — Rows in scope `phase-0-wedge`.
+- `catalog` — Rows in scope `catalog`.
+- `deferred` — Rows in scope `deferred-to-phase-1` — each answered with a marker.
+- `registered` — Rows with a validator registered in this build.
+- `reported` — How many properties a run over one IR that reaches a verdict answers with a report: the shipped rows whose validator reads one snapshot (`PropertyEntry.reports_on_one_snapshot`).
 
 #### `gebra.verify.Validator`
 
@@ -2787,9 +2852,19 @@ class Validator(Protocol)
 
 *protocol*, defined in `gebra.verify.registry`.
 
-What a registered wedge validator is: serialized IR in, one report out.
+What a registered validator is: serialized IR in, one report out.
 
-Hermetic by construction (D-09, D-018): the argument is a validated `WorkflowIR`, never a langgraph object, and a validator neither executes a node nor calls a model. P-12's two-snapshot classifier does not fit this shape and is not registrable here — it is `deferred-to-phase-1` in the table above.
+Hermetic by construction (D-09, D-018): the argument is a validated `WorkflowIR`, never a langgraph object, and a validator neither executes a node nor calls a model. P-12's two-snapshot classifier does not fit this shape, and `register_validator()` refuses a two-snapshot row through it whatever the row's scope: the two-snapshot registration shape is P-12's own landing's to add (DEC-35 §3.6).
+
+#### `gebra.verify.deferred_slugs`
+
+```python
+deferred_slugs() -> tuple[PropertySlug, ...]
+```
+
+*function*, defined in `gebra.verify.registry`.
+
+The properties with no validator in this release, in catalog order.
 
 #### `gebra.verify.is_implemented`
 
@@ -2837,7 +2912,17 @@ Wire `implementation` in as the validator for `property_slug`.
 
 **Raises**
 
-- `PropertyRegistryError` — if the slug is unknown, is out of Phase-0 scope, or already has an implementation. Re-wiring is `unregister_validator()` first — silently replacing a validator is how two of them end up shipping.
+- `PropertyRegistryError` — if the slug is unknown, its row is `deferred-to-phase-1`, its row reads two snapshots, or it already has an implementation. Re-wiring is `unregister_validator()` first — silently replacing a validator is how two of them end up shipping.
+
+#### `gebra.verify.registry_counts`
+
+```python
+registry_counts() -> RegistryCounts
+```
+
+*function*, defined in `gebra.verify.registry`.
+
+The registry's counts as they stand now — the table's rows and this build's registrations.
 
 #### `gebra.verify.run_property`
 
@@ -2855,6 +2940,16 @@ Run the validator registered for `property_slug` over `ir`.
 **Raises**
 
 - `PropertyRegistryError` — if the slug is unknown, or if a registered validator returns a report for a different property.
+
+#### `gebra.verify.shipped_slugs`
+
+```python
+shipped_slugs() -> tuple[PropertySlug, ...]
+```
+
+*function*, defined in `gebra.verify.registry`.
+
+The properties whose validator ships in this release, in catalog order.
 
 #### `gebra.verify.unregister_validator`
 

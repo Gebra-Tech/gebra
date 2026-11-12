@@ -51,6 +51,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The property registry carries the Phase-1 catalog charter's scope vocabulary, and a
+  not-implemented marker says why in the charter's words** (card VAL-16; DEC-35). A registry
+  row now carries one of three scopes: `phase-0-wedge` (the five validators that ship today),
+  `catalog` (a property whose catalog section is ratified and whose validator ships — no
+  property carries it yet) and `deferred-to-phase-1`. `gebra.verify.register_validator`
+  accepts a validator for a row in either of the first two and refuses one for a
+  `deferred-to-phase-1` row — and, whatever the scope, for a property that reads two snapshots
+  through the one-snapshot path. `gebra.verify.verify()` treats a row in either shipped scope
+  with no registered validator as a `dispatch` tool error (exit 2), exactly as it treated a
+  missing wedge validator. The marker for a property with no validator now reads "P-03
+  signature-soundness has no validator in this release; its catalog section is not yet
+  ratified. …" where it said the property was "outside the Phase-0 wedge (SOW §8)"; the
+  sentence "No verdict was reached — this is not a pass." is kept verbatim. The same reason
+  and sentence now appear on the human report's status line, in the pytest plugin's
+  `--gebra-select` refusal (which says no validator *in this release* answers the slug), in the
+  golden harness's deferral reason, and on the P-12 marker lines of `gebra diff` and `gebra
+  snapshot` — the snapshot line used to say "no safe/breaking classification exists in Phase 0".
+  The status token `deferred-to-phase-1` is unchanged on the wire, `report_format` stays `1.3`,
+  and no verdict, exit code, witness, condition ID or snapshot moves: only the marker's
+  display-only `detail` prose differs in JSON output. Every reader that asks whether a property
+  is live — the harness's deferral, the plugin's refusal, `tools/corpus_green.py`'s four
+  clauses — now asks the registry row's scope rather than whether the property is one of the
+  wedge five, so a property that lands is read as live everywhere at once. New:
+  `gebra.verify.registry_counts()` and `RegistryCounts` (every property count, read off the
+  table and the registrations when called), `deferred_slugs()`, `shipped_slugs()`,
+  `SHIPPED_SCOPES`, the copy constants `DEFERRED_READING` and `NO_VERDICT`, and
+  `MARKER_REASONS` (the reason each marker status states, one entry per status); the count
+  pins in the test suite read them instead of literals.
+
 - **Development re-opened at `0.1.2.dev0`** (card REL-12). `0.1.1` is published and its tag is
   used, so `main` could not keep declaring it: while it did, every build made from a checkout
   named a release it was not, and a second `v0.1.1` tag on a later commit would have passed the

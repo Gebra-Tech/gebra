@@ -27,9 +27,9 @@ order-free, never string or raw-dict equality::
     run.counts                  # matched / pending-validator / deferred-to-phase-1 / …
     run.deviations              # every disagreement, each a fidelity-matrix entry
 
-A property outside the Phase-0 wedge is a named, counted, structured skip citing SOW §8 —
-never a silent pass — exactly as :func:`gebra.verify.not_implemented` answers at the API
-level.
+A property whose registry row is ``deferred-to-phase-1`` — it has no validator in this
+release — is a named, counted, structured skip, never a silent pass, exactly as
+:func:`gebra.verify.not_implemented` answers at the API level.
 
 Where the corpus stops, **generation** starts: :mod:`gebra.testing.strategies` produces
 well-formed ``ir_version`` 1.0 workflows for hypothesis, so a property can be quantified over

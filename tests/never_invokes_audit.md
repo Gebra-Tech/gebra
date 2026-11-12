@@ -1222,6 +1222,36 @@ type in a refusal message, and a container's type in the `routing-declaration-un
 warning and in the set refusal; the helper predates this card and every boundary refusal uses
 it, and the label dispatch itself names no type.
 
+### VAL-16 — the catalog charter's registry mechanics, and two children that land a property
+
+No extraction path is added, and nothing under `src/gebra/extraction/`, `annotations/` or
+`snapshot/` changes. Two non-extraction WA-07 paths move. **The harness.**
+`gebra.testing.harness` now keys its deferral on the registry row's scope
+(`Obligation.deferred`, a read of `gebra.verify.property_entry`) rather than on membership of the
+wedge five, so a property whose row is `catalog` has its obligations compared by whatever
+validator the registry holds for it. None ships today; one that lands registers when
+`gebra.verify` is imported, so it falls inside `tests/testing/test_hermeticity.py`'s guarded
+`run_corpus` run and its static scans with no edit here. **The tests' synthetic
+registrations.** `tests/_registry.py` moves one registry row to `catalog` for a test and registers
+a throwaway validator — `passing_validator` or `failing_validator`, each a local function that
+reads `ir.nodes[0].id` and returns a fixed report — and restores both on exit; every caller
+(`tests/verify/test_registry.py`, `tests/verify/test_run.py`, `tests/testing/test_golden_harness.py`,
+`tests/testing/test_corpus_green.py`) hands it a validated `WorkflowIR` and nothing else.
+
+Two `runpytest_subprocess` legs join `tests/plugin/test_gating.py`:
+`test_a_property_that_lands_gets_an_item_and_gates_from_its_landing_release` and
+`test_a_property_that_lands_can_be_selected`. Each child runs `_SYNTHETIC_P07_CONFTEST`, which
+imports only `sys`, `pytest`, `gebra.verify` and `tests._registry`, moves P-07's row to `catalog`
+and registers `failing_validator`'s local function, and then runs a plugin session whose target
+is a literal `WorkflowIR` — `resolve_ir`'s fixture-only branch, which returns before `extract`
+and reaches no substrate. Each child is a different process the parent's autouse ledger cannot
+speak for, and needs no cover: it constructs no workflow object of any kind. Five executed
+documentation pages (`docs/guides/snapshot-diff-and-evolution.md`, `docs/reference/cli.md`,
+`docs/tutorials/travel-booking-end-to-end.md`, and the counts on `docs/reference/architecture.md`)
+had their output blocks recaptured from real runs under `tools/docs_examples.py`'s guard; no code
+block changed, and `docs/reference/api.md` is regenerated from docstrings by a generator that
+imports nothing it documents.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

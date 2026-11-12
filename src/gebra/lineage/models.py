@@ -58,8 +58,9 @@ component-wise step exists between those two labels — which is a different sta
 rename, which it assigns to "the V.S.F.E diff layer (``gebra diff``, P-12)". That layer
 shipped, and its ratified position is that no such tracking exists — a renamed node is a new
 node, one removal plus one addition, with no similarity matching anywhere
-(:mod:`gebra.diff`); the P-12 half of §5.3's sentence is separately out of Phase-0 scope
-(SOW §8). "Lineage" here is the card's own word for the version history of a store, and it is
+(:mod:`gebra.diff`); the P-12 half of §5.3's sentence is separately P-12's, which has no
+validator in this release. "Lineage" here is the card's own word for the version history of a
+store, and it is
 not that question under another name.
 
 Nothing in this module imports langgraph, opens a socket, or executes anything (WA-07).

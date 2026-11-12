@@ -145,6 +145,44 @@ move the surface in §1 need no R-05 routing, exactly as before.
   the shared graph model (`GraphModel.contained_nodes` / `top_level_nodes`), an additive
   derived property outside §1's frozen surface. The wire-format consequence is REPORT-FORMAT-SPEC
   §1.6's `1.3` row.
+- **VAL-16 (2026-11-11) — DEC-35's catalog charter: the registry mechanics.** The R-05-routed
+  decision is DEC-35 itself (ratified 2026-10-28 by the product owner acting as R-05 authority,
+  vendored in the development-process repository's `docs/decisions/`; PROPERTY-CATALOG-SPEC
+  re-vendored at vault `7664a17` in the same commit, its §0.6 the normative text), whose §4
+  names the run-level amendments this entry records, so no PD-057-style latitude record is
+  owed. On the frozen surface: `PropertyScope` gains the token `catalog` (§3.1 — a property
+  whose section is ratified and whose validator ships); `register_validator` accepts a row in
+  either shipped scope (`phase-0-wedge`, `catalog`) and refuses a `deferred-to-phase-1` row, and
+  a two-snapshot row through the one-snapshot `Validator` path whatever its scope (§3.6 — that
+  registration shape is P-12's landing's); `verify()`'s dispatch rule reads over both shipped
+  scopes — a shipped row with no registered validator is a `dispatch` tool error, never a
+  thinner gate (§3.1; REPORT-FORMAT-SPEC §1.4 rule 2); and the `deferred-to-phase-1` marker's
+  `detail` carries the charter's words, `DEFERRED_READING` and `NO_VERDICT` (§3.1; display-only
+  prose, §4.6 rule 7), with the SOW §8 citation moved into the registry's docstring and this
+  record: SOW §8 is the reason the `deferred-to-phase-1` token exists. Since this landing the
+  acceptance checklist's C2 clause (3), "citing SOW §8", is read against that citation here,
+  in the registry's docstring, in FIDELITY-MATRIX's status table and in the R3.3 line the
+  corpus-green gate prints (PD-072 §1, in the development-process repository's
+  `docs/plan/decisions/`; ratified, and the clause re-signed with its wording unchanged, by the
+  product owner on 2026-11-11). `MARKER_REASONS` keys the reason each wire status states on
+  every marker surface —
+  the human report, `gebra diff`, `gebra snapshot`, the plugin's refusal, the harness — held in
+  lockstep with `NotImplementedStatus` by test, so a status a later landing admits cannot
+  reach a surface without its entry — words PROPERTY-CATALOG-SPEC §0.6 items 6 and 7 already
+  fix (§3.7). Additive names, each derived from the table and never stated (§3.5 (c)):
+  `SHIPPED_SCOPES`, `deferred_slugs`, `shipped_slugs`, `RegistryCounts` and `registry_counts`,
+  plus the read-only `PropertyEntry.deferred`, `.shipped` and `.reports_on_one_snapshot`.
+  Unchanged, and asserted rather than assumed: `NotImplementedStatus` keeps exactly the two
+  Phase-0 tokens — the charter's `not-enabled` and `two-snapshot-only` join it "by their own
+  sections' landings" (§4) on G13's and G14's `report_format` rows (§3.3); no condition ID is
+  added, renamed or reclassified; no witness shape, location subtype or validator signature
+  changes; `RunReport` and `RunPolicy` are untouched (the `extraction_notes` member is CLI-12's);
+  `report_format` stays `1.3`; and no property moved off `DeferredToPhase1` — no real row
+  carries `catalog`, the mechanism being exercised on synthetic registrations only (§4). A
+  property that registers gates from its landing release through the unchanged §2 derivation
+  (§3.2): nothing was built for it, and nothing reads the installed version. The wire-format
+  consequence is none of its own: the dispatch reading is a value rule made precise and the
+  `detail` change is prose, both on REPORT-FORMAT-SPEC §1.6's "none" rows.
 
 ## 5. D-12 promotion eligibility
 

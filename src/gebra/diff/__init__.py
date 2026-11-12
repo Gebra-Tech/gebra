@@ -26,8 +26,9 @@ exists here. Both sides are named by their recomputed §6 content digest, and ea
 from a snapshot carries its V.S.F.E label on the anchor; a snapshot whose stored digest
 disagrees with its own IR is refused rather than diffed under a wrong anchor.
 
-**What a diff never says** is whether a change is safe. P-12 ``evolution-safety`` is out of
-Phase-0 scope (SOW §8), a deferral ratified by PD-006 R4, and every diff carries
+**What a diff never says** is whether a change is safe. P-12 ``evolution-safety`` has no
+validator in this release (its registry row is ``deferred-to-phase-1``; the Phase-0
+deferral was ratified by PD-006 R4), and every diff carries
 :data:`~gebra.diff.workflow.EVOLUTION_SAFETY_DEFERRED` — the property registry's own
 structured not-implemented marker — in the slot where a classification would go. The engine
 reports structure and which counters move; nothing here grades a change.

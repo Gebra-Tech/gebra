@@ -447,6 +447,9 @@ workflow diff
   after                   1.2.1.2  sha256:fafd89ddc8199092...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 state schema
@@ -457,6 +460,9 @@ workflow diff
   after                   1.2.1.3  sha256:e01c03b8157eda8f...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 state schema
@@ -467,6 +473,9 @@ workflow diff
   after                   1.2.2.3  sha256:003959bfed0dfe7e...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 contracts
@@ -480,6 +489,9 @@ workflow diff
   after                   1.2.3.3  sha256:7e6584a57ef85ae6...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
+                          it has no validator in this release; its catalog 
+section is not yet ratified
+                          No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
 contracts

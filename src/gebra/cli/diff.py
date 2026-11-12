@@ -84,6 +84,7 @@ from gebra.diff import (
 from gebra.diff.state import KeyDeclaration
 from gebra.lineage import compare
 from gebra.report import TerminalOptions
+from gebra.verify import MARKER_REASONS, NO_VERDICT
 from gebra.versioning import Component
 
 if TYPE_CHECKING:
@@ -337,8 +338,12 @@ def _diff_lines(diff: WorkflowDiff) -> list[Text]:
     lines.append(kv("after", _anchor_phrase(diff.after.version, diff.after.graph_version)))
     lines.append(kv("bump class", _bump_phrase(diff.bump_class)))
     marker = diff.evolution_safety
-    # The §4.2 marker fact set: property id + slug, the not-checked wording, the status.
+    # The §4.2 marker fact set: property id + slug, the not-checked wording, the status — and,
+    # as a marker renders in a run report, why it answered and that it is not a pass, in the
+    # registry's words (DEC-35 §3.1 names this line among the marker surfaces).
     lines.append(kv(f"{marker.property_id} {marker.property}", f"not checked [{marker.status}]"))
+    lines.append(kv("", f"it {MARKER_REASONS[marker.status]}"))
+    lines.append(kv("", NO_VERDICT))
     lines.append(kv("", "the bump class names moved counters, never safety"))
     if diff.identical:
         lines.append(blank())

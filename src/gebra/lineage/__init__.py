@@ -33,8 +33,9 @@ so the two can disagree, and where they do neither is quietly preferred.
 
 **Nothing here grades a change.** A step reports which counters moved; a comparison returns a
 diff carrying the property registry's own deferred-P-12 marker where a safe/breaking
-classification would sit. P-12 ``evolution-safety`` is out of Phase-0 scope (SOW §8; PD-006
-R4), so no part of this package says whether an evolution is safe.
+classification would sit. P-12 ``evolution-safety`` has no validator in this release (its
+registry row is ``deferred-to-phase-1``; PD-006 R4), so no part of this package says whether
+an evolution is safe.
 
 **And nothing here is a command.** Whether the verb is ``gebra trace`` or ``gebra history``,
 and what its output looks like, is D-12's open question OQ-12-04 — routed to card CLI-D4,

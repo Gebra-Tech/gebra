@@ -10,8 +10,11 @@ here::
 (:func:`~gebra.extraction.dispatch.classify` returns that decision on its own, for callers
 that only want to know which rules apply), refuses at the boundary with
 :class:`~gebra.extraction.errors.ExtractionError`, and returns an
-:class:`~gebra.extraction.envelope.ExtractionEnvelope` — the core IR, its provenance, and
-the structured warnings of :mod:`gebra.extraction.warnings`.
+:class:`~gebra.extraction.envelope.ExtractionEnvelope` — the core IR, its provenance, the
+structured warnings of :mod:`gebra.extraction.warnings`, and the disclosures of
+:mod:`gebra.extraction.disclosures`, a closed vocabulary beside the warnings that names, for
+one thing, each node carried as one node because a read found it mounting or reaching a
+compiled subgraph.
 
 **It imports and inspects; it never invokes** (INTROSPECTION §1, decisions D-018/D-023). No
 extraction path calls a node function, a router, a tool or ``Runnable.invoke``; none contacts
@@ -30,7 +33,10 @@ per-node declarations come from §3 on the ``.builder`` backreference, and the c
 adds the ``runtime`` block (interrupt gates and checkpointer presence), the provenance facts ir
 1.0 has no slot for (discovered subgraphs, folded ``set_node_defaults``, the error-handler map)
 and the §4.2 cross-check, whose disagreements are warned and never resolved. A Pregel object
-with no backreference takes the §4.3 rule-4 downgrade, warned once.
+with no backreference takes the §4.3 rule-4 downgrade, warned once. On every path but the LCEL
+one, each node a subgraph read finds — a node bound to a compiled graph, or one ``get_subgraphs()``
+reports — is disclosed as carried as that one node, never warned (DEC-36); the set is a lower
+bound, never a census.
 
 The whole ANNOTATION-API-SPEC surface is wired into that path.
 :mod:`gebra.extraction.contracts` walks §6's wrapper chain to the node's declared contract,
@@ -94,6 +100,13 @@ from gebra.extraction.digests import (
     digests_for,
     prompt_form,
 )
+from gebra.extraction.disclosures import (
+    DISCLOSURE_RULES,
+    DisclosureRule,
+    ExtractionDisclosure,
+    ExtractionDisclosureCode,
+    disclosure_rule,
+)
 from gebra.extraction.dispatch import (
     Dispatch,
     Extractor,
@@ -151,6 +164,7 @@ from gebra.extraction.warnings import (
 __all__ = [
     "ADMITTED_BINDING_CLASSES",
     "ANNOTATION_SLOTS",
+    "DISCLOSURE_RULES",
     "FINDING_CODES",
     "FRAGMENT_CLASSES",
     "HEURISTIC_GRADE_CODES",
@@ -167,8 +181,11 @@ __all__ = [
     "CompiledSurfaces",
     "CrossCheck",
     "Declarations",
+    "DisclosureRule",
     "Dispatch",
     "ExtractedFrom",
+    "ExtractionDisclosure",
+    "ExtractionDisclosureCode",
     "ExtractionEnvelope",
     "ExtractionError",
     "ExtractionErrorReason",
@@ -196,6 +213,7 @@ __all__ = [
     "config_form",
     "contract_warnings",
     "digests_for",
+    "disclosure_rule",
     "extract",
     "extract_builder",
     "extract_compiled",

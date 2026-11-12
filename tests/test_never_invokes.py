@@ -45,11 +45,19 @@ _SHARED_PATHS: dict[str, str] = {
     "inference": "tests/extraction/test_contracts.py",
 }
 
-#: Modules that read no live workflow object — IR/envelope/warning data and the sidecar seam —
-#: so there is no body for them to invoke. The ``gebra.toml`` loader itself is guarded by
-#: ``tests/annotations/test_sidecar.py``; this ``sidecar.py`` only builds records from it.
+#: Guarded children that cover a read on paths whose rows name another file first — module →
+#: the extra tripwire. Each must exist and be named in the audit table, so deleting one fails
+#: here: the subgraph disclosure's reads run on the builder and compiled paths (EX-20).
+_EXTRA_GUARDED_CHILDREN: dict[str, tuple[str, ...]] = {
+    "tests/extraction/test_disclosures.py": ("builder", "compiled"),
+}
+
+#: Modules that read no live workflow object — IR/envelope/warning/disclosure data and the
+#: sidecar seam — so there is no body for them to invoke. The ``gebra.toml`` loader itself is
+#: guarded by ``tests/annotations/test_sidecar.py``; this ``sidecar.py`` only builds records from
+#: it. ``disclosures.py`` builds its records from node ids the builder and compiled paths hand it.
 _DATA_ONLY_MODULES: frozenset[str] = frozenset(
-    {"base", "envelope", "errors", "warnings", "sidecar"}
+    {"base", "envelope", "errors", "warnings", "disclosures", "sidecar"}
 )
 
 
@@ -120,3 +128,10 @@ def test_the_audit_table_lists_every_extraction_path() -> None:
         assert f"`{module}.py`" in audit, f"audit table omits src/gebra/extraction/{module}.py"
     for test_file in {**_GUARDED_PATHS, **_SHARED_PATHS}.values():
         assert Path(test_file).name in audit, f"audit table omits {test_file}"
+
+    # The extra guarded children: present on disk, named in the table, and attached to modules
+    # that are themselves guarded paths.
+    for test_file, covered in _EXTRA_GUARDED_CHILDREN.items():
+        assert (_REPO_ROOT / test_file).is_file(), f"missing extra tripwire {test_file}"
+        assert f"`{test_file}`" in audit, f"audit table omits {test_file}"
+        assert set(covered) <= set(_GUARDED_PATHS), covered

@@ -241,7 +241,7 @@ def walk(bound: object) -> Declarations:
 
     Args:
         bound: The node's bound object — ``StateNodeSpec.runnable``, which INTROSPECTION §3
-            reads "for exactly three purposes", of which this is purpose (ii), contract
+            reads "for exactly four purposes", of which this is purpose (ii), contract
             attachment.
 
     Returns:

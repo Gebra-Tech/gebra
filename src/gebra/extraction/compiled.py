@@ -63,19 +63,29 @@ The two call sites are then graded differently, because their costs are:
   usable one. What remains — a gated drawing of a stock ``Pregel`` — still reaches that
   ``Pregel``'s own channels, and *that* residue is pinned by a named test rather than narrated.
 
-**A discovered subgraph is its parent node, and that document is complete** (ratified —
-DEC-19, 2026-08-03). §4.1: "ir 1.0 carries a discovered subgraph as its parent node only:
-child nodes, child edges, and the child's own ``entry``/``finish``/Σ are NOT emitted; the
-discovered-parent set is recorded in the provenance envelope, which is the conforming
-disclosure — such a document is complete, carries **no warning** for the unexpansion, and
-reaches the §8 strict-mode bar." So the parent set rides
-:attr:`~gebra.extraction.envelope.CompiledSurfaces.subgraphs` and nothing is warned: a
-subgraph-bearing workflow is as clean as any other, which is what makes strict mode usable on
-one. §4.1 also forbids improvising the 1.x form ("extraction MUST NOT improvise any of it in
-1.0") — child expansion is the named first 1.x feature and its design register is DEC-19's.
-Subgraphs compiled with ``checkpointer=False`` are invisible to discovery (§4.1's documented
-blind spot), so the recorded tuple is a lower bound rather than a census, and no warning is
-possible for what cannot be seen.
+**A subgraph is carried as its parent node, and every parent read as one node is disclosed**
+(ratified — DEC-19, 2026-08-03; its Ruling 1 amended by DEC-36, 2026-10-28). In ``ir_version``
+1.0/1.1 output a compiled subgraph is its parent node only: child nodes, child edges and the
+child's own ``entry``/``finish``/Σ are not emitted, and no boundary edge is derived or invented —
+one would land inside ``graph_version``. What the amendment adds is that the reader is told:
+each parent one of two reads finds gets a ``subgraph-read-as-one-node`` disclosure on the
+envelope's ``disclosures`` member (:mod:`gebra.extraction.disclosures`), stating that its
+interior was not read. A disclosure is not a §8 warning, so a subgraph-bearing extraction carries
+exactly the warnings it carried before, still reaches the §8 strict-mode bar, moves no exit code
+and is promoted by no strict flag — and so a strict run does not fail because a mounted
+subgraph's interior was not checked, which is the fact the disclosure exists to state. The
+disclosed set is the union of the two reads (DEC-36 §3.6): the builder's direct-mount read — a
+node whose bound object is a ``langgraph.pregel.Pregel`` instance, read in
+:mod:`gebra.extraction.builder` on both paths that have a builder — and ``get_subgraphs()``'s
+discovered parents, which the substrate computed at compile time through sequences, lambda
+``deps`` and closure nonlocals and which stay recorded in
+:attr:`~gebra.extraction.envelope.CompiledSurfaces.subgraphs` as before. **The set is a lower
+bound, never a census**: ``get_subgraphs()`` skips a subgraph compiled with
+``checkpointer=False``, which the direct-mount read still sees when it is a node's own bound
+object, while one compiled with ``checkpointer=False`` and reached only from inside a node body
+is invisible to both — and on the compiled-only path, with no builder to read, every
+``checkpointer=False`` child is. Nothing can disclose what no read can see; for that remainder
+the specification text is the warning, and each disclosure repeats it.
 
 **The §3 non-mirrored node-spec members are not read at all.** §3 marks ``metadata``,
 ``cache_policy``, ``defer``, ``timeout`` and the error-handler members "read but **not
@@ -101,6 +111,15 @@ from gebra.annotations.sidecar import SidecarReading
 from gebra.extraction.base import ObjectFamily, type_identity
 from gebra.extraction.builder import END_LABEL, extract_builder
 from gebra.extraction.contracts import resolve_node
+from gebra.extraction.disclosures import (
+    DIRECT_MOUNT_READ,
+    GET_SUBGRAPHS_READ,
+    GETTER_UNREADABLE,
+    in_disclosure_order,
+    node_id_order,
+    split_subgraph_disclosures,
+    subgraph_disclosures,
+)
 from gebra.extraction.envelope import (
     CompiledSurfaces,
     CrossCheck,
@@ -178,7 +197,10 @@ def extract_compiled(
 
     Returns:
         The envelope: the core IR (now carrying the ``runtime`` block §4.1 makes Full-knowable
-        at this level), its provenance including the §4 compiled-only facts, and the warnings.
+        at this level), its provenance including the §4 compiled-only facts, the warnings, and
+        one ``subgraph-read-as-one-node`` disclosure per node read as one node — over the union
+        of the builder's direct-mount read and ``get_subgraphs()`` when a builder is reachable,
+        over the getter's parents alone when it is not (DEC-36 §3.6).
 
     Raises:
         ExtractionError: at the object boundary only — a §3 refusal reached through the
@@ -210,7 +232,27 @@ def _extract_builder_primary(
     runtime, warnings = _read_runtime(dispatch.workflow, node_ids)
     ir = _with_runtime(inner.ir, runtime)
     check, divergences = _cross_check(dispatch.workflow, ir)
-    subgraphs = _discover_subgraphs(dispatch.workflow)
+    discovered = _discover_subgraphs(dispatch.workflow)
+    subgraphs = () if discovered is None else discovered
+    # DEC-36 §3.6's union: the builder reading's direct mounts and the getter's parents, one
+    # record per node naming the read(s) that saw it; any record of another code passes through.
+    # A getter that could not be read is not recorded as a read that ran.
+    direct, others = split_subgraph_disclosures(inner.disclosures)
+    disclosures = in_disclosure_order(
+        (
+            *others,
+            *subgraph_disclosures(
+                direct=direct,
+                discovered=subgraphs,
+                reads_performed=(
+                    (DIRECT_MOUNT_READ,)
+                    if discovered is None
+                    else (DIRECT_MOUNT_READ, GET_SUBGRAPHS_READ)
+                ),
+                unseen=GETTER_UNREADABLE if discovered is None else None,
+            ),
+        )
+    )
     return ExtractionEnvelope(
         ir=ir,
         extracted_from=ExtractedFrom(
@@ -226,6 +268,7 @@ def _extract_builder_primary(
             ),
         ),
         warnings=(*inner.warnings, *warnings, *divergences),
+        disclosures=disclosures,
     )
 
 
@@ -391,22 +434,30 @@ def _gate_ids(
     return tuple(sorted(gates))
 
 
-def _discover_subgraphs(compiled: object) -> tuple[str, ...]:
+def _discover_subgraphs(compiled: object) -> tuple[str, ...] | None:
     """``get_subgraphs()`` → the node ids that carry a discovered subgraph (§4.1).
 
-    The parents, not the children: the children's *ids* are specified (``parent/child``) and
-    their *wiring* is not, so recording who has one is everything this build can say honestly.
+    The parents, not the children: ir 1.0/1.1 carries each subgraph as its parent node only
+    (DEC-19 Ruling 1), so recording who has one is everything this build can say honestly. The
+    result is provenance (:attr:`~gebra.extraction.envelope.CompiledSurfaces.subgraphs`) and one
+    half of the set the ``subgraph-read-as-one-node`` disclosures are emitted over; the other
+    half is the builder's direct-mount read (DEC-36 §3.6). It is a **lower bound, never a
+    census**: the substrate computed it at compile time and skipped every subgraph compiled with
+    ``checkpointer=False``, and a ``checkpointer=False`` subgraph reached only from inside a node
+    body is seen by no read at all. In node-id order — the ledger §6 comparator.
+
     Total by construction — a substrate that does not expose the getter, or one whose getter
-    yields a shape this cannot read, records no subgraph rather than failing an extraction
-    over a provenance field.
+    raises, records no subgraph rather than failing an extraction over a provenance field — but
+    says which: ``None`` when no read ran, so a disclosure never names a read that did not
+    happen; an entry the getter yields in a shape this cannot read is skipped.
     """
     getter = getattr(compiled, "get_subgraphs", None)
     if not callable(getter):
-        return ()
+        return None
     try:
         discovered = list(getter())
     except Exception:  # noqa: BLE001 - provenance never fails an extraction
-        return ()
+        return None
     parents: set[str] = set()
     for item in discovered:
         if not isinstance(item, tuple) or len(item) != 2:
@@ -417,7 +468,7 @@ def _discover_subgraphs(compiled: object) -> tuple[str, ...]:
         node_id = _safe_node_id(name)
         if node_id is not None:
             parents.add(node_id)
-    return tuple(sorted(parents))
+    return tuple(sorted(parents, key=node_id_order))
 
 
 def _folded_defaults(builder: object) -> tuple[FoldedDefault, ...]:
@@ -1000,6 +1051,8 @@ def _extract_compiled_only(
         edges=edges,
         runtime=runtime,
     )
+    discovered = _discover_subgraphs(workflow)
+    subgraphs = () if discovered is None else discovered
     return ExtractionEnvelope(
         ir=ir,
         extracted_from=ExtractedFrom(
@@ -1007,7 +1060,7 @@ def _extract_compiled_only(
             family=ObjectFamily.COMPILED,
             sidecar=None if annotations.path is None else str(annotations.path),
             compiled=CompiledSurfaces(
-                subgraphs=_discover_subgraphs(workflow),
+                subgraphs=subgraphs,
                 error_handlers=_error_handlers(workflow),
             ),
         ),
@@ -1018,6 +1071,12 @@ def _extract_compiled_only(
             *runtime_warnings,
             *contract_warnings,
             *unknown_node_warnings(annotations, node_ids),
+        ),
+        # §4.3 rule 4 has no builder, so no direct-mount read: the getter's parents are the
+        # whole disclosed set here, and every `checkpointer=False` child is invisible (DEC-36).
+        disclosures=subgraph_disclosures(
+            discovered=subgraphs,
+            reads_performed=() if discovered is None else (GET_SUBGRAPHS_READ,),
         ),
     )
 

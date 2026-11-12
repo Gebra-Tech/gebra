@@ -46,7 +46,7 @@ annotations below are the ones your type checker enforces.
 | [`gebra`](#gebra) | 10 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
 | [`gebra.ir`](#gebrair) | 68 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
 | [`gebra.verify`](#gebraverify) | 170 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
-| [`gebra.extraction`](#gebraextraction) | 72 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
+| [`gebra.extraction`](#gebraextraction) | 77 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
 | [`gebra.annotations`](#gebraannotations) | 55 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
 
 Every name below is one this list resolves, and CI runs that check as an example on this page:
@@ -80,10 +80,10 @@ print(f"\n{total} names across {len(SURFACES)} frozen surfaces, every one import
 gebra                 10/10 resolved
 gebra.ir              68/68 resolved
 gebra.verify         170/170 resolved
-gebra.extraction      72/72 resolved
+gebra.extraction      77/77 resolved
 gebra.annotations     55/55 resolved
 
-375 names across 5 frozen surfaces, every one importable
+380 names across 5 frozen surfaces, every one importable
 ```
 
 ## `gebra`
@@ -252,7 +252,7 @@ Extract `workflow` into the Gebra IR 1.0 and its provenance envelope.
 - `workflow` — A `StateGraph` builder, a `CompiledStateGraph` (or other Pregel-protocol object), or any other LCEL `Runnable`.
 - `sidecar` — An explicit `gebra.toml` path, which ANNOTATION §2's discovery rule 1 ranks above the directory walk; `None` runs the rule-2 walk from the current working directory to the repository root. Either way the file is resolved, read and validated **here**, once, and the reading is handed to the family's path — which is what makes "exactly one sidecar file per extraction, never merged across directories" true of every family at once. A sidecar that cannot be read or does not validate never raises: §2 puts the whole surface at warning grade, so the findings ride the returned envelope and extraction stays total.
 
-**Returns** — The `ExtractionEnvelope`: the core IR, its provenance, and the structured warnings. Reading a `graph_version` off it is `ExtractionEnvelope.graph_version()`; the warnings never reach that digest (IR-SPEC §6.4). If the installed substrate is outside gebra's supported version range, the warnings carry an `unsupported-construct` record naming it (VERSION-COMPAT §4) — see `gebra.extraction.compat`.
+**Returns** — The `ExtractionEnvelope`: the core IR, its provenance, the structured warnings and the disclosures — one `subgraph-read-as-one-node` record per node that the §3 direct-mount read or §4.1's `get_subgraphs()` finds mounting or reaching a compiled subgraph the document carries as that one node, a set that is a lower bound and never a census (INTROSPECTION-SPEC §8; DEC-36). Reading a `graph_version` off it is `ExtractionEnvelope.graph_version()`; neither the warnings nor the disclosures reach that digest (IR-SPEC §6.4). If the installed substrate is outside gebra's supported version range, the warnings carry an `unsupported-construct` record naming it (VERSION-COMPAT §4) — see `gebra.extraction.compat`.
 
 **Raises**
 
@@ -3880,9 +3880,9 @@ The extraction surface — `gebra.extract()`, its typed error, and its envelope.
 
 What `gebra.extract()` is made of: the dispatch registry, the provenance envelope, the warnings taxonomy, the annotation-resolution bridge and the first-extract version check.
 
-Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 — 72 names.
+Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 — 77 names.
 
-[`ADMITTED_BINDING_CLASSES`](#gebraextractionadmitted_binding_classes) · [`ANNOTATION_SLOTS`](#gebraextractionannotation_slots) · [`FINDING_CODES`](#gebraextractionfinding_codes) · [`FRAGMENT_CLASSES`](#gebraextractionfragment_classes) · [`HEURISTIC_GRADE_CODES`](#gebraextractionheuristic_grade_codes) · [`STOCK_BINDING_NAMES`](#gebraextractionstock_binding_names) · [`STOCK_BINDING_SUBCLASSES`](#gebraextractionstock_binding_subclasses) · [`UNREPRESENTABLE`](#gebraextractionunrepresentable) · [`UNREPRESENTABLE_REDUCER`](#gebraextractionunrepresentable_reducer) · [`UNREPRESENTABLE_TYPE`](#gebraextractionunrepresentable_type) · [`WARNING_RULES`](#gebraextractionwarning_rules) · [`WRAPPER_MEMBERS`](#gebraextractionwrapper_members) · [`AnnotationSlot`](#gebraextractionannotationslot) · [`CarrierRule`](#gebraextractioncarrierrule) · [`CompatClass`](#gebraextractioncompatclass) · [`CompiledSurfaces`](#gebraextractioncompiledsurfaces) · [`CrossCheck`](#gebraextractioncrosscheck) · [`Declarations`](#gebraextractiondeclarations) · [`Dispatch`](#gebraextractiondispatch) · [`ExtractedFrom`](#gebraextractionextractedfrom) · [`ExtractionEnvelope`](#gebraextractionextractionenvelope) · [`ExtractionError`](#gebraextractionextractionerror) · [`ExtractionErrorReason`](#gebraextractionextractionerrorreason) · [`ExtractionModel`](#gebraextractionextractionmodel) · [`ExtractionWarning`](#gebraextractionextractionwarning) · [`ExtractionWarningCode`](#gebraextractionextractionwarningcode) · [`Extractor`](#gebraextractionextractor) · [`FoldedDefault`](#gebraextractionfoldeddefault) · [`FragmentKind`](#gebraextractionfragmentkind) · [`FragmentReading`](#gebraextractionfragmentreading) · [`GebraVersionWarning`](#gebraextractiongebraversionwarning) · [`NodeContracts`](#gebraextractionnodecontracts) · [`NodeDigests`](#gebraextractionnodedigests) · [`ObjectFamily`](#gebraextractionobjectfamily) · [`PromptGap`](#gebraextractionpromptgap) · [`SlotGrade`](#gebraextractionslotgrade) · [`StateReading`](#gebraextractionstatereading) · [`SubstrateVersions`](#gebraextractionsubstrateversions) · [`VersionCheck`](#gebraextractionversioncheck) · [`WarningRule`](#gebraextractionwarningrule) · [`check_version_once`](#gebraextractioncheck_version_once) · [`classify`](#gebraextractionclassify) · [`classify_substrate`](#gebraextractionclassify_substrate) · [`coerce`](#gebraextractioncoerce) · [`config_form`](#gebraextractionconfig_form) · [`contract_warnings`](#gebraextractioncontract_warnings) · [`digests_for`](#gebraextractiondigests_for) · [`extract`](#gebraextractionextract) · [`extract_builder`](#gebraextractionextract_builder) · [`extract_compiled`](#gebraextractionextract_compiled) · [`extract_lcel_fragment`](#gebraextractionextract_lcel_fragment) · [`extractor_for`](#gebraextractionextractor_for) · [`is_binding`](#gebraextractionis_binding) · [`kind_of`](#gebraextractionkind_of) · [`load_sidecar`](#gebraextractionload_sidecar) · [`out_of_range_warning`](#gebraextractionout_of_range_warning) · [`prompt_form`](#gebraextractionprompt_form) · [`read_installed_versions`](#gebraextractionread_installed_versions) · [`read_state`](#gebraextractionread_state) · [`register_extractor`](#gebraextractionregister_extractor) · [`resolve_node`](#gebraextractionresolve_node) · [`sidecar_warnings`](#gebraextractionsidecar_warnings) · [`slot_grade`](#gebraextractionslot_grade) · [`state_schema_of`](#gebraextractionstate_schema_of) · [`stitch_fragment`](#gebraextractionstitch_fragment) · [`to_data`](#gebraextractionto_data) · [`to_json`](#gebraextractionto_json) · [`type_identity`](#gebraextractiontype_identity) · [`unknown_node_warnings`](#gebraextractionunknown_node_warnings) · [`unregister_extractor`](#gebraextractionunregister_extractor) · [`walk`](#gebraextractionwalk) · [`warning_rule`](#gebraextractionwarning_rule)
+[`ADMITTED_BINDING_CLASSES`](#gebraextractionadmitted_binding_classes) · [`ANNOTATION_SLOTS`](#gebraextractionannotation_slots) · [`DISCLOSURE_RULES`](#gebraextractiondisclosure_rules) · [`FINDING_CODES`](#gebraextractionfinding_codes) · [`FRAGMENT_CLASSES`](#gebraextractionfragment_classes) · [`HEURISTIC_GRADE_CODES`](#gebraextractionheuristic_grade_codes) · [`STOCK_BINDING_NAMES`](#gebraextractionstock_binding_names) · [`STOCK_BINDING_SUBCLASSES`](#gebraextractionstock_binding_subclasses) · [`UNREPRESENTABLE`](#gebraextractionunrepresentable) · [`UNREPRESENTABLE_REDUCER`](#gebraextractionunrepresentable_reducer) · [`UNREPRESENTABLE_TYPE`](#gebraextractionunrepresentable_type) · [`WARNING_RULES`](#gebraextractionwarning_rules) · [`WRAPPER_MEMBERS`](#gebraextractionwrapper_members) · [`AnnotationSlot`](#gebraextractionannotationslot) · [`CarrierRule`](#gebraextractioncarrierrule) · [`CompatClass`](#gebraextractioncompatclass) · [`CompiledSurfaces`](#gebraextractioncompiledsurfaces) · [`CrossCheck`](#gebraextractioncrosscheck) · [`Declarations`](#gebraextractiondeclarations) · [`DisclosureRule`](#gebraextractiondisclosurerule) · [`Dispatch`](#gebraextractiondispatch) · [`ExtractedFrom`](#gebraextractionextractedfrom) · [`ExtractionDisclosure`](#gebraextractionextractiondisclosure) · [`ExtractionDisclosureCode`](#gebraextractionextractiondisclosurecode) · [`ExtractionEnvelope`](#gebraextractionextractionenvelope) · [`ExtractionError`](#gebraextractionextractionerror) · [`ExtractionErrorReason`](#gebraextractionextractionerrorreason) · [`ExtractionModel`](#gebraextractionextractionmodel) · [`ExtractionWarning`](#gebraextractionextractionwarning) · [`ExtractionWarningCode`](#gebraextractionextractionwarningcode) · [`Extractor`](#gebraextractionextractor) · [`FoldedDefault`](#gebraextractionfoldeddefault) · [`FragmentKind`](#gebraextractionfragmentkind) · [`FragmentReading`](#gebraextractionfragmentreading) · [`GebraVersionWarning`](#gebraextractiongebraversionwarning) · [`NodeContracts`](#gebraextractionnodecontracts) · [`NodeDigests`](#gebraextractionnodedigests) · [`ObjectFamily`](#gebraextractionobjectfamily) · [`PromptGap`](#gebraextractionpromptgap) · [`SlotGrade`](#gebraextractionslotgrade) · [`StateReading`](#gebraextractionstatereading) · [`SubstrateVersions`](#gebraextractionsubstrateversions) · [`VersionCheck`](#gebraextractionversioncheck) · [`WarningRule`](#gebraextractionwarningrule) · [`check_version_once`](#gebraextractioncheck_version_once) · [`classify`](#gebraextractionclassify) · [`classify_substrate`](#gebraextractionclassify_substrate) · [`coerce`](#gebraextractioncoerce) · [`config_form`](#gebraextractionconfig_form) · [`contract_warnings`](#gebraextractioncontract_warnings) · [`digests_for`](#gebraextractiondigests_for) · [`disclosure_rule`](#gebraextractiondisclosure_rule) · [`extract`](#gebraextractionextract) · [`extract_builder`](#gebraextractionextract_builder) · [`extract_compiled`](#gebraextractionextract_compiled) · [`extract_lcel_fragment`](#gebraextractionextract_lcel_fragment) · [`extractor_for`](#gebraextractionextractor_for) · [`is_binding`](#gebraextractionis_binding) · [`kind_of`](#gebraextractionkind_of) · [`load_sidecar`](#gebraextractionload_sidecar) · [`out_of_range_warning`](#gebraextractionout_of_range_warning) · [`prompt_form`](#gebraextractionprompt_form) · [`read_installed_versions`](#gebraextractionread_installed_versions) · [`read_state`](#gebraextractionread_state) · [`register_extractor`](#gebraextractionregister_extractor) · [`resolve_node`](#gebraextractionresolve_node) · [`sidecar_warnings`](#gebraextractionsidecar_warnings) · [`slot_grade`](#gebraextractionslot_grade) · [`state_schema_of`](#gebraextractionstate_schema_of) · [`stitch_fragment`](#gebraextractionstitch_fragment) · [`to_data`](#gebraextractionto_data) · [`to_json`](#gebraextractionto_json) · [`type_identity`](#gebraextractiontype_identity) · [`unknown_node_warnings`](#gebraextractionunknown_node_warnings) · [`unregister_extractor`](#gebraextractionunregister_extractor) · [`walk`](#gebraextractionwalk) · [`warning_rule`](#gebraextractionwarning_rule)
 
 ### Defined in `gebra.annotations.slots`, re-exported by `gebra.extraction`
 
@@ -3980,7 +3980,7 @@ Extract an uncompiled `StateGraph` into the core IR and its provenance envelope.
 - `dispatch` — The §2 classification decision. Its `builder` is the `StateGraph` §3 applies to and is what this path reads; `workflow` is what any boundary refusal names, per §2.
 - `sidecar` — The ANNOTATION §2 sidecar reading for this extraction — already discovered, parsed and validated by the entry point. Its **path** is recorded in `extracted_from`, its findings ride the envelope, and its entries are the §3 tier-3 contribution to each node's resolved contract — filling only the slots the decorator and the tool-carried schema left open (DEC-07). `None` — for a direct call that bypasses the entry point — means "no sidecar", not "not looked for": this path never runs the discovery walk itself, since §2 puts exactly one lookup per extraction and the entry point is where it happens.
 
-**Returns** — The envelope: the core IR, its provenance, and the structured warnings. Order is by source: the sidecar's own file-level findings, then the §3 reading's, then the unmatched-key findings — which come last because they are the one sidecar fact that cannot be known before the node set exists.
+**Returns** — The envelope: the core IR, its provenance, the structured warnings and the disclosures. Warning order is by source: the sidecar's own file-level findings, then the §3 reading's, then the unmatched-key findings — which come last because they are the one sidecar fact that cannot be known before the node set exists. The disclosures are one `subgraph-read-as-one-node` record per directly mounted subgraph, in node-id order (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an uncompiled builder has no `get_subgraphs()` to ask.
 
 **Raises**
 
@@ -4122,7 +4122,7 @@ Extract a compiled graph (or any Pregel object) into the core IR and its envelop
 - `dispatch` — The §2 classification decision. `workflow` is the compiled object every compiled-level surface is read off and every boundary refusal names; `builder` is the `.builder` backreference §4.3 rule 1 routes topology through, or `None` for the rule-4 downgrade.
 - `sidecar` — The ANNOTATION §2 sidecar reading for this extraction, resolved once at the entry point. `None` — for a direct call that bypasses it — means "no sidecar".
 
-**Returns** — The envelope: the core IR (now carrying the `runtime` block §4.1 makes Full-knowable at this level), its provenance including the §4 compiled-only facts, and the warnings.
+**Returns** — The envelope: the core IR (now carrying the `runtime` block §4.1 makes Full-knowable at this level), its provenance including the §4 compiled-only facts, the warnings, and one `subgraph-read-as-one-node` disclosure per node read as one node — over the union of the builder's direct-mount read and `get_subgraphs()` when a builder is reachable, over the getter's parents alone when it is not (DEC-36 §3.6).
 
 **Raises**
 
@@ -4262,7 +4262,7 @@ Follow one node's wrapper chain inward and record what §6 asks about (§6).
 
 **Parameters**
 
-- `bound` — The node's bound object — `StateNodeSpec.runnable`, which INTROSPECTION §3 reads "for exactly three purposes", of which this is purpose (ii), contract attachment.
+- `bound` — The node's bound object — `StateNodeSpec.runnable`, which INTROSPECTION §3 reads "for exactly four purposes", of which this is purpose (ii), contract attachment.
 
 **Returns** — The `Declarations` for that chain. Total: every way of failing to read a carrier is a finding on the record, never an exception, because §3 puts this whole surface at warning grade.
 
@@ -4369,6 +4369,87 @@ prompt_form(template: object) -> bytes | PromptGap
 
 (b)'s digest input for `template`: its bytes, or the gap that has none.
 
+### Defined in `gebra.extraction.disclosures`
+
+Source: [`src/gebra/extraction/disclosures.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/extraction/disclosures.py)
+
+#### `gebra.extraction.DISCLOSURE_RULES`
+
+```python
+DISCLOSURE_RULES: Final[Mapping[ExtractionDisclosureCode, DisclosureRule]] = ...
+```
+
+*constant*, defined in `gebra.extraction.disclosures`.
+
+The one row this build emits, with the requirement the ruling states for it in 1.0/1.1 output (DEC-36 §3.6, which INTROSPECTION-SPEC §4.1 keeps standing for that output). `reason` — why a mount was left unexpanded — is absent: §8 states it is absent in 1.0/1.1 output, where every mount is left unexpanded.
+
+#### `gebra.extraction.DisclosureRule`
+
+```python
+class DisclosureRule:
+    origin: str
+    carries: str
+    node_required: bool = False
+    detail_required: frozenset[str] = frozenset()
+```
+
+*class*, defined in `gebra.extraction.disclosures`.
+
+What one disclosure row requires of the records that carry its code.
+
+The §8 table's "what it carries" column in the form the model validator can check — the shape `WarningRule` gives the warning rows, and like it no stricter than the row states.
+
+**Attributes**
+
+- `origin` — The table row and the decision record it reads, cited so the requirement is traceable.
+- `carries` — The row's "what it carries" column, condensed.
+- `node_required` — The row names a node id: the record is node-scoped.
+- `detail_required` — The `detail` members the row names, under the keys the emitter writes them with.
+
+#### `gebra.extraction.ExtractionDisclosure`
+
+```python
+class ExtractionDisclosure(ExtractionModel):
+    code: ExtractionDisclosureCode
+    message: str = Field(min_length=1)
+    node: NodeIdStr | None = None
+    detail: dict[str, Any] = Field(default_factory=dict)
+```
+
+*model*, defined in `gebra.extraction.disclosures`.
+
+One structured disclosure record, riding the provenance envelope (INTROSPECTION §8).
+
+**Attributes**
+
+- `code` — The disclosure code — the whole vocabulary is `ExtractionDisclosureCode`.
+- `message` — The disclosure in words, within the wording §8 rules for its code. **Display-only**: every fact a consumer branches on lives in the fields below, never in this string.
+- `node` — The node id the disclosure is about, in the escaped IR-SPEC §5 form, or `None` for a graph-scoped one. Required for the codes whose row names a node id.
+- `detail` — The rest of the row's "what it carries" column, as JSON data — checked the way a warning's `detail` is, and required to hold the members the code's `DisclosureRule` names. For `subgraph-read-as-one-node`: `seen_by` (the reads that saw this node — `direct-mount`, `get-subgraphs` or both), `reads_performed` (the reads this extraction ran, which is what the lower bound rests on), `interior_not_read` (the child's `nodes`, `edges`, `entry`, `finish` and `state`), `lower_bound` (the ruled sentence that the set of such nodes is a lower bound, not a census) and `child_expansion` (that child expansion is the named ir 1.x feature of DEC-19's design register, not performed in `ir_version` 1.0/1.1 output).
+
+#### `gebra.extraction.ExtractionDisclosureCode`
+
+```python
+class ExtractionDisclosureCode(str, Enum):
+    SUBGRAPH_READ_AS_ONE_NODE = "subgraph-read-as-one-node"
+```
+
+*enumeration*, defined in `gebra.extraction.disclosures`.
+
+The closed disclosure vocabulary `gebra.extract()` emits (INTROSPECTION §8; DEC-36).
+
+A second enumeration rather than members of `ExtractionWarningCode`, because DEC-36 §3.6 rules the disclosure "beside the §8 warning taxonomy, and deliberately outside it": a code here can never be read as a warning, and the warning vocabulary keeps its ten codes. Adding a code is a decision record, not a code change.
+
+#### `gebra.extraction.disclosure_rule`
+
+```python
+disclosure_rule(code: ExtractionDisclosureCode) -> DisclosureRule
+```
+
+*function*, defined in `gebra.extraction.disclosures`.
+
+The registry rule for `code`. Total over the enum, so it never returns `None`.
+
 ### Defined in `gebra.extraction.dispatch`
 
 Source: [`src/gebra/extraction/dispatch.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/extraction/dispatch.py)
@@ -4441,7 +4522,7 @@ Extract `workflow` into the Gebra IR 1.0 and its provenance envelope.
 - `workflow` — A `StateGraph` builder, a `CompiledStateGraph` (or other Pregel-protocol object), or any other LCEL `Runnable`.
 - `sidecar` — An explicit `gebra.toml` path, which ANNOTATION §2's discovery rule 1 ranks above the directory walk; `None` runs the rule-2 walk from the current working directory to the repository root. Either way the file is resolved, read and validated **here**, once, and the reading is handed to the family's path — which is what makes "exactly one sidecar file per extraction, never merged across directories" true of every family at once. A sidecar that cannot be read or does not validate never raises: §2 puts the whole surface at warning grade, so the findings ride the returned envelope and extraction stays total.
 
-**Returns** — The `ExtractionEnvelope`: the core IR, its provenance, and the structured warnings. Reading a `graph_version` off it is `ExtractionEnvelope.graph_version()`; the warnings never reach that digest (IR-SPEC §6.4). If the installed substrate is outside gebra's supported version range, the warnings carry an `unsupported-construct` record naming it (VERSION-COMPAT §4) — see `gebra.extraction.compat`.
+**Returns** — The `ExtractionEnvelope`: the core IR, its provenance, the structured warnings and the disclosures — one `subgraph-read-as-one-node` record per node that the §3 direct-mount read or §4.1's `get_subgraphs()` finds mounting or reaching a compiled subgraph the document carries as that one node, a set that is a lower bound and never a census (INTROSPECTION-SPEC §8; DEC-36). Reading a `graph_version` off it is `ExtractionEnvelope.graph_version()`; neither the warnings nor the disclosures reach that digest (IR-SPEC §6.4). If the installed substrate is outside gebra's supported version range, the warnings carry an `unsupported-construct` record naming it (VERSION-COMPAT §4) — see `gebra.extraction.compat`.
 
 **Raises**
 
@@ -4499,11 +4580,11 @@ class CompiledSurfaces(ExtractionModel):
 
 The §4.1 compiled-level facts that ir 1.0 has no slot for, plus the cross-check record.
 
-§4.1 names two facts outright as provenance-only — `node_error_handler_map` and folded-defaults resolution — and gives subgraph discovery an id rule but no boundary-wiring rule (see `gebra.extraction.compiled` for why the children are therefore not emitted). Everything §4 knows and the IR cannot carry is collected here rather than spread across `ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one object.
+§4.1 names two facts outright as provenance-only — `node_error_handler_map` and folded-defaults resolution — and records the parents subgraph discovery found, whose children ir 1.0/1.1 does not emit (see `gebra.extraction.compiled` for why). Everything §4 knows and the IR cannot carry is collected here rather than spread across `ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one object.
 
 **Attributes**
 
-- `subgraphs` — The node ids whose bound object is itself a Pregel graph, as discovered by `get_subgraphs()` (§4.1), in node-id order. **This member is the conforming disclosure**, not a consolation for one: ir 1.0 carries a discovered subgraph as its parent node only, and §4.1 (ratified — DEC-19) makes that document *complete* — it carries no warning for the unexpansion and reaches the §8 strict-mode bar. Child expansion is the named first 1.x feature. Subgraphs compiled with `checkpointer=False` are invisible to discovery (§4.1) — a documented blind spot, so this tuple is a lower bound, never a census, and nothing can warn about what it cannot see.
+- `subgraphs` — The node ids under which `get_subgraphs()` (§4.1) reports a subgraph, in node-id order (the ledger §6 comparator, UTF-16 code units) — the compiled getter's provenance record, which DEC-36 keeps where DEC-19 put it, and empty when the getter is missing or could not be read. It is **not** the disclosure: ir 1.0/1.1 carries each subgraph as its parent node only, and every parent read as one node is disclosed by a `subgraph-read-as-one-node` record in `ExtractionEnvelope.disclosures` (DEC-19 Ruling 1 as amended by DEC-36), over the union of this tuple and the builder's direct-mount read — a node whose bound object is a compiled graph. The getter reaches a subgraph a node holds through a sequence, a lambda's `deps` or a closure, and skips any subgraph compiled with `checkpointer=False`; the direct-mount read still sees such a subgraph when it is a node's own bound object. **This tuple is a lower bound, never a census, and so is the union**: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible to both reads, and on the compiled-only path, where no builder exists to read, every `checkpointer=False` child is. Nothing can disclose what no read can see.
 - `folded_defaults` — The graph-level defaults `compile()` folded into node specs.
 - `error_handlers` — `node_error_handler_map` — node id → its error-handler node id.
 - `cross_check` — The §4.2 cross-check record, or `None` on a path that has no builder to check against.
@@ -4563,17 +4644,19 @@ class ExtractionEnvelope(ExtractionModel):
     ir: WorkflowIR
     extracted_from: ExtractedFrom
     warnings: tuple[ExtractionWarning, ...] = ()
+    disclosures: tuple[ExtractionDisclosure, ...] = ()
 ```
 
 *model*, defined in `gebra.extraction.envelope`.
 
-The core IR plus its provenance and warnings — what `extract()` returns.
+The core IR plus its provenance, warnings and disclosures — what `extract()` returns.
 
 **Attributes**
 
 - `ir` — The core IR (IR-SPEC §2–§3). The whole hash scope, and the only member `graph_version()` reads.
 - `extracted_from` — Where this IR came from.
 - `warnings` — The extraction warnings, in emission order — structured records from the one closed taxonomy (INTROSPECTION §8; ANNOTATION §4). §8: warnings "are never silently droppable", and a warning-free extraction is part of the strict-mode bar, so they are carried in the return value rather than raised through `warnings` where a filter could drop them.
+- `disclosures` — The extraction disclosures (INTROSPECTION §8, ratified — DEC-36): records of a fact about what this complete, conforming document does not contain, from the closed vocabulary of `gebra.extraction.disclosures` — in this build, one `subgraph-read-as-one-node` record per node that the §3 direct-mount read or §4.1's `get_subgraphs()` finds mounting or reaching a compiled subgraph the document carries as that one node. **Not warnings**: no disclosure is a row of the §8 warning table, counts against the warning-free strict-mode bar, moves an exit code or is promoted by a strict flag — and none is droppable either, which is why they ride the return value too. They come after the warnings, in the §8 order — graph-scoped records first, then node-scoped ones in node-id order (the ledger §6 comparator) and, within one node, by code — checked when the envelope is built, one record per node and code. Outside hash scope: `graph_version()` never reads them. The set of nodes disclosed as subgraph-bearing is a **lower bound, never a census**: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible to every read, and on the compiled-only path every `checkpointer=False` child is.
 
 #### `gebra.extraction.FoldedDefault`
 

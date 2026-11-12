@@ -28,12 +28,12 @@ nothing.
 | Path (module) | INTROSPECTION § | Tripwire test | Armed control |
 |---|---|---|---|
 | `dispatch.py` — object-family dispatch + boundary errors | §2 | `tests/extraction/test_dispatch.py` | socket/name-resolution/`compile` raisers |
-| `builder.py` — `StateGraph` (§3) extraction | §3 | `tests/extraction/test_builder.py` | `compile` replaced by a raiser before first extract |
+| `builder.py` — `StateGraph` (§3) extraction | §3 | `tests/extraction/test_builder.py`; the direct-mount read behind the subgraph disclosure also `tests/extraction/test_disclosures.py` | `compile` replaced by a raiser before first extract; the disclosure child also arms `Pregel.invoke`/`stream` |
 | `routing.py` — §6 edge classification (reads return hints) | §6 | `tests/extraction/test_routing.py` | router/node bodies record before they raise (`TRIPPED`) |
 | `state.py` — Σ (state-schema) projection | §3 | `tests/extraction/test_state.py` | pydantic validators, `__init_subclass__`, `ValueType`, reducers armed |
 | `contracts.py` — §3/§6 precedence + §6 wrapper walk | §3/§6 | `tests/extraction/test_contracts.py` | `StateNodeSpec.runnable` wrapper-chain reads armed (`TRIPPED`/`PROBED`) |
 | `inference.py` — §4 engine-side warning records | §4 | `tests/extraction/test_contracts.py` (shares) | reaches no substrate of its own; shares the contract path's guard |
-| `compiled.py` — `CompiledStateGraph`/`Pregel` (§4) + `get_graph()` gate | §4 | `tests/extraction/test_compiled.py` | six drawing routes armed (table 2); `Runnable.invoke` armed with a counted `ChannelWrite` allow-list |
+| `compiled.py` — `CompiledStateGraph`/`Pregel` (§4) + `get_graph()` gate | §4 | `tests/extraction/test_compiled.py`; the subgraph disclosure's union and getter also `tests/extraction/test_disclosures.py` | six drawing routes armed (table 2); `Runnable.invoke` armed with a counted `ChannelWrite` allow-list |
 | `lcel.py` — LCEL fragment (§5) stitching | §5 | `tests/extraction/test_lcel.py` | every `Runnable` execution entry point + `get_graph` + `uuid4` armed |
 | `digests.py` — §7.4 prompt/config digests | §7.4 | `tests/extraction/test_digests.py` | `repr`/`__str__`/config-source reads armed (`TRIPPED`) |
 | `stock.py` — §7.4(a) stock binding-wrapper enumeration | §7.4(a) | `tests/extraction/test_digests.py` (`NonStockBinding`) | non-stock `kwargs` records and raises; `tests/extraction/test_stock.py` re-derives the enumeration from the installed substrate |
@@ -41,8 +41,10 @@ nothing.
 
 **Data-only modules (read no live workflow object; nothing to invoke).** `base.py` (object-family
 enum + `type_identity`), `envelope.py` (envelope models), `errors.py` (`ExtractionError` types),
-`warnings.py` (the §8 warning taxonomy), and `sidecar.py` (the loader→extraction seam — it builds
-records from a parsed reading; the `gebra.toml` loader itself is `tests/annotations/test_sidecar.py`).
+`warnings.py` (the §8 warning taxonomy), `disclosures.py` (the §8 disclosure vocabulary — it builds
+records from node ids the builder and compiled paths hand it; see §4's EX-20 entry), and `sidecar.py`
+(the loader→extraction seam — it builds records from a parsed reading; the `gebra.toml` loader
+itself is `tests/annotations/test_sidecar.py`).
 These hold and serialize IR/envelope/warning data; they read no channel, node, router, model, or
 drawing, so there is no body for them to run. `type_identity` reads the type of the value it
 names and nothing of the value itself; the one lookup it makes in that type's own namespace is
@@ -1278,6 +1280,83 @@ documentation pages (`docs/guides/snapshot-diff-and-evolution.md`, `docs/referen
 `docs/tutorials/travel-booking-end-to-end.md`) had seven output blocks recaptured from real runs
 under `tools/docs_examples.py`'s guard; no code block changed, and `docs/reference/api.md` is
 regenerated from docstrings by a generator that imports nothing it documents.
+
+### EX-20 — the subgraph disclosure, and the ruled `isinstance` on a node's bound object
+
+No extraction module gains a §1 row: `disclosures.py` is data-only — it builds
+`subgraph-read-as-one-node` records from node ids — and the two reads behind the record sit on
+`builder.py` and `compiled.py`, whose rows now also name this card's guarded child (DEC-36, as
+INTROSPECTION-SPEC §3 row (iv), §4.1 and §8 state it for 1.0/1.1 output). **The direct-mount
+read.** `builder._mounts_compiled_graph` is the check DEC-36 §3.6 rules and A1-D36 measured,
+`isinstance(runnable, langgraph.pregel.Pregel)`, applied to a node's `StateNodeSpec.runnable` —
+the member the contract and digest walks already read. Of the object itself it reads one
+attribute, `__class__`, and calls nothing beyond that attribute access. Its residual, measured
+here rather than narrated and pinned part by part in `tests/extraction/test_disclosures.py`:
+(1) the part INTROSPECTION-SPEC §3 row (iv) names for every `isinstance` on a bound object —
+`__class__` is read through the object's own attribute access whenever the object's type is not
+exactly `Pregel` (every miss, and every hit through a subclass, which every stock compiled graph
+is), so an author's `__getattribute__` or `__class__` property runs for that one name; (2) a part
+§3 row (iv) does not name — `Pregel` being an `abc` class, a check of a type its caches do not
+hold (the type's first check, and again after any `ABCMeta.register` call anywhere in the
+process) can run author code outside the object: `__subclasscheck__` on the metaclass, and
+`__subclasshook__`, of any class in `Pregel`'s subclass tree or registered with
+`Pregel.register`, and — since those caches hash and compare the object's type — `__hash__` and
+`__eq__` on that type's metaclass (pinned: the hooks, the cache, its clearing by a registration,
+and `__hash__`; measured on CPython 3.13.3, not pinned: `__eq__` on the type's next check). The
+contract walk's `isinstance` tests against the `abc` classes it names carry the same residual, and
+run first; the question whether §3 row (iv) should name the second part is filed with PD-074 for
+the next R-06 record. The read runs on the builder path and, through it, on the builder-primary
+compiled path. **The getter.** `compiled._discover_subgraphs`
+calls `get_subgraphs()` exactly as before (EX-05's read: the substrate hands back lists it
+computed at compile time); its result now also feeds the record, and a getter that is missing or
+raised is reported as no read rather than an empty one. The compiled-only path discloses the
+getter's set and nothing else. `dispatch.extract`'s out-of-range rebuild carries the records
+through.
+
+The fixtures live in `tests/sample_workflows/sentinel_subgraphs.py`: a compiled child mounted
+directly or reached from inside a node body (a closure that fires its sentinel through a call
+before the line that reaches the child), each with and without `checkpointer=False`; two direct
+mounts whose names order differently by code point and by UTF-16 code unit; a builderless
+`Pregel` whose node binds a child, with its `checkpointer=False` twin; `ArmedPregel`, a compiled
+graph mounted directly in an uncompiled builder whose every attribute read records into
+`MOUNT_READS` and whose `invoke`, `stream`, `get_graph` and `get_subgraphs` raise; and
+`ClassLiar`, an object whose `__class__` property claims `Pregel` and whose every read records.
+Every parent, closure, child and Pregel-step body raises `SentinelExecutedError`, which records
+into `sentinel_graph.TRIPPED` as it is built, and `test_every_body_in_the_subgraph_fixtures_is_armed`
+calls each of them. `tests/extraction/test_disclosures.py` carries the guarded child: every shape
+on every path it has — builder, compiled, compiled-only, and the armed mount on the builder path —
+in a fresh interpreter where name resolution, socket construction, `StateGraph.compile`,
+`Runnable.invoke` (`ChannelWrite` allow-listed and counted: the compiled path's cross-check
+drawing runs it, as `test_compiled.py` records), `Pregel.invoke` and `Pregel.stream` raise. The
+child asserts the number of records it saw, `TRIPPED` empty, no `INTERIOR_SURFACES` name in
+`MOUNT_READS`, and `langgraph.pregel.remote` absent from `sys.modules`, the last three in one
+`_claims()` function; twelve armed controls run after its claim — nine that trip each raiser and
+the base `Runnable.invoke` backstop, and three that seed a ledger or module event and re-run
+`_claims()` itself. In process, the residual is pinned: the read on the armed mount records
+exactly `__class__`; on `ClassLiar` it records `__class__` and runs the property, and believes
+it; and classes the test defines for itself show the `abc` part — a `Pregel` subclass's
+`__subclasshook__` and a registered class's metaclass `__subclasscheck__` run for a type never
+checked before, not on its repeat, again after an unrelated `register`, and a type's metaclass
+`__hash__` runs at its first check.
+
+One more residue is stated rather than hidden. Extracting the armed mount records reads of it
+beyond the direct-mount read's `__class__` that this card does not make and does not change — the
+reads every node's bound object receives on the builder path, measured when this card landed on
+CPython 3.13.3 with pydantic 2.13.4, langgraph 1.2.10 and langchain-core 1.5.3: `__class__`, by
+the `isinstance` tests of the contract walk (`contracts.py`) and of the digest dispatch
+(`digests.py`); `__wrapped__`, `func`, `afunc`, `coroutine` and `bound`, the wrapper members the
+contract walk follows; and `__dict__`, read by `annotations/contract.py` to find a carried
+contract. Each is an attribute read through the object's own attribute access, so a
+`__getattribute__` of the author's runs for it; none is an interior surface of the mounted graph,
+and none runs it. The list depends on the environment: INTROSPECTION-SPEC §2 row 3 (A1-D40)
+records that under pydantic 2.11, inside the declared range, an `isinstance` against a
+pydantic-model base also reads `__pydantic_decorators__` — not measured here, and the test pins
+only that no interior surface is read. Two executed documentation pages had their output
+recaptured from real runs under `tools/docs_examples.py`'s guard —
+`docs/reference/architecture.md::the-public-packages` (the export counts) and
+`docs/reference/api.md::every-name-on-this-page`; no code block changed, `docs/reference/api.md`
+is regenerated from docstrings by a generator that imports nothing it documents, and
+`docs/tutorials/extract-your-first-ir.md` changed in prose only.
 
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 

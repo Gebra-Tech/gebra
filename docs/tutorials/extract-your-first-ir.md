@@ -638,33 +638,44 @@ The third member of `runtime` is absent for a different reason. `recursion_limit
 invoke-time configuration and is not on either object, so no level of extraction produces it:
 it is there only if you declare it.
 
-The compiled level is also where subgraphs are discovered, and it carries a limitation the
+Subgraphs are where the reads of the two levels differ, and where the limit is one the
 specification names and accepts rather than papers over.
 
-!!! warning "Subgraphs compiled with `checkpointer=False` are invisible"
+!!! warning "A subgraph can be invisible to every read"
 
-    A node whose body is a compiled subgraph is found by walking the compiled graph's own
-    subgraph discovery. **A subgraph compiled with `checkpointer=False` does not appear in
-    that walk** (INTROSPECTION-SPEC §4.1, citing the pinned LangGraph introspection survey).
+    In `ir_version` 1.0 and 1.1 a node that mounts a compiled subgraph is carried as that
+    **one node**: child nodes, child edges and the child's own `entry`, `finish` and state
+    schema are not emitted. The node itself is extracted like any other, with its own
+    contract and its own edges. When one of two reads finds such a node, the envelope says
+    what happened to it: the node gets a `subgraph-read-as-one-node` record in
+    `envelope.disclosures`, stating that its interior was not read. The two reads
+    (INTROSPECTION-SPEC §3, §4.1):
+
+    - on any graph with a builder — the one you hand in, or a compiled graph's own — a node
+      whose bound object is itself a compiled graph;
+    - on a compiled graph, LangGraph's own subgraph discovery, which also finds a subgraph a
+      node reaches through a sequence, a lambda or a closure, and **skips every subgraph
+      compiled with `checkpointer=False`** (citing the pinned LangGraph introspection
+      survey). What it found is also recorded as provenance, `extracted_from.compiled.subgraphs`.
 
     Two consequences, and they are worth stating plainly:
 
-    - The recorded set of subgraph-bearing nodes is a **lower bound**, not a census. It is
-      provenance — `extracted_from.compiled.subgraphs` — and a node missing from it may still
-      hold a subgraph.
-    - **No warning is emitted for the ones that are missed.** Extraction cannot warn about
-      what it cannot see, so this paragraph is the warning. If your workflow compiles
-      subgraphs with `checkpointer=False`, do not read an empty or short list as evidence that
-      there are none.
+    - The disclosed set is a **lower bound**, not a census. A subgraph compiled with
+      `checkpointer=False` and reached only from inside a node body is seen by neither read;
+      handed an uncompiled builder, which has no discovery to ask, extraction sees no subgraph
+      that is not itself a node's bound object; and on a compiled graph with no builder it
+      sees no `checkpointer=False` subgraph at all. A node with no record may still hold a
+      subgraph.
+    - **Nothing is said about the ones that are missed.** Extraction cannot disclose what it
+      cannot see, so this paragraph is the disclosure. Do not read an empty or short list as
+      evidence that there are none.
 
-    What this does *not* change: the parent node itself is still a node of the parent graph
-    and is extracted like any other, with its own contract and its own edges. And in
-    `ir_version` 1.0 and 1.1 a discovered subgraph is carried as its **parent node only** —
-    child nodes, child edges and the child's own `entry`, `finish` and state schema are not
-    emitted for *any* subgraph, visible or not. That unexpansion is a deliberate scope line
-    rather than a failure: such a document is **complete**, carries no warning for it, and
-    reaches the strict-mode bar like any other. Child expansion is a recorded design item for a
-    later format version; it is described in this repository's
+    A disclosure is not a warning. A subgraph-bearing document is **complete**, carries no
+    warning for the unexpansion and reaches the strict-mode bar like any other, and no exit
+    code moves for it — so a strict run does not fail because a subgraph's interior went
+    unchecked. The `gebra` command line, the pytest plugin and the run reports do not print
+    the disclosure: read it from the envelope `gebra.extract()` returns. Child expansion is a
+    recorded design item for a later format version; it is described in this repository's
     `docs/governance/EXTRACTOR-API-FREEZE.md` and is not part of this release.
 
 The honest summary is the one INTROSPECTION-SPEC §0 gives the whole extraction contract: where
@@ -701,7 +712,10 @@ above are not shown by a transcript here. What gebra itself does at that level *
 extractor's conformance tests in this repository: `runtime.checkpointer` emitted either way,
 and a discovered subgraph carried as its parent node.
 
-The `checkpointer=False` blind spot is the one claim on this page with no test behind it
-anywhere, and it cannot have one: it is a property of LangGraph's own subgraph discovery, and
-extraction cannot observe what it cannot see. INTROSPECTION-SPEC §4.1 is the whole of the
-evidence, which is why the box above says so in those words.
+The subgraph box is held by the extractor's disclosure tests in this repository, one fixture
+per shape: which read sees a subgraph mounted directly or reached from a node body, with and
+without `checkpointer=False`, on an uncompiled builder, a compiled graph and a compiled graph
+with no builder — including the shape no read sees, which those tests show produces no record.
+What no test can show is that a workflow nobody wrote a fixture for holds no subgraph the reads
+miss: the lower bound is the specification's statement about every workflow
+(INTROSPECTION-SPEC §4.1, §8), which is why the box says so in those words.

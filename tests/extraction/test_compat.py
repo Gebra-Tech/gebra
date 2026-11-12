@@ -313,6 +313,24 @@ def test_extract_carries_unsupported_construct_on_every_call_when_out_of_range(
         assert len(version_facts) == 1, envelope.warnings
 
 
+def test_the_out_of_range_rebuild_keeps_the_disclosures(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The entry point rebuilds the envelope to append the version fact; the disclosures ride
+    through it unchanged — INTROSPECTION-SPEC §8 makes them as undroppable as the warnings."""
+    from tests.sample_workflows import sentinel_subgraphs
+
+    parent = sentinel_subgraphs.build_direct_mount_parent()
+    in_range = extract(parent)
+    fake = _versions(langgraph=(2, 0, 0), langchain_core=(1, 5, 3))
+    reset_version_check_cache()
+    monkeypatch.setattr("gebra.extraction.compat.read_installed_versions", lambda: fake)
+
+    out_of_range = extract(parent)
+
+    assert in_range.disclosures
+    assert out_of_range.disclosures == in_range.disclosures
+    assert len(out_of_range.warnings) == len(in_range.warnings) + 1
+
+
 def test_extract_never_raises_for_an_out_of_range_substrate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

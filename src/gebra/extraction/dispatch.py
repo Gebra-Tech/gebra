@@ -240,9 +240,13 @@ def extract(
 
     Returns:
         The :class:`~gebra.extraction.envelope.ExtractionEnvelope`: the core IR, its
-        provenance, and the structured warnings. Reading a ``graph_version`` off it is
-        :meth:`~gebra.extraction.envelope.ExtractionEnvelope.graph_version`; the warnings
-        never reach that digest (IR-SPEC §6.4). If the installed substrate is outside
+        provenance, the structured warnings and the disclosures — one
+        ``subgraph-read-as-one-node`` record per node that the §3 direct-mount read or §4.1's
+        ``get_subgraphs()`` finds mounting or reaching a compiled subgraph the document carries
+        as that one node, a set that is a lower bound and never a census (INTROSPECTION-SPEC
+        §8; DEC-36). Reading a ``graph_version`` off it is
+        :meth:`~gebra.extraction.envelope.ExtractionEnvelope.graph_version`; neither the
+        warnings nor the disclosures reach that digest (IR-SPEC §6.4). If the installed substrate is outside
         gebra's supported version range, the warnings carry an ``unsupported-construct``
         record naming it (VERSION-COMPAT §4) — see :mod:`gebra.extraction.compat`.
 
@@ -274,6 +278,7 @@ def extract(
             ir=envelope.ir,
             extracted_from=envelope.extracted_from,
             warnings=(*envelope.warnings, out_of_range_warning(version_check.versions)),
+            disclosures=envelope.disclosures,
         )
     return envelope
 

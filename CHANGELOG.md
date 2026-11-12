@@ -48,6 +48,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TypeError` before the compiled-level cross-check; it now completes, and LangGraph's own
   drawing for that cross-check hashes the member, reading its `_name_` inside the substrate.
   That read is LangGraph's, and this change does not alter it.
+- **A compiled subgraph that extraction reads as one node is now disclosed** (card EX-20;
+  DEC-36, which amends DEC-19's Ruling 1). In `ir_version` 1.0 and 1.1 a mounted subgraph is
+  carried as its parent node only — no child nodes, edges, `entry`, `finish` or state — and
+  extraction used to record the fact only in `extracted_from.compiled.subgraphs`, on the
+  compiled path. The envelope `gebra.extract()` returns now has a `disclosures` member, after
+  `warnings`: one `subgraph-read-as-one-node` record per node that either of two reads finds, in
+  node-id order, carrying the node id, the read that saw it (`direct-mount`, `get-subgraphs` or
+  both), the reads the extraction ran, the child members that were not read, that child
+  expansion is the named ir 1.x feature of DEC-19's design register and is not performed in
+  1.0/1.1 output, and the sentence that the set is a lower bound, not a census. The two reads: a
+  node whose bound object is a `langgraph.pregel.Pregel` instance, read off the builder on the
+  builder and the compiled path alike through the `isinstance` check DEC-36 rules, and
+  `get_subgraphs()` on a compiled graph, which also reaches a subgraph a node holds through a
+  sequence, a lambda or a closure, and skips every subgraph compiled with `checkpointer=False`.
+  So a directly mounted `checkpointer=False` subgraph, which the getter misses, is disclosed;
+  one reached only from inside a node body is seen by neither read, an uncompiled builder sees no
+  subgraph that is not a node's own bound object, and a compiled graph with no builder sees no
+  `checkpointer=False` subgraph — every record says the first, and a record made without a
+  `get_subgraphs()` read says the second. The disclosures are a closed vocabulary of their own,
+  exported from `gebra.extraction` (`ExtractionDisclosure`, `ExtractionDisclosureCode`,
+  `DisclosureRule`, `DISCLOSURE_RULES`, `disclosure_rule`) — **not warnings**: the ten warning
+  codes are unchanged, a subgraph-bearing extraction carries exactly the warnings it did, no
+  exit code moves and no strict flag promotes a disclosure, so a strict run does not fail
+  because a subgraph's interior was not checked. They sit outside hash scope, so no
+  `graph_version`, conformance golden or stored snapshot moves, and they reach the Python API
+  only: the `gebra` command line, the pytest plugin and the run reports do not render them.
+  `extracted_from.compiled.subgraphs` still records what `get_subgraphs()` reported, now in the
+  node-id order the ledger fixes (UTF-16 code units), which differs from the order it had only
+  for node names that mix characters beyond U+FFFF with ones in U+E000–U+FFFF.
 
 ### Changed
 

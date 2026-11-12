@@ -5,11 +5,14 @@ degenerate-input rule and the error posture), §8 (the warnings taxonomy), and I
 (what ``entry``/``finish`` mean as sentinel incidences), all under the §1 never-invokes
 discipline and DEC-06's builder-authoritative ruling.
 
-**The whole path is attribute reads.** §1 rule 3 fixes the permitted operations; this module
-uses the narrowest subset of them — it reads ``builder.nodes``, ``.edges``, ``.waiting_edges``
-and ``.branches``, plus four members of each ``StateNodeSpec`` — and calls nothing on the
-objects it finds there. No node function, router or ``Runnable`` is invoked, ``compile()`` is
-never called (§1 rule 2), no type hint is evaluated, and no network connection is opened.
+**The whole path is attribute reads and the ``isinstance`` checks §1 rule 3 licenses.** §1 rule 3
+fixes the permitted operations; this module uses a narrow subset of them — it reads
+``builder.nodes``, ``.edges``, ``.waiting_edges`` and ``.branches``, plus four members of each
+``StateNodeSpec``, and class-checks what it finds there — and invokes no method of those
+objects. No node function, router or ``Runnable`` is invoked, ``compile()`` is never called (§1
+rule 2), no type hint is evaluated, and no network connection is opened. What an ``isinstance``
+on an author's object can still reach — an attribute access on the object, and ``abc`` hooks
+outside it — is stated, as measured, at :func:`_mounts_compiled_graph`.
 ``tests/extraction/test_builder.py`` is the tripwire that holds this to account, in a fresh
 interpreter where every sentinel raises and ``StateGraph.compile`` is taken away.
 
@@ -17,14 +20,16 @@ interpreter where every sentinel raises and ``StateGraph.compile`` is taken away
 private function per row, so a reviewer can check the rows off one at a time. The rows that
 belong to other cards are named where they would go rather than left to be noticed:
 
-* ``StateNodeSpec.runnable`` — §3 reads this member "for exactly three purposes", and this
-  path performs the second: **contract attachment**, through
+* ``StateNodeSpec.runnable`` — §3 reads this member "for exactly four purposes", and this
+  path performs three of them. **Contract attachment** (ii), through
   :mod:`gebra.extraction.contracts`, which walks the ANNOTATION §6 wrapper chain and runs the
-  §3 precedence chain (decorator > tool-carried > sidecar > inference) over what it finds. The
-  other two — fragment discovery (§5) and digest computation (§7.4) — are their own cards, and
-  nothing here reads the member for either. So a node's ``annotations`` now carries the
-  resolved contract together with the ``retry_policy`` §3 projects from the builder, and a
-  node with neither carries none at all.
+  §3 precedence chain (decorator > tool-carried > sidecar > inference) over what it finds — so
+  a node's ``annotations`` carries the resolved contract together with the ``retry_policy`` §3
+  projects from the builder, and a node with neither carries none at all. **Digest
+  computation** (iii), through :mod:`gebra.extraction.digests`. And **subgraph disclosure**
+  (iv): a node whose bound object is itself a compiled graph is a directly mounted subgraph,
+  carried as that one node and disclosed (ratified — DEC-36; :func:`_read_mounted_subgraphs`).
+  Fragment discovery (i) is not wired at this level.
 * ``.channels``/state schema — read here, by :mod:`gebra.extraction.state`, which owns the
   §3 ``state`` row end to end (the type/reducer/optional projection, the §6.3 collapse, and
   the managed-value split that keeps those keys in provenance rather than in Σ).
@@ -91,6 +96,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeGuard, cast
 
 from langgraph.graph import END, START
+from langgraph.pregel import Pregel
 from langgraph.types import RetryPolicy as SubstrateRetryPolicy
 
 from gebra.annotations.contract import NodeContract
@@ -99,6 +105,11 @@ from gebra.annotations.sidecar import SidecarReading
 from gebra.extraction.base import ObjectFamily, type_identity
 from gebra.extraction.contracts import resolve_node, state_schema_of
 from gebra.extraction.digests import NodeDigests, digests_for
+from gebra.extraction.disclosures import (
+    DIRECT_MOUNT_READ,
+    NO_GETTER_ON_A_BUILDER,
+    subgraph_disclosures,
+)
 from gebra.extraction.envelope import ExtractedFrom, ExtractionEnvelope, RouterCodomain
 from gebra.extraction.errors import ExtractionError, ExtractionErrorReason
 from gebra.extraction.routing import RouterHint, declared_return_hint, spell_routing_label
@@ -161,10 +172,13 @@ def extract_builder(
             per extraction and the entry point is where it happens.
 
     Returns:
-        The envelope: the core IR, its provenance, and the structured warnings. Order is by
-        source: the sidecar's own file-level findings, then the §3 reading's, then the
-        unmatched-key findings — which come last because they are the one sidecar fact that
-        cannot be known before the node set exists.
+        The envelope: the core IR, its provenance, the structured warnings and the
+        disclosures. Warning order is by source: the sidecar's own file-level findings, then
+        the §3 reading's, then the unmatched-key findings — which come last because they are
+        the one sidecar fact that cannot be known before the node set exists. The disclosures
+        are one ``subgraph-read-as-one-node`` record per directly mounted subgraph, in node-id
+        order (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an
+        uncompiled builder has no ``get_subgraphs()`` to ask.
 
     Raises:
         ExtractionError: at the object boundary — a node name or a routing target with no
@@ -197,6 +211,11 @@ def extract_builder(
             *sidecar_warnings(annotations),
             *reading.warnings,
             *unknown_node_warnings(annotations, (node.id for node in ir.nodes)),
+        ),
+        disclosures=subgraph_disclosures(
+            direct=reading.mounted_subgraphs,
+            reads_performed=(DIRECT_MOUNT_READ,),
+            unseen=NO_GETTER_ON_A_BUILDER,
         ),
     )
 
@@ -251,6 +270,9 @@ class _Reading:
 
     managed_state_keys: tuple[str, ...] = ()
     """The managed-value keys, for provenance — never members of Σ (§3, §7.3 item 4)."""
+
+    mounted_subgraphs: list[str] = field(default_factory=list)
+    """The node ids whose bound object is itself a compiled graph — §3 row (iv), disclosed."""
 
     warnings: list[ExtractionWarning] = field(default_factory=list)
     end_labelled: bool = False
@@ -380,6 +402,7 @@ def _read(builder: StateGraph[Any], *, workflow: object, sidecar: SidecarReading
     _read_state(builder, reading)
     _read_contracts(builder, reading, sidecar=sidecar)
     _read_digests(builder, reading)
+    _read_mounted_subgraphs(builder, reading)
     _warn_missing_wiring(reading)
     return reading
 
@@ -389,12 +412,13 @@ def _read_contracts(
 ) -> None:
     """``StateNodeSpec.runnable`` → the resolved node contract (§3 row 2, purpose ii).
 
-    INTROSPECTION §3 reads this member "for exactly three purposes", and this is the second:
+    INTROSPECTION §3 reads this member "for exactly four purposes", and this is the second:
     "**contract attachment** — the innermost user callable is located by following
     ``functools.wraps``/``__wrapped__`` chains per ANNOTATION-API-SPEC §6, then
     ``__gebra_contract__`` and the DEC-08 shallow-inference patterns are read from it". Purpose
-    (iii), digest computation, is :func:`_read_digests`; purpose (i), fragment discovery, is
-    not wired at this level (see there).
+    (iii), digest computation, is :func:`_read_digests`; purpose (iv), subgraph disclosure, is
+    :func:`_read_mounted_subgraphs`; purpose (i), fragment discovery, is not wired at this level
+    (see :func:`_read_digests`).
 
     :mod:`gebra.extraction.contracts` is the whole rule set; this is the seam that gives it
     the three things only a builder pass knows: the node id each contract is filed under, the
@@ -450,6 +474,67 @@ def _read_digests(builder: StateGraph[Any], reading: _Reading) -> None:
         reading.warnings.extend(digests.warnings)
         if digests:
             reading.digests[node_id] = digests
+
+
+def _read_mounted_subgraphs(builder: StateGraph[Any], reading: _Reading) -> None:
+    """``StateNodeSpec.runnable`` → the directly mounted subgraphs (§3 row 2, purpose iv).
+
+    §3's fourth purpose for this member, as DEC-36 §3.6 rules it for ``ir_version`` 1.0/1.1
+    output: "a bound object that is itself a ``langgraph.pregel.Pregel`` instance … is a
+    directly mounted subgraph and is disclosed". ir 1.0/1.1 carries it as this one node — no
+    child nodes, edges, ``entry``/``finish`` or Σ, and no derived boundary edge, which would land
+    inside ``graph_version`` (DEC-19 Ruling 1) — so this read changes no byte of the document:
+    it records the node id, and :func:`extract_builder` turns the list into
+    ``subgraph-read-as-one-node`` disclosures on the envelope, outside hash scope.
+
+    The concrete class, not ``PregelProtocol``, is DEC-36's ruling for this output (owner's
+    ruling at PD-064 §11 item 6): it is the stock class the §4.3 drawing gate admits and the one
+    the substrate's own ``checkpointer=False`` exclusion is keyed on. A non-``Pregel`` protocol
+    implementation mounted directly (``RemoteGraph``) is left to ``get_subgraphs()`` on the
+    compiled path.
+
+    This read sees what ``get_subgraphs()`` cannot — a subgraph compiled with
+    ``checkpointer=False`` mounted directly — and cannot see what the getter can: a subgraph a
+    node holds through a sequence, a lambda's ``deps`` or a closure. On an uncompiled builder it
+    is the only subgraph read there is, so every such subgraph goes unseen here, and the
+    disclosure says so.
+    """
+    for name, spec in builder.nodes.items():
+        if _mounts_compiled_graph(getattr(spec, "runnable", None)):
+            reading.mounted_subgraphs.append(reading.node_ids[name])
+
+
+def _mounts_compiled_graph(bound: object) -> bool:
+    """Whether ``bound`` is a ``langgraph.pregel.Pregel`` instance — the ruled ``isinstance``.
+
+    The read DEC-36 §3.6 rules and A1-D36 measured, ``isinstance(runnable,
+    langgraph.pregel.Pregel)``: a class check §1 rule 3 licenses, against the concrete class
+    the §4.3 drawing gate admits and the substrate's own ``checkpointer=False`` exclusion is
+    keyed on, so it classifies what compile-time discovery treats as a stock subgraph —
+    a virtual subclass registered with ``Pregel.register``, or an object whose ``__class__``
+    answers ``Pregel``, included. Every stock compiled graph is one.
+
+    Of the object itself it reads one attribute, ``__class__``, and calls nothing beyond that
+    attribute access. **Its residual, measured** (``tests/extraction/test_disclosures.py`` pins
+    each part):
+
+    1. *The part INTROSPECTION-SPEC §3 row (iv) names for every* ``isinstance`` *on a bound
+       object:* ``__class__`` is read through the object's own attribute access whenever the
+       object's type is not exactly ``Pregel`` — on every miss, and on every hit through a
+       subclass, which is what every stock compiled graph is — so a ``__getattribute__``
+       override or a ``__class__`` property of the author's runs for that one name.
+    2. *A part §3 row (iv) does not name:* ``Pregel`` is an ``abc`` class, so a check of a type
+       its caches do not hold — the type's first check, and again after any
+       ``ABCMeta.register`` call anywhere in the process — can run author code outside the
+       object: ``__subclasscheck__`` on the metaclass, and ``__subclasshook__``, of any class in
+       ``Pregel``'s subclass tree or registered with ``Pregel.register``; and, since those
+       caches hash and compare the object's type, ``__hash__`` and ``__eq__`` on that type's
+       metaclass.
+
+    The contract walk's own ``isinstance`` tests on the same object carry the same residual
+    (:mod:`gebra.extraction.contracts`), and they run first.
+    """
+    return isinstance(bound, Pregel)
 
 
 def _read_state(builder: StateGraph[Any], reading: _Reading) -> None:

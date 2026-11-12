@@ -205,7 +205,10 @@ def test_the_envelope_serializes_as_reportable_data() -> None:
     dropped, tuples as arrays, enums as their values. Surface data — never hashed (§6.4)."""
     data = to_data(envelope())
 
-    assert list(data) == ["ir", "extracted_from", "warnings"]
+    # `disclosures` follows `warnings` (INTROSPECTION-SPEC §8; DEC-36) and is serialized even
+    # when empty: an empty tuple is a value, which the profile drops only when it is None.
+    assert list(data) == ["ir", "extracted_from", "warnings", "disclosures"]
+    assert data["disclosures"] == []
     assert data["extracted_from"]["family"] == "builder"
     assert data["warnings"][2] == {
         "code": "compiled-only-extraction",

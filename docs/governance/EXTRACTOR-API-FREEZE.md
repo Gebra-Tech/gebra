@@ -26,7 +26,7 @@ Ten names, resolved lazily out of the two subpackages below (`gebra/__init__.py`
 of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContractError`,
 `pure`, `effect`, `idempotent`, `deterministic`, `variant`, `compensation`.
 
-### 1.2 `gebra.extraction` (72 exports)
+### 1.2 `gebra.extraction` (77 exports)
 
 - **Entry points & dispatch registry** — `extract`, `extract_builder`, `extract_compiled`,
   `extract_lcel_fragment`, `extractor_for`, `register_extractor`, `unregister_extractor`,
@@ -41,6 +41,10 @@ of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContra
   `WARNING_RULES`, `warning_rule`, `contract_warnings`, `sidecar_warnings`,
   `unknown_node_warnings`, `out_of_range_warning`, `FINDING_CODES`,
   `HEURISTIC_GRADE_CODES`.
+- **Extraction disclosures** (INTROSPECTION-SPEC §8; DEC-36, the additive members landed by
+  EX-20, 2026-11-12) — `ExtractionDisclosure`, `ExtractionDisclosureCode`, `DisclosureRule`,
+  `DISCLOSURE_RULES`, `disclosure_rule`: the closed vocabulary beside the warnings taxonomy,
+  never a member of it, carried on the envelope's `disclosures` member outside hash scope.
 - **Annotation-resolution bridge** (§7.4 digests; ANNOTATION-API-SPEC §5 slot grades) —
   `ANNOTATION_SLOTS`, `AnnotationSlot`, `SlotGrade`, `slot_grade`, `CarrierRule`,
   `config_form`, `prompt_form`, `digests_for`, `coerce`, `type_identity`, `to_data`,

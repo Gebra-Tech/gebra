@@ -1,20 +1,23 @@
 """The provenance envelope — what ``gebra.extract()`` returns around the core IR.
 
 Normative authority: IR-SPEC §4.1 (the core-IR/envelope split and the envelope's field
-names), INTROSPECTION-SPEC §8 and ANNOTATION-API-SPEC §4 (warnings ride the envelope,
-outside hash scope), ANNOTATION-API-SPEC §2 (the sidecar path the envelope must record) and
-§5 (the (node id, slot) grade lookup the envelope answers).
+names, ``warnings`` and ``disclosures`` among them), INTROSPECTION-SPEC §8 and
+ANNOTATION-API-SPEC §4 (warnings ride the envelope, outside hash scope), INTROSPECTION-SPEC §8
+again for the disclosures that ride after them (ratified — DEC-36), ANNOTATION-API-SPEC §2
+(the sidecar path the envelope must record) and §5 (the (node id, slot) grade lookup the
+envelope answers).
 
 **The split, and why it is a wrapper rather than a field.** §4.1: "The **core IR** is
 everything specified in §2–§3: it is the hash scope of §6 … The **envelope** is metadata
 wrapped *around* the core IR — outside the model, outside the hash scope." So
 :class:`ExtractionEnvelope` holds a :class:`~gebra.ir.models.WorkflowIR` rather than adding
 members to one, and :meth:`ExtractionEnvelope.graph_version` digests that member alone. A
-warning cannot move a digest here because there is no path by which it could.
+warning or a disclosure cannot move a digest here because there is no path by which it could.
 
-**What this envelope is not.** §4.1 names three envelope fields and gives their semantics to
-brief D-11 (snapshots and traceability). Two of them are that brief's, not extraction's, and
-are deliberately absent:
+**What this envelope is not.** §4.1 names five envelope fields — ``version``,
+``extracted_from``, ``graph_version``, ``warnings`` and ``disclosures`` (the last two given
+their rows at DEC-39) — and gives their semantics to brief D-11 (snapshots and traceability).
+Two things it lists are that brief's, not extraction's, and are deliberately absent:
 
 * ``version`` — the V.S.F.E label — is "derived *from* diffs of the digested content", which
   needs two snapshots; one extraction cannot compute it.
@@ -35,12 +38,18 @@ Nothing here imports langgraph, opens a socket, or executes anything (WA-07).
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from gebra import __version__
 from gebra.extraction.base import ExtractionModel, ObjectFamily
+from gebra.extraction.disclosures import (
+    ExtractionDisclosure,
+    ExtractionDisclosureCode,
+    disclosure_order,
+)
 from gebra.extraction.warnings import (
     AnnotationSlot,
     ExtractionWarning,
@@ -150,22 +159,30 @@ class CompiledSurfaces(ExtractionModel):
     """The §4.1 compiled-level facts that ir 1.0 has no slot for, plus the cross-check record.
 
     §4.1 names two facts outright as provenance-only — ``node_error_handler_map`` and
-    folded-defaults resolution — and gives subgraph discovery an id rule but no boundary-wiring
-    rule (see :mod:`gebra.extraction.compiled` for why the children are therefore not emitted).
+    folded-defaults resolution — and records the parents subgraph discovery found, whose
+    children ir 1.0/1.1 does not emit (see :mod:`gebra.extraction.compiled` for why).
     Everything §4 knows and the IR cannot carry is collected here rather than spread across
     :class:`ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one
     object.
 
     Attributes:
-        subgraphs: The node ids whose bound object is itself a Pregel graph, as discovered by
-            ``get_subgraphs()`` (§4.1), in node-id order. **This member is the conforming
-            disclosure**, not a consolation for one: ir 1.0 carries a discovered subgraph as
-            its parent node only, and §4.1 (ratified — DEC-19) makes that document *complete*
-            — it carries no warning for the unexpansion and reaches the §8 strict-mode bar.
-            Child expansion is the named first 1.x feature. Subgraphs compiled with
-            ``checkpointer=False`` are invisible to discovery (§4.1) — a documented blind spot,
-            so this tuple is a lower bound, never a census, and nothing can warn about what it
-            cannot see.
+        subgraphs: The node ids under which ``get_subgraphs()`` (§4.1) reports a subgraph, in
+            node-id order (the ledger §6 comparator, UTF-16 code units) — the compiled getter's
+            provenance record, which DEC-36 keeps where DEC-19 put it, and empty when the
+            getter is missing or could not be read. It is **not** the disclosure: ir 1.0/1.1
+            carries each subgraph as its parent node only, and every parent read as one node
+            is disclosed by a ``subgraph-read-as-one-node`` record in
+            :attr:`ExtractionEnvelope.disclosures` (DEC-19 Ruling 1 as amended by DEC-36), over
+            the union of this tuple and the builder's direct-mount read — a node whose bound
+            object is a compiled graph. The getter reaches a subgraph a node holds through a
+            sequence, a lambda's ``deps`` or a closure, and skips any subgraph compiled with
+            ``checkpointer=False``; the direct-mount read still sees such a subgraph when it is
+            a node's own bound object. **This tuple is a lower bound, never a census, and so is
+            the union**: a
+            subgraph compiled with ``checkpointer=False`` and reached only from inside a node
+            body is invisible to both reads, and on the compiled-only path, where no builder
+            exists to read, every ``checkpointer=False`` child is. Nothing can disclose what no
+            read can see.
         folded_defaults: The graph-level defaults ``compile()`` folded into node specs.
         error_handlers: ``node_error_handler_map`` — node id → its error-handler node id.
         cross_check: The §4.2 cross-check record, or ``None`` on a path that has no builder to
@@ -225,7 +242,7 @@ class ExtractedFrom(ExtractionModel):
 
 
 class ExtractionEnvelope(ExtractionModel):
-    """The core IR plus its provenance and warnings — what ``extract()`` returns.
+    """The core IR plus its provenance, warnings and disclosures — what ``extract()`` returns.
 
     Attributes:
         ir: The core IR (IR-SPEC §2–§3). The whole hash scope, and the only member
@@ -236,11 +253,42 @@ class ExtractionEnvelope(ExtractionModel):
             silently droppable", and a warning-free extraction is part of the strict-mode
             bar, so they are carried in the return value rather than raised through
             :mod:`warnings` where a filter could drop them.
+        disclosures: The extraction disclosures (INTROSPECTION §8, ratified — DEC-36): records
+            of a fact about what this complete, conforming document does not contain, from
+            the closed vocabulary of :mod:`gebra.extraction.disclosures` — in this build, one
+            ``subgraph-read-as-one-node`` record per node that the §3 direct-mount read or
+            §4.1's ``get_subgraphs()`` finds mounting or reaching a compiled subgraph the
+            document carries as that one node. **Not warnings**: no disclosure is
+            a row of the §8 warning table, counts against the warning-free strict-mode bar,
+            moves an exit code or is promoted by a strict flag — and none is droppable either,
+            which is why they ride the return value too. They come after the warnings, in the
+            §8 order — graph-scoped records first, then node-scoped ones in node-id order (the
+            ledger §6 comparator) and, within one node, by code — checked when the envelope is
+            built, one record per node and code. Outside hash scope: :meth:`graph_version`
+            never reads them. The set of
+            nodes disclosed as subgraph-bearing is a **lower bound, never a census**: a subgraph
+            compiled with ``checkpointer=False`` and reached only from inside a node body is
+            invisible to every read, and on the compiled-only path every ``checkpointer=False``
+            child is.
     """
 
     ir: WorkflowIR
     extracted_from: ExtractedFrom
     warnings: tuple[ExtractionWarning, ...] = ()
+    disclosures: tuple[ExtractionDisclosure, ...] = ()
+
+    @model_validator(mode="after")
+    def _disclosures_in_the_ruled_order(self) -> ExtractionEnvelope:
+        """INTROSPECTION §8's order, strictly — which is also one record per node and code."""
+        for earlier, later in pairwise(self.disclosures):
+            if not disclosure_order(earlier) < disclosure_order(later):
+                raise ValueError(
+                    f"disclosure {later.code.value!r} on {later.node!r} follows "
+                    f"{earlier.code.value!r} on {earlier.node!r}: disclosures come graph-scoped "
+                    "first, then by node id, then by code, one record per node and code "
+                    "(INTROSPECTION-SPEC §8)"
+                )
+        return self
 
     def graph_version(self) -> str:
         """The IR-SPEC §6 content digest of :attr:`ir`, as ``"sha256:<hex>"``.
@@ -262,6 +310,17 @@ class ExtractionEnvelope(ExtractionModel):
     def warnings_of(self, code: ExtractionWarningCode) -> tuple[ExtractionWarning, ...]:
         """Every warning carrying ``code``, in emission order."""
         return tuple(warning for warning in self.warnings if warning.code is code)
+
+    def disclosures_for(self, node: str) -> tuple[ExtractionDisclosure, ...]:
+        """Every disclosure naming ``node``, in the §8 order."""
+        return tuple(disclosure for disclosure in self.disclosures if disclosure.node == node)
+
+    def disclosures_of(self, code: ExtractionDisclosureCode) -> tuple[ExtractionDisclosure, ...]:
+        """Every disclosure carrying ``code``, in the §8 order."""
+        # By value: with one member in the vocabulary, mypy reads a member test as always true.
+        return tuple(
+            disclosure for disclosure in self.disclosures if disclosure.code.value == code.value
+        )
 
     def slot_grade(self, node: str, slot: AnnotationSlot) -> SlotGrade:
         """The ANNOTATION §5 grade of ``slot`` on ``node`` — declared, inferred or defaulted.

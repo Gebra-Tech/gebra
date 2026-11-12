@@ -296,15 +296,18 @@ class ExtractionWarning(ExtractionModel):
         return tuple((self.node, slot) for slot in self.slots)
 
 
-def _reportable(value: object, *, path: str, depth: int) -> Any:
+def _reportable(value: object, *, path: str, depth: int, record: str = "warning") -> Any:
     """``value`` as reportable JSON data, with sequences as tuples; raise if it is not.
 
     Total over JSON data and nothing else. The depth bound is what turns a self-referential
-    mapping into a message rather than a :class:`RecursionError`.
+    mapping into a message rather than a :class:`RecursionError`. ``record`` names the kind of
+    record whose ``detail`` is being checked — a warning here, a disclosure in
+    :mod:`gebra.extraction.disclosures`, which holds its ``detail`` to the same discipline — so a
+    refusal names the record it came from.
     """
     if depth > _MAX_DETAIL_DEPTH:
         raise ValueError(
-            f"{path} nests deeper than {_MAX_DETAIL_DEPTH} levels; a warning's detail is a "
+            f"{path} nests deeper than {_MAX_DETAIL_DEPTH} levels; a {record}'s detail is a "
             "record of what extraction found, not a data structure"
         )
     if value is None or isinstance(value, (str, bool, int)):
@@ -315,7 +318,7 @@ def _reportable(value: object, *, path: str, depth: int) -> Any:
         return value
     if isinstance(value, (tuple, list)):
         return tuple(
-            _reportable(item, path=f"{path}[{index}]", depth=depth + 1)
+            _reportable(item, path=f"{path}[{index}]", depth=depth + 1, record=record)
             for index, item in enumerate(value)
         )
     if isinstance(value, dict):
@@ -327,10 +330,12 @@ def _reportable(value: object, *, path: str, depth: int) -> Any:
                 raise ValueError(  # noqa: TRY004
                     f"{path} has the non-string key {key!r}; JSON keys are strings"
                 )
-            normalized[key] = _reportable(item, path=f"{path}[{key!r}]", depth=depth + 1)
+            normalized[key] = _reportable(
+                item, path=f"{path}[{key!r}]", depth=depth + 1, record=record
+            )
         return normalized
     raise ValueError(
-        f"{path} holds a {type_identity(value)}, which is not JSON data; a warning carries "
+        f"{path} holds a {type_identity(value)}, which is not JSON data; a {record} carries "
         "what extraction found, in a form it can be reported in"
     )
 

@@ -26,6 +26,7 @@ import pytest
 from gebra.extraction import (
     CompiledSurfaces,
     CrossCheck,
+    ExtractionDisclosureCode,
     ExtractionEnvelope,
     ExtractionError,
     ExtractionErrorReason,
@@ -244,17 +245,17 @@ def test_a_graph_with_no_defaults_records_no_folding() -> None:
 
 
 def test_a_discovered_subgraph_is_its_parent_node_and_the_document_is_complete() -> None:
-    """§4.1, ratified as DEC-19: the parent node only, and that document is *conforming*.
+    """§4.1, ratified as DEC-19 and amended by DEC-36: the parent node only, disclosed.
 
-    "ir 1.0 carries a discovered subgraph as its parent node only: child nodes, child edges,
-    and the child's own ``entry``/``finish``/Σ are NOT emitted; the discovered-parent set is
-    recorded in the provenance envelope, which is the conforming disclosure — such a document
-    is complete, carries no warning for the unexpansion, and reaches the §8 strict-mode bar."
+    In 1.0/1.1 output a discovered subgraph is its parent node only — child nodes, child edges
+    and the child's own ``entry``/``finish``/Σ are not emitted — the discovered-parent set stays
+    in the provenance envelope, and the node is disclosed (``subgraph-read-as-one-node``) rather
+    than warned: such a document is complete, carries no §8 *warning* for the unexpansion, and
+    reaches the §8 strict-mode bar.
 
-    So the last assertion is the load-bearing one, and it is the one that changed when the
-    ruling landed: a subgraph-bearing workflow emits **no** ``unsupported-construct``, because
-    an IR that is complete must not say it is partial. Child expansion is the named first 1.x
-    feature; §4.1 forbids improvising any of it here.
+    So the warning assertion is still the load-bearing one: a subgraph-bearing workflow emits
+    **no** ``unsupported-construct``, because an IR that is complete must not say it is partial.
+    What DEC-36 added is the record beside it, which says the node's interior was not read.
     """
     envelope = extract(sc.build_subgraph_parent())
 
@@ -266,10 +267,13 @@ def test_a_discovered_subgraph_is_its_parent_node_and_the_document_is_complete()
     ]
     assert not any("/" in node.id for node in envelope.ir.nodes)
     assert _warnings_of(envelope, ExtractionWarningCode.UNSUPPORTED_CONSTRUCT) == ()
+    assert [(d.code, d.node) for d in envelope.disclosures] == [
+        (ExtractionDisclosureCode.SUBGRAPH_READ_AS_ONE_NODE, "legs")
+    ]
 
 
 def test_a_subgraph_bearing_workflow_reaches_the_strict_mode_bar() -> None:
-    """The consequence DEC-19 rules on, stated as the property §8 defines it by.
+    """The consequence DEC-19 rules on and DEC-36 §3.8 keeps, as the property §8 defines it by.
 
     §8 makes "a warning-free extraction" part of the strict-mode bar. Under the ruling an
     unexpanded subgraph is not a defect, so a workflow that contains one must be able to be
@@ -279,6 +283,11 @@ def test_a_subgraph_bearing_workflow_reaches_the_strict_mode_bar() -> None:
     The one thing this graph *does* warn about is unrelated and expected: its nodes carry no
     declared contract, so the D-011 defaults apply and say so. That is the §4 annotation floor,
     not a statement about the subgraph.
+
+    DEC-36 keeps the bar reachable by construction: the subgraph is now disclosed, and a
+    disclosure is not a warning — its code is in no warning vocabulary, it rides its own member,
+    and it moves no exit code and no strict flag promotes it. The price PD-064 §7 states rather
+    than hides: a strict run does not fail because this subgraph's interior was not checked.
     """
     envelope = extract(sc.build_subgraph_parent())
 
@@ -289,6 +298,11 @@ def test_a_subgraph_bearing_workflow_reaches_the_strict_mode_bar() -> None:
         for warning in envelope.warnings
         if warning.detail
     )
+    # Beside the warnings, never among them: one record, in its own vocabulary.
+    (disclosure,) = envelope.disclosures
+    assert disclosure.code is ExtractionDisclosureCode.SUBGRAPH_READ_AS_ONE_NODE
+    assert disclosure.node == "legs"
+    assert disclosure.code.value not in {code.value for code in ExtractionWarningCode}
 
 
 @pytest.mark.skipif(
@@ -1413,6 +1427,7 @@ def test_every_envelope_this_path_produces_round_trips(name: str) -> None:
 
     assert data["extracted_from"]["family"] == "compiled"
     assert isinstance(data["warnings"], list)
+    assert isinstance(data["disclosures"], list)
 
 
 def test_the_fixture_table_covers_the_four_things_section_4_says() -> None:

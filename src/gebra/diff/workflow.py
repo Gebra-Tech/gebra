@@ -118,7 +118,7 @@ class WorkflowDiff:
             the module docstring). Independent of :attr:`topology`: both can be non-empty.
         evolution_safety: The deferred-P-12 marker (:data:`EVOLUTION_SAFETY_DEFERRED`). Not a
             verdict, and not a pass — the structured statement that no safe/breaking
-            classification was reached, because P-12 is Phase-1 scope.
+            classification was reached, because no P-12 validator ships in this release.
     """
 
     topology: TopologyDiff

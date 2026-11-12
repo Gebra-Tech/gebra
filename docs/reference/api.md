@@ -2646,12 +2646,12 @@ Source: [`src/gebra/verify/registry.py`](https://github.com/Gebra-Tech/gebra/blo
 #### `gebra.verify.DEFERRED_READING`
 
 ```python
-DEFERRED_READING: Final = ...
+DEFERRED_READING: Final = "has no validator in this release"
 ```
 
 *constant*, defined in `gebra.verify.registry`.
 
-What a `deferred-to-phase-1` marker says about its property, on every surface that renders one — PROPERTY-CATALOG-SPEC §0.6 item 1's words, verbatim (DEC-35 §3.1). A surface lays the words out as it needs; it does not reword them.
+What a `deferred-to-phase-1` marker says about its property, on every surface that renders one — PROPERTY-CATALOG-SPEC §0.6 item 1's words, verbatim (DEC-42 §3.1). A marker with this status answers only for a row its producing build holds deferred, so the words state a fact of that build, true whenever the marker is read. A surface lays the words out as it needs; it does not reword them.
 
 #### `gebra.verify.MARKER_REASONS`
 
@@ -2756,7 +2756,7 @@ NotImplementedStatus: TypeAlias = Literal["deferred-to-phase-1", "not-yet-implem
 
 *type alias*, defined in `gebra.verify.registry`.
 
-Why no verdict was produced. `deferred-to-phase-1` is D-09's own vocabulary for its stub discipline, read since DEC-35 as "scheduled for Phase 1, not landed in this release"; `not-yet-implemented` is a shipped property whose validator is not wired into this build.
+Why no verdict was produced. `deferred-to-phase-1` is D-09's historical word for its stub discipline, kept verbatim on the wire and read since DEC-42 §3.3 as "no validator in this release" — no schedule is read from it; `not-yet-implemented` is a shipped property whose validator is not wired into this build.
 
 #### `gebra.verify.PropertyArity`
 
@@ -2793,7 +2793,7 @@ One row of the property registry.
 - `claim_classes` — Every §0.1 class this property's findings can carry, in the order the catalog states them. More than one where the catalog splits a property across sub-checks (P-05, P-09) — the per-finding class is always the §0.4 registry's, never this field's.
 - `severities` — Every §0.2 grade this property's findings can carry, on the same terms.
 - `derivation` — What the property is derived *from*, as the catalog states it — the derivation reference D-09 Deliverable 2 asks this table to carry.
-- `spec_ref` — Where its contract lives.
+- `spec_ref` — Where the specifications state the property: for a shipped row, what its validator is written against; for a `deferred-to-phase-1` row, the property's catalog section, named with no statement of its standing (DEC-42 §3.4).
 - `scope` — Where the property stands in the catalog (`PropertyScope`).
 - `arity` — How many IR snapshots the validator reads.
 
@@ -2815,7 +2815,7 @@ PropertyScope: TypeAlias = Literal["phase-0-wedge", "catalog", "deferred-to-phas
 
 *type alias*, defined in `gebra.verify.registry`.
 
-Where a property stands in the catalog (DEC-35 §3.1; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property whose ratified section's validator ships, or a property whose section is not yet ratified.
+Where a property stands in the catalog (DEC-35 §3.1, the deferred scope as DEC-42 §3.2 restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property whose ratified section's validator ships, or a property for which no validator ships, whether or not its section is ratified.
 
 #### `gebra.verify.RegistryCounts`
 

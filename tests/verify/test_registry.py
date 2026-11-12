@@ -9,10 +9,10 @@ never ``None``, and never an exception a caller has to guess the meaning of.
 The charter adds three claims, each pinned here in both directions (DEC-35 §3.1, §3.5):
 the scope vocabulary and the registration rule — a ``catalog`` row accepts a validator, a
 ``deferred-to-phase-1`` or two-snapshot row refuses one through this path; the marker copy —
-the charter's words on every deferred marker, and none of the retired Phase-0 phrases left
-anywhere under ``src/``; and the derived counts — every count reads the registry, and a
-synthetic registration moves all of them together. The ``catalog`` rows these tests use are
-synthetic (``tests/_registry.py``): no real property moves.
+the charter's words on every deferred marker (DEC-42 §3.1), and none of the phrases DEC-35
+and DEC-42 retired left anywhere under ``src/``; and the derived counts — every count reads
+the registry, and a synthetic registration moves all of them together. The ``catalog`` rows
+these tests use are synthetic (``tests/_registry.py``): no real property moves.
 
 The second claim is that the table is the single source of truth D-09 Deliverable 2 asks for:
 thirteen rows, exactly the catalog's slugs, each carrying the claim class, severity and
@@ -227,10 +227,12 @@ def test_dispatch_answers_every_slug_with_something_structured(
 def test_every_deferred_slug_answers_with_the_charters_copy(
     slug: PropertySlug, ir: WorkflowIR
 ) -> None:
-    """D-09's stub discipline in DEC-35 §3.1's words: a distinct status, a pointer, no pass.
+    """D-09's stub discipline in DEC-42 §3.1's words: a distinct status, a pointer, no pass.
 
-    The detail carries PROPERTY-CATALOG-SPEC §0.6 item 1's reading of the token verbatim and
-    keeps the sentence the charter keeps verbatim; nothing in it names Phase 0 as the present.
+    The detail carries PROPERTY-CATALOG-SPEC §0.6 item 1's copy for the token verbatim (DEC-42
+    §3.1), points at the property's catalog section with no standing stated (DEC-42 §3.4), and
+    keeps the sentence the charter keeps verbatim (DEC-35 §3.1); nothing in it names Phase 0 as
+    the present.
     """
     marker = run_property(slug, ir)
     assert isinstance(marker, NotImplementedMarker)
@@ -313,10 +315,11 @@ def test_a_registered_validator_takes_over_dispatch(
 def test_registration_is_refused_for_every_deferred_row(
     slug: PropertySlug, clean_registrations: Any
 ) -> None:
-    """A validator cannot appear at runtime for a property whose section is not ratified.
+    """A validator cannot appear at runtime for a ``deferred-to-phase-1`` row, ratified or not.
 
-    The refusal states the charter's copy for the row and the edit that would license the
-    registration — the row's move to ``catalog`` — rather than any phase (DEC-35 §3.1).
+    The refusal states the charter's copy for the row (DEC-42 §3.1) and the edit that would
+    license the registration — the row's move to ``catalog`` — rather than any phase (DEC-35
+    §3.1).
     """
     with pytest.raises(PropertyRegistryError, match=re.escape(DEFERRED_READING)) as refused:
         register_validator(slug, _stub_report)
@@ -395,7 +398,7 @@ def test_every_wire_status_has_its_reason_and_no_other() -> None:
     Every surface that renders a marker states the reason its status keys here, so a status
     a section's landing admits (``not-enabled``, ``two-snapshot-only``) fails this test until
     its ruled reason joins — no surface can fall back to another status's words — and the
-    deferred reason is the charter's own (DEC-35 §3.1).
+    deferred reason is the charter's own (DEC-42 §3.1).
     """
     assert set(MARKER_REASONS) == set(get_args(NotImplementedStatus))
     assert MARKER_REASONS["deferred-to-phase-1"] == DEFERRED_READING
@@ -534,22 +537,31 @@ def test_a_throwaway_registration_moves_every_derived_count_together(ir: Workflo
     assert registry_counts() == before
 
 
-# ── The retired copy (DEC-35 §3.1) ───────────────────────────────────────────────────────
+# ── The retired copy (DEC-35 §3.1, DEC-42) ───────────────────────────────────────────────
 
 SRC: Final = Path(__file__).resolve().parents[2] / "src"
 
-#: The Phase-0 marker copy DEC-35 §3.1 retires, as each surface spelled it: the marker detail
-#: and the harness's deferral ("is outside the Phase-0 wedge (SOW §8)"), the human status line
-#: ("it is outside the Phase-0 wedge"), the plugin's ``--gebra-select`` refusal ("SOW §8
-#: defers them to Phase 1"), the registration refusal ("is out of Phase-0 scope"), the
-#: ``snapshot`` marker line ("no safe/breaking classification exists in Phase 0") and the
-#: not-yet-implemented detail ("one of the Phase-0 wedge five, but no validator").
+#: The marker copy two rulings retired. The Phase-0 copy DEC-35 §3.1 retired, as each surface
+#: spelled it: the marker detail and the harness's deferral ("is outside the Phase-0 wedge
+#: (SOW §8)"), the human status line ("it is outside the Phase-0 wedge"), the plugin's
+#: ``--gebra-select`` refusal ("SOW §8 defers them to Phase 1"), the registration refusal ("is
+#: out of Phase-0 scope"), the ``snapshot`` marker line ("no safe/breaking classification
+#: exists in Phase 0") and the not-yet-implemented detail ("one of the Phase-0 wedge five, but
+#: no validator"). Then what DEC-42 retired, each a statement that turns untrue when a section
+#: is ratified: the second clause of DEC-35's copy (§3.1), DEC-35's definition of the deferred
+#: scope (§3.2), the token's reading DEC-42 §3.3 replaced, and the note the eight deferred
+#: rows' contract pointers carried (§3.4). Exact needles: a bare "not yet ratified" would also
+#: hit sentences about condition-ID emission and version compatibility, which are not copy.
 RETIRED_PHRASES: Final = (
     "outside the Phase-0 wedge",
     "defers them to Phase 1",
     "is out of Phase-0 scope",
     "classification exists in Phase 0",
     "one of the Phase-0 wedge five, but",
+    "its catalog section is not yet ratified",
+    "whose section is not yet ratified",
+    "scheduled for Phase 1",
+    "stub; Verification-Properties",
 )
 
 
@@ -569,6 +581,29 @@ def test_the_retired_scan_sees_a_phrase_split_across_lines() -> None:
         'detail = (\n    "P-03 is outside the\n    Phase-0 wedge (SOW §8)"\n)'
     ) == ["outside the Phase-0 wedge"]
     assert _retired_hits(f"P-03 signature-soundness {DEFERRED_READING}. {NO_VERDICT}") == []
+
+
+def test_the_retired_scan_sees_each_phrase_dec_42_retired() -> None:
+    """Arms the scan for DEC-42's four needles, on the texts that carried them before it.
+
+    The marker detail as VAL-16 built it, DEC-35's definition and reading as the registry's
+    docstrings stated them, and a contract pointer with its note, wrapped across lines.
+    """
+    assert _retired_hits(
+        "P-03 signature-soundness has no validator in this release; its catalog\n"
+        "    section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC\n"
+        "    §P-03 (stub;\n    Verification-Properties §2 authoritative). " + NO_VERDICT
+    ) == ["its catalog section is not yet ratified", "stub; Verification-Properties"]
+    assert _retired_hits(
+        "a property whose section is not yet ratified, read as\n"
+        '    "scheduled for Phase 1, not landed in this release"'
+    ) == ["whose section is not yet ratified", "scheduled for Phase 1"]
+    assert (
+        _retired_hits(
+            "an ID registered but not yet ratified for emission; a range not yet ratified"
+        )
+        == []
+    )
 
 
 def test_no_retired_marker_phrase_remains_in_src() -> None:

@@ -7,7 +7,7 @@ Two jobs, one command.
 it as PROPERTY-CATALOG-SPEC §0.3 model equality, and every outcome is counted:
 ``matched``, the two structured skips (``pending-validator`` for a shipped property whose
 validator is not registered in this build, ``deferred-to-phase-1`` for a property whose
-registry row is ``deferred-to-phase-1`` — no validator in this release, DEC-35 §3.1),
+registry row is ``deferred-to-phase-1`` — no validator in this release, DEC-42 §3.1),
 and the two deviation statuses. PD-006 R3.3 asks that the skips be "surfaced in the run report
 and counted, never a silent pass"; ``--report`` is that report.
 

@@ -1252,6 +1252,33 @@ had their output blocks recaptured from real runs under `tools/docs_examples.py`
 block changed, and `docs/reference/api.md` is regenerated from docstrings by a generator that
 imports nothing it documents.
 
+### VAL-29 — the deferred marker's copy and pointer, and seven recaptured transcripts
+
+No extraction path is added, and nothing under `src/gebra/extraction/`, `annotations/` or
+`snapshot/` changes. One non-extraction WA-07 path moves, in its text only:
+`gebra.testing.harness.run_obligation`'s deferral outcome states `DEFERRED_READING`'s new value
+and names the property's catalog section. That branch reads the obligation's registry row
+(`property_entry`), builds the reason and returns before `expected_for` or `validator_for` is
+reached, so a deferred obligation looks up and runs no validator. One test module joins:
+`tests/testing/test_marker_copy_discipline.py` loads the vendored corpus (`load_corpus`), plans
+each fixture (`plan_fixture`) and calls `run_obligation` only on the obligations whose property
+is deferred — never `run_corpus`, which runs the registered validators; the three calls are a
+strict subset of the `run_corpus` run `tests/testing/test_hermeticity.py` already guards in a
+child process. It also reads `not_implemented(slug).detail` for the thirteen rows: a registry
+read, string building and the construction of a `NotImplementedMarker`, the library's own strict
+envelope model, which declares no validator of its own, so its pydantic validation reaches no
+user code. The plugin's `--gebra-select` refusal now builds each refused slug's reason through
+the same `not_implemented` call, imported from `gebra.verify` where the refusal imported
+`property_entry` before, at `pytest_configure`, with no workflow object in reach. One plugin
+test joins `tests/plugin/test_gating.py`,
+`test_the_select_refusal_states_each_deferred_reason_once`: an in-process `pytester` session
+whose target file holds a literal `WorkflowIR`, refused with a usage error at configure time
+(`pytest_configure` parses the flags), before anything is collected. Three executed
+documentation pages (`docs/guides/snapshot-diff-and-evolution.md`, `docs/reference/cli.md`,
+`docs/tutorials/travel-booking-end-to-end.md`) had seven output blocks recaptured from real runs
+under `tools/docs_examples.py`'s guard; no code block changed, and `docs/reference/api.md` is
+regenerated from docstrings by a generator that imports nothing it documents.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

@@ -566,10 +566,12 @@ def run_obligation(fixture: PropertyFixture, obligation: Obligation) -> Outcome:
 
     The order of the questions is the ruling's own. **Scope first**: an obligation whose
     property's registry row is ``deferred-to-phase-1`` is deferred whatever shape its
-    expected value has — checking the shape first would report a provisional witness of a
-    property with no ratified section as a corpus deviation, which it is not
-    (``schema.yaml`` calls those shapes provisional by design). **Then modelling**, because whether the corpus states an
-    obligation in the frozen envelope is a fact about the corpus that does not wait on a
+    expected value has — no validator for the property ships in this release, so no
+    comparison is claimed for it, and checking the shape first would report an expected value
+    nothing in this release compares as a corpus deviation, which it is not. The deferral
+    states the charter's copy (DEC-42 §3.1) and names the property's catalog section without
+    stating its standing (DEC-42 §3.4). **Then modelling**, because whether the corpus states
+    an obligation in the frozen envelope is a fact about the corpus that does not wait on a
     validator. **Then wiring**, and only then the comparison.
     """
     if obligation.deferred:
@@ -578,7 +580,7 @@ def run_obligation(fixture: PropertyFixture, obligation: Obligation) -> Outcome:
             obligation,
             "deferred-to-phase-1",
             f"{entry.property_id} {entry.slug} {DEFERRED_READING}, and no comparison is "
-            f"claimed for it. Its contract is {entry.spec_ref}. {NO_VERDICT}",
+            f"claimed for it. Its catalog section is {entry.spec_ref}. {NO_VERDICT}",
         )
     try:
         expected = expected_for(fixture, obligation)

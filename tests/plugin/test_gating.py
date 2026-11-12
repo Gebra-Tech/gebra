@@ -54,6 +54,7 @@ from gebra.pytest_plugin import (
 )
 from gebra.testing import load_fixture
 from gebra.verify import (
+    DEFERRED_READING,
     PROPERTY_SLUGS,
     STRICT_ALL,
     STRICT_OFF,
@@ -641,13 +642,14 @@ def test_the_gate_is_strict(gebra_verification):
         ((f"{STRICT_OPTION}=P-08",), "*not a property slug*"),
         ((f"{SELECT_OPTION}=graph-well-formed,",), "*empty property slug*"),
         # A deferred property cannot be selected: the item it asks for cannot exist.
-        ((f"{SELECT_OPTION}=retry-coherence",), "*no validator in this release answers*"),
-        # ... in the charter's words, with the sentence it keeps verbatim (DEC-35 §3.1).
+        ((f"{SELECT_OPTION}=retry-coherence",), "*which no validator answers: retry-coherence *"),
+        # ... in the charter's words (DEC-42 §3.1), stated once, with the sentence the charter
+        # keeps verbatim (DEC-35 §3.1).
         (
             (f"{SELECT_OPTION}=retry-coherence",),
             (
-                "*has no validator in this release; its catalog section is not yet ratified)*"
-                "No verdict was reached — this is not a pass.*"
+                "*retry-coherence has no validator in this release. No verdict was reached — "
+                "this is not a pass.*"
             ),
         ),
     ],
@@ -666,6 +668,21 @@ def test_an_unreadable_gate_flag_ends_the_session(
     result = pytester.runpytest(*flags)
     assert result.ret == pytest.ExitCode.USAGE_ERROR
     result.stderr.fnmatch_lines([message])
+
+
+def test_the_select_refusal_states_each_deferred_reason_once(pytester: pytest.Pytester) -> None:
+    """The refusal's lead-in names no release, so the charter's copy is said once per slug.
+
+    DEC-42 §3.1's copy already says "in this release"; a lead-in that said it too would state
+    one reason twice on one line. Each slug the flag names is followed by its own reason.
+    """
+    pytester.makepyfile(test_target=_ir_source(CLEAN, name="clean"))
+    result = pytester.runpytest(f"{SELECT_OPTION}=retry-coherence,parallel-safety")
+    assert result.ret == pytest.ExitCode.USAGE_ERROR
+    refusal = " ".join(result.stderr.str().split())
+    assert "which no validator answers: retry-coherence " in refusal
+    assert f"retry-coherence {DEFERRED_READING}; parallel-safety {DEFERRED_READING}." in refusal
+    assert refusal.count("in this release") == 2
 
 
 def test_skipping_every_property_is_refused_at_collection(pytester: pytest.Pytester) -> None:

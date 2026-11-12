@@ -301,7 +301,7 @@ def _marker_lines(marker: NotImplementedMarker) -> list[Text]:
 
     The reason each status states is the registry's, keyed by the status itself
     (:data:`~gebra.verify.registry.MARKER_REASONS` — for ``deferred-to-phase-1`` the
-    charter's own words, DEC-35 §3.1), and the detail beneath it carries the registry's copy
+    charter's own words, DEC-42 §3.1), and the detail beneath it carries the registry's copy
     with its "No verdict was reached — this is not a pass." verbatim.
     """
     header = Text()

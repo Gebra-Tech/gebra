@@ -85,7 +85,7 @@
       "property": "signature-soundness",
       "property_id": "P-03",
       "status": "deferred-to-phase-1",
-      "detail": "P-03 signature-soundness has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-03 signature-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass."
     },
     {
       "property": "dataflow-completeness",
@@ -182,7 +182,7 @@
       "property": "guard-exhaustiveness",
       "property_id": "P-05",
       "status": "deferred-to-phase-1",
-      "detail": "P-05 guard-exhaustiveness has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-05 guard-exhaustiveness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-05. No verdict was reached — this is not a pass."
     },
     {
       "property": "effect-safety",
@@ -218,7 +218,7 @@
       "property": "retry-coherence",
       "property_id": "P-07",
       "status": "deferred-to-phase-1",
-      "detail": "P-07 retry-coherence has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-07 retry-coherence has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-07. No verdict was reached — this is not a pass."
     },
     {
       "property": "determinism-replay",
@@ -241,35 +241,35 @@
       "property": "parallel-safety",
       "property_id": "P-09",
       "status": "deferred-to-phase-1",
-      "detail": "P-09 parallel-safety has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-09 parallel-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-09. No verdict was reached — this is not a pass."
     },
     {
       "kind": "not-implemented",
       "property": "subgraph-consistency",
       "property_id": "P-10",
       "status": "deferred-to-phase-1",
-      "detail": "P-10 subgraph-consistency has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-10 subgraph-consistency has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-10. No verdict was reached — this is not a pass."
     },
     {
       "kind": "not-implemented",
       "property": "join-key-soundness",
       "property_id": "P-11",
       "status": "deferred-to-phase-1",
-      "detail": "P-11 join-key-soundness has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-11 join-key-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-11. No verdict was reached — this is not a pass."
     },
     {
       "kind": "not-implemented",
       "property": "evolution-safety",
       "property_id": "P-12",
       "status": "deferred-to-phase-1",
-      "detail": "P-12 evolution-safety has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-12 evolution-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-12. No verdict was reached — this is not a pass."
     },
     {
       "kind": "not-implemented",
       "property": "interrupt-gate-coverage",
       "property_id": "P-13",
       "status": "deferred-to-phase-1",
-      "detail": "P-13 interrupt-gate-coverage has no validator in this release; its catalog section is not yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative). No verdict was reached — this is not a pass."
+      "detail": "P-13 interrupt-gate-coverage has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-13. No verdict was reached — this is not a pass."
     }
   ],
   "best_effort": [],

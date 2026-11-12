@@ -690,23 +690,17 @@ def _parse_policy(config: pytest.Config) -> GatePolicy | None:
 def _unanswered_reason(slugs: list[PropertySlug]) -> str:
     """Why no validator answers the selected ``slugs``, in the registry's own words.
 
-    Keyed on each row's scope, never on "not wedge" (DEC-35 §3.5 (b)), and worded by the
-    registry's reason table (:data:`~gebra.verify.MARKER_REASONS`): a deferred row has no
-    validator in this release, in the charter's words (DEC-35 §3.1); a shipped row lands
-    here only in a build whose validator module was never imported.
+    Keyed on each row's scope — the status :func:`~gebra.verify.not_implemented` answers the
+    slug with — never on "not wedge" (DEC-35 §3.5 (b)), and worded by the registry's reason
+    table (:data:`~gebra.verify.MARKER_REASONS`): a deferred row has no validator in this
+    release, in the charter's words (DEC-42 §3.1); a shipped row lands here only in a build
+    whose validator module was never imported. The lead-in names neither a release nor a
+    build, so each slug's reason is stated once, by the status that owns it.
     """
-    from gebra.verify import MARKER_REASONS, property_entry
+    from gebra.verify import MARKER_REASONS, not_implemented
 
-    deferred = [slug for slug in slugs if property_entry(slug).deferred]
-    unwired = [slug for slug in slugs if not property_entry(slug).deferred]
-    reasons = []
-    if deferred:
-        each = "; ".join(f"{slug} {MARKER_REASONS['deferred-to-phase-1']}" for slug in deferred)
-        reasons.append(f"which no validator in this release answers ({each})")
-    if unwired:
-        each = "; ".join(f"{slug} {MARKER_REASONS['not-yet-implemented']}" for slug in unwired)
-        reasons.append(f"which no validator registered in this build answers ({each})")
-    return "; and ".join(reasons)
+    each = "; ".join(f"{slug} {MARKER_REASONS[not_implemented(slug).status]}" for slug in slugs)
+    return f"which no validator answers: {each}"
 
 
 def gate_policy(config: pytest.Config | None = None) -> GatePolicy:
@@ -1519,7 +1513,7 @@ def _render_property_line(outcome: PropertyOutcome, report: RunReport) -> list[s
     slug on every one; on a pass, the claim class read from the catalog (a pass carries no
     per-record grade — §4.6 rule 1) and a §4.3 witness summary; on a fail, the primary finding
     per §4.4 and **every** co-failure and advisory rendered too, "never summarized away"; on a
-    marker, *not checked*, the registry's own copy of why (DEC-35 §3.1's words for a
+    marker, *not checked*, the registry's own copy of why (DEC-42 §3.1's words for a
     ``deferred-to-phase-1`` row), and explicitly not a pass.
     """
     from gebra.verify import PropertyReport, property_entry

@@ -453,9 +453,10 @@ def test_a_catalog_propertys_obligations_move_from_r33_to_r32() -> None:
     """R3.2 asserts what is live and R3.3 skips what is deferred — both read the registry.
 
     Under a synthetic ``catalog`` row with a throwaway validator, P-07's obligations leave
-    R3.3's skip count and join R3.2's scope, where — their corpus shape being provisional — they
-    are shortfalls with no routed row: violations, which is what a landing settles (DEC-35
-    §3.5 (a)). R3.4 runs ``verify()`` with P-07 answered by its validator, not a marker.
+    R3.3's skip count and join R3.2's scope, where — their corpus blocks having no §0.3 shape in
+    this build's envelope — they are shortfalls with no routed row: violations, which is what a
+    landing settles (DEC-35 §3.5 (a)). R3.4 runs ``verify()`` with P-07 answered by its
+    validator, not a marker.
     """
     from gebra.testing.harness import run_corpus
     from tools.corpus_green import _clause_r32, _clause_r33, _clause_r34

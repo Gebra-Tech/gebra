@@ -216,7 +216,7 @@ def test_pass_reports_are_shown_with_a_class_and_a_witness_summary() -> None:
 def test_markers_are_shown_and_never_as_a_pass() -> None:
     """Rule 5 and §4.6 rule 5: *not checked*, with the status, and explicitly not a pass.
 
-    The deferred marker's reason is the charter's own words (DEC-35 §3.1), and how many
+    The deferred marker's reason is the charter's own words (DEC-42 §3.1), and how many
     properties produced no verdict is read off the registry, never stated.
     """
     text = render_human(CASES[0].report, GOLDEN_OPTIONS)

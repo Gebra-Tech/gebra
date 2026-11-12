@@ -447,8 +447,7 @@ workflow diff
   after                   1.2.1.2  sha256:fafd89ddc8199092...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -460,8 +459,7 @@ workflow diff
   after                   1.2.1.3  sha256:e01c03b8157eda8f...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -473,8 +471,7 @@ workflow diff
   after                   1.2.2.3  sha256:003959bfed0dfe7e...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -489,8 +486,7 @@ workflow diff
   after                   1.2.3.3  sha256:7e6584a57ef85ae6...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -505,8 +501,8 @@ the store's counters this step moved — `E` for the two schema edits, `F` for t
 contract edits — and routes you to the section below it. The **`P-12 evolution-safety`**
 line is the classification gebra deliberately does not make: grading a change safe or
 breaking over a pair of versions is a property outside this release, the marker says `not
-checked` in the slot where that verdict would go, and the line under it is the caption that
-keeps a bump class from being read as a risk grade.
+checked` in the slot where that verdict would go, and the last line under it is the caption
+that keeps a bump class from being read as a risk grade.
 
 So the body is where the reviewer's information is. `- key itinerary: str` beside the fact
 that two contracts still declare that key; `~ key availability` retyped under four

@@ -52,21 +52,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The property registry carries the Phase-1 catalog charter's scope vocabulary, and a
-  not-implemented marker says why in the charter's words** (card VAL-16; DEC-35). A registry
-  row now carries one of three scopes: `phase-0-wedge` (the five validators that ship today),
-  `catalog` (a property whose catalog section is ratified and whose validator ships — no
-  property carries it yet) and `deferred-to-phase-1`. `gebra.verify.register_validator`
+  not-implemented marker says why in the charter's words** (cards VAL-16 and VAL-29; DEC-35,
+  DEC-42). A registry row now carries one of three scopes: `phase-0-wedge` (the five validators
+  that ship today), `catalog` (a property whose catalog section is ratified and whose validator
+  ships — no property carries it yet) and `deferred-to-phase-1` (a property for which no
+  validator ships, whether or not its catalog section is ratified; the token keeps its name on
+  the wire and is read as "no validator in this release"). `gebra.verify.register_validator`
   accepts a validator for a row in either of the first two and refuses one for a
   `deferred-to-phase-1` row — and, whatever the scope, for a property that reads two snapshots
   through the one-snapshot path. `gebra.verify.verify()` treats a row in either shipped scope
   with no registered validator as a `dispatch` tool error (exit 2), exactly as it treated a
   missing wedge validator. The marker for a property with no validator now reads "P-03
-  signature-soundness has no validator in this release; its catalog section is not yet
-  ratified. …" where it said the property was "outside the Phase-0 wedge (SOW §8)"; the
-  sentence "No verdict was reached — this is not a pass." is kept verbatim. The same reason
+  signature-soundness has no validator in this release. Its catalog section is
+  PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass." In `0.1.1` it said
+  the property was "outside the Phase-0 wedge (SOW §8)" and named its contract as
+  "PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative)" — the contract
+  pointer no longer calls the section a stub or names another document as authoritative, and
+  the sentence "No verdict was reached — this is not a pass." is kept verbatim. The same reason
   and sentence now appear on the human report's status line, in the pytest plugin's
-  `--gebra-select` refusal (which says no validator *in this release* answers the slug), in the
-  golden harness's deferral reason, and on the P-12 marker lines of `gebra diff` and `gebra
+  `--gebra-select` refusal (which follows each slug it refuses with that slug's own reason), in
+  the golden harness's deferral reason, and on the P-12 marker lines of `gebra diff` and `gebra
   snapshot` — the snapshot line used to say "no safe/breaking classification exists in Phase 0".
   The status token `deferred-to-phase-1` is unchanged on the wire, `report_format` stays `1.3`,
   and no verdict, exit code, witness, condition ID or snapshot moves: only the marker's

@@ -183,6 +183,29 @@ move the surface in §1 need no R-05 routing, exactly as before.
   (§3.2): nothing was built for it, and nothing reads the installed version. The wire-format
   consequence is none of its own: the dispatch reading is a value rule made precise and the
   `detail` change is prose, both on REPORT-FORMAT-SPEC §1.6's "none" rows.
+- **VAL-29 (2026-11-12) — DEC-42's restatement of the deferred marker's copy and the deferred
+  scope.** The R-05-routed decision is DEC-42 itself (ratified 2026-11-12 by the product owner
+  acting as R-05 authority, vendored in the development-process repository's `docs/decisions/`;
+  PROPERTY-CATALOG-SPEC re-vendored at vault `e334fb0` in the same commit, its §0.6 item 1 the
+  normative text), whose §3.4 and §4 name what this landing moves, so no PD-057-style latitude
+  record is owed. Values moved, and no name, signature or shape: `DEFERRED_READING` is the first
+  clause of the charter's copy alone, "has no validator in this release" (§3.1) — a fact of the
+  build that produced the marker, where the dropped second clause stated a catalog section's
+  standing, which turns untrue of a property once its section is ratified; the eight
+  `deferred-to-phase-1` rows' `spec_ref` values lose the note "(stub; Verification-Properties §2
+  authoritative)" (§3.4), so a deferred marker's `detail` and the harness's deferral name the
+  property's catalog section and state no standing, while a shipped row's "Its contract is …"
+  sentence is byte-unchanged; and the registry's docstrings define `deferred-to-phase-1` as a
+  property for which no validator ships, whether or not its section is ratified (§3.2), and read
+  the token as "no validator in this release", its name kept on the wire as brief D-09's
+  historical word with no schedule read from it (§3.3). `PropertyScope`,
+  `NotImplementedStatus`, the keys of `MARKER_REASONS`, `PropertyEntry`'s fields,
+  `not_implemented`'s signature and every other name on §1's surface are unchanged; no condition
+  ID, verdict, exit code, witness shape, location subtype or validator signature moves; no
+  property moved off `DeferredToPhase1`; and `report_format` stays `1.3` — the copy is
+  display-only prose (REPORT-FORMAT-SPEC §4.6 rule 7) and the reading says less than the one it
+  replaces, both on §1.6's "none" rows (DEC-42 §3.3). The SOW §8 citation stays where VAL-16's
+  entry put it (PD-072 §1).
 
 ## 5. D-12 promotion eligibility
 

@@ -198,3 +198,21 @@ def test_the_charter_amendment_is_recorded_with_its_r05_route() -> None:
     assert _DEC_35_ADDITIONS <= set(verify_module.__all__)
     assert "`NotImplementedStatus` keeps exactly the two" in entry
     assert "`report_format` stays `1.3`" in entry
+
+
+def test_the_dec_42_amendment_is_recorded_with_its_r05_route() -> None:
+    """VAL-29's entry: DEC-42 as the R-05 decision, the values it moved, and no shape moved.
+
+    DEC-42 moves the value of a frozen constant, eight registry rows' pointers and the
+    docstrings' definition and reading of the deferred scope — no name, signature or shape — so
+    the entry quotes the constant's value as it now stands and says what did not move as plainly
+    as what did.
+    """
+    entry = " ".join(_amendment("VAL-29").split())  # wrapped lines read as one
+    assert "DEC-42" in entry
+    for moved in ("`DEFERRED_READING`", "`spec_ref`", "`deferred-to-phase-1`"):
+        assert moved in entry, moved
+    assert f'"{verify_module.DEFERRED_READING}"' in entry
+    assert "no name, signature or shape" in entry
+    assert "`report_format` stays `1.3`" in entry
+    assert "no property moved off `DeferredToPhase1`" in entry

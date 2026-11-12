@@ -423,7 +423,7 @@ print(f"exit {exit_code}")
 gebra 0.1.2.dev0 — agent.ir.yaml (ir-document)
   identity                ir_version 1.0 | graph_version 
 sha256:b310b9dc037b8195... | strict off
-    … 156 lines: one block per property, in catalog order …
+    … 148 lines: one block per property, in catalog order …
 summary
   findings                0 fatal | 0 error | 0 warning
   notes                   0 carried (0 warning-grade)
@@ -730,8 +730,7 @@ workflow diff
   after                   sha256:eacaa79acbc298b4...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 

@@ -334,8 +334,7 @@ workflow diff
   after                   1.2.1.2  sha256:fafd89ddc8199092...
   bump class              E
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -344,15 +343,16 @@ state schema
 exit 0
 ```
 
-Six lines of header, then the body. The header is the same on every diff:
+Eight lines of header, then the body. The header is the same on every diff:
 
 - **`before` and `after`** name each side by its recomputed digest, and by its label when the
   side came from a snapshot. Recomputed, not trusted: a stored snapshot whose digest disagrees
   with its own IR is refused rather than diffed under a wrong anchor.
 - **`bump class`** is which of S, F and E this change moves — derived from the body below it,
   not asserted beside it.
-- **The `P-12 evolution-safety` line** is the deferred marker, and the line under it is the
-  sentence it exists to prevent: the bump class names counters that moved, never risk.
+- **The `P-12 evolution-safety` line** is the deferred marker. The two lines under it give its
+  reason and say that no verdict was reached; the last line is the sentence it exists to
+  prevent: the bump class names counters that moved, never risk.
 
 The body is one section per counter that moved, one line per entry, with `+` added, `-`
 removed and `~` changed. Here a single key left the state schema, so there is one section and
@@ -487,8 +487,7 @@ workflow diff
   after                   1.2.3.3  sha256:7e6584a57ef85ae6...
   bump class              F
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -632,8 +631,7 @@ workflow diff
   after                   sha256:e10cdc0550c540b6...
   bump class              S
   P-12 evolution-safety   not checked [deferred-to-phase-1]
-                          it has no validator in this release; its catalog 
-section is not yet ratified
+                          it has no validator in this release
                           No verdict was reached — this is not a pass.
                           the bump class names moved counters, never safety
 
@@ -781,10 +779,8 @@ kind     not-implemented
 property P-12 evolution-safety
 status   deferred-to-phase-1
 detail
-    P-12 evolution-safety has no validator in this release; its catalog section is not
-    yet ratified. The catalog contract is PROPERTY-CATALOG-SPEC §P-12 (stub;
-    Verification-Properties §2 authoritative). No verdict was reached — this is not a
-    pass.
+    P-12 evolution-safety has no validator in this release. Its catalog section is
+    PROPERTY-CATALOG-SPEC §P-12. No verdict was reached — this is not a pass.
 
 on a diff          True
 on a snapshot      True

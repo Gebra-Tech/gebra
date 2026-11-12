@@ -281,10 +281,11 @@ def attribute(fixture: PropertyFixture) -> Attribution:
 
     Then, given an owner, is the shape §0.3 refuses a non-wedge one?
 
-    3. ``non-wedge-owner`` — the owner's registry row is ``deferred-to-phase-1``: it has no
-       validator in this release, and its witness and location shapes are the ones
-       ``schema.yaml`` marks provisional and §0.3 does not model. A live owner — wedge or
-       ``catalog`` — never takes this cause, whatever the name says (DEC-35 §3.5 (b)).
+    3. ``non-wedge-owner`` — the owner's registry row is ``deferred-to-phase-1``: no validator
+       for it ships in this release, so nothing in this release compares its block, and no
+       assertion is lost by the block not composing. The cause is read off the row's scope,
+       never off a section's standing or the shape itself: a live owner — wedge or
+       ``catalog`` — never takes it, whatever the name says (DEC-35 §3.5 (b)).
     4. ``non-wedge-component`` — the owner is a live property, and the block carries a
        record or advisory a deferred property holds. This is the only cause that is not true
        by inspection alone — it is a claim about what *would* happen — so it is **verified**:
@@ -334,8 +335,8 @@ def attribute(fixture: PropertyFixture) -> Attribution:
         return Attribution(
             fixture.fixture_id,
             "non-wedge-owner",
-            f"the block is {owner!r}'s report, and {owner!r} {DEFERRED_READING} — §0.3 "
-            f"models no witness or failure shape for it",
+            f"the block is {owner!r}'s report, and {owner!r} {DEFERRED_READING} — nothing "
+            f"in this release compares the block, so no assertion is lost by its not composing",
         )
 
     foreign = _deferred_records(fixture, owner)
@@ -345,7 +346,8 @@ def attribute(fixture: PropertyFixture) -> Attribution:
             "non-wedge-component",
             f"the block is {owner!r}'s report carrying {', '.join(sorted(foreign))} "
             f"record(s); its live share composes once they are restricted out (PR-1), so "
-            f"the shapes §0.3 does not model are exactly the deferred ones",
+            f"what keeps the block from composing is exactly the records of properties with "
+            f"no validator in this release",
         )
     if foreign:
         return Attribution(

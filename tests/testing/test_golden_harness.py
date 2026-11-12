@@ -346,7 +346,7 @@ def test_the_p08_witness_entry_of_mixed_10_is_asserted_through_pr_4(
 
 
 def test_no_deferred_obligation_is_asserted(run: CorpusRun) -> None:
-    """Every deferred obligation is skipped by name, in the charter's words (DEC-35 §3.1).
+    """Every deferred obligation is skipped by name, in the charter's words (DEC-42 §3.1).
 
     The reason names the property, states :data:`~gebra.verify.DEFERRED_READING` and keeps
     the "not a pass" sentence; it names no phase as the present.
@@ -368,7 +368,7 @@ def test_a_catalog_row_is_read_as_live_by_the_harness() -> None:
 
     P-07's row moved to ``catalog`` (synthetically) with a throwaway validator is answered
     like a wedge obligation — scope, then modelling, then wiring — although P-07 is not one of
-    the wedge five. Its corpus shape is one ``schema.yaml`` calls provisional, so the live
+    the wedge five. P-07's corpus block has no §0.3 shape in this build's envelope, so the live
     obligation is ``unmodelled``: a corpus question for the fidelity matrix, which is what
     DEC-35 §3.5 (a) has a landing settle (matched, or an ``FM-`` row), never a skip. On exit
     P-07 defers again.
@@ -730,10 +730,11 @@ def test_a_projection_rule_carries_its_citation() -> None:
 
 
 def test_scope_is_decided_before_shape() -> None:
-    """A non-wedge obligation defers even when its expected value has no §0.3 shape.
+    """A deferred obligation defers even when its expected value has no §0.3 shape.
 
-    The order matters: checking the shape first would report the eight properties' provisional
-    witness shapes as corpus deviations, and ``schema.yaml`` calls those provisional by design.
+    The order matters: no validator for a deferred property ships in this release, so nothing
+    compares its expected value, and checking the shape first would report that value as a
+    corpus deviation, which it is not.
     """
     fixture = _fixture("parallel-safety/negative-01-*.yaml")
     (outcome,) = run_fixture(fixture)

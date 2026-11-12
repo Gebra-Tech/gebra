@@ -7,7 +7,8 @@ IDs: :func:`gebra.verify.conditions.conditions_for` reads those off the §0.4 re
 two tables cannot disagree about which property holds a name.
 
 **Every row carries one of three scopes** — the vocabulary of DEC-35 §3.1, the Phase-1
-catalog charter (PROPERTY-CATALOG-SPEC §0.6 item 1):
+catalog charter, with the deferred scope defined as DEC-42 §3.2 restated it
+(PROPERTY-CATALOG-SPEC §0.6 item 1):
 
 - ``phase-0-wedge`` — P-01, P-02, P-04, P-06 and P-08, the five SOW §1 put in Phase-0 scope.
 - ``catalog`` — a property whose §P-nn section is ratified and whose validator ships. A row
@@ -15,14 +16,16 @@ catalog charter (PROPERTY-CATALOG-SPEC §0.6 item 1):
   and only once (i) its section is ratified and re-vendored, (ii) its reference fixtures are in
   the vendored corpus, and (iii) every condition ID the section ratifies is emittable with its
   Appendix C rule copy. No row carries it in this build.
-- ``deferred-to-phase-1`` — a property whose section is not yet ratified, so no validator for
-  it ships in this release. SOW §8 is the reason the ``deferred-to-phase-1`` token exists: it
-  put the eight non-wedge properties (P-03, P-05, P-07, P-09…P-13) out of Phase-0 scope.
+- ``deferred-to-phase-1`` — a property for which no validator ships, whether or not its §P-nn
+  section is ratified. Ratifying a section moves no row; only the build that registers the
+  validator does. The token is read as "no validator in this release": its name is brief
+  D-09's historical word for the stubs it deferred, kept verbatim on the wire, and no schedule
+  is read from it (DEC-42 §3.3). SOW §8 is the reason the ``deferred-to-phase-1`` token exists:
+  it put the eight non-wedge properties (P-03, P-05, P-07, P-09…P-13) out of Phase-0 scope.
   DEC-35 §3.1 moved that citation out of user-facing copy and into this docstring and the
-  governance records, and reads the token as "scheduled for Phase 1, not landed in this
-  release"; PD-072 §1 reads the acceptance checklist's C2 clause (3) — "citing SOW §8" —
-  against this citation and its three siblings in the governance records (owner-re-signed,
-  2026-11-11).
+  governance records; PD-072 §1 reads the acceptance checklist's C2 clause (3) — "citing
+  SOW §8" — against this citation and its three siblings in the governance records
+  (owner-re-signed, 2026-11-11).
 
 The first two are the **shipped** scopes. "Not wedge" and "deferred" stopped being the same
 fact the day the charter ruled, so every reader that means *not live* asks
@@ -41,8 +44,9 @@ Two statuses, because the two absences mean different things: ``deferred-to-phas
 scope statement — no validator for the property in this release — and ``not-yet-implemented``
 is the build-order statement for a shipped property whose validator is not wired into this
 build. Neither is a pass. The wire token ``deferred-to-phase-1`` stays verbatim (renaming it is
-a REPORT-FORMAT-SPEC §1.6 MAJOR); the copy beside it is :data:`DEFERRED_READING` plus
-:data:`NO_VERDICT`, the words DEC-35 rules for every surface that renders a marker.
+a REPORT-FORMAT-SPEC §1.6 MAJOR); the copy beside it on every surface that renders a marker is
+:data:`DEFERRED_READING`, the words DEC-42 §3.1 rules, plus :data:`NO_VERDICT`, the sentence
+DEC-35 §3.1 keeps verbatim.
 
 **Wiring a validator is a registration, not a table edit.** The table is frozen data; the
 implementations live beside it in a mapping each shipped validator adds itself to.
@@ -103,9 +107,10 @@ __all__ = [
 ]
 
 
-#: Where a property stands in the catalog (DEC-35 §3.1; PROPERTY-CATALOG-SPEC §0.6 item 1):
-#: one of the Phase-0 wedge five, a property whose ratified section's validator ships, or a
-#: property whose section is not yet ratified.
+#: Where a property stands in the catalog (DEC-35 §3.1, the deferred scope as DEC-42 §3.2
+#: restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property
+#: whose ratified section's validator ships, or a property for which no validator ships,
+#: whether or not its section is ratified.
 PropertyScope: TypeAlias = Literal["phase-0-wedge", "catalog", "deferred-to-phase-1"]
 
 #: The two scopes whose properties have a validator in this release. Registration accepts
@@ -116,17 +121,18 @@ SHIPPED_SCOPES: Final[tuple[PropertyScope, ...]] = ("phase-0-wedge", "catalog")
 #: (``validate(ir_before, ir_after)``, brief D-09 in-scope item 5).
 PropertyArity: TypeAlias = Literal["one-snapshot", "two-snapshot"]
 
-#: Why no verdict was produced. ``deferred-to-phase-1`` is D-09's own vocabulary for its
-#: stub discipline, read since DEC-35 as "scheduled for Phase 1, not landed in this release";
-#: ``not-yet-implemented`` is a shipped property whose validator is not wired into this build.
+#: Why no verdict was produced. ``deferred-to-phase-1`` is D-09's historical word for its stub
+#: discipline, kept verbatim on the wire and read since DEC-42 §3.3 as "no validator in this
+#: release" — no schedule is read from it; ``not-yet-implemented`` is a shipped property whose
+#: validator is not wired into this build.
 NotImplementedStatus: TypeAlias = Literal["deferred-to-phase-1", "not-yet-implemented"]
 
 #: What a ``deferred-to-phase-1`` marker says about its property, on every surface that renders
-#: one — PROPERTY-CATALOG-SPEC §0.6 item 1's words, verbatim (DEC-35 §3.1). A surface lays the
-#: words out as it needs; it does not reword them.
-DEFERRED_READING: Final = (
-    "has no validator in this release; its catalog section is not yet ratified"
-)
+#: one — PROPERTY-CATALOG-SPEC §0.6 item 1's words, verbatim (DEC-42 §3.1). A marker with this
+#: status answers only for a row its producing build holds deferred, so the words state a fact
+#: of that build, true whenever the marker is read. A surface lays the words out as it needs;
+#: it does not reword them.
+DEFERRED_READING: Final = "has no validator in this release"
 
 #: The sentence every marker surface keeps verbatim (DEC-35 §3.1; §0.6 item 1).
 NO_VERDICT: Final = "No verdict was reached — this is not a pass."
@@ -167,7 +173,9 @@ class PropertyEntry:
         severities: Every §0.2 grade this property's findings can carry, on the same terms.
         derivation: What the property is derived *from*, as the catalog states it — the
             derivation reference D-09 Deliverable 2 asks this table to carry.
-        spec_ref: Where its contract lives.
+        spec_ref: Where the specifications state the property: for a shipped row, what its
+            validator is written against; for a ``deferred-to-phase-1`` row, the property's
+            catalog section, named with no statement of its standing (DEC-42 §3.4).
         scope: Where the property stands in the catalog (:data:`PropertyScope`).
         arity: How many IR snapshots the validator reads.
     """
@@ -259,7 +267,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
         claim_classes=("defensible-a",),
         severities=("error",),
         derivation="D-010 (declared reads/writes and args_schema consistency).",
-        spec_ref="PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-03",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -285,7 +293,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
             "Pure graph/codomain analysis — DEFENSIBLE over a declared path_map, HEURISTIC "
             "in the fallback where no codomain is declared."
         ),
-        spec_ref="PROPERTY-CATALOG-SPEC §P-05 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-05",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -309,7 +317,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
         claim_classes=("defensible-a",),
         severities=("error",),
         derivation="D-012 (retry safety: pure or idempotent, with keys among declared reads).",
-        spec_ref="PROPERTY-CATALOG-SPEC §P-07 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-07",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -338,7 +346,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
             "HEURISTIC for declared-tag effect commutativity; send-template severity per "
             "DEC-05."
         ),
-        spec_ref="PROPERTY-CATALOG-SPEC §P-09 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-09",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -347,7 +355,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
         claim_classes=("defensible-a",),
         severities=("error",),
         derivation="Axiom W (Skavantzos & Link 2023) + layer homomorphism (Formal-Model).",
-        spec_ref="PROPERTY-CATALOG-SPEC §P-10 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-10",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -358,7 +366,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
         derivation=(
             "Axiom P (Skavantzos & Link 2023); fibre-product semantics per Formal-Model §6."
         ),
-        spec_ref="PROPERTY-CATALOG-SPEC §P-11 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-11",
         scope="deferred-to-phase-1",
     ),
     PropertyEntry(
@@ -371,7 +379,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
             "Condition IDs exist for breaking classes only — a safe classification is a pass "
             "carrying a structured diff witness."
         ),
-        spec_ref="PROPERTY-CATALOG-SPEC §P-12 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-12",
         scope="deferred-to-phase-1",
         arity="two-snapshot",
     ),
@@ -384,7 +392,7 @@ _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
             "Dominator analysis (Cooper–Harvey–Kennedy) — pure graph theory, no axiom; "
             "D-011 supplies the gated effect tags. ERROR when the policy pack is enabled."
         ),
-        spec_ref="PROPERTY-CATALOG-SPEC §P-13 (stub; Verification-Properties §2 authoritative)",
+        spec_ref="PROPERTY-CATALOG-SPEC §P-13",
         scope="deferred-to-phase-1",
     ),
 )
@@ -547,10 +555,11 @@ def register_validator(property_slug: PropertySlug, implementation: Validator) -
     The ruled path (DEC-35 §3.1): a row in either shipped scope — ``phase-0-wedge`` or
     ``catalog`` — accepts one validator. Two kinds of row refuse:
 
-    - a ``deferred-to-phase-1`` row, whose section is not yet ratified. A validator for it
-      cannot appear at runtime; the build that lands one moves the row to ``catalog`` in the
-      table above first, and only once the section is ratified and re-vendored, its reference
-      fixtures are vendored and every condition ID it ratifies is emittable with its rule copy.
+    - a ``deferred-to-phase-1`` row — no validator for it ships in this release, whether or
+      not its section is ratified. A validator for it cannot appear at runtime; the build that
+      lands one moves the row to ``catalog`` in the table above first, and only once the
+      section is ratified and re-vendored, its reference fixtures are vendored and every
+      condition ID it ratifies is emittable with its rule copy.
     - a two-snapshot row (P-12), whatever its scope. :class:`Validator` reads one IR, and a
       two-snapshot classifier registers through the shape its own landing adds (DEC-35 §3.6).
 
@@ -604,8 +613,10 @@ def not_implemented(property_slug: PropertySlug) -> NotImplementedMarker:
     """The structured marker this registry answers with when no validator ran.
 
     The status distinguishes the two absences: a ``deferred-to-phase-1`` row has no validator
-    in this release, and its marker carries the charter's words (:data:`DEFERRED_READING`); a
-    shipped row whose validator has not been wired into this build is ``not-yet-implemented``.
+    in this release, and its marker carries the charter's words (:data:`DEFERRED_READING`,
+    DEC-42 §3.1) and names the property's catalog section without stating its standing
+    (DEC-42 §3.4); a shipped row whose validator has not been wired into this build is
+    ``not-yet-implemented``, and its marker names what that validator is written against.
     Both keep :data:`NO_VERDICT` verbatim (DEC-35 §3.1). Neither is a pass, and neither is a
     :class:`~gebra.verify.report.PropertyReport`.
     """
@@ -618,7 +629,7 @@ def not_implemented(property_slug: PropertySlug) -> NotImplementedMarker:
             status="deferred-to-phase-1",
             detail=(
                 f"{entry.property_id} {entry.slug} {MARKER_REASONS['deferred-to-phase-1']}. "
-                f"The catalog contract is {entry.spec_ref}. {NO_VERDICT}"
+                f"Its catalog section is {entry.spec_ref}. {NO_VERDICT}"
             ),
         )
     return NotImplementedMarker(

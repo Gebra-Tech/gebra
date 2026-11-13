@@ -129,7 +129,7 @@ class P04Failure(Failure):
 
     It exists because ``extra="forbid"`` means the base cannot carry P-04's optional
     diagnostics. Two are DEC-11 pin 3's: ``writers_on_other_paths`` (writers that cover
-    *other* paths) and ``downstream_writers`` (writers wired after the reader). The other two
+    *other* paths) and ``downstream_writers`` (writers wired after the reader). The other three
     are report-level coverage-cost diagnostics rather than facts about this one finding, and
     they ride the **primary** failure because that is the one carrier a failing P-04 report has
     (a co-failure is a plain :class:`CoFailure`; PD-057 D2); on a passing report the same lists
@@ -138,8 +138,11 @@ class P04Failure(Failure):
     static graph reaches, on a document with a reachable ``dynamic`` edge. ``contained_readers``
     is DEC-33's (§0.3 containment convention; §4.4 Step 2): the contained nodes with declared
     reads outside that closure. Neither's reads are covered by any analysis in the run; the two
-    are disjoint by construction. All four are diagnostic context, emitted only when non-empty,
-    and never part of the verdict.
+    are disjoint by construction. ``payload_readers`` is DEC-37's (§4.4 Step 2): the reachable
+    readers entered through a ``send`` edge, whose reads along it arrive in the payload the IR
+    does not carry and are not decided there — inside ``Reach``, so disjoint from the other two.
+    All five are diagnostic context, emitted only when non-empty, and never part of the
+    verdict.
 
     The narrowed ``location`` is what makes the subtype recognisable. Resolving on the
     optional extras alone would leave a P-04 failure that happens to carry none of them
@@ -161,6 +164,10 @@ class P04Failure(Failure):
     #: declared reads outside the static graph's START closure. Sorted; absent when empty;
     #: disjoint from ``outside_static_coverage``.
     contained_readers: tuple[NodeId, ...] | None = None
+    #: DEC-37 (§4.4 Step 2): reachable nodes with declared reads and an in-edge of kind ``send``
+    #: from a reachable source — their reads along that send arm arrive in the payload and are
+    #: not decided. Sorted; absent when empty; disjoint from the two members above.
+    payload_readers: tuple[NodeId, ...] | None = None
 
 
 #: What ``PropertyReport.failure`` carries: the wedge's concrete failure subtypes, then the

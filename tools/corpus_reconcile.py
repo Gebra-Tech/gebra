@@ -1520,7 +1520,7 @@ def _refuse_vendored(destination: Path, source: Path) -> None:
     ``samefile`` settles the rest, and is what makes the guard hold on a case-insensitive
     filesystem, where ``tests/fixtures/PROPERTIES`` resolves to a *different string* for the
     same directory. Ancestors are refused too: emitting into a parent of the corpus would copy
-    seventy-one fixtures alongside the vendored ones.
+    the whole candidate corpus alongside the vendored ones.
     """
     resolved = destination.resolve()
     guarded = {source.resolve(), VENDORED_CORPUS.resolve()}

@@ -231,15 +231,17 @@ def _finding_lines(finding: Finding) -> list[Text]:
     return lines
 
 
-#: The P-04 diagnostics §4.4 asks to be shown as what they are. The third (DEC-28 clause 2) and
-#: the fourth (DEC-33 §3.4) carry their own gloss in the value, so a reader does not take
-#: either for a finding: each names readers no analysis covered, not a second violation, and
-#: says where the answer lives — a dynamic router for one, a containment root for the other.
+#: The P-04 diagnostics §4.4 asks to be shown as what they are. The third (DEC-28 clause 2),
+#: the fourth (DEC-33 §3.4) and the fifth (DEC-37 §3.2) carry their own gloss in the value, so
+#: a reader does not take any of them for a finding: each names readers whose reads (or, for
+#: the fifth, whose reads along a ``send`` edge) were not decided, not a second violation, and
+#: says where the answer lives — a dynamic router, a containment root, the payload's contents.
 _EVIDENCE_LABELS: Final[dict[str, str]] = {
     "gebra/writersOnOtherPaths": "writers on other paths",
     "gebra/downstreamWriters": "writers wired after the reader",
     "gebra/outsideStaticCoverage": "outside static coverage",
     "gebra/containedReaders": "contained readers",
+    "gebra/payloadReaders": "payload readers",
 }
 
 _EVIDENCE_GLOSS: Final[dict[str, str]] = {
@@ -251,6 +253,12 @@ _EVIDENCE_GLOSS: Final[dict[str, str]] = {
         " — contained readers no declared START-path reaches, answered by their containment "
         "root rather than by a dynamic router; no obligation was raised and no analysis in "
         "this run covers their reads"
+    ),
+    "gebra/payloadReaders": (
+        " — reachable readers entered through a send edge: along it their declared reads are "
+        "reads of the payload it delivers, which the IR does not carry, so no obligation was "
+        "raised for them and none was decided; a reader also entered by an ordinary edge is "
+        "decided over that edge"
     ),
 }
 

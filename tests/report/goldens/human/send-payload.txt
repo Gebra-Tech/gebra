@@ -1,0 +1,94 @@
+gebra <gebra-version> — travel_booking:build_graph (ir-document)
+  identity                ir_version 1.0 | graph_version sha256:e976bbcd87cd5608... | strict off
+
+P-01 graph-well-formed — pass  [DEFENSIBLE]
+  witness                 3 nodes reachable from START | 1 terminal node | no orphan nodes | no 
+unresolved targets
+    reachable from START    3 nodes: book_flight, check_availability, send_confirmation
+    terminal nodes          send_confirmation
+    orphan check            evaluated — no node stands outside every edge
+    reference check         evaluated — every edge and path_map target resolves
+
+P-02 termination-witness — pass  [DEFENSIBLE]
+  witness                 0 declared witnesses in the inventory | acyclicity certificate present
+    inventory               0 entries
+    certificate             present and re-checkable — a topological order of the graph with the 
+witnessed elements removed, over 5 vertices: START -> check_availability -> book_flight -> 
+send_confirmation -> END
+
+P-03 signature-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-03 signature-soundness has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass.
+
+P-04 dataflow-completeness — pass  [DEFENSIBLE-A]
+  witness                 3 (reader, key) obligations covered | 1 payload reader
+    coverage                3 (reader, key) obligations covered
+    covered                 confirm_itinerary reads bookings <- covered by book_leg
+    covered                 confirm_itinerary reads request <- covered by START (boundary source)
+    covered                 plan_legs reads request <- covered by START (boundary source)
+    payload readers         1 reachable node entered through a send edge — along that edge their 
+declared reads are reads of the payload it delivers, which the IR does not carry, so no obligation 
+was raised for them and none was decided; a reader also entered by an ordinary edge is decided over 
+that edge: book_leg
+
+P-05 guard-exhaustiveness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-05 guard-exhaustiveness has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-05. No verdict was reached — this is not a pass.
+
+P-06 effect-safety — pass  [DEFENSIBLE-A]
+  witness                 0 cycles | 0 effect-tagged nodes recorded
+    cycle inventory         0 cycles
+    effect                  no node declares a trigger effect tag
+
+P-07 retry-coherence — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-07 retry-coherence has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-07. No verdict was reached — this is not a pass.
+
+P-08 determinism-replay — pass  [HEURISTIC]
+  witness                 0 declared determinism claims
+    claim class             heuristic (carried in-band)
+    claims                  no node declared determinism, so nothing was checked — this is not a 
+statement that every node is deterministic
+
+P-09 parallel-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-09 parallel-safety has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-09. No verdict was reached — this is not a pass.
+
+P-10 subgraph-consistency — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-10 subgraph-consistency has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-10. No verdict was reached — this is not a pass.
+
+P-11 join-key-soundness — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-11 join-key-soundness has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-11. No verdict was reached — this is not a pass.
+
+P-12 evolution-safety — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-12 evolution-safety has no validator in this release. Its catalog 
+section is PROPERTY-CATALOG-SPEC §P-12. No verdict was reached — this is not a pass.
+
+P-13 interrupt-gate-coverage — not checked  [deferred-to-phase-1]
+  status                  no verdict was reached — this is not a pass: it has no validator in this 
+release
+    detail                  P-13 interrupt-gate-coverage has no validator in this release. Its 
+catalog section is PROPERTY-CATALOG-SPEC §P-13. No verdict was reached — this is not a pass.
+
+summary
+  findings                0 fatal | 0 error | 0 warning
+  notes                   0 carried (0 warning-grade)
+  properties              5 reported | 8 produced no verdict
+  strict                  off
+  exit                    0 — no warning-grade finding or note was carried

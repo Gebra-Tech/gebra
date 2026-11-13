@@ -1,0 +1,101 @@
+# Fixture: dataflow-completeness / negative-06
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Ruling fixture (DEC-37, card VAL-D8; landing class B with VAL-17): a
+# mixed-arm reader — entered both through a send edge and through an
+# ordinary edge. Pins §4.4 Step 4's state-arm decision: the reads are decided
+# over the state arm alone, the offending path ends on a state-arm edge, and
+# the node is still named on payload_readers for its send arm.
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  book_leg is reached two ways: plan_legs fans out to it through a send edge
+  (one instance per leg, the payload as input) and also routes through
+  review_plan, which enters book_leg through an ordinary edge with the graph
+  state as input. On that state arm book_leg's read of search_plan is covered
+  (plan_legs writes it), but its read of leg_id is not — no node writes
+  leg_id, and on the path START -> plan_legs -> review_plan -> book_leg the
+  key is unwritten when book_leg reads it from state. P-04 fails there, with
+  the state-arm path as evidence: the shorter path through the send edge
+  (START -> plan_legs -> book_leg) is not an offending path, because along it
+  book_leg reads the payload, not the state. book_leg is also a payload
+  reader, so payload_readers names it on the failure.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_legs
+  finish: confirm_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    search_plan: str
+    leg_id: str
+    bookings:
+      type: list
+      reducer: "operator.add"
+    itinerary: str
+  nodes:
+    - id: plan_legs
+      annotations:
+        pure: true
+        input: [request]
+        output: [search_plan]
+    - id: review_plan
+      annotations:
+        pure: true
+        input: [search_plan]
+        output: []
+    - id: book_leg
+      annotations:
+        effect: [network]
+        idempotent: { key: leg_id }
+        input: [search_plan, leg_id]
+        output: [bookings]
+    - id: confirm_itinerary
+      annotations:
+        pure: true
+        input: [bookings, request]
+        output: [itinerary]
+  edges:
+    - from: plan_legs
+      to: book_leg
+      kind: send
+    - from: plan_legs
+      to: review_plan
+    - from: review_plan
+      to: book_leg
+    - from: book_leg
+      to: confirm_itinerary
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: book_leg
+      key: leg_id
+      path: [START, plan_legs, review_plan, book_leg]
+    severity: fatal
+    claim_class: defensible-a
+    payload_readers: [book_leg]
+
+notes: >
+  The one fixture whose verdict distinguishes the arm-aware ruling from a
+  whole-node skip: a reading that abstained on every read of a send target
+  would pass this document and lose a genuine state-read gap, while the
+  pre-DEC-37 reading failed it with the wrong evidence — the path through the
+  send edge, along which book_leg never reads state. Under DEC-37 the
+  obligation is decided over the state arm (IN_state = OUT[review_plan]),
+  the offending path is the shortest START-path ending on a state-arm edge,
+  and book_leg's covered read of search_plan would appear in coverage on a
+  pass. The fix is for review_plan (or plan_legs) to write leg_id, or for
+  book_leg to take leg_id from the payload only and be entered by send only.
+  No writers_on_other_paths and no downstream_writers (nothing writes
+  leg_id). Corpus discipline: only P-04 fails — bookings carries an
+  operator.add reducer (P-09); book_leg's idempotency key is a declared read
+  (P-07); effect tags stay at [network] (P-06/P-13 vacuous); acyclic (P-02
+  vacuous); every read and write is a Sigma key (P-03); review_plan's empty
+  output is a declared contract, not an inferred one.

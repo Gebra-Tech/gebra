@@ -792,6 +792,75 @@ def test_the_closing_report_states_what_a_default_run_would_otherwise_hide(
     result.stdout.fnmatch_lines(["*exit 0 — pass; strict off*"])
 
 
+#: DEC-37 §3.5's field shape: ``plan_legs →send→ book_leg → confirm_itinerary``, ``book_leg``
+#: reading the payload-only ``leg_id``. ``SEND_READ_FROM_STATE`` is its control — the node
+#: after the fan-out reads ``leg_id`` from the state, which nothing writes.
+SEND_PAYLOAD: dict[str, Any] = {
+    "ir_version": "1.0",
+    "entry": "plan_legs",
+    "finish": "confirm_itinerary",
+    "state": {
+        "request": {"type": "str", "optional": True},
+        "search_plan": "str",
+        "leg_id": "str",
+        "bookings": {"type": "list", "reducer": "operator.add"},
+    },
+    "nodes": [
+        {"id": "plan_legs", "annotations": {"input": ["request"], "output": ["search_plan"]}},
+        {
+            "id": "book_leg",
+            "annotations": {"input": ["search_plan", "leg_id"], "output": ["bookings"]},
+        },
+        {"id": "confirm_itinerary", "annotations": {"input": ["bookings"], "output": []}},
+    ],
+    "edges": [
+        {"kind": "send", "from": "plan_legs", "to": "book_leg"},
+        {"kind": "normal", "from": "book_leg", "to": "confirm_itinerary"},
+    ],
+}
+SEND_READ_FROM_STATE: dict[str, Any] = {
+    **SEND_PAYLOAD,
+    "nodes": [
+        *SEND_PAYLOAD["nodes"][:2],
+        {"id": "confirm_itinerary", "annotations": {"input": ["bookings", "leg_id"]}},
+    ],
+}
+
+
+def test_the_closing_report_names_a_payload_reader_on_a_p04_pass(
+    pytester: pytest.Pytester,
+) -> None:
+    """DEC-37 §3.2's member on the plugin's surface: the P-04 pass line's witness summary names
+    the readers whose reads along a ``send`` edge were not decided, so the covered count above
+    them does not read as complete."""
+    pytester.makepyfile(test_target=_ir_source(SEND_PAYLOAD, name="fan_out"))
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=len(ITEMIZED), failed=0)
+    summary = (
+        "*pass*dataflow-completeness [[]defensible-a[]] 2 (reader, key) obligations covered"
+        " · payload readers (reads along a send edge not decided): book_leg*"
+    )
+    result.stdout.fnmatch_lines([summary])
+
+
+def test_the_closing_report_names_a_payload_reader_on_a_p04_failure(
+    pytester: pytest.Pytester,
+) -> None:
+    """The same member riding the primary record of a failing P-04 report (PD-057 D2): a
+    payload key is not a state write, so the read after the fan-out fails, and the record says
+    which reader's reads along the ``send`` edge were not decided."""
+    pytester.makepyfile(test_target=_ir_source(SEND_READ_FROM_STATE, name="fan_out"))
+    result = pytester.runpytest()
+    result.assert_outcomes(passed=len(ITEMIZED) - 1, failed=1)
+    result.stdout.fnmatch_lines(
+        [
+            "*fatal read-key-never-written-on-path [[]defensible-a[]]*",
+            "*at *leg_id*confirm_itinerary*",
+            "*payload readers (reads along a send edge not decided): book_leg*",
+        ]
+    )
+
+
 #: An inner conftest that lands P-07 synthetically: its row moved to `catalog` and a throwaway
 #: validator reporting one ERROR on a RESERVED P-07 string registered for it (DEC-35 §4: the
 #: charter's mechanism "exercised by a synthetic registration and no real property").

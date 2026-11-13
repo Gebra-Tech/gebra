@@ -488,11 +488,11 @@ def test_the_load_path_imports_no_substrate_and_opens_no_socket(
     """
     expected = census()
     assert guarded["loaded"] == expected.fixtures
-    assert guarded["composed"] == 44
+    assert guarded["composed"] == 47
     assert guarded["reconciliation_outstanding"] == 0
     assert guarded["reconciliation_verified"] == 14
     assert guarded["harness_obligations"] == expected.obligations
-    assert guarded["harness_matched"] == 55
+    assert guarded["harness_matched"] == 58
     assert guarded["harness_rendered"] == expected.obligations
     assert guarded["generated"] == 25
     assert guarded["generated_verdicts"] == ["pass"]

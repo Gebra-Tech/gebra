@@ -56,7 +56,7 @@ from datetime import timedelta
 from typing import Any, Final
 
 import pytest
-from hypothesis import HealthCheck, Phase, find, given, settings
+from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
 
 from gebra.ir import (
@@ -81,6 +81,7 @@ from gebra.testing.mutations import (
     counter_guard_with_exit,
     counter_guard_without_exit,
     dead_end_node,
+    send_targets,
     termination_mutations,
     well_formedness_mutations,
     wired_leaf,
@@ -743,8 +744,14 @@ def test_a_counter_guard_discharges_exactly_when_a_label_leaves_its_loop(
     The prediction does not turn on whether the validator took DEC-23 Q4's natural loop or its
     $\\mathrm{SCC}_G(u)$ fallback: for a *self*-loop the two agree on every ``path_map`` target,
     since a target $t$ of an edge $v \\to t$ reaches $v$ if and only if $t \\in \\mathrm{SCC}(v)$.
+
+    The loop goes on a node no ``send`` edge enters: the two operators refuse a ``send`` target
+    since DEC-37, whose self-loop would be a state-arm in-edge P-04 decides over.
     """
-    node = ir.nodes[position % len(ir.nodes)].id
+    targets = send_targets(ir)
+    pool = [node.id for node in ir.nodes if node.id not in targets]
+    assume(pool)
+    node = pool[position % len(pool)]
     stranded = counter_guard_without_exit(ir, node)
     wired = counter_guard_with_exit(ir, node)
 

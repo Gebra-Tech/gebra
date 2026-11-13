@@ -555,6 +555,71 @@ _P04_CONTAINED_FAILURE = PropertyReport.failing(
     ),
 )
 
+# ── The `1.4` variants: DEC-37's payload arm (§4.3/§4.4; VAL-17) ─────────────────────────
+
+#: DEC-37 §3.5's field shape in the travel domain: ``plan_legs →send→ book_leg →
+#: confirm_itinerary``; ``book_leg`` reads ``search_plan`` and the payload-only ``leg_id``. The
+#: stubbed validators ignore it; what it decides is the subject line's identity.
+_SEND_IR_DOCUMENT: Final[dict[str, Any]] = {
+    "ir_version": "1.0",
+    "entry": "plan_legs",
+    "finish": "confirm_itinerary",
+    "state": {
+        "request": {"type": "str", "optional": True},
+        "search_plan": "str",
+        "leg_id": "str",
+        "bookings": {"type": "list", "reducer": "operator.add"},
+    },
+    "nodes": [
+        {"id": "plan_legs", "annotations": {"input": ["request"], "output": ["search_plan"]}},
+        {
+            "id": "book_leg",
+            "annotations": {"input": ["search_plan", "leg_id"], "output": ["bookings"]},
+        },
+        {"id": "confirm_itinerary", "annotations": {"input": ["bookings", "request"]}},
+    ],
+    "edges": [
+        {"kind": "send", "from": "plan_legs", "to": "book_leg"},
+        {"kind": "normal", "from": "book_leg", "to": "confirm_itinerary"},
+    ],
+}
+
+SEND_IR: Final[WorkflowIR] = _ir(_SEND_IR_DOCUMENT)
+
+#: P-04's pass witness on that document: the two state readers covered, the send-only target's
+#: reads abstained and the target named on ``payload_readers`` (DEC-37 §3.2).
+_P04_SEND_PASS = PropertyReport.passing(
+    "dataflow-completeness",
+    DataflowWitness(
+        kind="dataflow",
+        coverage=(
+            DataflowCoverage(node="confirm_itinerary", key="bookings", satisfied_by=("book_leg",)),
+            DataflowCoverage(node="confirm_itinerary", key="request", satisfied_by=("START",)),
+            DataflowCoverage(node="plan_legs", key="request", satisfied_by=("START",)),
+        ),
+        payload_readers=("book_leg",),
+    ),
+)
+
+#: The same member on the fail path, riding the primary finding (§4.4): ``confirm_itinerary``
+#: also reads the payload-only key from state — a payload key is not a state write (DEC-37
+#: §3.5 item 2).
+_P04_SEND_FAILURE = PropertyReport.failing(
+    "dataflow-completeness",
+    P04Failure(
+        property_condition="read-key-never-written-on-path",
+        location=DataflowLocation(
+            kind="state-key",
+            key="leg_id",
+            node="confirm_itinerary",
+            path=("START", "plan_legs", "book_leg", "confirm_itinerary"),
+        ),
+        severity="fatal",
+        claim_class="defensible-a",
+        payload_readers=("book_leg",),
+    ),
+)
+
 _P06_FAILURE = PropertyReport.failing(
     "effect-safety",
     Failure(
@@ -960,6 +1025,27 @@ def _build_cases() -> tuple[Case, ...]:
                 ir=CONTAINED_IR,
             ),
             covers="§4.4's `1.3` row: contained_readers riding a primary P04Failure",
+        ),
+        Case(
+            name="send-payload",
+            report=case_report(
+                {"dataflow-completeness": _P04_SEND_PASS},
+                input_mode="ir-document",
+                extractor_version=None,
+                ir=SEND_IR,
+            ),
+            covers="§4.3's `1.4` row: payload_readers on the P-04 pass witness of a document "
+            "whose send target reads its payload",
+        ),
+        Case(
+            name="send-payload-dataflow-failure",
+            report=case_report(
+                {"dataflow-completeness": _P04_SEND_FAILURE},
+                input_mode="ir-document",
+                extractor_version=None,
+                ir=SEND_IR,
+            ),
+            covers="§4.4's `1.4` row: payload_readers riding a primary P04Failure",
         ),
     )
 

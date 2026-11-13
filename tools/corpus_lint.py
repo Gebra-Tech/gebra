@@ -182,7 +182,7 @@ DIRECTORY_MINIMUMS: Mapping[str, DirectoryMinimum] = MappingProxyType(
         "graph-well-formed": DirectoryMinimum("graph-well-formed", 3, 4, 7),
         "termination-witness": DirectoryMinimum("termination-witness", 7, 5, 12),
         "signature-soundness": DirectoryMinimum("signature-soundness", 3, 3, 6),
-        "dataflow-completeness": DirectoryMinimum("dataflow-completeness", 4, 4, 8),
+        "dataflow-completeness": DirectoryMinimum("dataflow-completeness", 5, 6, 11),
         "effect-safety": DirectoryMinimum("effect-safety", 3, 5, 8),
         "retry-coherence": DirectoryMinimum("retry-coherence", 2, 2, 4),
         "determinism-replay": DirectoryMinimum("determinism-replay", 3, 3, 6),
@@ -193,8 +193,9 @@ DIRECTORY_MINIMUMS: Mapping[str, DirectoryMinimum] = MappingProxyType(
 )
 
 #: The README's grand total: "including the cross-property `mixed/` corpus, the grand-total
-#: floor is 71+" (the DEC-16 gap-fixture extension, re-vendored at vault ``e6ea366``).
-CORPUS_FLOOR: int = 71
+#: floor is 71+; the DEC-37 `send`-payload trio raises them to 64+ and 74+" (the DEC-16 gap-fixture
+#: extension, re-vendored at vault ``e6ea366``, then DEC-37's class-B trio, landed with VAL-17).
+CORPUS_FLOOR: int = 74
 
 #: The one directory whose fixtures declare several properties (README *Layout*).
 MIXED_DIRECTORY: str = "mixed"

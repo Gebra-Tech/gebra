@@ -47,6 +47,33 @@ differs — a containment root rather than a dispatcher — which is why they ar
 reachable node, or listed in ``entry`` — keeps its Step-4 obligation exactly as any other
 reachable reader and never appears in either list.
 
+**A ``send`` edge delivers a payload, not the state (ratified — DEC-37, 2026-10-28).**
+LangGraph's ``Send(node, arg)`` invokes its target with ``arg`` as the target's input, and the
+IR's ``send`` edge is a branch template that records neither ``arg``'s keys nor the fan-out's N
+(IR-SPEC §2.4). So a reachable node entered through a ``send`` edge from a reachable source is a
+**payload reader**: along that **send arm** its declared reads are reads of the payload, which
+the IR does not carry, and P-04 raises no obligation for them and decides nothing about them.
+Its **state arm** — every other in-edge from ``Reach``: a ``normal`` edge, a ``path_map`` label
+or the ``entry`` wiring — still delivers the graph state, and the reader is decided over that
+arm alone (§4.4 Step 4): ``IN_state[v]``, the meet of ``OUT[u]`` over its state-arm sources, the
+attribution "upstream of $v$ through the state arm", and an offending path whose last edge is a
+state-arm edge. A send-only target raises no obligation at all. Every such reader is named on a
+third coverage-cost diagnostic, ``payload_readers`` (:func:`_payload_readers`) — inside
+``Reach``, so disjoint from the two above by construction, and a distinct member because the
+remedy differs again: the payload's contents, which the IR does not carry. **The fixpoint is
+unchanged**: ``IN[v]`` still meets over every in-edge, the send arm included, because that is
+the state at $v$'s superstep, which $v$'s successors read — a ``send`` target's writes land in
+the graph state like any node's, and the payload is not a state write. The arms are read off
+:meth:`~gebra.verify.graph.GraphModel.in_edges`, which keeps every authored edge with its kind:
+a source wired to $v$ by a ``send`` edge *and* an ordinary edge puts $v$ on both arms, and its
+state read is decided — never a set difference over de-duplicated predecessors (DEC-37 §3.1,
+§5 row 8). On every document without a ``send`` edge, and for every reader entered by state
+only, nothing here differs from the pre-DEC-37 analysis: the state arm is then every in-edge,
+``IN_state`` is ``IN``, and the attribution is read out exactly as before. The ruling reaches a
+fan-out extracted as ``kind: send`` only — a ``Send`` router with no return hint extracts as a
+label-expanded ``conditional`` edge, whose target has no send arm and is decided as a state
+reader (DEC-37 §3.4).
+
 **The algorithm is the MFP fixpoint** of §4.4 Step 3 — the gen-only, ⊤-initialized,
 ∩-meet forward framework of §4.1, whose iterative solution equals the meet-over-all-paths
 solution because the framework is distributive (A8 T1), and whose walk-quantification
@@ -258,12 +285,14 @@ def check_dataflow_completeness(
     Returns:
         One :class:`~gebra.verify.report.PropertyReport`: ``pass`` with a
         :class:`~gebra.verify.witnesses.DataflowWitness` carrying one coverage entry per
-        (reachable reader, read key), or ``fail`` with the ledger-§6-first finding as the
-        primary :class:`~gebra.verify.report.P04Failure` and every further finding as a
+        decided (reachable reader, read key), or ``fail`` with the ledger-§6-first finding as
+        the primary :class:`~gebra.verify.report.P04Failure` and every further finding as a
         same-property ``co_failure`` (§0.3 packaging; findings are never dropped). Either
-        carries the two optional coverage-cost diagnostics when they are non-empty:
+        carries the three optional coverage-cost diagnostics when they are non-empty:
         ``outside_static_coverage`` on a document with a statically reachable ``dynamic`` edge
-        (DEC-28 clause 2) and ``contained_readers`` on one with contained nodes (DEC-33).
+        (DEC-28 clause 2), ``contained_readers`` on one with contained nodes (DEC-33) and
+        ``payload_readers`` on one whose reachable readers are entered through a ``send`` edge
+        (DEC-37).
 
     Raises:
         ValueError: if ``model`` was built without P-04's degradation convention.
@@ -275,9 +304,11 @@ def check_dataflow_completeness(
     # (VAL-03 mirrors `nx.descendants` there), and START is a member of its own closure here.
     reach = graph.descendants(START_VERTEX) | {START_VERTEX}
     outside, contained = _coverage_diagnostics(graph, reach, contracts)
+    arms = _send_arms(graph, reach)
+    payload = _payload_readers(graph, reach, contracts, arms)
 
     inn = _fixpoint(graph, reach, contracts)
-    coverage, findings = _obligations(graph, reach, contracts, inn)
+    coverage, findings = _obligations(graph, reach, contracts, inn, arms)
 
     if findings:
         primary, *rest = findings
@@ -297,11 +328,12 @@ def check_dataflow_completeness(
                 # than a decorated variant of it.
                 writers_on_other_paths=primary.writers_on_other_paths or None,
                 downstream_writers=primary.downstream_writers or None,
-                # The two report-level coverage-cost diagnostics ride the primary — the one
+                # The three report-level coverage-cost diagnostics ride the primary — the one
                 # carrier a failing report has — beside the two per-finding ones (see
-                # `P04Failure`; DEC-28 clause 2, DEC-33 §3.4; PD-057 D2).
+                # `P04Failure`; DEC-28 clause 2, DEC-33 §3.4, DEC-37 §3.2; PD-057 D2).
                 outside_static_coverage=outside or None,
                 contained_readers=contained or None,
+                payload_readers=payload or None,
                 co_failures=co_failures or None,
             ),
         )
@@ -313,6 +345,7 @@ def check_dataflow_completeness(
             coverage=tuple(coverage),
             outside_static_coverage=outside or None,
             contained_readers=contained or None,
+            payload_readers=payload or None,
         ),
     )
 
@@ -362,6 +395,101 @@ def _coverage_diagnostics(
     )
     contained = tuple(to_display(vertex) for vertex in readers_outside if vertex not in top_level)
     return outside, contained
+
+
+# ── Step 2's payload arm (ratified — DEC-37, 2026-10-28) ─────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class _SendArm:
+    """One reachable vertex's two arms, recorded only when its send arm is non-empty.
+
+    §4.4 Step 2: ``send_arm(v) := { (u,v) ∈ send_edges : u ∈ Reach }`` and ``state_arm(v) :=
+    { (u,v) : u ∈ Reach and u→v is wired by a normal edge, a path_map label or the entry list }``.
+    Only the *sources* are kept: an arm is consumed as a set of predecessors (the meet of their
+    ``OUT``, the "upstream through the state arm" test, the candidates of the read-out), and a
+    source wired to $v$ twice on one arm contributes one ``OUT`` to a meet, since ``∩`` is
+    idempotent.
+
+    Attributes:
+        send: The send-arm sources — never empty here.
+        state: The state-arm sources — empty exactly for a send-only target, which raises no
+            obligation at all (§4.4 Step 4's first ``continue``).
+    """
+
+    send: frozenset[str]
+    state: frozenset[str]
+
+
+def _send_arms(graph: GraphModel, reach: frozenset[str] | set[str]) -> dict[str, _SendArm]:
+    """§4.4 Step 2's arm split, for every vertex in ``Reach`` that a ``send`` edge enters.
+
+    Read off :meth:`~gebra.verify.graph.GraphModel.in_edges`, the multigraph view that keeps
+    every authored wiring with its kind — never off the de-duplicated predecessors, and never as
+    "every in-edge minus the send arm" over merged pairs: a source wired to $v$ by a ``send``
+    edge *and* by an ordinary edge contributes to **both** arms, so its state-arm read stays
+    decided (DEC-37 §3.1; the critique's probe S2, §5 row 8). Every expanded edge that is not of
+    kind ``send`` delivers the state: the ``normal`` edges, each ``path_map`` label of a
+    ``conditional`` edge, and the ``entry`` wiring, which the model carries as a ``normal`` edge
+    out of ``__start__`` (IR-SPEC §4.2 (m1)). A ``dynamic`` edge never reaches here — it
+    contributes no member to the model (§0.3).
+
+    Only sources in ``Reach`` count, as the pseudocode states for both arms. A ``send`` edge from
+    an unreachable source is no arm at all — no ``START``-path runs through it, so it neither
+    delivers a payload on any path nor, through the meet, any state (its ``OUT`` is ⊤, neutral).
+
+    Vertices without a reachable ``send`` in-edge are absent from the result: for them the
+    state arm is every in-edge from ``Reach`` and §4.4 Step 4 reads exactly as it did before
+    DEC-37, which is how every document without a ``send`` edge is decided byte for byte as
+    before. A carried phantom can appear here (a ``send`` edge whose target resolves to no
+    node, under P-04's §0.3 degradation convention); it has an empty contract and is never a
+    member of $V$, so it is never a payload reader and raises nothing.
+    """
+    arms: dict[str, _SendArm] = {}
+    for vertex in graph.vertices:
+        if vertex not in reach:
+            continue
+        send: set[str] = set()
+        state: set[str] = set()
+        for edge in graph.in_edges(vertex):
+            if edge.source not in reach:
+                continue
+            (send if edge.kind == "send" else state).add(edge.source)
+        if send:
+            arms[vertex] = _SendArm(send=frozenset(send), state=frozenset(state))
+    return arms
+
+
+def _payload_readers(
+    graph: GraphModel,
+    reach: frozenset[str] | set[str],
+    contracts: _Contracts,
+    arms: Mapping[str, _SendArm],
+) -> tuple[str, ...]:
+    """§4.4 Step 2's third coverage-cost diagnostic (ratified — DEC-37, 2026-10-28).
+
+    ``payload_readers := sorted({ v ∈ V ∩ Reach : reads(v) ≠ ∅ and send_arm(v) ≠ ∅ })``, in the
+    ledger §6 order :attr:`~gebra.verify.graph.GraphModel.vertices` already carries. "Declared
+    reads" is ``annotations.input`` as declared, Σ-membership aside, exactly as for the two
+    siblings: a payload reader's read of a key outside Σ is P-03's finding and the reader is
+    still listed (DEC-37 §3.2).
+
+    A **mixed-arm** reader is listed here for its send arm *and* decided over its state arm —
+    it appears in ``coverage`` or as a finding as well; a **send-only** target is listed here
+    and nowhere else. So on every pass the coverage entries and this list together name every
+    reachable declared reader's Σ keys: a key is decided (an entry) or abstained (its reader
+    listed), never dropped — a key outside Σ is P-03's and is neither. The list is inside
+    ``Reach`` and the other two diagnostics are outside it, so the three are pairwise disjoint by
+    construction.
+    """
+    return tuple(
+        to_display(vertex)
+        for vertex in graph.vertices
+        if vertex in arms
+        and vertex in graph.node_ids
+        and vertex in reach
+        and contracts.reads[vertex]
+    )
 
 
 def _model_for(ir: WorkflowIR, model: GraphModel | None) -> GraphModel:
@@ -472,9 +600,9 @@ class _Finding:
     """One violated obligation, before §0.3 packaging decides which one is the primary.
 
     Deliberately not a :class:`~gebra.verify.report.P04Failure` yet: the primary carries
-    ``co_failures`` and the others do not, and the two diagnostics ride the primary alone —
-    §4.4's packaging builds every further finding as a plain ``CoFailure``, which has no
-    field for them. Building the models only after the order is fixed keeps every emission on
+    ``co_failures`` and the others do not, and the diagnostics — the two per-finding ones and
+    the three report-level ones — ride the primary alone: §4.4's packaging builds every further
+    finding as a plain ``CoFailure``, which has no field for them. Building the models only after the order is fixed keeps every emission on
     the one :mod:`~gebra.verify.conditions` surface, with no post-hoc mutation of a frozen
     model.
     """
@@ -489,8 +617,9 @@ def _obligations(
     reach: frozenset[str] | set[str],
     contracts: _Contracts,
     inn: Mapping[str, int],
+    arms: Mapping[str, _SendArm],
 ) -> tuple[list[DataflowCoverage], list[_Finding]]:
-    """Enumerate every (reachable reader, read key) obligation and decide it (§4.4 Step 4).
+    """Enumerate every decided (reachable reader, read key) obligation and decide it (§4.4 Step 4).
 
     The outer loop is ``ir.nodes`` restricted to ``Reach`` in the ledger §6 comparator, which
     is what fixes the primary finding under §0.3's packaging rule; the inner loop is
@@ -508,6 +637,14 @@ def _obligations(
     (DEC-05 D2; A8 T4): its reads are never enumerated, so P-04 emits nothing about them and
     the P-01 ``node-unreachable-from-start`` finding owns the root cause alone. Nothing else in
     this module knows about P-01.
+
+    **A payload reader is decided over its state arm alone** (ratified — DEC-37, 2026-10-28).
+    A send-only target is skipped — every read it declares arrives in the payload, so no
+    obligation is raised, and :func:`_payload_readers` names it instead. A mixed-arm reader's
+    reads are tested against ``IN_state`` (:func:`_state_arm_meet`) rather than ``IN[v]``, with
+    the attribution restricted to the same arm; a reader with no send arm is absent from
+    ``arms`` and is decided against ``IN[v]`` exactly as before, which is what keeps every
+    document without a ``send`` edge byte-identical.
     """
     coverage: list[DataflowCoverage] = []
     findings: list[_Finding] = []
@@ -515,12 +652,19 @@ def _obligations(
     for vertex in graph.vertices:
         if vertex not in graph.node_ids or vertex not in reach:
             continue
+        arm = arms.get(vertex)
+        if arm is not None and not arm.state:
+            continue  # a send-only target: every read is a payload read (DEC-37 §3.1)
+        state_sources = None if arm is None else arm.state
+        decided = (
+            inn[vertex] if state_sources is None else _state_arm_meet(state_sources, contracts, inn)
+        )
         for key in contracts.reads[vertex]:
             mask = contracts.bit.get(key)
             if mask is None:  # Σ-membership is P-03's finding, never P-04's
                 continue
-            upstream = _upstream_writers(graph, reach, contracts, vertex, key)
-            if inn[vertex] & mask:
+            upstream = _upstream_writers(graph, reach, contracts, vertex, key, state_sources)
+            if decided & mask:
                 coverage.append(
                     DataflowCoverage(
                         node=to_display(vertex),
@@ -531,8 +675,32 @@ def _obligations(
                     )
                 )
             else:
-                findings.append(_finding(graph, contracts, vertex, key, upstream, trees))
+                findings.append(
+                    _finding(graph, contracts, vertex, key, upstream, trees, state_sources)
+                )
     return coverage, findings
+
+
+def _state_arm_meet(sources: frozenset[str], contracts: _Contracts, inn: Mapping[str, int]) -> int:
+    """``IN_state := ⋂ {OUT[u] : (u,v) ∈ state_arm(v)}`` (§4.4 Step 4; DEC-37 §3.1).
+
+    ``OUT`` is read back off the fixpoint rather than kept beside it: at the fixpoint
+    ``OUT[u] = IN[u] ∪ writes(u)`` for every reachable non-``START`` vertex, and ``OUT[START]``
+    is the boundary set $I_0$ — :func:`_fixpoint` never updates ``START``, whose ``IN`` stays ⊤,
+    so its ``OUT`` is the one value that must not be re-derived from ``IN``. Every source here
+    is in ``Reach`` (:func:`_send_arms` keeps no other), so every ``OUT`` read is a solved one.
+
+    ``IN_state[v] ⊇ IN[v]`` always — it meets over a subset of $v$'s in-edges — so the arm form
+    can only *cover* a read the whole-node meet left open, never open one it covered: a payload
+    reader's state read fails only where some state-arm predecessor's ``OUT`` lacks the key.
+    The caller never passes an empty set: a send-only target is skipped before this is asked.
+    """
+    meet = contracts.universe
+    for source in sources:
+        meet &= (
+            contracts.boundary if source == START_VERTEX else inn[source] | contracts.writes[source]
+        )
+    return meet
 
 
 def _upstream_writers(
@@ -541,8 +709,9 @@ def _upstream_writers(
     contracts: _Contracts,
     vertex: str,
     key: str,
+    state_sources: frozenset[str] | None,
 ) -> tuple[str, ...]:
-    """``{w ∈ W[k] ∖ {v, START} : w ∈ Reach and v ∈ descendants(w)}`` (§4.4 Step 4).
+    """``{w ∈ W[k] ∖ {v, START} : w ∈ Reach and reaches_v(w)}`` (§4.4 Step 4).
 
     One set, two duties, exactly as the pseudocode has it: on the covered branch it is the
     non-boundary half of ``satisfied_by``, and on the violated branch it is the
@@ -550,13 +719,34 @@ def _upstream_writers(
     (§4.3). ``START`` is excluded by the pseudocode's own ``∖ {v, START}`` and carries the
     display sentinel separately, which is also what keeps the diagnostic's declared
     ``tuple[NodeId, ...]`` honest: :data:`~gebra.verify.base.NodeId` admits no sentinel.
+
+    ``reaches_v(w)`` is "$w$ is upstream of $v$" — ``v ∈ descendants(w)`` for a reader with no
+    send arm (``state_sources is None``), and, for a mixed-arm payload reader, "upstream of $v$
+    **through the state arm**": some state-arm source is $w$ itself or one of its descendants
+    (DEC-37 §3.3). The two agree whenever the send arm is empty, because every in-edge is then
+    a state-arm edge and a vertex reachable from $w$ is reachable through its last edge.
     """
+    if state_sources is None:
+        return tuple(
+            sorted(
+                (
+                    writer
+                    for writer in contracts.writers[key] - {vertex, START_VERTEX}
+                    if writer in reach and vertex in graph.descendants(writer)
+                ),
+                key=ledger_sort_key,
+            )
+        )
     return tuple(
         sorted(
             (
                 writer
                 for writer in contracts.writers[key] - {vertex, START_VERTEX}
-                if writer in reach and vertex in graph.descendants(writer)
+                if writer in reach
+                and any(
+                    source == writer or source in graph.descendants(writer)
+                    for source in state_sources
+                )
             ),
             key=ledger_sort_key,
         )
@@ -570,6 +760,7 @@ def _finding(
     key: str,
     upstream: tuple[str, ...],
     trees: dict[frozenset[str], _SearchTree],
+    state_sources: frozenset[str] | None,
 ) -> _Finding:
     """One violated obligation as its §4.3 location and its two DEC-11 diagnostics.
 
@@ -583,6 +774,9 @@ def _finding(
     ``tuple[NodeId, ...]``, which admits no sentinel, and neither can hold one — ``__start__``
     is excluded from ``upstream`` by §4.4's own ``∖ {v, START}`` and can never be a
     *descendant* of anything, since (m5) gives it no in-edge.
+
+    ``downstream_writers`` is unchanged on a payload reader's state-arm finding (DEC-37 §3.3):
+    "wired after the reader" is a fact about $G$, whichever arm the finding was decided on.
     """
     downstream = tuple(
         sorted(contracts.writers[key] & graph.descendants(vertex), key=ledger_sort_key)
@@ -598,7 +792,7 @@ def _finding(
             # emitted with phantoms elided; sentinels keep their §0 display spelling.
             path=_display(
                 step
-                for step in _offending_path(graph, contracts, vertex, key, trees)
+                for step in _offending_path(graph, contracts, vertex, key, trees, state_sources)
                 if step in graph.node_ids or step in SENTINEL_VERTICES
             ),
         ),
@@ -613,6 +807,7 @@ def _offending_path(
     vertex: str,
     key: str,
     trees: dict[frozenset[str], _SearchTree],
+    state_sources: frozenset[str] | None = None,
 ) -> tuple[str, ...]:
     """The shortest ``START`` → ``vertex`` path avoiding $W_k \\setminus \\{v\\}$ (§4.4 Step 4).
 
@@ -658,12 +853,45 @@ def _offending_path(
 
     The search is a plain BFS expanding successors in ledger §6 order, so "shortest" is
     resolved to one deterministic answer among the shortest.
+
+    **The arm form (ratified — DEC-37, 2026-10-28).** For a mixed-arm payload reader
+    (``state_sources`` given) the path is "the BFS-shortest ``START``→$u$→$v$ path with
+    $(u \\to v)$ in the state arm", over the same writer-free restriction: the candidates of the
+    read-out are restricted to the **state-arm sources** — the tree the library already builds is
+    read out at the earliest-discovered of them, and $v$ is appended, never searched for. So the
+    last edge is a state-arm edge and never the send arm. When $v \\notin W_k$ the tree keeps
+    $v$, and on a loop that re-enters $v$ through its state arm the walk to that source may run
+    through $v$ itself: the emitted path then visits $v$ twice — the first visit the payload
+    instance, the last the state-arm entry — which is the execution the finding describes
+    (DEC-37 §3.3; §4.4 Step 4's comment; the critique's probes S1/S6), and
+    :class:`~gebra.verify.locations.DataflowLocation` admits it. When $v \\in W_k$ it is not in
+    the tree and the walk cannot pass through it. The source exists whenever the state-arm meet
+    lacks the key: $k \\notin$ ``IN_state[v]`` means $k \\notin$ ``OUT[u]`` for some state-arm
+    source $u$, so $u$ writes nothing of $k$ and ``START`` reaches $u$ avoiding $W_k$ (A8 T5 at
+    $u$). With no send arm (``state_sources is None``) every in-edge from ``Reach`` is a
+    state-arm edge, and the two branches above are exactly that read-out — which is why the
+    pre-DEC-37 paths are reproduced byte for byte.
     """
     removed = contracts.writers[key]
     tree = trees.get(removed)
     if tree is None:
         tree = _shortest_path_tree(graph.subgraph(graph.vertex_set - removed))
         trees[removed] = tree
+    if state_sources is not None:
+        source = min(
+            (candidate for candidate in state_sources if candidate in tree.parents),
+            key=lambda candidate: tree.discovered[candidate],
+            default=None,
+        )
+        if source is None:  # pragma: no cover - excluded by A8 T5 at the state-arm source
+            raise AssertionError(
+                f"P-04 internal invariant: the state-arm meet reports {key!r} unwritten at "
+                f"{vertex!r}, but no state-arm predecessor is reachable from START without "
+                "passing a writer of it. A8 T5 at that predecessor makes the two equivalent "
+                "(DEC-37 §3.3), so this is a defect in this module, not in the input — please "
+                "file it against VAL-17 with the IR that produced it."
+            )
+        return (*_walk(tree, source), vertex)
     if vertex in tree.parents:
         return _walk(tree, vertex)
     entry = min(

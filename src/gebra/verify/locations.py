@@ -175,7 +175,10 @@ class DataflowLocation(StateKeyLocation):
 
     The anchor declares ``node`` optional; a dataflow finding always names the reading
     node, so it is required here. ``path`` is the shortest offending START→node path and
-    may carry the display sentinel START.
+    may carry the display sentinel START. On a ``send`` target decided over its state arm,
+    the path's last edge is a state-arm edge, and where a loop re-enters that reader through
+    its state arm the path is a walk that visits the reader twice — the first visit the
+    payload instance, the last the state-arm entry (ratified — DEC-37, 2026-10-28, §3.3).
 
     Boundary worth knowing before implementing P-04's degradation convention: §0.3 has P-04
     "carry the phantom vertex with an empty contract" on P-01-dirty topology, and a phantom

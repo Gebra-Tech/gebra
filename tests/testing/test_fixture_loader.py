@@ -57,16 +57,21 @@ from tests.conftest import FIXTURES_DIR
 #: eight wedge negatives whose ``location`` blocks predated their §P-nn.3 subtypes now compose,
 #: which is what makes all thirty wedge-directory fixtures composable. It grew 33 → 44 when
 #: the DEC-16 gap-fixture extension landed (TE-14, vault ``e6ea366``): every one of the eleven
-#: new fixtures is wedge-directory and composes on arrival, so the wedge count is forty-one.
+#: new fixtures is wedge-directory and composes on arrival, so the wedge count is forty-one. It
+#: grew 44 → 47 when DEC-37's ``send``-payload trio landed (VAL-17, vault ``7b6995d``): all
+#: three are wedge-directory and compose on arrival, so the wedge count is forty-four.
 COMPOSING = (
     "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
     "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
     "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
+    "dataflow-completeness/negative-05-payload-key-read-from-state-downstream.yaml",
+    "dataflow-completeness/negative-06-mixed-arm-reader-state-arm-unwritten.yaml",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
     "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
+    "dataflow-completeness/positive-05-send-template-payload-reader.yaml",
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
     "determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",

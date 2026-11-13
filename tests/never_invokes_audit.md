@@ -1464,6 +1464,60 @@ refused by `StateGraph`'s descriptor and carries no readable declaration; on the
 the descriptor is `Runnable`'s, so an object that claims `Pregel` while being another real
 `Runnable` has its own dictionary read — harmlessly, since the read is the dictionary itself.
 
+### VAL-17 — P-04 over `Send` payloads, and two executed examples over hand-built documents
+
+No extraction path is added, and nothing under `src/gebra/extraction/`, `annotations/`,
+`snapshot/` or `ir/` changes. The P-04 change is data over data: `_send_arms` reads the shared
+model's expanded in-edges (`GraphModel.in_edges`, an attribute of frozen values built from the
+validated IR) and keeps their sources by edge kind, the state-arm meet is integer bit operations
+over the fixpoint's own solution, and the arm-form read-out picks a vertex out of the search tree
+the module already builds. The three renderers (`gebra.report.evidence`, `findings`, `human`) and
+the plugin's closing report gain string building over the new member's node ids; the plugin's
+import closure is unchanged (`DataflowWitness` was already imported in `_witness_summary`). In
+`gebra.testing.mutations`, `send_targets` reads `ir.edges` and the new precondition compares ids;
+the family draws call it on the drawn document and pass the anchor pool to `hypothesis.assume`,
+imported inside the module's existing `hypothesis` `ImportError` guard, so the module's import
+closure is unchanged. One test module joins: `tests/verify/test_send_payload.py` builds every
+document as a literal dictionary through the JSON-mode ingestion path, reads the vendored corpus
+with PyYAML's safe loader (never a fixture's `source_snippet`), draws send-heavy documents and
+`gebra.testing.strategies.workflow_irs` documents — frozen values only — and runs `verify()` and
+`gebra.report.render` over two hand-built documents (the dossier shape and the self-writing
+loop); its reference implementation is a breadth-first search over a list of
+`(source, target, arm)` string triples. Tests join existing modules on the same terms:
+`tests/testing/test_mutations.py` gains one test over a literal `WorkflowIR` and two `@given`
+tests over `dataflow_mutations` and `termination_mutations`; `tests/report/test_findings.py`
+gains two over the stubbed `send-payload*` cases and `sarif_log`; the metaproperty suites
+(`test_metaproperties_contract.py`, `test_metaproperties_structural.py`) gain `hypothesis.assume`
+anchor pools — all of it data. Two plugin tests join `tests/plugin/test_gating.py`: in-process
+`pytester` sessions whose target file holds a literal `WorkflowIR` (fixture-only mode, no
+substrate import). The two new documentation examples
+(`docs/validators/p04-dataflow-completeness.md`, `a-send-target-reads-its-payload` and
+`a-send-target-entered-another-way-too`) write their documents by hand and run `run_property`
+under the harness guard; they import no sample-workflow module and write none. The code of one
+existing example on that page changed: `every-obligation-in-the-corpus` still loads the vendored
+corpus through `gebra.testing.load_fixture` and runs `run_property`, and now reads the three
+diagnostics with `getattr(record, name, None)` on the library's own report models; its
+transcript was recaptured under the guard. Two more output blocks were recaptured from real runs
+under `tools/docs_examples.py`'s guard — `docs/reference/cli.md` (`the-machine-surfaces`) and
+`docs/tutorials/verify-and-interpret.md` (`one-run-report`), the `report_format` line only — with
+no code block changed, and `docs/reference/api.md` is regenerated from docstrings by a generator
+that imports nothing it documents. The two new rendering variants (`tests/report/variants.py`,
+`send-payload*`) are stubbed reports over a hand-built document, as every other variant is. No
+extraction path is added, so INTROSPECTION-SPEC §1 rule 4 owes no new tripwire. What the existing
+guarded children reach, bounded: the corpus sweeps of
+`tests/verify/test_run.py::test_running_verify_over_the_corpus_creates_no_socket_and_resolves_no_name`
+and `tests/verify/test_dataflow_completeness.py`'s P-04 tripwire include all five corpus
+documents that carry a `send` edge. Four have send-only targets — `mixed/09`,
+`parallel-safety/negative-02`, and DEC-37's `positive-05` and `negative-05`, landed by class B
+with this card — so they run `_send_arms`, `_payload_readers` and the send-only skip with the
+substrate absent. The fifth, `negative-06-mixed-arm-reader-state-arm-unwritten`, whose `book_leg`
+is entered both ways, also runs the mixed-arm branches: `_state_arm_meet`, and the arm-form paths
+of `_offending_path` and of `_upstream_writers` (through `book_leg`'s covered read of
+`search_plan`; nothing writes `leg_id`). No corpus document reaches `_state_arm_meet`'s `START`
+term or the loop re-entry read-out; `tests/verify/test_send_payload.py` reaches both in-process
+(the entry-wired and loop shapes), data-only (observed with socket creation, name resolution and
+connect set to raise).
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

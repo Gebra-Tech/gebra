@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **P-04 reads a `Send` target's input as the payload it is** (card VAL-17; DEC-37).
+  LangGraph's `Send(node, arg)` hands its target `arg`, not the graph state, and the IR's `send`
+  edge records neither what the payload carries nor how many branches run. P-04 used to decide such
+  a node's reads against the state its sender had produced, so a key that arrives only in the
+  payload — the per-branch `id` of a map-reduce worker, say — failed
+  `read-key-never-written-on-path`. A reachable node entered through a `send` edge is now a
+  *payload reader*: along that edge its declared reads raise no obligation and are not decided,
+  and the node is named on a new optional member, `payload_readers`, on the pass witness
+  (`DataflowWitness`) or on a failing report's primary record (`P04Failure`) — neither a silent
+  pass nor that failure. Where the same node is also entered by an ordinary edge, a `path_map`
+  label or `entry`, its reads are decided over those in-edges alone and an offending path ends on
+  one of them; on a loop that re-enters the node that way the path visits it twice. A `send`
+  target's own writes still reach the nodes after it. The human report prints a `payload readers`
+  line, SARIF carries `gebra/payloadReaders` in the primary result's property bag, and the pytest
+  plugin's closing report names the readers. The ruling reaches a fan-out extracted as
+  `kind: send` — a router that declares its targets and carries a `-> list[Send]` return hint. A
+  router that declares its targets with no such hint extracts as `conditional`, and its target is
+  decided exactly as before; one with the hint and no declared targets extracts as `dynamic`, as
+  before.
+  On a reader with a `send` arm, `satisfied_by` and `writers_on_other_paths` name only the writers
+  upstream of it through its other in-edges, and `satisfied_by` can be empty on a covered entry
+  when the reader is covered only by its own earlier visit.
+
+- **DEC-37's three P-04 fixtures join the vendored corpus: 71 → 74** (card VAL-17; DEC-37;
+  vault `Gebra-Tech/initial-documents@7b6995d`, re-vendored with the provenance manifest).
+  Each matches P-04 by §0.3 model equality on arrival. `positive-05-send-template-payload-reader`
+  passes, its `send` target named on `payload_readers`;
+  `negative-05-payload-key-read-from-state-downstream` fails at the node after the fan-out that
+  reads the payload key from the state — one finding, where the reading before DEC-37 gave two;
+  and `negative-06-mixed-arm-reader-state-arm-unwritten` fails at a `send` target also entered by
+  an ordinary edge, on the path through that edge. No existing fixture changed. The corpus floors
+  (`CORPUS_FLOOR` 74; `dataflow-completeness` at 5 positive and 6 negative), the fidelity matrix's
+  P-04 row (16 obligations, 14 matched) and the P-04 page's tour of the directory (eleven
+  reports) move with it.
+
 - **A plain `Enum` member whose stored value is a string is now a routing label** (card EX-27;
   DEC-38, which amends DEC-32's ruling 1). A router whose `path_map` is keyed by members of
   `class AgentDecision(Enum)` with `TOOL = "tool"` and `END = "finished"` was refused at the
@@ -123,39 +158,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`report_format` is `1.4`** (card VAL-17; DEC-37; REPORT-FORMAT-SPEC §1.6). The
+  `payload_readers` member joins two envelope shapes (§1.6's new-optional-member row) and opens
+  the `0.2.0` release's one MINOR (DEC-35 §3.3) — the row the release's later landings append to.
+  A document whose only P-04 finding was a payload read through a `send` edge now passes P-04,
+  and on such a document `coverage` no longer lists a send-only target's reads; every document
+  without a `send` edge reports byte for byte as before, and no condition ID, severity, claim
+  class or exit-code rule moved. A strict `1.3` consumer refuses a `1.4` report that carries the
+  new member, and `gebra display --report` refuses a `1.3` report file, naming the version it
+  reads — re-run `gebra verify` to get a `1.4` one. The JSON report goldens are re-stamped `1.4`.
+
+- **Mutation operators refuse an anchor a `send` edge enters where DEC-37 changes their
+  prediction** (card VAL-17). In `gebra.testing.mutations`, the four P-04 operators that inject a
+  state read (`unwritten_read`, `self_write`, `boundary_read`, `universal_write`) predict how P-04
+  decides it, and a `send` target's reads are now decided over its state arm alone or not at all;
+  the self-loop operators of P-02 and P-06 (`removed_variant`, `removed_blanket`,
+  `unqualified_variant`, `counter_guard_with_exit`, `counter_guard_without_exit`,
+  `unprotected_cycle`) promise that P-04's verdict does not move across the pair, and a loop into a
+  `send` target is a new state-arm edge that can move it. Each now raises `ValueError` on such an
+  anchor, as the operators already do on a precondition their prediction rests on; the strategies
+  draw these anchors from the other nodes, and the new `send_targets()` names the excluded ones.
+
 - **The property registry carries the Phase-1 catalog charter's scope vocabulary, and a
   not-implemented marker says why in the charter's words** (cards VAL-16 and VAL-29; DEC-35,
-  DEC-42). A registry row now carries one of three scopes: `phase-0-wedge` (the five validators
-  that ship today), `catalog` (a property whose catalog section is ratified and whose validator
-  ships — no property carries it yet) and `deferred-to-phase-1` (a property for which no
-  validator ships, whether or not its catalog section is ratified; the token keeps its name on
-  the wire and is read as "no validator in this release"). `gebra.verify.register_validator`
-  accepts a validator for a row in either of the first two and refuses one for a
-  `deferred-to-phase-1` row — and, whatever the scope, for a property that reads two snapshots
-  through the one-snapshot path. `gebra.verify.verify()` treats a row in either shipped scope
-  with no registered validator as a `dispatch` tool error (exit 2), exactly as it treated a
-  missing wedge validator. The marker for a property with no validator now reads "P-03
-  signature-soundness has no validator in this release. Its catalog section is
-  PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass." In `0.1.1` it said
-  the property was "outside the Phase-0 wedge (SOW §8)" and named its contract as
+  DEC-42). A registry row now carries one of three scopes: `phase-0-wedge` (the five validators that
+  ship today), `catalog` (a property whose catalog section is ratified and whose validator ships —
+  no property carries it yet) and `deferred-to-phase-1` (a property for which no validator ships,
+  whether or not its catalog section is ratified; the token keeps its name on the wire and is read
+  as "no validator in this release"). `gebra.verify.register_validator` accepts a validator for a
+  row in either of the first two and refuses one for a `deferred-to-phase-1` row — and, whatever the
+  scope, for a property that reads two snapshots through the one-snapshot path.
+  `gebra.verify.verify()` treats a row in either shipped scope with no registered validator as a
+  `dispatch` tool error (exit 2), exactly as it treated a missing wedge validator. The marker for a
+  property with no validator now reads "P-03 signature-soundness has no validator in this release.
+  Its catalog section is PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass."
+  In `0.1.1` it said the property was "outside the Phase-0 wedge (SOW §8)" and named its contract as
   "PROPERTY-CATALOG-SPEC §P-03 (stub; Verification-Properties §2 authoritative)" — the contract
-  pointer no longer calls the section a stub or names another document as authoritative, and
-  the sentence "No verdict was reached — this is not a pass." is kept verbatim. The same reason
-  and sentence now appear on the human report's status line, in the pytest plugin's
-  `--gebra-select` refusal (which follows each slug it refuses with that slug's own reason), in
-  the golden harness's deferral reason, and on the P-12 marker lines of `gebra diff` and `gebra
-  snapshot` — the snapshot line used to say "no safe/breaking classification exists in Phase 0".
-  The status token `deferred-to-phase-1` is unchanged on the wire, `report_format` stays `1.3`,
-  and no verdict, exit code, witness, condition ID or snapshot moves: only the marker's
-  display-only `detail` prose differs in JSON output. Every reader that asks whether a property
-  is live — the harness's deferral, the plugin's refusal, `tools/corpus_green.py`'s four
-  clauses — now asks the registry row's scope rather than whether the property is one of the
-  wedge five, so a property that lands is read as live everywhere at once. New:
-  `gebra.verify.registry_counts()` and `RegistryCounts` (every property count, read off the
-  table and the registrations when called), `deferred_slugs()`, `shipped_slugs()`,
-  `SHIPPED_SCOPES`, the copy constants `DEFERRED_READING` and `NO_VERDICT`, and
-  `MARKER_REASONS` (the reason each marker status states, one entry per status); the count
-  pins in the test suite read them instead of literals.
+  pointer no longer calls the section a stub or names another document as authoritative, and the
+  sentence "No verdict was reached — this is not a pass." is kept verbatim. The same reason and
+  sentence now appear on the human report's status line, in the pytest plugin's `--gebra-select`
+  refusal (which follows each slug it refuses with that slug's own reason), in the golden harness's
+  deferral reason, and on the P-12 marker lines of `gebra diff` and `gebra snapshot` — the snapshot
+  line used to say "no safe/breaking classification exists in Phase 0". The status token
+  `deferred-to-phase-1` is unchanged on the wire, this change moves no `report_format`, and no
+  verdict, exit code, witness, condition ID or snapshot moves: only the marker's display-only
+  `detail` prose differs in JSON output. Every reader that asks whether a property is live — the
+  harness's deferral, the plugin's refusal, `tools/corpus_green.py`'s four clauses — now asks the
+  registry row's scope rather than whether the property is one of the wedge five, so a property that
+  lands is read as live everywhere at once. New: `gebra.verify.registry_counts()` and
+  `RegistryCounts` (every property count, read off the table and the registrations when called),
+  `deferred_slugs()`, `shipped_slugs()`, `SHIPPED_SCOPES`, the copy constants `DEFERRED_READING` and
+  `NO_VERDICT`, and `MARKER_REASONS` (the reason each marker status states, one entry per status);
+  the count pins in the test suite read them instead of literals.
 
 - **Development re-opened at `0.1.2.dev0`** (card REL-12). `0.1.1` is published and its tag is
   used, so `main` could not keep declaring it: while it did, every build made from a checkout

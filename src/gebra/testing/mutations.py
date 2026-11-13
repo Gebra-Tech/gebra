@@ -89,6 +89,7 @@ from itertools import pairwise
 from typing import Any, Final
 
 try:
+    from hypothesis import assume
     from hypothesis import strategies as st
 except ImportError as error:  # pragma: no cover - the dev environment always has it
     raise ImportError(
@@ -110,6 +111,7 @@ from gebra.ir.models import (
     RecursionLimit,
     RetryPolicy,
     Runtime,
+    SendEdge,
     StateField,
     Variant,
     WorkflowIR,
@@ -211,6 +213,7 @@ __all__ = [
     "removed_blanket",
     "removed_variant",
     "self_write",
+    "send_targets",
     "severed_edge",
     "star_wiring",
     "termination_mutations",
@@ -779,6 +782,64 @@ def _require_acyclic(ir: WorkflowIR, node_id: str, operator: str, *, whole_graph
         )
 
 
+def send_targets(ir: WorkflowIR) -> frozenset[str]:
+    """Every node a ``send`` edge enters — the anchors DEC-37 puts outside some operators' reach.
+
+    LangGraph's ``Send`` hands its target the payload rather than the graph state, and since
+    DEC-37 (ratified 2026-10-28) P-04 reads that literally: along a ``send`` arm a reader's
+    declared reads are payload reads, which raise no obligation, and the reader is decided over
+    its **state arm** alone — every other in-edge (PROPERTY-CATALOG-SPEC §4.4 Steps 2 and 4).
+    So on such a node a P-04 prediction stated for a state read can be false (a send-only target
+    raises nothing at all), and an operator that adds an edge *into* it adds a state-arm edge,
+    which can move P-04's decision there — even a self-loop, which leaves the fixpoint alone.
+    The operators named at :func:`_require_no_send_target` refuse such an anchor, and the family
+    draws pick theirs from the other nodes.
+
+    Every ``send`` edge counts, reachable or not: this is a precondition on a caller-chosen
+    anchor, and the conservative set costs nothing on a generated draw, where every node is
+    reachable.
+    """
+    return frozenset(edge.to for edge in ir.edges if isinstance(edge, SendEdge))
+
+
+def _require_no_send_target(ir: WorkflowIR, node_id: str, operator: str, why: str) -> None:
+    """Refuse an anchor a ``send`` edge enters, for an operator whose claim DEC-37 would falsify.
+
+    The same discipline as :func:`_require_acyclic` — checked rather than assumed, and raising
+    rather than filtering, because a wrong prediction is worse than a missing one. ``why`` says
+    which of the operator's claims would fail: the P-04 operators predict the verdict of a
+    *state* read, and the loop operators of P-02 and P-06 promise that P-04's verdict does not
+    move between the pair.
+
+    Raises:
+        KeyError: if ``node_id`` is not declared.
+        ValueError: if a ``send`` edge enters ``node_id``.
+    """
+    if node_id not in {node.id for node in ir.nodes}:
+        raise KeyError(f"{node_id!r} is not a declared node of this workflow")
+    if node_id in send_targets(ir):
+        raise ValueError(
+            f"{node_id!r} is the target of a `send` edge: since DEC-37 P-04 decides a send "
+            "target's reads over its state arm alone, and raises no obligation along the send "
+            f"arm (PROPERTY-CATALOG-SPEC §4.4 Steps 2 and 4), so {why}. {operator} needs an "
+            "anchor no `send` edge enters — draw it from the nodes outside send_targets()."
+        )
+
+
+#: What the P-04 operators would get wrong on a ``send`` target (:func:`_require_no_send_target`).
+_P04_SEND_TARGET: Final = (
+    "the verdict this operator predicts for the state read it injects is not the one P-04 "
+    "reaches there — a send-only target raises no obligation at all, and a mixed-arm one is "
+    "decided over its state arm only"
+)
+
+#: What a loop operator would get wrong on a ``send`` target (:func:`_require_no_send_target`).
+_LOOP_SEND_TARGET: Final = (
+    "the edge this operator adds into it is a state-arm in-edge, which can move P-04's verdict "
+    "there, and the pair would no longer break exactly one property"
+)
+
+
 # ── P-04 operators (PROPERTY-CATALOG-SPEC §4) ────────────────────────────────────────────
 
 
@@ -793,7 +854,13 @@ def unwritten_read(ir: WorkflowIR, node_id: str) -> Mutation:
     After normalization the document declares exactly one read, so P-04's report carries exactly
     one finding: the primary, with no co-failures and — since the key has no other writer and
     the reader is not its own downstream writer — neither of the two DEC-11 diagnostics.
+
+    Raises:
+        KeyError: if ``node_id`` names no declared node.
+        ValueError: if a ``send`` edge enters ``node_id`` — there the read would be a payload
+            read along the send arm (DEC-37; :func:`send_targets`).
     """
+    _require_no_send_target(ir, node_id, "unwritten_read", _P04_SEND_TARGET)
     origin = without_reads(ir)
     key = _fresh(PROBE_KEY, frozenset(origin.state or {}))
     mutant = update_contract(with_state_field(origin, key, "str"), node_id, input=(key,))
@@ -815,7 +882,15 @@ def self_write(ir: WorkflowIR, node_id: str) -> Mutation:
     own read: the first arrival at $v$ finds the key unwritten however many laps follow. This is
     the operator that would pass if a validator confused ``IN`` with ``OUT``, and it is why the
     reachability form's endpoint exemption is ``∖ {v}`` (A8 T5).
+
+    A ``send`` target is refused: its first arrival can be a payload instance, and a state-arm
+    re-entry that follows it finds the key written by that very instance (DEC-37 §3.3).
+
+    Raises:
+        KeyError: if ``node_id`` names no declared node.
+        ValueError: if a ``send`` edge enters ``node_id`` (:func:`send_targets`).
     """
+    _require_no_send_target(ir, node_id, "self_write", _P04_SEND_TARGET)
     origin = without_reads(ir)
     key = _fresh(PROBE_KEY, frozenset(origin.state or {}))
     mutant = update_contract(
@@ -840,7 +915,12 @@ def boundary_read(ir: WorkflowIR, node_id: str, *, optional: bool) -> Mutation:
     read is covered at every reachable node and the coverage entry's ``satisfied_by`` is exactly
     the display sentinel ``START``; with ``optional: false`` the same document violates §4 at
     the same point.
+
+    Raises:
+        KeyError: if ``node_id`` names no declared node.
+        ValueError: if a ``send`` edge enters ``node_id`` (:func:`send_targets`).
     """
+    _require_no_send_target(ir, node_id, "boundary_read", _P04_SEND_TARGET)
     origin = without_reads(ir)
     key = _fresh(PROBE_KEY, frozenset(origin.state or {}))
     field = StateField(type="str", optional=optional)
@@ -865,7 +945,14 @@ def universal_write(ir: WorkflowIR, node_id: str) -> Mutation:
     *is* in ``entry``, the one-step path ``START → v`` has no interior at all, so nothing writes
     the key before $v$ reads it — and the emitted ``path`` is exactly ``("START", v)``, because
     the reachability form removes $W_k \\setminus \\{v\\}$, which here is every other node.
+
+    Raises:
+        KeyError: if ``node_id`` names no declared node.
+        ValueError: if a ``send`` edge enters ``node_id`` — a send-only reader raises no
+            obligation, so the coverage this operator implies would not be recorded
+            (:func:`send_targets`).
     """
+    _require_no_send_target(ir, node_id, "universal_write", _P04_SEND_TARGET)
     origin = without_reads(ir)
     key = _fresh(PROBE_KEY, frozenset(origin.state or {}))
     writing = _update_every_contract(
@@ -986,14 +1073,20 @@ def unprotected_cycle(ir: WorkflowIR, node_id: str, tag: str) -> Mutation:
     and the "exactly one property" claim is stated over verdicts throughout; a P-02 metaproperty
     that wanted the gate would use :func:`removed_blanket`, which is built for it.
 
+    **Nor may the anchor be a ``send`` target** (DEC-37): the self-loop is a state-arm in-edge
+    there, and P-04 decides a send target's reads over its state arm — so on a draw whose target
+    declares reads the loop could move P-04's verdict as well as P-06's.
+
     Raises:
         ValueError: if ``node_id`` already lies on a cycle. The precondition is checked rather
             than assumed: a caller that hands in a cyclic draw would get a ``retry`` region
             whenever the component carried a conditional re-entry edge, and the mutation would
-            silently predict the wrong condition.
+            silently predict the wrong condition. Also if a ``send`` edge enters ``node_id``
+            (:func:`send_targets`).
     """
     origin = with_recursion_limit(without_effects(ir), PROBE_RECURSION_LIMIT, PROBE_JUSTIFICATION)
     _require_acyclic(origin, node_id, "unprotected_cycle", whole_graph=False)
+    _require_no_send_target(origin, node_id, "unprotected_cycle", _LOOP_SEND_TARGET)
     mutant = with_self_loop(_bare_trigger(origin, node_id, tag), node_id)
     return Mutation(
         origin=origin,
@@ -1602,7 +1695,12 @@ def _dangling(
 # The loop is always a **self**-loop, never a two-node cycle, and that is a P-04 constraint
 # rather than an aesthetic one: a self-loop adds the constraint `IN[v] ⊆ IN[v] ∪ writes(v)`,
 # which every solution already satisfies, so P-04's greatest fixpoint cannot move (MP-04-9 pins
-# it); a second edge into some other node would add a predecessor to a meet and could.
+# it); a second edge into some other node would add a predecessor to a meet and could. Since
+# DEC-37 the fixpoint is not the whole of P-04's answer: a node a `send` edge enters is decided
+# over its *state arm*, and a self-loop on it is a new state-arm in-edge — so the self-loop
+# operators below refuse such an anchor (`_require_no_send_target`) and the draw picks the
+# loop's node from the others. The two-cycle needs no refusal: it clears every read first, so no
+# arm it adds an edge to has an obligation to decide.
 
 
 def removed_variant(ir: WorkflowIR, node_id: str) -> Mutation:
@@ -1794,6 +1892,7 @@ def _witnessable_loop(ir: WorkflowIR, node_id: str, operator: str) -> tuple[Work
     """
     normalized = without_effects(without_witnesses(ir))
     _require_acyclic(normalized, node_id, operator, whole_graph=True)
+    _require_no_send_target(normalized, node_id, operator, _LOOP_SEND_TARGET)
     looped = with_self_loop(normalized, node_id)
     key = _fresh(PROBE_KEY, frozenset(looped.state or {}))
     return with_state_field(looped, key, "str"), key
@@ -1818,6 +1917,7 @@ def _counter_guard(
     """A form-(a) guard on a fresh conditional self-loop, with or without a wired escape."""
     normalized = without_effects(without_witnesses(ir))
     _require_acyclic(normalized, node_id, operator, whole_graph=True)
+    _require_no_send_target(normalized, node_id, operator, _LOOP_SEND_TARGET)
     counter = _fresh(PROBE_COUNTER, frozenset(normalized.state or {}))
     origin = with_state_field(normalized, counter, "int")
     labels = {
@@ -1979,6 +2079,23 @@ def _indices(count: int) -> st.SearchStrategy[int]:
     return st.integers(min_value=0, max_value=count - 1)
 
 
+def _draw_anchor(draw: st.DrawFn, ir: WorkflowIR, *, outside_send_targets: bool) -> str:
+    """The node an operator anchors at — from every node, or from those no ``send`` edge enters.
+
+    The narrowed pool is for the operators :func:`_require_no_send_target` guards (DEC-37). A
+    draw in which every node is a ``send`` target is rejected rather than handed to an operator
+    that would refuse it; that needs a ``send`` edge into every entry node, which only the
+    envelope's extra edges can write, so it is rare.
+    """
+    if outside_send_targets:
+        excluded = send_targets(ir)
+        pool = [node.id for node in ir.nodes if node.id not in excluded]
+    else:
+        pool = [node.id for node in ir.nodes]
+    assume(pool)
+    return pool[draw(_indices(len(pool)))]
+
+
 #: The two §6.3 trigger tags, sorted so a shrunk counterexample is stable.
 _TRIGGERS: Final[tuple[str, ...]] = tuple(sorted(TRIGGER_TAGS))
 
@@ -2004,10 +2121,15 @@ def _dataflow_mutations(
 
 @st.composite
 def _draw_dataflow(draw: st.DrawFn, envelope: SizeEnvelope, operators: tuple[str, ...]) -> Mutation:
-    """Draw an operator, a well-formed workflow and the node to anchor the defect at."""
+    """Draw an operator, a well-formed workflow and the node to anchor the defect at.
+
+    Every operator but ``foreign-read`` declares a Σ read and predicts how P-04 decides it, so
+    its anchor is drawn from the nodes no ``send`` edge enters (DEC-37; :func:`send_targets`).
+    A read outside Σ raises no obligation on any arm, so ``foreign-read`` keeps every node.
+    """
     operator = draw(_one_of(operators))
     ir = draw(workflow_irs(envelope=envelope))
-    node_id = ir.nodes[draw(_indices(len(ir.nodes)))].id
+    node_id = _draw_anchor(draw, ir, outside_send_targets=operator != "foreign-read")
     if operator == "unwritten-read":
         return unwritten_read(ir, node_id)
     if operator == "self-write":
@@ -2030,11 +2152,16 @@ def _effect_safety_mutations(
 def _draw_effect_safety(
     draw: st.DrawFn, envelope: SizeEnvelope, operators: tuple[str, ...]
 ) -> Mutation:
-    """Draw an operator, then the workflow from whichever envelope that operator needs."""
+    """Draw an operator, then the workflow from whichever envelope that operator needs.
+
+    ``unprotected-cycle`` adds a self-loop, so its anchor is drawn from the nodes no ``send``
+    edge enters (DEC-37; :func:`unprotected_cycle`); every other operator here edits
+    annotations only and keeps every node.
+    """
     operator = draw(_one_of(operators))
     bounds = acyclic_envelope(envelope) if operator == "unprotected-cycle" else envelope
     ir = draw(workflow_irs(envelope=bounds))
-    node_id = ir.nodes[draw(_indices(len(ir.nodes)))].id
+    node_id = _draw_anchor(draw, ir, outside_send_targets=operator == "unprotected-cycle")
     tag = draw(_one_of(_TRIGGERS))
     if operator == "unprotected-retry-region":
         return unprotected_retry_region(ir, node_id, tag)
@@ -2128,10 +2255,14 @@ def _termination_mutations(
 def _draw_termination(
     draw: st.DrawFn, envelope: SizeEnvelope, operators: tuple[str, ...]
 ) -> Mutation:
-    """Draw an operator, an **acyclic** workflow and the node the self-loop goes on."""
+    """Draw an operator, an **acyclic** workflow and the node the self-loop goes on.
+
+    The self-loop operators draw it from the nodes no ``send`` edge enters (DEC-37; see the
+    family's opening comment); the two-cycle clears every read and keeps every node.
+    """
     operator = draw(_one_of(operators))
     ir = draw(workflow_irs(envelope=envelope))
-    node_id = ir.nodes[draw(_indices(len(ir.nodes)))].id
+    node_id = _draw_anchor(draw, ir, outside_send_targets=operator != "unwitnessed-two-cycle")
     if operator == "removed-variant":
         return removed_variant(ir, node_id)
     if operator == "removed-blanket":

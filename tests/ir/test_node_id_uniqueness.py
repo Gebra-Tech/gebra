@@ -119,12 +119,14 @@ def _canonical_table() -> list[str]:
 
 #: How many rows :func:`_canonical_table` renders — the vendored corpus's IR payloads plus
 #: the six committed goldens (``vector-001`` and the five round-trip triples).
-CANONICAL_ENTRIES: Final = 84
+CANONICAL_ENTRIES: Final = 87
 
 #: SHA-256 over the rendered table, captured from this build **before** the IR-07 constraint
 #: landed and unchanged by it. This is acceptance box 2's absolute pin: the existing corpus
 #: tests prove canonicalization is self-consistent (recompute-and-compare), which stays true
-#: even if every digest moved together — this says they did not move at all.
+#: even if every digest moved together — this says they did not move at all. It was last
+#: re-captured when DEC-37's ``send``-payload trio was re-vendored (VAL-17, vault ``7b6995d``):
+#: the table grew 84 → 87 rows, and each of the 84 earlier rows stayed byte-identical.
 #:
 #: Three things legitimately move it, and none of them is a quiet edit: the corpus is
 #: re-vendored (WA-04, R-05 sign-off), a ratified canonicalization change moves digests
@@ -139,7 +141,7 @@ CANONICAL_ENTRIES: Final = 84
 #:     rows = _canonical_table()
 #:     text = chr(10).join(rows) + chr(10)
 #:     print(len(rows), hashlib.sha256(text.encode()).hexdigest())"
-CANONICAL_FINGERPRINT: Final = "329ff2f216df261b91f697f18d1bc92930a1735b6bef01bd63771292ff78a9dd"
+CANONICAL_FINGERPRINT: Final = "d50d74fcae04675e3a53d45ed758595e846d5fd6b32562388e61df48a7997e55"
 
 
 # ── Box 1: the PD-032 repro documents are rejected at model validation ────────────────────

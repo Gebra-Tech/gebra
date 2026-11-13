@@ -489,7 +489,7 @@ print("run properties    ", ", ".join(run["properties"]))
 <!-- gebra:output id=the-machine-surfaces -->
 ```text
 report keys        report_format, tool, subject, properties, best_effort, gate
-report_format      1.3
+report_format      1.4
 tool               {'name': 'gebra', 'version': '0.1.2.dev0'}
 properties         13
 gate.outcome       pass

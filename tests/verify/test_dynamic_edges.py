@@ -648,7 +648,7 @@ def test_verify_reaches_a_verdict_and_the_report_round_trips() -> None:
     assert report.subject is not None
     assert report.subject.ir_version == "1.1"
     assert report.subject.graph_version == graph_version(document)
-    assert report.report_format == "1.3"
+    assert report.report_format == "1.4"
     assert len(report.properties) == 13 and report.best_effort == ()
     assert RunReport.model_validate_json(to_json(report)) == report
     witness = report.outcome_for("graph-well-formed")

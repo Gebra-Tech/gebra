@@ -127,7 +127,7 @@ def test_the_manifest_covers_the_whole_guarded_tree(manifest: Manifest) -> None:
     """
     assert set(files_in_guarded_trees(REPO_ROOT, manifest)) == set(manifest.paths)
     assert manifest.guarded_trees == ("tests/fixtures/properties",)
-    assert len(manifest.entries) == 74
+    assert len(manifest.entries) == 77
 
 
 # ── What the guard rejects ──

@@ -267,7 +267,7 @@ def test_the_lcel_golden_passes_p01_and_the_run_gate(name: str) -> None:
     assert (report.gate.exit_code, report.gate.outcome) == (0, "pass")
     assert report.best_effort == ()
     assert report.gate.counts.fatal == 0
-    assert report.report_format == "1.3"
+    assert report.report_format == "1.4"
     assert len(report.properties) == 13
     assert RunReport.model_validate_json(to_json(report)) == report
 

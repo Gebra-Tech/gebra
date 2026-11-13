@@ -1,0 +1,87 @@
+# Fixture: dataflow-completeness / negative-05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Ruling fixture (DEC-37, card VAL-D8; landing class B with VAL-17): the
+# control beside positive-05 — a payload key is delivered to the send
+# target, never written to state, so a downstream STATE read of it fails.
+# Pins that the send arm's abstention adds no writer and moves no ordinary
+# obligation, and that payload_readers rides the primary failure.
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: negative
+description: >
+  The same Send-template fan-out as positive-05, with one more read:
+  confirm_itinerary, entered from book_leg through an ordinary edge, reads
+  leg_id from state. leg_id arrives only in book_leg's Send payload and is
+  written to state by no node, so on the one path START -> plan_legs ->
+  book_leg -> confirm_itinerary nothing writes it before the state read.
+  P-04 fails at confirm_itinerary with that path as evidence; book_leg's own
+  reads along its send arm stay abstained — it is a payload reader, named on
+  the failure's payload_readers member — so the report carries exactly one
+  finding, where the pre-DEC-37 reading carried two (book_leg's payload read
+  of leg_id as the primary and this genuine state read as a co-failure).
+
+ir:
+  ir_version: "1.0"
+  entry: plan_legs
+  finish: confirm_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    search_plan: str
+    leg_id: str
+    bookings:
+      type: list
+      reducer: "operator.add"
+    itinerary: str
+  nodes:
+    - id: plan_legs
+      annotations:
+        pure: true
+        input: [request]
+        output: [search_plan]
+    - id: book_leg
+      annotations:
+        effect: [network]
+        idempotent: { key: leg_id }
+        input: [search_plan, leg_id]
+        output: [bookings]
+    - id: confirm_itinerary
+      annotations:
+        pure: true
+        input: [bookings, leg_id, request]
+        output: [itinerary]
+  edges:
+    - from: plan_legs
+      to: book_leg
+      kind: send
+    - from: book_leg
+      to: confirm_itinerary
+
+expected:
+  result: fail
+  failure:
+    property_condition: "read-key-never-written-on-path"
+    location:
+      kind: state-key
+      node: confirm_itinerary
+      key: leg_id
+      path: [START, plan_legs, book_leg, confirm_itinerary]
+    severity: fatal
+    claim_class: defensible-a
+    payload_readers: [book_leg]
+
+notes: >
+  Structural mirror of positive-05: one added state read turns the pass into
+  a fail, and the finding sits at the state reader, not at the send target.
+  The fix is for book_leg to write leg_id to state (output: [bookings,
+  leg_id]) or for confirm_itinerary not to read it. No writers_on_other_paths
+  and no downstream_writers: nothing writes leg_id anywhere, so both DEC-11
+  diagnostics are empty and omitted (§4.3). payload_readers rides the primary
+  P04Failure — the one carrier a failing report has (PD-057 D2) — exactly as
+  outside_static_coverage and contained_readers do. Corpus discipline: only
+  P-04 fails — the reducer on bookings holds P-09 for the send template;
+  book_leg's idempotency key is a declared read (P-07); effect tags stay at
+  [network] (P-06/P-13 vacuous); acyclic (P-02 vacuous); every read and write
+  is a Sigma key (P-03).

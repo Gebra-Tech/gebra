@@ -344,10 +344,19 @@ class TerminationWitness(ReportModel):
 
 
 class DataflowCoverage(ReportModel):
-    """One (reachable reader, read key) obligation and the writers that cover it.
+    """One decided (reachable reader, read key) obligation and the writers that cover it.
 
     ``satisfied_by`` carries the display sentinel START exactly when the key is in the
-    boundary set I₀; every START→node simple path contains at least one member.
+    boundary set I₀, and besides it names the declared writers of the key upstream of the
+    reader. For a reader no ``send`` edge enters, every START→node simple path contains at
+    least one member. For a payload reader decided over its state arm (ratified — DEC-37,
+    2026-10-28, §3.3) the cover is over the routes that reach it through that arm: every
+    START→u→node route whose last edge is a state-arm edge passes a writer, the members are the
+    writers upstream of the reader *through the state arm*, and a writer upstream of the send
+    arm alone is not listed. Such a route may run through the reader itself on an earlier visit,
+    and the reader is never a member of its own list (§4.4 Step 4's ``W[k] ∖ {v, START}``) — so
+    ``satisfied_by`` can be empty on a covered entry: a payload reader that writes the key and
+    is re-entered only through its state arm is covered by its own earlier visit.
     """
 
     node: NodeId
@@ -356,11 +365,11 @@ class DataflowCoverage(ReportModel):
 
 
 class DataflowWitness(ReportModel):
-    """P-04's pass witness — one coverage entry per reachable (reader, read key).
+    """P-04's pass witness — one coverage entry per decided (reachable reader, read key).
 
-    Two optional coverage-cost diagnostics follow ``coverage`` (§4.3; §4.4 Step 2), each
+    Three optional coverage-cost diagnostics follow ``coverage`` (§4.3; §4.4 Step 2), each
     emitted only when non-empty, never verdict-bearing, and dropped by the PC-4 profile when
-    absent. Both name readers outside P-04's static ``Reach`` that therefore raised no
+    absent. The first two name readers outside P-04's static ``Reach`` that therefore raised no
     obligation and whose declared reads no analysis in the run covers; they are disjoint by
     construction and distinct members because the remedy differs. ``outside_static_coverage``
     is DEC-28 clause 2's: the **top-level** readers on a document with a statically reachable
@@ -368,8 +377,16 @@ class DataflowWitness(ReportModel):
     over-approximation-silenced nobody names them (restricted to $V_{top}$ at DEC-33 §3.4
     clause 3). ``contained_readers`` is DEC-33's: the **contained** readers (§0.3 containment
     convention) — outside conditions (i)–(iii) by that convention, so again nobody would name
-    them — answered by their containment root, not by a dispatcher. "Declared reads" is
-    ``annotations.input`` as declared, Σ-membership aside (PD-057 D3).
+    them — answered by their containment root, not by a dispatcher. The third,
+    ``payload_readers``, is DEC-37's and quantifies *inside* ``Reach``: the reachable readers
+    entered through a ``send`` edge, whose reads along that edge arrive in the ``Send`` payload,
+    which the IR does not carry, so they raise no obligation there and are not decided — a
+    reader also entered by an ordinary edge is decided over that edge and appears in
+    ``coverage`` (or as a finding) as well. Inside versus outside ``Reach`` keeps the three
+    pairwise disjoint; on a pass, ``coverage`` and ``payload_readers`` together name every
+    reachable declared reader's Σ keys (a read outside Σ is P-03's and has no entry either
+    way). "Declared reads" is ``annotations.input`` as declared, Σ-membership aside (PD-057 D3;
+    DEC-37 §3.2) — which is why a reader whose only reads are outside Σ is still listed.
     """
 
     kind: Literal["dataflow"]
@@ -387,6 +404,12 @@ class DataflowWitness(ReportModel):
     #: Their reads are covered by no analysis in this run; a contained reader *inside* ``Reach``
     #: keeps its obligation and never appears here. Disjoint from ``outside_static_coverage``.
     contained_readers: tuple[NodeId, ...] | None = None
+    #: Reachable nodes with declared reads and an in-edge of kind ``send`` from a reachable
+    #: source (ratified — DEC-37, 2026-10-28; §4.4 Step 2). Their reads along that send arm
+    #: arrive in the payload, which the IR does not carry, and are not decided; a reader with a
+    #: state arm too is decided over it as well. Sorted; absent when empty; disjoint from both
+    #: members above (they quantify outside ``Reach``, this one inside).
+    payload_readers: tuple[NodeId, ...] | None = None
 
 
 # ── P-06 effect-safety (§6.3) ────────────────────────────────────────────────────────────

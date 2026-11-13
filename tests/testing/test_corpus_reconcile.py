@@ -75,9 +75,10 @@ WEDGE_DIRECTORIES = frozenset(
 #: moved +11 when the DEC-16 gap-fixture extension landed (TE-14, vault ``e6ea366``): the
 #: reverted-corpus reconstruction keeps the eleven new fixtures (they were never part of the
 #: DEC-17 plan, and all of them compose), so 25 → 36 and 33 → 44 with the gained set — the
-#: pass's own eight — unchanged.
-COMPOSING_PRE_PASS = 36
-COMPOSING_NOW = 44
+#: pass's own eight — unchanged. Both moved +3 again, for the same reason, when DEC-37's
+#: ``send``-payload trio landed (VAL-17, vault ``7b6995d``): 36 → 39 and 44 → 47.
+COMPOSING_PRE_PASS = 39
+COMPOSING_NOW = 47
 
 
 @pytest.fixture(scope="module")
@@ -482,7 +483,12 @@ def test_the_vendored_corpus_is_lint_green() -> None:
 
 
 def test_every_wedge_directory_fixture_composes_after_the_pass() -> None:
-    """The pass's whole point, stated as an outcome rather than as a diff."""
+    """The pass's whole point, stated as an outcome rather than as a diff.
+
+    The number checked is the census's — every wedge-directory fixture the provenance manifest
+    lists — so a sanctioned re-vendor that adds one (DEC-37's trio, VAL-17) moves the
+    expectation with the record rather than breaking on a literal (the TE-17 rule).
+    """
     failures = []
     checked = 0
     for fixture in load_corpus(FIXTURES_DIR):
@@ -493,7 +499,12 @@ def test_every_wedge_directory_fixture_composes_after_the_pass() -> None:
             fixture.expected_report()
         except FixtureError as exc:
             failures.append(f"{fixture.fixture_id}: {exc}")
-    assert checked == 41
+    listed = [
+        fixture_id
+        for fixture_id in census().fixture_ids
+        if fixture_id.split("/")[0] in WEDGE_DIRECTORIES
+    ]
+    assert checked == len(listed)
     assert failures == []
 
 

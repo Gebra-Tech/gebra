@@ -112,16 +112,20 @@ P01_FIXTURES = (
     "graph-well-formed/positive-03-travel-parent-graph-with-booking-subgraph",
 )
 
-#: The eight P-04 property fixtures (§4.6 + the DEC-16 cycle-entry pair), validator VAL-09.
+#: The eleven P-04 property fixtures (§4.6, with the DEC-16 cycle-entry pair and DEC-37's
+#: ``send``-payload trio), validator VAL-09.
 P04_FIXTURES = (
     "dataflow-completeness/negative-01-express-path-skips-writer",
     "dataflow-completeness/negative-02-writer-downstream-of-reader",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer",
     "dataflow-completeness/negative-04-cycle-entry-at-reader",
+    "dataflow-completeness/negative-05-payload-key-read-from-state-downstream",
+    "dataflow-completeness/negative-06-mixed-arm-reader-state-arm-unwritten",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline",
     "dataflow-completeness/positive-02-conditional-both-branches-write",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results",
     "dataflow-completeness/positive-04-cycle-entry-at-writer",
+    "dataflow-completeness/positive-05-send-template-payload-reader",
 )
 
 #: The eight P-06 property fixtures (§6.6 + the DEC-16 retry_policy-only and dangling-hook

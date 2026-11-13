@@ -12,11 +12,13 @@ serialized IR and the validators read it.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 
 from gebra.report.findings import findings_of, notes_of
+from gebra.report.sarif import sarif_log
 from gebra.testing import load_corpus
 from gebra.verify import RunPolicy, StrictPolicy, SubjectRef, verify
 from gebra.verify.report import PropertyReport
@@ -149,3 +151,29 @@ def test_the_dec_33_p04_diagnostic_is_carried_as_evidence() -> None:
         if finding.evidence
     ]
     assert evidence == [{"gebra/containedReaders": ["%seq[1]/%map[docs]"]}]
+
+
+def test_the_dec_37_p04_diagnostic_is_carried_as_evidence_and_projected_to_sarif() -> None:
+    """DEC-37 §3.2's fifth diagnostic (report_format 1.4) rides the primary P-04 finding of the
+    send-payload failure case, keyed ``gebra/payloadReaders`` beside ``gebra/containedReaders``,
+    and the SARIF result for that finding carries it in its property bag (§4.4's row)."""
+    report = next(case.report for case in CASES if case.name == "send-payload-dataflow-failure")
+    evidence = [
+        finding.evidence
+        for outcome in report.properties
+        if isinstance(outcome, PropertyReport)
+        for finding in findings_of(outcome)
+        if finding.evidence
+    ]
+    assert evidence == [{"gebra/payloadReaders": ["book_leg"]}]
+    (result,) = sarif_log(report)["runs"][0]["results"]
+    assert result["ruleId"] == "read-key-never-written-on-path"
+    assert result["properties"]["gebra/payloadReaders"] == ["book_leg"]
+
+
+def test_the_dec_37_p04_diagnostic_on_a_pass_does_not_project_to_sarif() -> None:
+    """§4.3's row: a pass witness has no SARIF home (A.1 loss 1), so the member is on the
+    native report and the human profile only — the SARIF log of the passing case is empty."""
+    report = next(case.report for case in CASES if case.name == "send-payload")
+    assert sarif_log(report)["runs"][0]["results"] == []
+    assert "gebra/payloadReaders" not in json.dumps(sarif_log(report))

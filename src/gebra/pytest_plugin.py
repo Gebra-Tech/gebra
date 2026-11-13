@@ -1446,7 +1446,16 @@ def _witness_summary(witness: Witness | None) -> str:
             f"certificate over {len(witness.certificate)} vertices{census}"
         )
     if isinstance(witness, DataflowWitness):
-        return f"{len(witness.coverage)} (reader, key) obligations covered"
+        # DEC-37 §3.2: a payload reader's reads along its `send` edge were not decided, so the
+        # count above does not cover them — the summary names the readers rather than letting
+        # the covered count read as complete.
+        payload = (
+            ""
+            if not witness.payload_readers
+            else f" · payload readers (reads along a send edge not decided): "
+            f"{', '.join(witness.payload_readers)}"
+        )
+        return f"{len(witness.coverage)} (reader, key) obligations covered{payload}"
     if isinstance(witness, EffectSafetyWitness):
         records = " · ".join(_render_effect_record(record) for record in witness.effects)
         head = f"{len(witness.cycles)} non-trivial SCCs · {len(witness.effects)} effect records"
@@ -1577,6 +1586,13 @@ def _render_record(
         extra = getattr(record, name, None)
         if extra:
             lines.append(f"        {name.replace('_', ' ')}: {', '.join(extra)}")
+    payload = getattr(record, "payload_readers", None)
+    if payload:
+        # DEC-37 §3.2: report-level context riding the primary — the readers whose reads along
+        # a `send` edge arrive in the payload, which the IR does not carry, and were not decided.
+        lines.append(
+            f"        payload readers (reads along a send edge not decided): {', '.join(payload)}"
+        )
     subsumed = getattr(record, "subsumed_by", None)
     if subsumed is not None:
         lines.append(f"        owned upstream by {subsumed} — context, not a second charge")

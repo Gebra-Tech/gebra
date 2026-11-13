@@ -4,10 +4,13 @@ P-04 asks one question about a workflow definition: **can any routing of this gr
 whose declared read has never been supplied?**
 
 The quantifier is the whole property. For every node and every key that node declares it reads,
-*every* path from `START` to it must contain a **predecessor** that declares it writes that key —
-or the key must be a declared graph input, which counts as written at `START` (§4). The node's own
-declaration does not count, and one covered path is not enough. The branch that skips the declared
-writer is the branch nobody exercised, and it is the one P-04 is looking for.
+*every* path from `START` to it must contain a **predecessor** that declares it writes that key — or
+the key must be a declared graph input, which counts as written at `START` (§4). The node's own
+declaration does not count, and one covered path is not enough. (A path that enters the node through
+a `send` edge is the one exception: along it the node reads the payload that edge hands it rather
+than the graph state, so no write is required there — [a section
+below](#a-send-target-reads-its-payload) says what is reported instead.) The branch that skips the
+declared writer is the branch nobody exercised, and it is the one P-04 is looking for.
 
 Every P-04 finding is **FATAL** and **DEFENSIBLE-A**. Fatal is a design-time grade: it fails the
 gate and suppresses snapshot recording for that run, because a definition that admits a route to a
@@ -28,9 +31,9 @@ and where the claim stops.
 
 !!! note "Following along"
 
-    Six of the eight examples here run over the vendored property-fixture corpus in this
+    Six of the ten examples here run over the vendored property-fixture corpus in this
     repository, `tests/fixtures/properties/` — one YAML document per fixture, carrying an IR and
-    the verdict the specification expects for it; the other two write a small IR document by
+    the verdict the specification expects for it; the other four write a small IR document by
     hand. To run them yourself, clone the repository and put its root on `PYTHONPATH` — the
     corpus is located from `tests.__file__`, so an example works from any directory. Nothing here
     builds or compiles a LangGraph graph: a fixture is data, and the illustrative builder code
@@ -41,9 +44,11 @@ and where the claim stops.
 On P-01-clean topology, P-04 runs over the same **sentinel-augmented, label-expanded** graph P-01
 and P-02 do: the document's nodes plus the implicit `START` and `END` vertices, with `entry` wiring
 `START` to its members, `finish` wiring its members to `END`, and each `path_map` entry expanded
-into its own edge. A `send` edge — the fan-out kind — contributes its edge like a plain one
-(§4.4 Step 0; ledger §4). Over that graph, four interpretation rules decide what a path means, and
-each of them is visible in a report (§4.2).
+into its own edge. A `send` edge — the fan-out kind — is in that graph too, and the paths through
+it are paths like any other, but what its target reads along it is the payload the edge delivers
+rather than the graph state; the last rule below is about that (§4.4 Steps 0, 2 and 4; ledger
+§4). Over that graph, five interpretation rules decide what a path means, and each of them is
+visible in a report (§4.2).
 
 **Routing is conservative.** Every `path_map` label is one edge, and P-04 admits every labelled
 successor as a route a run could take. Which label a router actually fires is P-05's question, not
@@ -65,6 +70,13 @@ is the state *before* that node runs, which is the runtime fact that a first arr
 what its predecessors left. On a loop that is the difference between a pass and a fail, and it has
 [its own section](#a-loop-is-decided-at-its-first-arrival) below.
 
+**A `send` edge delivers a payload, not the state.** A node entered through a `send` edge runs
+with the payload that edge hands it as its input, and the IR records neither what a payload
+carries nor how many branches run. So along that edge the node's declared reads raise no
+obligation and are not decided, the report names the node on `payload_readers` instead, and any
+other edge into it is decided as usual. That has [its own section](#a-send-target-reads-its-payload)
+too.
+
 One scope rule follows, and it is why a P-04 report can be quieter than you expect: **the
 quantification is over `START`-paths only.** A node no path from `START` reaches raises no P-04
 obligation at all — for a top-level node on a document with no `dynamic` router, its reads are
@@ -77,7 +89,7 @@ P-04 has exactly one thing to say when a document does not satisfy the rule:
 
 | Condition | What it requires | Condition ID | Anchor |
 |---|---|---|---|
-| **write before read, on every path** | for every reachable node and every key it declares it reads, every `START`-path to that node contains a declared writer of the key — unless the key is a graph input | `read-key-never-written-on-path` | the reading node and the key, with one offending path |
+| **write before read, on every path** | for every reachable node and every key it declares it reads, every `START`-path to that node contains a declared writer of the key — unless the key is a graph input; along a `send` edge the node reads its payload instead, and only its other in-edges are held to this | `read-key-never-written-on-path` | the reading node and the key, with one offending path |
 
 That one string is the whole P-04 vocabulary. It is in the frozen condition-ID registry and
 emittable by this release (§0.4) — a validator may not emit a string the registry does not hold,
@@ -183,10 +195,12 @@ property, and every consumer reads `kind` before anything else (§0.3).
 **`coverage` holds one row per discharged obligation** — per *(reachable reader, read key)* pair,
 not per node and not per key. `reserve_flight` reads two keys and so contributes two rows;
 `request` is read by three nodes and so appears three times. Six rows for a four-node graph is
-what a complete map looks like — but **an absent row is not evidence of anything**. Three
+what a complete map looks like — but **an absent row is not evidence of anything**. Four
 different things put a reader outside the map: it declares no reads, it is
-[not reachable from `START`](#the-p-01-boundary), or the key it reads is not in the state schema
-at all, which is P-03's question and never raises a P-04 obligation (§4.4).
+[not reachable from `START`](#the-p-01-boundary), the key it reads is not in the state schema
+at all, which is P-03's question and never raises a P-04 obligation (§4.4), or it is entered
+only through a `send` edge, whose reads are payload reads — and that last one is named on
+`payload_readers` ([below](#a-send-target-reads-its-payload)).
 
 **`node` and `key` are the obligation.** Together they are the question P-04 asked: *when control
 arrives here, has this key been supplied?*
@@ -320,11 +334,11 @@ release's validators never set on a record.
 
 ## Every obligation in the corpus
 
-The corpus's P-04 directory is where the property is pinned: four positives and four negatives,
-each negative a different way for a path to arrive without a key. (The specification's own §4.6
-tables three of each; the cycle-entry pair below was authorized separately, by decision record
-DEC-16, and the count here is the directory's.) Running the validator over all eight at once is
-the shortest tour of what P-04 can say.
+The corpus's P-04 directory is where the property is pinned: five positives and six negatives,
+each negative a different way for a path to arrive without a key. (§4.6 rosters all eleven: the
+six decision record DEC-05 reviewed, the cycle-entry pair DEC-16 authorized, and the `send`-payload
+trio of DEC-37.) Running the validator over all eleven at once is the shortest tour of what
+P-04 can say.
 
 <!-- gebra:example id=every-obligation-in-the-corpus -->
 ```python
@@ -337,25 +351,26 @@ from gebra.verify import models_equivalent, run_property
 CORPUS = Path(tests.__file__).parent / "fixtures" / "properties" / "dataflow-completeness"
 
 fixtures = [load_fixture(path) for path in sorted(CORPUS.glob("*.yaml"))]
+diagnostics = ("writers_on_other_paths", "downstream_writers", "payload_readers")
 agreed = 0
 for fixture in fixtures:
     report = run_property("dataflow-completeness", fixture.ir)
     agreed += models_equivalent(report, fixture.expected_report())
+    record = report.witness if report.result == "pass" else report.failure
     if report.result == "pass":
-        coverage = report.witness.coverage
-        at_start = sum("START" in entry.satisfied_by for entry in coverage)
-        summary = f"{len(coverage)} obligations, {at_start} covered at START"
+        at_start = sum("START" in entry.satisfied_by for entry in record.coverage)
+        summary = f"{len(record.coverage)} obligations, {at_start} covered at START"
     else:
-        summary = f"{report.failure.location.node} reads {report.failure.location.key}"
-    print(f"{fixture.path.stem:45}{report.result:6}{summary}")
+        summary = f"{record.location.node} reads {record.location.key}"
+    print(f"{fixture.path.stem:52}{report.result:6}{summary}")
     if report.result == "fail":
-        failure = report.failure
-        print(f"    unwritten on {' -> '.join(failure.location.path)}")
-        found = [
-            f"{name} {', '.join(getattr(failure, name))}"
-            for name in ("writers_on_other_paths", "downstream_writers")
-            if getattr(failure, name)
-        ]
+        print(f"    unwritten on {' -> '.join(record.location.path)}")
+    found = [
+        f"{name} {', '.join(getattr(record, name))}"
+        for name in diagnostics
+        if getattr(record, name, None)
+    ]
+    if found:
         print(f"    {'; '.join(found)}")
 
 print(f"\n{agreed} of {len(fixtures)} reports equal the fixture's own expected block")
@@ -363,27 +378,35 @@ print(f"\n{agreed} of {len(fixtures)} reports equal the fixture's own expected b
 
 <!-- gebra:output id=every-obligation-in-the-corpus -->
 ```text
-negative-01-express-path-skips-writer        fail  send_confirmation reads booking_id
+negative-01-express-path-skips-writer               fail  send_confirmation reads booking_id
     unwritten on START -> check_availability -> send_confirmation
     writers_on_other_paths book_flight
-negative-02-writer-downstream-of-reader      fail  notify_traveler reads itinerary_url
+negative-02-writer-downstream-of-reader             fail  notify_traveler reads itinerary_url
     unwritten on START -> compile_itinerary -> notify_traveler
     downstream_writers publish_itinerary
-negative-03-fan-in-missing-branch-writer     fail  price_quote reads loyalty_tier
+negative-03-fan-in-missing-branch-writer            fail  price_quote reads loyalty_tier
     unwritten on START -> identify_traveler -> create_guest_profile -> price_quote
     writers_on_other_paths fetch_loyalty_profile
-negative-04-cycle-entry-at-reader            fail  review_quote reads quote
+negative-04-cycle-entry-at-reader                   fail  review_quote reads quote
     unwritten on START -> prepare_search -> review_quote
     writers_on_other_paths fetch_fare_quote; downstream_writers fetch_fare_quote
-positive-01-linear-itinerary-pipeline        pass  5 obligations, 2 covered at START
-positive-02-conditional-both-branches-write  pass  6 obligations, 3 covered at START
-positive-03-parallel-fanout-reduced-results  pass  5 obligations, 2 covered at START
-positive-04-cycle-entry-at-writer            pass  5 obligations, 1 covered at START
+negative-05-payload-key-read-from-state-downstream  fail  confirm_itinerary reads leg_id
+    unwritten on START -> plan_legs -> book_leg -> confirm_itinerary
+    payload_readers book_leg
+negative-06-mixed-arm-reader-state-arm-unwritten    fail  book_leg reads leg_id
+    unwritten on START -> plan_legs -> review_plan -> book_leg
+    payload_readers book_leg
+positive-01-linear-itinerary-pipeline               pass  5 obligations, 2 covered at START
+positive-02-conditional-both-branches-write         pass  6 obligations, 3 covered at START
+positive-03-parallel-fanout-reduced-results         pass  5 obligations, 2 covered at START
+positive-04-cycle-entry-at-writer                   pass  5 obligations, 1 covered at START
+positive-05-send-template-payload-reader            pass  3 obligations, 2 covered at START
+    payload_readers book_leg
 
-8 of 8 reports equal the fixture's own expected block
+11 of 11 reports equal the fixture's own expected block
 ```
 
-Four failures, one condition ID, four different repairs — which is why the diagnostics are worth
+Six failures, one condition ID, six different repairs — which is why the diagnostics are worth
 reading before you decide what to change.
 
 **A branch that skips ahead** (`negative-01`). The express label routes past the only writer. The
@@ -406,14 +429,30 @@ is a shape only a cycle produces: `fetch_fare_quote` is upstream of `review_quot
 edge and downstream of it by the forward edge. It gets [the next section](#a-loop-is-decided-at-its-first-arrival)
 to itself.
 
+**A payload key read from the state** (`negative-05`). `leg_id` arrives in `book_leg`'s payload
+and nothing writes it to the state, so the node after the fan-out that reads it from the state
+fails on the one path there. `book_leg`'s own reads along its `send` edge are not decided — it
+is named on `payload_readers` instead — which is why the report carries one finding and not two.
+The repair is on the reading side: have the later node not read `leg_id` from the state.
+Writing it there from `book_leg` instead needs a reducer on `leg_id` — the fan-out runs one
+`book_leg` per leg, in the same step, and concurrent writes to a key with no reducer are P-09's
+question, which has no validator in this release, so no report here would catch the omission.
+
+**A payload reader entered by state too** (`negative-06`). `book_leg` is also reached through
+`review_plan`, and on that arm its read of `leg_id` is a read of the state, which nothing wrote.
+The path ends on the state-arm edge from `review_plan`, never on the `send` edge. The repair is
+on that arm: have `review_plan` (or `plan_legs`) write `leg_id`, or enter `book_leg` through the
+`send` edge only. Both shapes have [their own section](#a-send-target-reads-its-payload), with
+`positive-05`, the fan-out that passes.
+
 Two things about the passes are worth keeping. `positive-03` covers a fan-in read with two
 *concurrent* writers whose channel declares a reducer, and `positive-02` covers one with two
 *alternative* writers; P-04 treats them identically, because the every-path rule does not count
 writers — it asks only whether some path avoids all of them. And whether concurrent writes to one
 channel are safe is P-09's question, not this one.
 
-The last line matters as much as the rest: every one of the eight reports equals the fixture's own
-`expected:` block. These are frozen examples the validator is held to in CI, not illustrations
+The last line matters as much as the rest: every one of the eleven reports equals the fixture's
+own `expected:` block. These are frozen examples the validator is held to in CI, not illustrations
 written beside it.
 
 ## A loop is decided at its first arrival
@@ -499,6 +538,197 @@ all its members unioned would produce the same answer for both — and the wrong
 
 **The repair for an entry-at-reader loop is usually the entry.** Point `START` at the writer, or
 seed the key as a graph input; changing the loop body does not move the first arrival.
+
+## A `Send` target reads its payload
+
+LangGraph's `Send(node, payload)` runs `node` with `payload` as its input — one run per `Send` a
+router returns — and the node's return value is written to the graph state through the declared
+reducers. The IR records such a fan-out as one `send` edge, a *template*: it names the node the
+branches run and records neither how many branches run nor what each payload carries (IR-SPEC
+§2.4). Along a `send` edge, then, P-04 has nothing to decide a read against, and it says so
+rather than guessing: a reachable node entered through one is a **payload reader**, its declared
+reads along that edge raise no obligation and are not decided, and the report names it on
+`payload_readers` (§4.4 Steps 2 and 4; decision record DEC-37). Below, a planner fans out one
+booking per leg; each booking reads the plan and the leg it was handed, and no node writes
+`leg_id` to the state.
+
+<!-- gebra:example id=a-send-target-reads-its-payload -->
+```python
+import json
+
+from gebra.ir import WorkflowIR, load_json
+from gebra.verify import run_property, to_json
+
+document = {
+    "ir_version": "1.0",
+    "entry": "plan_legs",
+    "finish": "confirm_itinerary",
+    "state": {
+        "request": {"type": "str", "optional": True},
+        "search_plan": "str",
+        "leg_id": "str",
+        "bookings": {"type": "list", "reducer": "operator.add"},
+    },
+    "nodes": [
+        {"id": "plan_legs", "annotations": {"input": ["request"], "output": ["search_plan"]}},
+        {
+            "id": "book_leg",
+            "annotations": {"input": ["search_plan", "leg_id"], "output": ["bookings"]},
+        },
+        {"id": "confirm_itinerary", "annotations": {"input": ["bookings"], "output": []}},
+    ],
+    "edges": [
+        {"from": "plan_legs", "to": "book_leg", "kind": "send"},
+        {"from": "book_leg", "to": "confirm_itinerary"},
+    ],
+}
+
+fanned_out = run_property("dataflow-completeness", load_json(WorkflowIR, json.dumps(document)))
+print(f"as a send edge     {fanned_out.result}")
+print(to_json(fanned_out.witness))
+
+router = {"from": "plan_legs", "kind": "conditional", "path_map": {"book_leg": "book_leg"}}
+hintless = {**document, "edges": [router, document["edges"][1]]}
+labelled = run_property("dataflow-completeness", load_json(WorkflowIR, json.dumps(hintless)))
+location = labelled.failure.location
+print(f"as a router label  {labelled.result} — {location.node} reads {location.key}")
+```
+
+<!-- gebra:output id=a-send-target-reads-its-payload -->
+```text
+as a send edge     pass
+{
+  "kind": "dataflow",
+  "coverage": [
+    {
+      "node": "confirm_itinerary",
+      "key": "bookings",
+      "satisfied_by": [
+        "book_leg"
+      ]
+    },
+    {
+      "node": "plan_legs",
+      "key": "request",
+      "satisfied_by": [
+        "START"
+      ]
+    }
+  ],
+  "payload_readers": [
+    "book_leg"
+  ]
+}
+as a router label  fail — book_leg reads leg_id
+```
+
+**`book_leg` has no coverage row, and that is the point.** Its reads of `search_plan` and `leg_id`
+arrive in the payload, so they are neither covered nor failed — they were not decided, and
+`payload_readers` says so on the witness itself, where a pass would otherwise read as if every
+reachable reader had been checked. It is the third of P-04's coverage-cost lists, beside
+`outside_static_coverage` and `contained_readers`, and the only one inside the reachable graph:
+those two name readers no declared path reaches, this one names a reader some declared `START`-path
+does reach but whose input along a `send` edge P-04 cannot see. Like them it is present only when
+non-empty, and it is never a finding: a report carrying it and the same report without it are the
+same verdict.
+
+**What `book_leg` writes still counts.** `confirm_itinerary` reads `bookings`, and its row names
+`book_leg` as the cover: a `send` target's writes return to the graph state through the reducers
+like any node's, so they reach the nodes after it. A key that arrives in a payload, on the other
+hand, is not a state write — a node after `book_leg` that read `leg_id` from the state would fail
+on the path through it.
+
+**The ruling reaches an edge extracted as `send`, and only that.** The last two lines run the same
+graph with the fan-out written the way a `Send` router with no return type hint is extracted: a
+`conditional` edge with one label per declared target. A router label delivers the state, so
+`book_leg` is an ordinary reader there and its unwritten `leg_id` is a finding. Extraction emits a
+`send` edge only when a router both declares its targets — a `path_map`, a list of targets — and
+carries a `Send` return-type hint, `def route(state) -> list[Send]:`. With the targets and no
+hint it is the `conditional` form shown here; with the hint and no declared targets — the
+common map-reduce shape — it is a `dynamic` edge, which contributes no path, so a target nothing
+else wires is outside P-04's reach and is named on `outside_static_coverage` instead. Both
+declarations are true ones, so they are the
+change to make when a P-04 report names a key a `Send` hands its target;
+[contracts and annotations](../tutorials/contracts-and-annotations.md) covers where
+declarations come from. And because the payload's contents are not in the IR, a
+pass with a `payload_readers` line says nothing about them either: whether the router actually
+puts `leg_id` in every `Send` is outside what P-04 reads.
+
+A node can be entered both ways — through a `send` edge and through an ordinary one — and then
+it reads a payload on one arm and the graph state on the other. P-04 decides its reads over the
+**state arm** alone: every in-edge that is not a `send` edge.
+
+<!-- gebra:example id=a-send-target-entered-another-way-too -->
+```python
+import json
+
+from gebra.ir import WorkflowIR, load_json
+from gebra.verify import run_property
+
+state = {"request": {"type": "str", "optional": True}, "search_plan": "str", "leg_id": "str"}
+nodes = {
+    "plan_legs": (["request"], ["search_plan"]),
+    "review_plan": (["search_plan"], []),
+    "retry_check": ([], []),
+    "book_leg": (["search_plan", "leg_id"], []),
+}
+fan_out = {"from": "plan_legs", "to": "book_leg", "kind": "send"}
+retry = {"retry": "book_leg", "done": "END"}
+shapes = {
+    "also entered from review_plan": [
+        fan_out,
+        {"from": "plan_legs", "to": "review_plan"},
+        {"from": "review_plan", "to": "book_leg"},
+    ],
+    "re-entered by a retry loop": [
+        fan_out,
+        {"from": "book_leg", "to": "retry_check"},
+        {"from": "retry_check", "kind": "conditional", "path_map": retry},
+    ],
+}
+for label, edges in shapes.items():
+    named = {edge["from"] for edge in edges} | {edge.get("to") for edge in edges}
+    document = {
+        "ir_version": "1.0",
+        "entry": "plan_legs",
+        "finish": "book_leg",
+        "state": state,
+        "nodes": [
+            {"id": name, "annotations": {"input": reads, "output": writes}}
+            for name, (reads, writes) in nodes.items()
+            if name in named
+        ],
+        "edges": edges,
+    }
+    report = run_property("dataflow-completeness", load_json(WorkflowIR, json.dumps(document)))
+    failure = report.failure
+    print(f"{label}: {report.result}, {failure.location.node} reads {failure.location.key}")
+    print(f"    unwritten on   {' -> '.join(failure.location.path)}")
+    print(f"    payload_readers {list(failure.payload_readers)}")
+```
+
+<!-- gebra:output id=a-send-target-entered-another-way-too -->
+```text
+also entered from review_plan: fail, book_leg reads leg_id
+    unwritten on   START -> plan_legs -> review_plan -> book_leg
+    payload_readers ['book_leg']
+re-entered by a retry loop: fail, book_leg reads leg_id
+    unwritten on   START -> plan_legs -> book_leg -> retry_check -> book_leg
+    payload_readers ['book_leg']
+```
+
+**The offending path ends on the state arm.** In the first document `book_leg` is a payload
+reader and also a state reader, entered from `review_plan`. Its read of `search_plan` is covered
+on that arm, and its read of `leg_id` is not — nothing writes it before `review_plan` hands over
+the state. The finding's path runs through `review_plan`: the shorter route through the `send`
+edge is not an offending path, because along it `book_leg` reads its payload. A reading that
+skipped a `send` target's reads altogether would have passed this document and lost a real gap.
+
+**On a loop, the path visits the reader twice.** In the second document the only state-arm edge
+is the `retry` label, so the route to it runs through `book_leg` itself: the first visit is the
+payload run, and the last is the retry, which reads the state the payload run left — still
+without `leg_id`. That route is the evidence, so the path lists `book_leg` twice. In both
+documents `payload_readers` rides the failure record, the one carrier a failing report has.
 
 ## Two findings, one record
 
@@ -601,12 +831,13 @@ missing `booking_id` leads and `notify`'s missing `confirmation_ref` follows.
 **A co-failure carries its own property, condition, location, severity and claim class** — enough
 to act on, and each is graded on its own account rather than inheriting the primary's.
 
-**A co-failure does not carry the diagnostics.** `downstream_writers` names `book` on the
-primary; `notify`'s finding would have named `book` too, and the co-failure model has no field for
-it and admits no extras (§0.3). If you are triaging from the co-failures alone, the diagnostics are on
-the primary or nowhere — and that goes for the two report-level ones too, `outside_static_coverage`
-and `contained_readers`, which ride the primary finding because it is the one carrier a failing
-report has ([below](#what-a-pass-does-not-claim)).
+**A co-failure does not carry the diagnostics.** `downstream_writers` names `book` on the primary;
+`notify`'s finding would have named `book` too, and the co-failure model has no field for it and
+admits no extras (§0.3). If you are triaging from the co-failures alone, the diagnostics are on the
+primary or nowhere — and that goes for the three report-level ones too, `outside_static_coverage`,
+`contained_readers` and `payload_readers`, which ride the primary finding because it is the one
+carrier a failing report has ([below](#what-a-pass-does-not-claim), and
+[above](#a-send-target-reads-its-payload) for the third).
 
 ## The P-01 boundary
 
@@ -857,9 +1088,11 @@ is worth reading beside a P-04 report of either colour.
 ## What a pass does not claim
 
 A P-04 pass says that on **every** `START`-path to every reachable reader, some earlier node
-**declares** that it writes the key — a statement about the declarations in a document, and about
-nothing else. Five things stay on the far side of that line, and the second of them is about a
-failure rather than a pass, because the same trust runs in both directions.
+**declares** that it writes the key — along every edge that delivers the graph state; a read along a
+`send` edge is a payload read, named on `payload_readers` and not decided — a statement about the
+declarations in a document, and about nothing else. Five things stay on the far side of that line,
+and the second of them is about a failure rather than a pass, because the same trust runs in both
+directions.
 
 * **A declared write is not a write.** This is the whole of the `-A` in DEFENSIBLE-A. A node
   annotated `output: ["booking_id"]` whose body returns an empty dict passes P-04 and fails at
@@ -883,13 +1116,14 @@ failure rather than a pass, because the same trust runs in both directions.
   `state` does not carry raises no P-04 obligation; the mismatch is a schema-membership question,
   and P-03 is likewise not implemented in this release.
 
-So the reading of a P-04 pass is "every declared read is covered by a declared write on every route
-that can reach it", and the reading of a failure is "here is a route on which one is not" — a
+So the reading of a P-04 pass is "every declared read of the graph state is covered by a declared
+write on every route that can reach it", with the `send`-edge reads `payload_readers` names left
+undecided, and the reading of a failure is "here is a route on which one is not" — a
 statement about the definition in front of you, not a prediction about a run. That is the value of
 the check: the branch nobody exercised is exactly the branch a per-path rule reaches, and it
 reaches it before anything runs.
 
-Three smaller limits worth keeping straight, two of which the report names on the record so
+Four smaller limits worth keeping straight, three of which the report names on the record so
 they are never silent. **A pass is about reachable readers** — the
 [boundary section](#the-p-01-boundary) above is the whole of that story. **"Reachable" means
 reachable by declared edges.** A `dynamic` edge — the `ir_version` 1.1 kind for a router
@@ -930,6 +1164,16 @@ does, and never in this list. The fragment the P-01 page verifies declares no re
 children, so its P-04 witness carries no `contained_readers` at all; the member appears only
 when there is something to say.
 
+**And a read along a `send` edge is not decided.** A node entered through a `send` edge reads,
+along that edge, the payload the edge delivers — and the IR carries neither the payload's keys
+nor anything that would let P-04 check them, so those reads raise no obligation. The report
+names such a node on `payload_readers`, on the pass witness or on the primary finding, emitted
+only when non-empty and never a finding in its own right ([the section
+above](#a-send-target-reads-its-payload)). Read a pass beside that list as "every read along a
+state-carrying edge is covered; these readers' reads along a `send` edge were not checked" —
+and if one of those reads is really a read of the graph state, the node is entered by an
+ordinary edge too and that read is decided there.
+
 ## Where this page is checked
 
 Every example above is executed in CI, in a child interpreter where compiling a graph, invoking a
@@ -941,8 +1185,10 @@ the mechanism.
 The frozen contract behind this page is PROPERTY-CATALOG-SPEC §4 with the shared envelope of §0;
 the shapes it pins were ratified in decision records DEC-11 (the coverage-map witness and the two
 kept diagnostics) and DEC-05 (the `START`-path scope), with DEC-26 fixing what a location may name
-on ill-formed topology, DEC-28 adding `outside_static_coverage` and DEC-33 adding
-`contained_readers` and restricting the former to top-level nodes. `gebra.verify.properties.dataflow_completeness` and its tests are where
+on ill-formed topology, DEC-28 adding `outside_static_coverage`, DEC-33 adding
+`contained_readers` and restricting the former to top-level nodes, and DEC-37 deciding a `send`
+target's reads over its state arm and adding `payload_readers`.
+`gebra.verify.properties.dataflow_completeness` and its tests are where
 that contract is implemented and pinned in this repository. The other written explainers are
 [P-01 `graph-well-formed`](p01-graph-well-formed.md),
 [P-02 `termination-witness`](p02-termination-witness.md),

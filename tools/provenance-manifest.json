@@ -19,9 +19,9 @@
   "entries": [
     {
       "path": "tests/fixtures/properties/README.md",
-      "sha256": "30e3ec42497aa57e22daecdb8bd0fc66b5023991232ff49330675dd6e7600164",
+      "sha256": "a28d154104fa07ce99426c5fcce4cf1250779dbd1c1276b0b4c49df33e67d1e7",
       "vault_source": "09-RnD-Docs/fixtures/properties/README.md",
-      "vault_commit": "7664a17"
+      "vault_commit": "7b6995d"
     },
     {
       "path": "tests/fixtures/properties/Review-Checklist.md",
@@ -54,6 +54,18 @@
       "vault_commit": "e6ea366"
     },
     {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-05-payload-key-read-from-state-downstream.yaml",
+      "sha256": "be95924bb85b745f896069d382bd44d8df64d5bf9d98b439b6b63bcb7e235185",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-05-payload-key-read-from-state-downstream.yaml",
+      "vault_commit": "7b6995d"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/negative-06-mixed-arm-reader-state-arm-unwritten.yaml",
+      "sha256": "ee2479801532c58d7522f6ce9abc741edfb887c92138c962a1e83fd9166aae40",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/negative-06-mixed-arm-reader-state-arm-unwritten.yaml",
+      "vault_commit": "7b6995d"
+    },
+    {
       "path": "tests/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
       "sha256": "32f61aa6012edbd5a14f13f7d990c384b5769366926cb228e0185a4dbf52a765",
       "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
@@ -76,6 +88,12 @@
       "sha256": "9507f846ab3efae1f996477dfb1e8bf6d42885164c93aa27458e0105f73e6286",
       "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
       "vault_commit": "e6ea366"
+    },
+    {
+      "path": "tests/fixtures/properties/dataflow-completeness/positive-05-send-template-payload-reader.yaml",
+      "sha256": "1acc6f3318e88dc8a174cf7de78a352b3558b66236a900ebb0d44290977c3958",
+      "vault_source": "09-RnD-Docs/fixtures/properties/dataflow-completeness/positive-05-send-template-payload-reader.yaml",
+      "vault_commit": "7b6995d"
     },
     {
       "path": "tests/fixtures/properties/determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",

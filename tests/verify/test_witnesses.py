@@ -165,23 +165,25 @@ def test_the_five_key_payload_still_validates_and_serializes_without_either_opti
     ]
 
 
-def test_dataflow_witness_carries_the_two_optional_coverage_diagnostics_after_coverage() -> None:
-    """§4.3's stub as amended at DEC-33: ``outside_static_coverage`` (DEC-28 clause 2) then
-    ``contained_readers`` (DEC-33 §3.4) after ``coverage``, both optional, both dropped from the
-    wire when absent."""
+def test_dataflow_witness_carries_the_three_optional_coverage_diagnostics_after_coverage() -> None:
+    """§4.3's stub as amended at DEC-33 and DEC-37: ``outside_static_coverage`` (DEC-28 clause
+    2), ``contained_readers`` (DEC-33 §3.4) and ``payload_readers`` (DEC-37 §3.2) after
+    ``coverage``, in that order, all optional, all dropped from the wire when absent."""
     assert list(DataflowWitness.model_fields) == [
         "kind",
         "coverage",
         "outside_static_coverage",
         "contained_readers",
+        "payload_readers",
     ]
-    for name in ("outside_static_coverage", "contained_readers"):
+    for name in ("outside_static_coverage", "contained_readers", "payload_readers"):
         field = DataflowWitness.model_fields[name]
         assert not field.is_required()
         assert field.default is None
     witness = validate_witness(WITNESS_PAYLOADS[DataflowWitness])
     assert isinstance(witness, DataflowWitness)
     assert witness.outside_static_coverage is None and witness.contained_readers is None
+    assert witness.payload_readers is None
     assert list(to_data(witness)) == ["kind", "coverage"]
 
 

@@ -78,7 +78,14 @@ from gebra.verify.properties.dataflow_completeness import (
 from tests._corpus import census
 from tests.conftest import FIXTURES_DIR
 
-#: The eight P-04 property fixtures (§4.6's six + the DEC-16 cycle-entry pair, TE-14), by path.
+#: The eight P-04 property fixtures that predate DEC-37 (§4.6's original six + the DEC-16
+#: cycle-entry pair, TE-14), by path. DEC-37's ``send``-payload trio is held by
+#: ``tests/verify/test_send_payload.py`` and the golden harness instead, because two tests below
+#: read the contract as it stood before DEC-37: ``negative-06`` fails on its state-arm path, which
+#: is not the plain shortest one :func:`test_the_offending_path_is_the_shortest_one` re-derives
+#: (DEC-37 §3.3), and ``positive-05``'s payload reads are abstained, so its coverage is not the
+#: one entry per reachable reader and Σ key that
+#: :func:`test_the_coverage_list_is_one_entry_per_reachable_reader_and_sigma_key` asserts.
 FIXTURES: tuple[str, ...] = (
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
@@ -1261,7 +1268,7 @@ def _tripwire_script(probe: str = "") -> str:
         "        report = check_dataflow_completeness(ir)\n"
         "        failed += report.result == 'fail'\n"
         "        seen += 1\n"
-        f"assert (seen, failed) == ({census().ir_blocks}, 10), (seen, failed)\n"
+        f"assert (seen, failed) == ({census().ir_blocks}, 12), (seen, failed)\n"
         f"{probe}"
         f"print([m for m in sys.modules if m.split('.')[0] in {_FORBIDDEN}] + attempts)\n"
     )
@@ -1276,7 +1283,7 @@ def test_running_p04_over_the_corpus_creates_no_socket_and_resolves_no_name() ->
     module or while validating every IR snapshot in the vendored corpus; and a swallowed
     exception still fails the run, because every attempt is recorded before the raise and also
     announced on stderr. The child asserts its own counts (every snapshot the provenance
-    manifest's fixtures carry, 10 failing) so a glob that silently stopped matching would fail
+    manifest's fixtures carry, 12 failing) so a glob that silently stopped matching would fail
     the tripwire rather than pass it vacuously.
 
     One residual, named rather than left implicit, the same one VAL-03/VAL-05/VAL-06 recorded:

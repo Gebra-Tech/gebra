@@ -36,7 +36,7 @@ exports re-exported from `gebra.verify.__init__`), specifically:
 
 This is the **Python callable/model surface** — signatures, field sets, and the registry
 contract ("slug → callable → claim class → severity" per brief D-09's Deliverable 2) —
-not the wire-format document version. `report_format` (currently `1.3`, REPORT-FORMAT-SPEC
+not the wire-format document version. `report_format` (currently `1.4`, REPORT-FORMAT-SPEC
 §1.6) is that document's own governance and is explicit that it is "stamped final at the
 D-12 promotion" (REPORT-FORMAT-SPEC front matter, Appendix B OI-4) — that stamping is
 CLI-08's event, not this one. Freezing the validator-result API here does not itself
@@ -206,6 +206,29 @@ move the surface in §1 need no R-05 routing, exactly as before.
   display-only prose (REPORT-FORMAT-SPEC §4.6 rule 7) and the reading says less than the one it
   replaces, both on §1.6's "none" rows (DEC-42 §3.3). The SOW §8 citation stays where VAL-16's
   entry put it (PD-072 §1).
+- **VAL-17 (2026-11-13) — DEC-37's payload arm and `payload_readers`.** The R-05-routed decision is
+  DEC-37 itself (ratified 2026-10-28 by the product owner acting as R-05 authority, vendored in the
+  development-process repository's `docs/decisions/`; PROPERTY-CATALOG-SPEC re-vendored at vault
+  `7b6995d` in the same commit, its §4.3 stubs and §4.4 Steps 2 and 4 the normative text), whose
+  §3.2 names the field and both carriers and whose §4 assigns the landing to this card, so no
+  PD-057-style latitude record is owed. Fields added on the frozen surface:
+  `DataflowWitness.payload_readers` and `P04Failure.payload_readers` (§3.2 — "`DataflowWitness` and
+  `P04Failure` gain `payload_readers: tuple[NodeId, ...] | None = None`", carried on the pass
+  witness and, on a fail, on the primary `P04Failure`), both optional, default absent, present iff
+  non-empty, never verdict-bearing. Value rules restated by the same record (§3.1–§3.3): a reachable
+  reader entered through a `send` edge is decided over its state arm alone — a send-only target
+  raises no obligation, so `coverage` holds one entry per *decided* (reader, Σ key); on such a
+  reader `DataflowCoverage.satisfied_by` and `P04Failure.writers_on_other_paths` name only the
+  writers upstream of it through the state arm, and `satisfied_by` can be empty on a covered entry
+  (the reader covered by its own earlier visit, which §4.4 never lists); and the offending `path` of
+  a state-arm finding ends on a state-arm edge and, on a loop re-entering the reader through that
+  arm, visits it twice. No condition ID was added, removed, renamed or reclassified
+  (`read-key-never-written-on-path` keeps FATAL / DEFENSIBLE-A); no validator signature changed
+  (`check_dataflow_completeness(ir, *, model=None)`); no run-level model was retyped beyond the
+  `report_format` literal; no property moved off `DeferredToPhase1`. The arm split lives in the P-04
+  module, read off the shared model's multigraph view (`GraphModel.in_edges`); nothing was added to
+  the shared graph model. The wire-format consequence is REPORT-FORMAT-SPEC §1.6's `1.4` row, which
+  this landing opens for the `0.2.0` release.
 
 ## 5. D-12 promotion eligibility
 

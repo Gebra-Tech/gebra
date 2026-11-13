@@ -1,0 +1,107 @@
+# Fixture: dataflow-completeness / positive-05
+# Schema: fixtures/properties/schema.yaml ($id: gebra-property-fixture-v2)
+# Ruling fixture (DEC-37, card VAL-D8; landing class B with VAL-17): the field
+# shape of OSS-Adoption-Dossier §3.10 — a send-only target reading a key that
+# arrives in the Send payload and is written by no node. Pins §4.4 Step 2's
+# payload_readers member and Step 4's send-only skip.
+
+property: dataflow-completeness
+axiom_basis: [transitivity]
+polarity: positive
+description: >
+  A Send-template fan-out whose target reads its input from the payload:
+  plan_legs writes search_plan and issues a send edge to book_leg, one
+  instance per itinerary leg; each instance receives search_plan and leg_id
+  in its Send payload, and leg_id is written by no node (it is in Sigma
+  because LangGraph creates a channel for every key of a node's input
+  schema). book_leg writes bookings under an operator.add reducer, and
+  confirm_itinerary — entered through an ordinary edge — reads bookings and
+  request from state. P-04 passes: the two state readers' obligations are
+  covered, and book_leg's reads along its send arm are payload reads the IR
+  does not carry — raised as no obligation, never decided, and surfaced on
+  payload_readers rather than silently passed or wrongly failed.
+
+ir:
+  ir_version: "1.0"
+  entry: plan_legs
+  finish: confirm_itinerary
+  state:
+    request:
+      type: str
+      optional: true
+    search_plan: str
+    leg_id: str
+    bookings:
+      type: list
+      reducer: "operator.add"
+    itinerary: str
+  nodes:
+    - id: plan_legs
+      annotations:
+        pure: true
+        input: [request]
+        output: [search_plan]
+    - id: book_leg
+      annotations:
+        effect: [network]
+        idempotent: { key: leg_id }
+        input: [search_plan, leg_id]
+        output: [bookings]
+    - id: confirm_itinerary
+      annotations:
+        pure: true
+        input: [bookings, request]
+        output: [itinerary]
+  edges:
+    - from: plan_legs
+      to: book_leg
+      kind: send
+    - from: book_leg
+      to: confirm_itinerary
+
+source_snippet: |
+  # Illustrative only — never executed by the harness (D-018).
+  from langgraph.types import Send
+
+  def continue_to_booking(state: TripState) -> list[Send]:
+      return [Send("book_leg", {"search_plan": state["search_plan"], "leg_id": leg})
+              for leg in state["legs"]]          # the payload IS book_leg's input
+
+  def book_leg(payload: LegState) -> dict:        # reads payload["leg_id"], never state
+      return {"bookings": [airline.book(payload["search_plan"], payload["leg_id"])]}
+
+expected:
+  result: pass
+  witness:
+    kind: dataflow
+    coverage:
+      - node: confirm_itinerary
+        key: bookings
+        satisfied_by: [book_leg]
+      - node: confirm_itinerary
+        key: request
+        satisfied_by: [START]
+      - node: plan_legs
+        key: request
+        satisfied_by: [START]
+    payload_readers: [book_leg]
+
+notes: >
+  Witness shape follows the P-04 I/O contract as amended at DEC-37
+  (PROPERTY-CATALOG-SPEC §4.3): payload_readers is the third optional
+  coverage-cost diagnostic beside outside_static_coverage (DEC-28) and
+  contained_readers (DEC-33) — present iff non-empty, never
+  verdict-bearing, disjoint from both because it quantifies INSIDE Reach.
+  Before DEC-37 this document failed read-key-never-written-on-path at
+  key leg_id, node book_leg, path [START, plan_legs, book_leg] — the record
+  the dossier's Gemini quickstart card carries — because the send target's
+  reads were decided against the sender's state. book_leg's writes still
+  reach confirm_itinerary through the fixpoint (Step 3 is unchanged: the
+  state after a send target's superstep is the state before it plus its
+  writes), which is why bookings is covered by book_leg. Corpus discipline:
+  only P-04 is exercised — bookings carries an operator.add reducer, so the
+  send template's concurrent writes hold P-09; book_leg is keyed-idempotent
+  on a declared read (P-07); effect tags stay at [network] (P-06/P-13
+  vacuous); the graph is acyclic (P-02 vacuous); every read and write is a
+  Sigma key (P-03). Companions: negative-05 (a payload key is not a state
+  write) and negative-06 (a mixed-arm reader is decided over its state arm).

@@ -6,8 +6,9 @@ fixes it as a *two-layer* definition with four clauses, and this gate is those f
 executed together:
 
 ``R3.1`` (load layer)
-    All 71 fixtures load hermetically, lint green against schema v2.2, their IR payloads
-    ``model_validate``, **and their `expected:` blocks compose into envelope models**.
+    Every fixture in the corpus loads hermetically, lints green against schema v2.2, has its IR
+    payloads ``model_validate``, **and has its `expected:` blocks compose into envelope models**.
+    The clause's title carries the count the run loaded, never a literal one.
 ``R3.2`` (assertion layer)
     Every wedge assertion obligation is green by structural model equality — the 30 wedge
     single-property fixtures in full, and for mixed fixtures the wedge-derivable projections
@@ -44,14 +45,14 @@ acceptance evidence slot needs and what this command prints.
 
 **The two places the definition and the corpus do not meet, and how this gate treats them.**
 
-*R3.1's compose clause.* 44 of the 71 blocks compose; the other 27 are shapes the frozen
-specs deliberately do not model — the non-wedge properties' witness and location shapes that
-``schema.yaml`` marks provisional, the P-03 condition IDs §0.4 holds back, and ``mixed/10``'s
-run-level wrapper, which REPORT-FORMAT-SPEC §3.4 says is not a §0.3 shape at all. Composing
-them would mean inventing the contract PD-016 declined to invent (WA-03). So this gate does
-not assert the clause literally; it asserts the checkable half: **every non-composing block
-is attributed to a named non-wedge cause, derived and verified rather than labelled, and a
-block that does not compose with no such cause is a violation.**
+*R3.1's compose clause.* Not every block composes (the run prints how many do); the others
+are shapes the frozen specs deliberately do not model — the non-wedge properties' witness and
+location shapes that ``schema.yaml`` marks provisional, the P-03 condition IDs §0.4 holds
+back, and ``mixed/10``'s run-level wrapper, which REPORT-FORMAT-SPEC §3.4 says is not a §0.3
+shape at all. Composing them would mean inventing the contract PD-016 declined to invent
+(WA-03). So this gate does not assert the clause literally; it asserts the checkable half:
+**every non-composing block is attributed to a named non-wedge cause, derived and verified
+rather than labelled, and a block that does not compose with no such cause is a violation.**
 
 **That is now the clause, not a reading of it.** PD-039 Q1 was ratified 2026-08-08 and the
 owner re-signed C2's clause (1) around it: a block composes *or* a named, machine-verified
@@ -431,7 +432,10 @@ def _records(value: object) -> tuple[Mapping[str, Any], ...]:
 
 def _clause_r31(lint: CorpusReport, fixtures: tuple[PropertyFixture, ...]) -> ClauseResult:
     """R3.1 — load, lint, ``model_validate``, and the composition ledger."""
-    clause = ClauseResult("R3.1", "load layer — 71 fixtures load, lint, validate, compose")
+    # The count is the corpus's, read off the run — never a literal a re-vendor would leave stale.
+    clause = ClauseResult(
+        "R3.1", f"load layer — {len(fixtures)} fixtures load, lint, validate, compose"
+    )
     clause.findings.append(
         f"{len(fixtures)} fixture(s) loaded hermetically and their IR payload(s) "
         f"model_validate(d); corpus lint {'OK' if lint.ok else 'FAILED'} against schema v2.2 "

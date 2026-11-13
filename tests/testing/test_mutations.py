@@ -27,10 +27,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from hypothesis import Phase, find, settings
+from hypothesis import Phase, find, given, settings
 
 from gebra.ir import (
     Annotations,
@@ -41,6 +42,7 @@ from gebra.ir import (
     NormalEdge,
     RecursionLimit,
     Runtime,
+    SendEdge,
     StateField,
     Variant,
     WorkflowIR,
@@ -58,25 +60,35 @@ from gebra.testing.mutations import (
     WELL_FORMEDNESS_OPERATORS,
     Mutation,
     bare_claim,
+    boundary_read,
     chain_wiring,
     compensation_hook,
+    counter_guard_with_exit,
     counter_guard_without_exit,
     dangling_hook,
     dataflow_mutations,
     dead_end_node,
     determinism_mutations,
     effect_safety_mutations,
+    foreign_read,
     mutations,
     orphan_node,
     permute_nodes,
+    removed_blanket,
     removed_variant,
+    self_write,
+    send_targets,
     severed_edge,
     star_wiring,
+    termination_mutations,
     undefined_edge_source,
     undefined_edge_target,
     undefined_path_map_target,
+    universal_write,
     unpinned_temperature,
     unprotected_cycle,
+    unqualified_variant,
+    unwitnessed_two_cycle,
     unwritten_read,
     update_contract,
     wired_leaf,
@@ -473,6 +485,61 @@ def test_the_termination_operators_refuse_a_node_that_is_already_cyclic() -> Non
         removed_variant(cyclic, node)
     with pytest.raises(ValueError, match="already lies on a cycle"):
         counter_guard_without_exit(cyclic, node)
+
+
+#: :data:`WORKFLOW` with its ``plan → book`` edge as a ``send`` template, so ``book`` is a
+#: ``send`` target — the anchor DEC-37 puts outside some operators' reach.
+FANNED_OUT = _rebuilt(
+    WORKFLOW, edges=(SendEdge(kind="send", **{"from": "plan"}, to="book"), WORKFLOW.edges[1])
+)
+
+
+def test_the_operators_whose_claim_dec_37_would_falsify_refuse_a_send_target() -> None:
+    """DEC-37: along a ``send`` arm a reader's declared reads are payload reads — no obligation —
+    and the reader is decided over its state arm alone (PROPERTY-CATALOG-SPEC §4.4 Steps 2 and 4).
+
+    So two kinds of claim fail on a ``send`` target, and each operator stating one refuses it:
+    the four P-04 operators that inject a Σ read predict how P-04 decides a *state* read (a
+    send-only target raises no obligation at all), and the self-loop operators of P-02 and P-06
+    promise that P-04's verdict does not move across the pair — while the loop they add is a new
+    state-arm in-edge. What still runs there is what DEC-37 leaves untouched: a read outside Σ
+    raises no obligation on any arm, and the two-cycle clears every read before it adds an edge.
+    """
+    assert send_targets(FANNED_OUT) == {"book"}
+    refused: tuple[Callable[[WorkflowIR, str], Mutation], ...] = (
+        lambda ir, node: unwritten_read(ir, node),
+        lambda ir, node: self_write(ir, node),
+        lambda ir, node: boundary_read(ir, node, optional=False),
+        lambda ir, node: boundary_read(ir, node, optional=True),
+        lambda ir, node: universal_write(ir, node),
+        lambda ir, node: unprotected_cycle(ir, node, "billable"),
+        lambda ir, node: removed_variant(ir, node),
+        lambda ir, node: removed_blanket(ir, node),
+        lambda ir, node: unqualified_variant(ir, node),
+        lambda ir, node: counter_guard_with_exit(ir, node),
+        lambda ir, node: counter_guard_without_exit(ir, node),
+    )
+    for operator in refused:
+        with pytest.raises(ValueError, match="target of a `send` edge"):
+            operator(FANNED_OUT, "book")
+        operator(FANNED_OUT, "audit")  # the same operator on a node no `send` edge enters
+
+    assert foreign_read(FANNED_OUT, "book").condition is None
+    assert unwitnessed_two_cycle(FANNED_OUT, "book").breaking
+
+
+@settings(max_examples=300, deadline=None)
+@given(mutation=dataflow_mutations(operators=DATAFLOW_OPERATORS[:4]))
+def test_the_dataflow_draws_never_anchor_a_state_read_on_a_send_target(mutation: Mutation) -> None:
+    """The family draw honours the precondition rather than tripping over it."""
+    assert mutation.node not in send_targets(mutation.origin)
+
+
+@settings(max_examples=300, deadline=None)
+@given(mutation=termination_mutations(operators=TERMINATION_OPERATORS[:3]))
+def test_the_self_loop_draws_never_put_the_loop_on_a_send_target(mutation: Mutation) -> None:
+    """The same for the P-02 self-loop family (``unprotected-cycle`` shares the helper)."""
+    assert mutation.node not in send_targets(mutation.origin)
 
 
 def test_the_well_formed_flag_is_a_breaking_p01_mutation_and_nothing_else() -> None:

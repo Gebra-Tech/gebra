@@ -113,18 +113,20 @@ __all__ = [
 ]
 
 
-#: The ``report_format`` this build produces and reads. ``1.3`` under §1.6's new-optional-member
-#: row, on the post-final route (VAL-15; DEC-33's containment convention and witness partition):
-#: three optional members join shapes that did not carry them at ``1.2`` —
-#: ``WellFormednessWitness.contained_nodes``, ``DataflowWitness.contained_readers`` and
-#: ``P04Failure.contained_readers`` — each emitted only when non-empty and never verdict-bearing;
-#: the restated value rules (``reachable_from_start`` as the static START-closure ∩ V_top, the
-#: V_top narrowing of ``dynamic_dependent`` and ``outside_static_coverage``) are catalog-driven
-#: and carry no bump of their own. ``1.2`` (VAL-14; DEC-28) added ``dynamic_dependent`` and
-#: ``outside_static_coverage`` and let ``Subject.ir_version`` admit ``"1.1"``; ``1.1`` (VAL-11)
-#: added ``Promotion.property_condition`` on a witness-note promotion and
-#: ``RunReport.best_effort``; Phase-0 shipped at ``1.1``.
-REPORT_FORMAT: Final = "1.3"
+#: The ``report_format`` this build produces and reads. ``1.4`` under §1.6's new-optional-member
+#: row — the ``0.2.0`` release's one MINOR. DEC-35 §3.3 rules one bump per release and, for G10,
+#: names the members it carries: "``1.4``: ``extraction_notes`` and VAL-17's P-04 members —
+#: whichever of CLI-12 and VAL-17 lands second appends". VAL-17 landed first and opened it with
+#: DEC-37's P-04 member, ``DataflowWitness.payload_readers`` and
+#: ``P04Failure.payload_readers``, emitted only when non-empty and never verdict-bearing.
+#: ``1.3`` (VAL-15; DEC-33) added ``WellFormednessWitness.contained_nodes``,
+#: ``DataflowWitness.contained_readers`` and ``P04Failure.contained_readers``, with the
+#: catalog-driven restatements of ``reachable_from_start`` and the V_top narrowing; ``1.2``
+#: (VAL-14; DEC-28) added ``dynamic_dependent`` and ``outside_static_coverage`` and let
+#: ``Subject.ir_version`` admit ``"1.1"``; ``1.1`` (VAL-11) added
+#: ``Promotion.property_condition`` on a witness-note promotion and ``RunReport.best_effort``;
+#: Phase-0 shipped at ``1.1``.
+REPORT_FORMAT: Final = "1.4"
 
 #: The topology-consuming wedge properties: §0.3 defines their results **only over P-01-clean
 #: topology**, and where P-01 fails their reports are best-effort diagnostics rather than
@@ -342,7 +344,7 @@ PropertyOutcome: TypeAlias = Annotated[
 class RunReport(RunReportModel):
     """The run-level wrapper (§1.2; PROPERTY-CATALOG-SPEC §0.3's scope boundary)."""
 
-    report_format: Literal["1.3"]
+    report_format: Literal["1.4"]
     tool: Tool
     #: Absent only when a tool error preceded IR identity.
     subject: Subject | None = None

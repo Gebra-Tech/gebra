@@ -60,7 +60,7 @@ from itertools import pairwise
 from typing import Any, Final
 
 import pytest
-from hypothesis import HealthCheck, Phase, find, given, settings
+from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
 
 from gebra.ir import Annotations, WorkflowIR, dump_json, load_json
@@ -82,6 +82,7 @@ from gebra.testing.mutations import (
     mutations,
     permute_nodes,
     pinned_claim,
+    send_targets,
     star_wiring,
     unbound_key,
     update_contract,
@@ -640,14 +641,21 @@ def test_dataflow_is_stable_under_irrelevant_mutation(ir: WorkflowIR) -> None:
     """MP-04-9. Three edits P-04's semantics say cannot matter, held to saying nothing.
 
     A **self-loop** adds the constraint ``IN[v] ⊆ IN[v] ∪ writes(v)``, which every solution
-    already satisfies, so the greatest fixpoint does not move. A **rotation of ``nodes[]``**
-    changes only a surface order the analysis sorts away (§4.4 Step 4 iterates the vertex set in
-    the ledger §6 comparator). A **fresh Σ key nobody reads or writes** adds a bit to the lattice
-    that no obligation quantifies over. Each is a different way a validator could accidentally
-    depend on something §4.3 does not list among its fields.
+    already satisfies, so the greatest fixpoint does not move — and it goes on a node no
+    ``send`` edge enters, because since DEC-37 a self-loop on a ``send`` target is a new
+    *state-arm* in-edge, which §4.4 Step 4 decides over (``tests/verify/test_send_payload.py``
+    pins that shape; a draw whose every node is a ``send`` target is set aside). A **rotation of
+    ``nodes[]``** changes only a surface order the analysis sorts away (§4.4 Step 4 iterates the
+    vertex set in the ledger §6 comparator). A **fresh Σ key nobody reads or writes** adds a bit
+    to the lattice that no obligation quantifies over. Each is a different way a validator could
+    accidentally depend on something §4.3 does not list among its fields.
     """
+    targets = send_targets(ir)
+    looping = next((node.id for node in ir.nodes if node.id not in targets), None)
+    assume(looping is not None)
+    assert looping is not None
     baseline = check_dataflow_completeness(ir)
-    looped = with_self_loop(ir, ir.nodes[0].id)
+    looped = with_self_loop(ir, looping)
     widened = with_state_field(ir, _fresh_key(ir), "str")
 
     assert check_dataflow_completeness(looped) == baseline

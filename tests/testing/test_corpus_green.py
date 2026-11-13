@@ -66,9 +66,9 @@ MATRIX = Path(__file__).resolve().parents[2] / "docs" / "governance" / "FIDELITY
 #: a re-vendor that moves one fails here by name rather than by a changed summary line. The
 #: corpus size itself is the provenance manifest's fixture set (``tests/_corpus.py``): the
 #: record a re-vendor moves, so that pin follows the re-vendor rather than breaking on it.
-COMPOSING = 44
-R32_SCOPED = 52
-R32_MATCHED = 52
+COMPOSING = 47
+R32_SCOPED = 55
+R32_MATCHED = 55
 DEFERRED_OBLIGATIONS = 31
 
 #: How the 27 non-composing blocks divide. The sum is pinned separately, so a cause that

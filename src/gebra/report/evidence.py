@@ -266,11 +266,25 @@ def _termination_lines(witness: TerminationWitness) -> list[tuple[str, str]]:
 
 
 def _coverage_line(coverage: DataflowCoverage) -> str:
+    """One discharged obligation and its covering writers (§4.3's ``DataflowCoverage`` row).
+
+    An empty ``satisfied_by`` is spelled out rather than rendered as a cover by nothing. §4.4
+    Step 4 leaves the reader itself and ``START`` out of the writers it lists and adds ``START``
+    back only for a boundary key, so the list is empty exactly when no writer other than the
+    reader is upstream of it. Since DEC-37 that is reachable: a ``send`` target that writes the
+    key it reads and is re-entered through its state arm is covered there by its own earlier
+    visit, which the list, by §4.4's own rule, does not name.
+    """
     writers = ", ".join(
         f"{writer} (boundary source)" if writer == _START else writer
         for writer in coverage.satisfied_by
     )
-    return f"{coverage.node} reads {coverage.key} <- covered by {writers or '(nothing)'}"
+    if not writers:
+        return (
+            f"{coverage.node} reads {coverage.key} <- covered, with no writer other than "
+            "the reader itself upstream of it"
+        )
+    return f"{coverage.node} reads {coverage.key} <- covered by {writers}"
 
 
 def _dataflow_lines(witness: DataflowWitness) -> list[tuple[str, str]]:
@@ -290,6 +304,8 @@ def _dataflow_lines(witness: DataflowWitness) -> list[tuple[str, str]]:
         )
     if witness.contained_readers:
         lines.append(("contained readers", _contained_readers_phrase(witness.contained_readers)))
+    if witness.payload_readers:
+        lines.append(("payload readers", _payload_readers_phrase(witness.payload_readers)))
     return lines
 
 
@@ -321,6 +337,24 @@ def _contained_readers_phrase(readers: tuple[str, ...]) -> str:
         "the static graph reaches — answered by the containment root, not by a dynamic router, "
         f"so no obligation was raised and no analysis in this run covers those reads: "
         f"{_listed(readers)}"
+    )
+
+
+def _payload_readers_phrase(readers: tuple[str, ...]) -> str:
+    """§4.3's `payload_readers` row (DEC-37 §3.2), on the pass witness.
+
+    The third coverage-cost line, and the one that sits *inside* the static closure: these
+    readers are reachable, but along a ``send`` edge they read the payload the edge delivers,
+    which the IR does not carry — so nothing was decided for those reads, and the line says so
+    rather than letting the pass above read as covering them. A reader also entered by an
+    ordinary edge was decided over that edge, which is why it can appear in the coverage list
+    too. The failure-side spelling is :mod:`gebra.report.human`'s gloss.
+    """
+    return (
+        f"{_plural(len(readers), 'reachable node')} entered through a send edge — along that "
+        "edge their declared reads are reads of the payload it delivers, which the IR does not "
+        "carry, so no obligation was raised for them and none was decided; a reader also entered "
+        f"by an ordinary edge is decided over that edge: {_listed(readers)}"
     )
 
 
@@ -460,9 +494,14 @@ def witness_summary(witness: Witness) -> str:
             if witness.contained_readers
             else ""
         )
+        payload = (
+            f" | {_plural(len(witness.payload_readers), 'payload reader')}"
+            if witness.payload_readers
+            else ""
+        )
         return (
             f"{_plural(len(witness.coverage), '(reader, key) obligation')} covered"
-            f"{outside}{contained}"
+            f"{outside}{contained}{payload}"
         )
     if isinstance(witness, EffectSafetyWitness):
         return (

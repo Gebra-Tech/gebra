@@ -74,13 +74,16 @@ class Finding:
 
 
 def _failure_evidence(failure: P04Failure) -> dict[str, Any]:
-    """P-04's four optional diagnostics, emitted only when non-empty (§4.4).
+    """P-04's five optional diagnostics, emitted only when non-empty (§4.4).
 
     The third, ``outside_static_coverage`` (DEC-28 clause 2; ir 1.1), and the fourth,
     ``contained_readers`` (DEC-33 §3.4), are report-level context riding the primary finding —
     the top-level readers no declared START-path reaches on a dynamic-bearing document, and the
     contained readers no declared START-path reaches, whose declared reads no analysis covered
-    — and project to the property bag like the other two.
+    — and project to the property bag like the other two. The fifth, ``payload_readers``
+    (DEC-37 §3.2), is the same kind of context from inside the closure: the reachable readers
+    entered through a ``send`` edge, whose reads along it arrive in the payload and were not
+    decided there; it rides the bag as ``gebra/payloadReaders``, beside ``gebra/containedReaders``.
     """
     evidence: dict[str, Any] = {}
     if failure.writers_on_other_paths:
@@ -91,6 +94,8 @@ def _failure_evidence(failure: P04Failure) -> dict[str, Any]:
         evidence["gebra/outsideStaticCoverage"] = list(failure.outside_static_coverage)
     if failure.contained_readers:
         evidence["gebra/containedReaders"] = list(failure.contained_readers)
+    if failure.payload_readers:
+        evidence["gebra/payloadReaders"] = list(failure.payload_readers)
     return evidence
 
 

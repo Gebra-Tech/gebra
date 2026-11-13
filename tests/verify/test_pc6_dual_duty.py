@@ -65,16 +65,20 @@ from tests.conftest import FIXTURES_DIR
 #: **every single-property fixture in all five wedge directories**, on both polarities — the
 #: eight negatives the pass reconciled joined the fourteen that were already in shape, and
 #: the eleven DEC-16 gap fixtures (TE-14, vault ``e6ea366``) were authored directly against
-#: the ratified shapes, so they joined on arrival.
+#: the ratified shapes, so they joined on arrival — as did DEC-37's three ``send``-payload
+#: fixtures (landing class B with VAL-17, vault ``7b6995d``).
 RECONCILED: tuple[str, ...] = (
     "dataflow-completeness/negative-01-express-path-skips-writer.yaml",
     "dataflow-completeness/negative-02-writer-downstream-of-reader.yaml",
     "dataflow-completeness/negative-03-fan-in-missing-branch-writer.yaml",
     "dataflow-completeness/negative-04-cycle-entry-at-reader.yaml",
+    "dataflow-completeness/negative-05-payload-key-read-from-state-downstream.yaml",
+    "dataflow-completeness/negative-06-mixed-arm-reader-state-arm-unwritten.yaml",
     "dataflow-completeness/positive-01-linear-itinerary-pipeline.yaml",
     "dataflow-completeness/positive-02-conditional-both-branches-write.yaml",
     "dataflow-completeness/positive-03-parallel-fanout-reduced-results.yaml",
     "dataflow-completeness/positive-04-cycle-entry-at-writer.yaml",
+    "dataflow-completeness/positive-05-send-template-payload-reader.yaml",
     "determinism-replay/negative-01-seedless-deterministic-llm-classifier.yaml",
     "determinism-replay/negative-02-seeded-llm-extractor-hot-temperature.yaml",
     "determinism-replay/negative-03-seeded-llm-temperature-field-absent.yaml",

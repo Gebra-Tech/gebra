@@ -1119,6 +1119,17 @@ flag or exit-code rule of this document changes. The same consumer-side conseque
 lands on `display --report`, one version on: a `1.2` report file is refused naming `1.3`, and
 re-running `verify` produces a `1.3` one.
 
+**VAL-17 (P-04 over `Send` payloads) — landed 2026-11-13**, a post-final landing note under §6
+item 3 of the promotion record (a card plus a note here; no contract of this document moves).
+P-04 reads a node entered through a `send` edge as a payload reader (PROPERTY-CATALOG-SPEC §4,
+DEC-37): its reads along that edge raise no obligation and are named on the optional
+`payload_readers` member, so `gebra verify` exits `0` on a document whose only P-04 finding was
+a payload read through a `send` edge, where it exited `1` with a FATAL
+`read-key-never-written-on-path` before; the run report is `report_format` `1.4`
+(REPORT-FORMAT-SPEC §1.6, the `0.2.0` release's row). No verb, flag or exit-code rule of this
+document changes. The same consumer-side consequence lands on `display --report`, one version
+on: a `1.3` report file is refused naming `1.4`, and re-running `verify` produces a `1.4` one.
+
 **SD-13 (the `dynamic` edge in the topology diff) — landed 2026-09-07**, the third post-final
 landing note under §6 item 3 of the promotion record (a card plus a note here; no contract of
 this document moves). PD-059 rules the headless edge's representation — carried on its source

@@ -10,10 +10,12 @@ contract implemented in this package: the frozen project specifications
 (IR-SPEC, INTROSPECTION-SPEC, ANNOTATION-API-SPEC, PROPERTY-CATALOG-SPEC,
 TERMINATION-WITNESS-SPEC, VERSION-COMPAT).
 
-Two surfaces are exported from this module directly, because the specs spell
-them at the top level: ``gebra.extract(workflow)`` (INTROSPECTION-SPEC §2) and
-the ``@gebra.contract`` decorator family with its ``GebraContractError``
-(ANNOTATION-API-SPEC §1). Both are resolved lazily (PEP 562) rather than
+Three surfaces are exported from this module directly, because the specs spell
+them at the top level: ``gebra.extract(workflow)`` (INTROSPECTION-SPEC §2), the
+``@gebra.contract`` decorator family with its ``GebraContractError``
+(ANNOTATION-API-SPEC §1), and ``gebra.recursion_limit(graph, value,
+justification=…)``, the graph-level declaration of ``runtime.recursion_limit``
+(ANNOTATION-API-SPEC §1a, ratified — DEC-36). All are resolved lazily (PEP 562) rather than
 imported here, and the laziness is load-bearing rather than tidy:
 :mod:`gebra.extraction` reads the substrate's classes to dispatch on them,
 while the validator lane and the fixture-load path are proven — in a guarded
@@ -44,6 +46,7 @@ if TYPE_CHECKING:  # resolved for type checkers only; at runtime `__getattr__` d
         effect,
         idempotent,
         pure,
+        recursion_limit,
         variant,
     )
     from gebra.extraction import ExtractionError, extract
@@ -60,6 +63,7 @@ __all__ = [
     "extract",
     "idempotent",
     "pure",
+    "recursion_limit",
     "variant",
 ]
 
@@ -67,7 +71,8 @@ __all__ = [
 _EXTRACTION_EXPORTS: Final[frozenset[str]] = frozenset({"ExtractionError", "extract"})
 
 #: The names it resolves out of :mod:`gebra.annotations`. The split is the point: touching a
-#: decorator must not import the extractor, and with it the substrate.
+#: decorator — or declaring a graph's recursion limit — must not import the extractor, and
+#: with it the substrate.
 _ANNOTATION_EXPORTS: Final[frozenset[str]] = frozenset(
     {
         "GebraContractError",
@@ -77,6 +82,7 @@ _ANNOTATION_EXPORTS: Final[frozenset[str]] = frozenset(
         "effect",
         "idempotent",
         "pure",
+        "recursion_limit",
         "variant",
     }
 )

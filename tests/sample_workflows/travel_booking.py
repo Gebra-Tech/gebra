@@ -70,15 +70,15 @@ grammar's **L0** lexical gate rejects wholesale (it requires exactly one ``if`` 
 exactly one ``else`` token) before any derivation is attempted. That is a fact about the
 declaration forms an author actually writes, not a structural impossibility: ``condition`` is
 an unconstrained ``str`` in the model, and LangGraph takes the branch name off the router's
-``__name__``. Form (b) is ``runtime.recursion_limit``, which
-:mod:`gebra.extraction.builder` records as absent at builder level and
-:mod:`gebra.extraction.compiled` leaves ``None`` on the compiled path — those two modules,
-not a claim about every conceivable carrier: INTROSPECTION-SPEC §7.1 designates
-annotation/sidecar as the slot's source, and a sidecar carrier landing later would change
-this paragraph and nothing else. Form (c) — the ``variant`` annotation slot — is a decorator,
-so it is the one form an author of a live graph can actually declare, and
-TERMINATION-WITNESS-SPEC §2.3 makes it discharge the **carrier node**: every simple cycle
-here runs through ``replan``, so one carrier covers both.
+``__name__``. Form (b) is ``runtime.recursion_limit``, which a live graph has been able to
+declare since DEC-36 — ``gebra.recursion_limit(graph, value, justification=…)`` in code, or the
+``[runtime]`` table of a ``gebra.toml`` (:mod:`gebra.extraction.runtime`) — and which this
+fixture does not declare: a limit is a blanket over every cycle at once, the weakest form
+(TERMINATION-WITNESS-SPEC §2.4), passing only with a WARNING-grade note and failing under
+``--gebra-strict``, while the fix the catalog passage describes is a witnessed cycle. Form (c)
+— the ``variant`` annotation slot — is a decorator, and TERMINATION-WITNESS-SPEC §2.3 makes it
+discharge the **carrier node**: every simple cycle here runs through ``replan``, so one carrier
+covers both.
 
 None of that is a defect in either spec: an *authored* IR document carries whatever
 ``condition`` string its author wrote, which is why the corpus has form-(a) fixtures. It is a

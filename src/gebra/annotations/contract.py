@@ -143,7 +143,9 @@ _OUT_OF_REACH: Final[Mapping[str, str]] = MappingProxyType(
             "runtime.checkpointer (INTROSPECTION-SPEC §4)"
         ),
         "recursion_limit": (
-            "a graph-level runtime slot rather than a node contract (IR-SPEC §3.5)"
+            "a graph-level runtime slot rather than a node contract (IR-SPEC §3.5): declare it "
+            "on the graph with gebra.recursion_limit(graph, value, justification=...) or in "
+            "the [runtime] table of gebra.toml (ANNOTATION-API-SPEC §1a, §2)"
         ),
         "source": "part of the parked data-isolation track (D-017), with no surface in this spec",
         "map": "part of the parked data-isolation track (D-017), with no surface in this spec",

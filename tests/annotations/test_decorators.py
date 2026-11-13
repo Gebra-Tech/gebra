@@ -490,6 +490,22 @@ def test_a_slot_out_of_annotation_reach_is_refused_with_its_reason(slot: str) ->
     assert "closed at nine" in str(caught.value)
 
 
+def test_recursion_limit_is_refused_with_a_pointer_at_its_two_graph_level_surfaces() -> None:
+    """§1a (ratified — DEC-36): ``contract(recursion_limit=…)`` "stays refused at decoration time
+    with a message naming this surface and §2's ``[runtime]`` table" — the slot is graph-level, a
+    graph has one step budget and no node owns it."""
+    with pytest.raises(GebraContractError) as caught:
+        untyped.contract(recursion_limit=38)(armed("reaching"))
+
+    message = str(caught.value)
+    assert caught.value.reason is ContractErrorReason.UNKNOWN_SLOT
+    assert caught.value.slot == "recursion_limit"
+    assert "graph-level runtime slot rather than a node contract" in message
+    assert "gebra.recursion_limit(graph, value, justification=...)" in message
+    assert "[runtime] table of gebra.toml" in message
+    assert "ANNOTATION-API-SPEC §1a, §2" in message
+
+
 @pytest.mark.parametrize(
     ("slot", "decorator"), [("variant", "@gebra.variant"), ("compensation", "@gebra.compensation")]
 )

@@ -38,6 +38,7 @@ nothing.
 | `digests.py` — §7.4 prompt/config digests | §7.4 | `tests/extraction/test_digests.py` | `repr`/`__str__`/config-source reads armed (`TRIPPED`) |
 | `stock.py` — §7.4(a) stock binding-wrapper enumeration | §7.4(a) | `tests/extraction/test_digests.py` (`NonStockBinding`) | non-stock `kwargs` records and raises; `tests/extraction/test_stock.py` re-derives the enumeration from the installed substrate |
 | `compat.py` — first-extract version check (VERSION-COMPAT §4) | §1 | `tests/extraction/test_compat.py` | every network primitive armed; reads `importlib.metadata`, never the packages |
+| `runtime.py` — `runtime.recursion_limit`: the declaration tiers and the `with_config` binding (DEC-36) | §3/§4.1 | `tests/extraction/test_runtime.py` | `compile`, `Pregel.invoke`/`stream`/`with_config` raisers; `Runnable.invoke` armed with the counted `ChannelWrite` allow-list; an armed `__gebra_runtime__` property and a `config` property that refuses gebra's own frames, each with its control |
 
 **Data-only modules (read no live workflow object; nothing to invoke).** `base.py` (object-family
 enum + `type_identity`), `envelope.py` (envelope models), `errors.py` (`ExtractionError` types),
@@ -47,8 +48,14 @@ records from node ids the builder and compiled paths hand it; see §4's EX-20 en
 itself is `tests/annotations/test_sidecar.py`).
 These hold and serialize IR/envelope/warning data; they read no channel, node, router, model, or
 drawing, so there is no body for them to run. `type_identity` reads the type of the value it
-names and nothing of the value itself; the one lookup it makes in that type's own namespace is
-recorded in §4's EX-27 entry (residue 3).
+names, never the value — but four routes through that type's name reach the author's code: its
+hashing lookup of `__module__` in the type's own namespace compares a planted key (§4's EX-27
+entry, residue 3), and, measured at EX-19's review, a `str`-subclass `__module__` has its
+`partition` and `__format__` run, a non-string `__module__` its `__class__` read by
+`isinstance`, and a `str`-subclass `__qualname__` its `__format__`. The helper names the source
+of every extraction and the type in every boundary refusal. EX-30 carries all four routes;
+EX-19's new sites name types with `annotations/runtime.type_label`, which reaches none of them
+(§4's EX-19 entry).
 
 ## 2. The six `get_graph()` drawing routes (DEC-19 · INTROSPECTION §1 rule 3/4)
 
@@ -100,8 +107,9 @@ in-process and shows the record-based invariant is what catches it.
 The annotation surface feeds extraction and carries its own guarded children: `contract.py`
 (`tests/annotations/test_decorators.py`), the `gebra.toml` loader `sidecar.py`
 (`tests/annotations/test_sidecar.py`), the §4 shallow-inference engine `inference.py`
-(`tests/annotations/test_inference.py`), and the precedence chain `resolve.py`
-(`tests/annotations/test_resolve.py`). Five landed paths sit **outside** extraction and carry the
+(`tests/annotations/test_inference.py`), the precedence chain `resolve.py`
+(`tests/annotations/test_resolve.py`), and the graph-level declaration `runtime.py`
+(`tests/annotations/test_runtime.py`, EX-19). Five landed paths sit **outside** extraction and carry the
 weaker form of the guard where no user object is in reach — the `.gebra/` store
 (`tests/store/test_store.py`), the V.S.F.E version engine (`tests/versioning/test_classify.py`),
 the diff engine (`tests/diff/test_topology.py`, `tests/diff/test_workflow.py`), the
@@ -1358,6 +1366,104 @@ recaptured from real runs under `tools/docs_examples.py`'s guard —
 is regenerated from docstrings by a generator that imports nothing it documents, and
 `docs/tutorials/extract-your-first-ir.md` changed in prose only.
 
+### EX-19 — `runtime.recursion_limit`: two declaration tiers and a binding, read from instance dictionaries
+
+One extraction path is added, `runtime.py`, with its own row in §1 and its own guarded child,
+and one annotation-surface path, `annotations/runtime.py` — the `gebra.recursion_limit` call —
+with a guarded child of its own (DEC-36, as ANNOTATION-API-SPEC §1a/§2/§3 and INTROSPECTION-SPEC
+§4.1/§8 state it). **The reads.** The graph-level declaration, `__gebra_runtime__`, is read from
+the builder's instance dictionary through `StateGraph`'s own `__dict__` descriptor on the builder
+and builder-primary compiled paths, and from the handed object's through the descriptor
+`Pregel`'s MRO carries (`Runnable`'s at the pins) on the compiled-only path; the
+`with_config` binding is the compiled object's `config` member, read from its instance
+dictionary through that same descriptor, then `recursion_limit` out of the mapping. Every
+dictionary is required to be a `dict` instance and iterated as `dict.items` with an exact-`str`
+key test — never a hashing probe, never a bound method — and every value is tested by type and
+read through `int.__index__`/`str.__str__`/`str.strip` (DEC-38 §3.2's read). The sidecar's
+`[runtime]` table is parsed by the loader, whose guard (`tests/annotations/test_sidecar.py`)
+now covers twenty-six `[runtime]` fixtures in both of its phases. A rejected value's type is
+named by `annotations/runtime.type_label`, not by the shared `type_identity` (whose four routes
+EX-30 carries — §1): it reads the qualified name from the type's slot, and the module by
+iterating a Python-defined class's own namespace with an exact-`str` key test (a built-in
+type's comes from its C-level name), and copies each string with `str.__str__` before
+formatting or splitting it, so a `str`-subclass `__qualname__` or `__module__`, a non-string
+`__module__` and a planted key that hashes as `__module__` run nothing; and every foreign value
+a record carries is one a report can serialize (`describe_declared` names a lone surrogate and a
+number past the I-JSON range rather than carrying either, and `type_label` names no type by a
+string UTF-8 cannot encode). The call itself reads
+`.builder` and assigns one attribute — the author's own object, in the author's own call, as
+the decorators do — and its child runs in an interpreter where the substrate cannot be imported.
+
+The fixtures live in `tests/sample_workflows/sentinel_runtime.py`: a review loop in every shape
+the reads meet — declared on the builder, on the compiled graph, on a `with_config` copy; bound
+equal, bound different, bound alone, bound to a `bool`, a string, a negative and an out-of-range
+number; a builderless `Pregel` declared, bound and declared, and declared then bound (the copy
+drops the declaration — the vector the EX-D3 critique named). The adversarial carriers, on the
+builder, builder-primary compiled and compiled-only paths alike: `ArmedRuntimeBuilder` and
+`ArmedRuntimePregel`, whose `__gebra_runtime__` is a raising property and whose
+`__getattribute__` records `__gebra_runtime__`, `config` and `__dict__`; `ArmedConfigCompiled`
+and `ArmedConfigPregel`, whose `config` property raises when gebra's own code reads it and records
+every other read with the module that made it; `RecordingDict` planted as an instance dictionary
+(of a builder and of a `Pregel`), as a `config` mapping and as a hand-set declaration;
+`RecordingKey`, a `str` subclass planted as `__gebra_runtime__`, as `recursion_limit` and as
+`config`; `RecordingInt`/`RecordingText` as declared and bound values; and four classes with a
+hostile name — a `str`-subclass `__module__`, a non-string `__module__`, a `str`-subclass
+`__qualname__`, a planted key that hashes as `__module__` — each placed at the seven positions a
+rejected value's type is named from (a hand-set attribute, the declaration object under its
+key, that object's `value`, its `justification`, a member key, a `config` that is not a mapping,
+an unusable bound value). Each hook records `(hook, module)` — the module whose code triggered
+it — before it answers, and an in-process control fires every hook once
+(`test_every_recorder_the_runtime_fixtures_use_does_record`; for the hostile names, the very
+read each one bars, `test_each_hostile_name_runs_the_authors_code_on_the_read_it_bars`); each
+armed carrier's `__getattribute__` recorder is likewise shown recording a watched read made from
+the test itself, beside the zero it guards — so each zero asserted below, in either ledger, is a
+measurement.
+`tests/extraction/test_runtime.py`'s guarded child extracts every shape on every path, with and
+without the sidecar, under name-resolution, socket, `compile`, `Pregel.invoke`/`stream`/
+`with_config` and `Runnable.invoke` raisers (`ChannelWrite` allow-listed and counted), counts
+the extractions that carry a declaration, and asserts `TRIPPED` empty, every hook and every
+watched read attributed to a `langgraph` module — the substrate's own drawing, below — and
+`langgraph.pregel.remote` absent; seventeen armed controls follow, among them a record seeded
+from a standard-library frame (`json.encoder`), which the claim refuses as it refuses gebra's,
+and one each proving the armed properties raise. In process, the same file pins each shape
+against a written table; the planted dictionaries, keys and declarations on the builder,
+compiled and compiled-only paths, and the hostile names at every position, with no hook at all;
+and the planted `config` contents with none outside a `langgraph` module, since the substrate's
+own merge compares and reads them (below).
+
+**The residue, stated rather than hidden** — measured on CPython 3.13.3 with langgraph 1.2.10
+and langchain-core 1.5.3, and none of it changed here. The compiled path's cross-check drawing,
+and the compiled-only path's topology surface, is LangGraph's own `Pregel.get_graph()`. It
+reads `self.config` through the object's own attribute access and merges it
+(`merge_configs`, `langgraph/_internal/_config.py`; the drawing's task preparation reads it
+again in `langgraph/pregel/_algo.py`), and with `xray=True` it draws each subgraph the same way.
+So: on a `Pregel` subclass whose class defines `config` as a property, the property runs once
+per drawing, inside `langgraph/pregel/main.py`; and the methods of non-plain content in
+`config` run inside the merge — a `dict` subclass, an `int` subclass or a planted `str`-subclass
+key a fixture puts there, and equally what an ordinary `with_config()` call puts there when the
+author passes it non-plain values (measured: a `str`-subclass `run_name` and an object under an
+unknown key have `__bool__` run, a `list`-subclass `tags` its `__iter__`/`__len__`, a
+`dict`-subclass `configurable` its `keys`/`__getitem__`/`__len__`/`get`). More broadly, the
+gate in front of the drawing (`compiled._drawing_hazard`) admits any `Pregel` subclass by
+`isinstance`, so such a subclass's own `get_graph`/`get_subgraphs` overrides are what
+`gebra.extraction.compiled` calls. All of it predates this card (EX-05's drawing and gate), sits
+outside A1-D19's six pinned drawing routes, and is routed rather than changed here — the gate is
+an extraction-semantics change for its own card (§5): EX-31 is filed for the three measured
+members of a user `Pregel` subclass (`get_graph`, `get_subgraphs`, `config`), and EX-D6 for the
+gate's reach and the `config` content the substrate's merge runs. For the armed `config`
+properties and the planted `config` contents, the tests pin every record to a `langgraph` module
+and none to gebra; the stock `with_config()` values and the subclass overrides were measured at
+this card's review and are not fixtured — an override's records would name
+`gebra.extraction.compiled`, which calls it. Two consequences of the read being an instance-dictionary read: a
+planted `str`-subclass key spelled `recursion_limit` or `config` is no binding to gebra (only an
+exact `str` key counts) while the substrate's own lookup compares it, and on a class whose
+`config` is a property the binding gebra records (the dictionary's) and the one the substrate
+would run with (the property's) can differ — the never-invokes read and the substrate's reading
+differ there by design. An object whose `__class__` claims `StateGraph` without being one is
+refused by `StateGraph`'s descriptor and carries no readable declaration; on the `Pregel` side
+the descriptor is `Runnable`'s, so an object that claims `Pregel` while being another real
+`Runnable` has its own dictionary read — harmlessly, since the read is the dictionary itself.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package
@@ -1375,6 +1481,10 @@ privilege boundary an author crosses by arranging to run their own code during t
 extraction (they could call it directly). The invariant the tripwires hold is the one that
 matters in practice: extraction of an **honest** workflow — including one with honestly-custom
 channels, checkpointers, or mappers, which are correctly declined by provenance — runs no node,
-router, tool, LLM, or network call, and no user callable a drawing would otherwise reach. Any
+router, tool, LLM, or network call, and no user callable the six pinned routes would reach. It
+is not wider than that: the drawing also reads the compiled object's `config` and merges its
+contents, so methods of non-plain values an author passed to `with_config()`, and members a
+`Pregel` subclass overrides, run in a drawing the gate admits (§4's EX-19 entry measures them;
+EX-31 and EX-D6 carry them). Any
 change to what the gate *verifies* is an extraction-semantics change for its own card and review,
 never a quiet edit here.

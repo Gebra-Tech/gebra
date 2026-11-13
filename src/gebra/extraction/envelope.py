@@ -38,6 +38,7 @@ Nothing here imports langgraph, opens a socket, or executes anything (WA-07).
 from __future__ import annotations
 
 import json
+from enum import Enum
 from itertools import pairwise
 from typing import Any
 
@@ -57,16 +58,19 @@ from gebra.extraction.warnings import (
     SlotGrade,
     slot_grade,
 )
+from gebra.ir.canonical import I_JSON_MAX_INT
 from gebra.ir.canonical import graph_version as compute_graph_version
 from gebra.ir.identity import NodeIdStr
 from gebra.ir.models import WorkflowIR
 
 __all__ = [
+    "BindingOutcome",
     "CompiledSurfaces",
     "CrossCheck",
     "ExtractedFrom",
     "ExtractionEnvelope",
     "FoldedDefault",
+    "RecursionLimitBinding",
     "RouterCodomain",
     "to_data",
     "to_json",
@@ -135,6 +139,49 @@ class RouterCodomain(ExtractionModel):
     path_map_labels: tuple[str, ...] = ()
 
 
+class BindingOutcome(str, Enum):
+    """What a ``with_config(recursion_limit=…)`` binding did beside the declarations (DEC-36 §3.3).
+
+    The binding is never a declaration, so it never fills ``runtime.recursion_limit``; it has
+    exactly three outcomes, and the record names which (ANNOTATION-API-SPEC §3;
+    INTROSPECTION-SPEC §4.1).
+    """
+
+    CORROBORATES = "corroborates"
+    """A declaration resolved, and its value equals the bound one."""
+
+    CONFLICTS = "conflicts"
+    """A declaration resolved with a different value: the declaration is kept — it is the
+    attested witness, the binding is what one call site configured — and an
+    ``annotation-conflict`` names both values and both surfaces."""
+
+    DISCLOSED = "disclosed"
+    """No declaration exists on either surface: the slot is absent, and a graph-scoped
+    ``recursion-limit-bound-without-justification`` disclosure says so."""
+
+
+class RecursionLimitBinding(ExtractionModel):
+    """A usable ``with_config(recursion_limit=…)`` binding on the compiled object (DEC-36 §3.3).
+
+    Provenance, outside hash scope: a binding is a compiled-level fact, read from the compiled
+    object's own instance dictionary (its ``config`` mapping), and it never enters the slot — so
+    the builder-level and compiled-level documents of one declared source carry the same
+    ``runtime.recursion_limit`` (ANNOTATION-API-SPEC §6's parity). Recorded only when the bound
+    value is usable — an ``int`` that is not a ``bool``, at least ``1`` and within ±(2⁵³−1); any
+    other bound value is an ``unsupported-construct`` warning and no binding. LangGraph's default
+    limit, and a limit passed when the graph is run, are not on the object and are never read:
+    with no binding there is no record, never a default.
+
+    Attributes:
+        value: The bound limit.
+        outcome: What the binding did beside the declarations — corroborated one, conflicted
+            with one, or was disclosed because there was none.
+    """
+
+    value: int = Field(ge=1, le=I_JSON_MAX_INT)
+    outcome: BindingOutcome
+
+
 class CrossCheck(ExtractionModel):
     """Whether the §4.2 compiled-level cross-check ran, and at what level.
 
@@ -160,7 +207,10 @@ class CompiledSurfaces(ExtractionModel):
 
     §4.1 names two facts outright as provenance-only — ``node_error_handler_map`` and
     folded-defaults resolution — and records the parents subgraph discovery found, whose
-    children ir 1.0/1.1 does not emit (see :mod:`gebra.extraction.compiled` for why).
+    children ir 1.0/1.1 does not emit (see :mod:`gebra.extraction.compiled` for why). A
+    ``with_config`` recursion-limit binding is provenance too (DEC-36 §3.3): it never fills
+    ``runtime.recursion_limit``, so it is recorded here, with what it did beside the
+    declarations.
     Everything §4 knows and the IR cannot carry is collected here rather than spread across
     :class:`ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one
     object.
@@ -187,12 +237,19 @@ class CompiledSurfaces(ExtractionModel):
         error_handlers: ``node_error_handler_map`` — node id → its error-handler node id.
         cross_check: The §4.2 cross-check record, or ``None`` on a path that has no builder to
             check against.
+        recursion_limit_binding: The compiled object's ``with_config(recursion_limit=…)``
+            binding and what it did beside the declarations (:class:`RecursionLimitBinding`),
+            or ``None`` when the object binds no usable limit (DEC-36 §3.3). Never a default:
+            "the provenance record is empty when no binding exists, not 25" (DEC-36 §3.4) — nor
+            10007, the default LangGraph's own loop applies at the pins (INTROSPECTION-SPEC §4.1,
+            correcting A1-D36's citation at A1-D39).
     """
 
     subgraphs: tuple[NodeIdStr, ...] = ()
     folded_defaults: tuple[FoldedDefault, ...] = ()
     error_handlers: dict[str, str] = Field(default_factory=dict)
     cross_check: CrossCheck | None = None
+    recursion_limit_binding: RecursionLimitBinding | None = None
 
 
 class ExtractedFrom(ExtractionModel):
@@ -258,7 +315,10 @@ class ExtractionEnvelope(ExtractionModel):
             the closed vocabulary of :mod:`gebra.extraction.disclosures` — in this build, one
             ``subgraph-read-as-one-node`` record per node that the §3 direct-mount read or
             §4.1's ``get_subgraphs()`` finds mounting or reaching a compiled subgraph the
-            document carries as that one node. **Not warnings**: no disclosure is
+            document carries as that one node, and one graph-scoped
+            ``recursion-limit-bound-without-justification`` record when a compiled graph binds
+            a recursion limit through ``with_config`` and no surface declares one, so
+            ``runtime.recursion_limit`` is absent (§4.1). **Not warnings**: no disclosure is
             a row of the §8 warning table, counts against the warning-free strict-mode bar,
             moves an exit code or is promoted by a strict flag — and none is droppable either,
             which is why they ride the return value too. They come after the warnings, in the
@@ -317,10 +377,7 @@ class ExtractionEnvelope(ExtractionModel):
 
     def disclosures_of(self, code: ExtractionDisclosureCode) -> tuple[ExtractionDisclosure, ...]:
         """Every disclosure carrying ``code``, in the §8 order."""
-        # By value: with one member in the vocabulary, mypy reads a member test as always true.
-        return tuple(
-            disclosure for disclosure in self.disclosures if disclosure.code.value == code.value
-        )
+        return tuple(disclosure for disclosure in self.disclosures if disclosure.code is code)
 
     def slot_grade(self, node: str, slot: AnnotationSlot) -> SlotGrade:
         """The ANNOTATION §5 grade of ``slot`` on ``node`` — declared, inferred or defaulted.

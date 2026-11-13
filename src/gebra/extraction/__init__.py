@@ -38,6 +38,15 @@ one, each node a subgraph read finds — a node bound to a compiled graph, or on
 reports — is disclosed as carried as that one node, never warned (DEC-36); the set is a lower
 bound, never a census.
 
+``runtime.recursion_limit`` — P-02's witness form (b) — is declared, never read off the graph
+(ratified — DEC-36): :mod:`gebra.extraction.runtime` reads the ``gebra.recursion_limit``
+declaration from the builder's instance dictionary (from the handed object's on the
+compiled-only path) over the sidecar's ``[runtime]`` table, so the builder and compiled documents
+of one declared source carry the same slot. A compiled graph's ``with_config(recursion_limit=…)``
+binding never fills it: it corroborates the declaration, conflicts with it (warned), or with no
+declaration is disclosed, and it is recorded in the compiled surfaces either way. LangGraph's
+default limit is never read.
+
 The whole ANNOTATION-API-SPEC surface is wired into that path.
 :mod:`gebra.extraction.contracts` walks §6's wrapper chain to the node's declared contract,
 reads a LangChain tool's ``args_schema`` as the tool-carried tier, hands §4's engine the
@@ -117,11 +126,13 @@ from gebra.extraction.dispatch import (
     unregister_extractor,
 )
 from gebra.extraction.envelope import (
+    BindingOutcome,
     CompiledSurfaces,
     CrossCheck,
     ExtractedFrom,
     ExtractionEnvelope,
     FoldedDefault,
+    RecursionLimitBinding,
     to_data,
     to_json,
 )
@@ -176,6 +187,7 @@ __all__ = [
     "WARNING_RULES",
     "WRAPPER_MEMBERS",
     "AnnotationSlot",
+    "BindingOutcome",
     "CarrierRule",
     "CompatClass",
     "CompiledSurfaces",
@@ -201,6 +213,7 @@ __all__ = [
     "NodeDigests",
     "ObjectFamily",
     "PromptGap",
+    "RecursionLimitBinding",
     "SlotGrade",
     "StateReading",
     "SubstrateVersions",

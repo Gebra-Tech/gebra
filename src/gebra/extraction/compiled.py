@@ -10,11 +10,23 @@ discipline.
 **Two paths, one family.** §4.3 splits the compiled family in two, and so does this module:
 
 * **Builder-primary** (rules 1–3). ``.builder`` is reachable, so §3 defines topology, state
-  schema and per-node declarations — this path *calls* :func:`~gebra.extraction.builder.extract_builder`
-  on the backreference rather than re-deriving any of it, which is what makes
+  schema and per-node declarations — this path runs the builder reading
+  (:func:`~gebra.extraction.builder.read_builder`, what ``extract_builder`` returns the envelope
+  of) on the backreference rather than re-deriving any of it, which is what makes
   "builder-authoritative-when-available" true by construction instead of by agreement. What the
   compiled level adds is layered on: the ``runtime`` block (§4.1), the provenance facts ir 1.0
   has no slot for, and the §4.2 cross-check.
+
+**``runtime.recursion_limit`` is declared, never read off the compiled level** (ratified —
+DEC-36). The slot comes from the builder reading — the builder's own ``__gebra_runtime__`` over
+the sidecar's ``[runtime]`` table — so the builder-level and compiled-level documents of one
+declared source carry the same slot (ANNOTATION-API-SPEC §6's parity), and on the compiled-only
+path from the handed object's own attribute over the same table. What the compiled level adds
+is a ``with_config(recursion_limit=…)`` binding, read from the object's instance dictionary, and
+it **never fills the slot**: it corroborates the declared value, conflicts with it (warned, the
+declaration kept), or — with no declaration — is disclosed, and in every case is recorded in
+:attr:`~gebra.extraction.envelope.CompiledSurfaces.recursion_limit_binding`. LangGraph's default
+limit is not on the object and is never read (:mod:`gebra.extraction.runtime`).
 * **Compiled-only** (rule 4). No ``.builder``, so ``get_graph()`` is the only topology surface
   there is and "every §3-derived field is downgraded one knowability class", recorded by one
   ``compiled-only-extraction`` warning per extraction.
@@ -109,7 +121,7 @@ from langgraph.pregel import Pregel
 from gebra.annotations.inference import SourceCache
 from gebra.annotations.sidecar import SidecarReading
 from gebra.extraction.base import ObjectFamily, type_identity
-from gebra.extraction.builder import END_LABEL, extract_builder
+from gebra.extraction.builder import END_LABEL, read_builder
 from gebra.extraction.contracts import resolve_node
 from gebra.extraction.disclosures import (
     DIRECT_MOUNT_READ,
@@ -128,6 +140,12 @@ from gebra.extraction.envelope import (
     FoldedDefault,
 )
 from gebra.extraction.errors import ExtractionError, ExtractionErrorReason
+from gebra.extraction.runtime import (
+    BindingReading,
+    DeclaredLimit,
+    read_binding,
+    read_compiled_only_declaration,
+)
 from gebra.extraction.sidecar import sidecar_warnings, unknown_node_warnings
 from gebra.extraction.warnings import ExtractionWarning, ExtractionWarningCode
 from gebra.ir.identity import RESERVED_SEGMENTS, NodeIdError, node_id_from_names
@@ -227,20 +245,23 @@ def _extract_builder_primary(
     A divergence is *recorded*, never resolved: the warning carries both readings and the IR
     keeps the builder's.
     """
-    inner = extract_builder(dispatch, sidecar=sidecar)
+    extraction = read_builder(dispatch, sidecar=sidecar)
+    inner = extraction.envelope
     node_ids = tuple(node.id for node in inner.ir.nodes)
-    runtime, warnings = _read_runtime(dispatch.workflow, node_ids)
-    ir = _with_runtime(inner.ir, runtime)
+    runtime = _read_runtime(dispatch.workflow, node_ids, extraction.declared)
+    ir = _with_runtime(inner.ir, runtime.runtime)
     check, divergences = _cross_check(dispatch.workflow, ir)
     discovered = _discover_subgraphs(dispatch.workflow)
     subgraphs = () if discovered is None else discovered
     # DEC-36 §3.6's union: the builder reading's direct mounts and the getter's parents, one
     # record per node naming the read(s) that saw it; any record of another code passes through.
-    # A getter that could not be read is not recorded as a read that ran.
+    # A getter that could not be read is not recorded as a read that ran. The binding record,
+    # when there is one, is graph-scoped and so comes first in the §8 order.
     direct, others = split_subgraph_disclosures(inner.disclosures)
     disclosures = in_disclosure_order(
         (
             *others,
+            *runtime.binding.disclosures,
             *subgraph_disclosures(
                 direct=direct,
                 discovered=subgraphs,
@@ -265,9 +286,10 @@ def _extract_builder_primary(
                 folded_defaults=_folded_defaults(dispatch.builder),
                 error_handlers=_error_handlers(dispatch.workflow),
                 cross_check=check,
+                recursion_limit_binding=runtime.binding.record,
             ),
         ),
-        warnings=(*inner.warnings, *warnings, *divergences),
+        warnings=(*inner.warnings, *runtime.warnings, *divergences),
         disclosures=disclosures,
     )
 
@@ -293,27 +315,44 @@ def _with_runtime(ir: WorkflowIR, runtime: Runtime) -> WorkflowIR:
 # ── §4.1: the compiled-level surfaces ────────────────────────────────────────────────────
 
 
-def _read_runtime(
-    compiled: object, node_ids: Sequence[str]
-) -> tuple[Runtime, tuple[ExtractionWarning, ...]]:
-    """The ``runtime`` block §4.1 makes Full-knowable at the compiled level (IR-SPEC §3.7).
+@dataclass(frozen=True)
+class _RuntimeReading:
+    """The compiled-level ``runtime`` block, its warnings, and the binding's provenance."""
 
-    Two of the three sub-slots are read here; the third, ``recursion_limit``, is
-    annotation-only (§7.1: "invoke-time config is not on the object"), so it stays absent.
+    runtime: Runtime
+    warnings: tuple[ExtractionWarning, ...]
+    binding: BindingReading
+
+
+def _read_runtime(
+    compiled: object, node_ids: Sequence[str], declared: DeclaredLimit | None
+) -> _RuntimeReading:
+    """The ``runtime`` block at the compiled level (IR-SPEC §3.5, §3.7; INTROSPECTION §4.1).
+
+    ``interrupts`` and ``checkpointer`` are read here, Full-knowable at this level. The third
+    sub-slot, ``recursion_limit``, is **declared**, never read off the compiled object: it is
+    ``declared`` — what the two declaration tiers resolved to, on the builder reading or, on
+    the compiled-only path, off the handed object — or absent. The compiled level contributes
+    the ``with_config`` binding, which corroborates, conflicts with or (with no declaration)
+    discloses, and never enters the slot (DEC-36 §3.3); the substrate's default limit is never
+    read (§3.4).
 
     ``checkpointer`` is emitted **either way** — §4.1: "a known fact either way at compiled
     level, so both values are emitted explicitly; at builder level the slot is absent
     (unknown, never guessed)". That asymmetry is the whole point of the slot, and it is why a
-    compiled extraction always carries a ``runtime`` object while a builder one never does.
+    compiled extraction always carries a ``runtime`` object while a builder one carries one
+    only when a declared ``recursion_limit`` resolves.
     """
     interrupts, warnings = _read_interrupts(compiled, node_ids)
-    return (
-        Runtime(
-            recursion_limit=None,
+    binding = read_binding(compiled, declared)
+    return _RuntimeReading(
+        runtime=Runtime(
+            recursion_limit=None if declared is None else declared.limit,
             interrupts=interrupts,
             checkpointer=_checkpointer(compiled),
         ),
-        warnings,
+        warnings=(*warnings, *binding.warnings),
+        binding=binding,
     )
 
 
@@ -994,7 +1033,11 @@ def _extract_compiled_only(
 
     The compiled-level slots are **not** downgraded: ``runtime.interrupts`` and
     ``runtime.checkpointer`` are Full "at the compiled level only" (§7.1), and this *is* that
-    level.
+    level. ``runtime.recursion_limit`` is declared rather than derived, so it is not a
+    §3-derived field either: with no builder to carry it, the declaration is read off the
+    handed object itself — "only an object with no builder carries the attribute itself"
+    (ANNOTATION-API-SPEC §1a) — over the sidecar's ``[runtime]`` table, which is what makes the
+    table the surface for a graph whose code an adopter cannot annotate (§2, §6).
     """
     workflow = dispatch.workflow
     hazard = _drawing_hazard(workflow, xray=False)
@@ -1030,7 +1073,8 @@ def _extract_compiled_only(
         )
     node_ids = tuple(sorted(reading.node_ids.values()))
     contracts, contract_warnings = _resolve_without_builder(node_ids, annotations)
-    runtime, runtime_warnings = _read_runtime(workflow, node_ids)
+    declaration = read_compiled_only_declaration(workflow, annotations)
+    runtime = _read_runtime(workflow, node_ids, declaration.declared)
     edges: tuple[Edge, ...] = (
         *(
             NormalEdge(kind="normal", **{"from": source}, to=target)
@@ -1049,7 +1093,7 @@ def _extract_compiled_only(
         state=None,
         nodes=tuple(Node(id=node_id, annotations=contracts.get(node_id)) for node_id in node_ids),
         edges=edges,
-        runtime=runtime,
+        runtime=runtime.runtime,
     )
     discovered = _discover_subgraphs(workflow)
     subgraphs = () if discovered is None else discovered
@@ -1062,21 +1106,29 @@ def _extract_compiled_only(
             compiled=CompiledSurfaces(
                 subgraphs=subgraphs,
                 error_handlers=_error_handlers(workflow),
+                recursion_limit_binding=runtime.binding.record,
             ),
         ),
         warnings=(
             *sidecar_warnings(annotations),
             _compiled_only_warning(workflow),
             *reading.warnings,
-            *runtime_warnings,
+            *declaration.warnings,
+            *runtime.warnings,
             *contract_warnings,
             *unknown_node_warnings(annotations, node_ids),
         ),
         # §4.3 rule 4 has no builder, so no direct-mount read: the getter's parents are the
-        # whole disclosed set here, and every `checkpointer=False` child is invisible (DEC-36).
-        disclosures=subgraph_disclosures(
-            discovered=subgraphs,
-            reads_performed=() if discovered is None else (GET_SUBGRAPHS_READ,),
+        # whole subgraph set here, and every `checkpointer=False` child is invisible (DEC-36).
+        # The binding record, when there is one, is graph-scoped and comes first (§8).
+        disclosures=in_disclosure_order(
+            (
+                *runtime.binding.disclosures,
+                *subgraph_disclosures(
+                    discovered=subgraphs,
+                    reads_performed=() if discovered is None else (GET_SUBGRAPHS_READ,),
+                ),
+            )
         ),
     )
 

@@ -33,12 +33,27 @@ extraction side turns into ``annotation-invalid`` warnings. The one thing the lo
 do is guess: a slot it cannot read is left **unset**, so the lower precedence tiers of §3 fill
 it, rather than filled with something nobody declared.
 
+**The second table, ``[runtime]``** (ratified — DEC-36, 2026-10-28). Beside the
+``[nodes.<id>]`` tables the file has one graph-scoped table, not keyed by a node id, admitting
+exactly one key: ``recursion_limit = { value = <int>, justification = "<text>" }``, the IR slot's
+own shape (IR-SPEC §3.5) and the sidecar's surface for P-02's witness form (b). **Both members
+are required** — the justification attests the number written beside it — and they are checked
+by the same validator the code surface ``gebra.recursion_limit`` uses
+(:func:`~gebra.annotations.runtime.check_recursion_limit`), so the two refuse alike. Every
+rejection leaves the declaration absent — never the substrate's default limit, never a bound
+value — and is warned with scope ``runtime``. ``interrupts`` and ``checkpointer`` are extracted,
+never annotated, so a ``[runtime]`` key naming either, or anything else, is ignored and warned.
+The schema tag stays ``gebra-sidecar-v1``: a reader predating the table reports it as an unknown
+top-level key and still loads every ``[nodes.*]`` entry.
+
 **What this module does not do.** It does not resolve anything into an IR. §3's per-slot
-precedence chain (Decorator > Tool-carried > Sidecar > Inference), its conflict warnings, and
-the resolved-contract validation are a later card; this module's output is a parsed, validated
-:class:`NodeContract` per entry key and nothing more. Until that card lands, a sidecar reaches
-the provenance envelope and its warnings, and no sidecar value reaches the IR or
-``graph_version``.
+precedence chain (Decorator > Tool-carried > Sidecar > Inference), its conflict warnings and the
+resolved-contract validation are :mod:`gebra.annotations.resolve`'s, applied per node by
+:mod:`gebra.extraction.contracts`; the graph-level ladder for ``[runtime]`` (graph-level
+declaration > sidecar, with a ``with_config`` binding that never fills the slot) is
+:mod:`gebra.extraction.runtime`'s. This module's output is a parsed, validated
+:class:`NodeContract` per entry key and the validated ``recursion_limit`` declaration, and
+nothing more.
 
 Nothing here imports langgraph, opens a socket, or executes anything (WA-07). It reads exactly
 one file — the sidecar — and parses it as TOML data; no value in the file is ever called, and
@@ -74,8 +89,15 @@ from gebra.annotations.contract import (
     normalize_effect_members,
 )
 from gebra.annotations.errors import ContractErrorReason, GebraContractError
+from gebra.annotations.runtime import (
+    RECURSION_LIMIT_KEY,
+    RECURSION_LIMIT_SLOT,
+    check_recursion_limit,
+    describe_declared,
+)
 from gebra.annotations.slots import EFFECT_TAGS, AnnotationSlot
 from gebra.ir.identity import NodeIdError, validate_node_id
+from gebra.ir.models import RecursionLimit
 from gebra.naming import type_identity
 
 if sys.version_info >= (3, 11):
@@ -110,9 +132,14 @@ SIDECAR_SCHEMA: Final = "gebra-sidecar-v1"
 #: submodule both carry a ``.git`` **file**, and both are repository roots for this purpose.
 _GIT_ENTRY: Final = ".git"
 
-#: The top-level keys the file format has. ``nodes`` is optional — a sidecar that declares
-#: only its schema is a well-formed empty sidecar, not a defect.
-_FILE_KEYS: Final[frozenset[str]] = frozenset({"schema", "nodes"})
+#: The top-level keys the file format has. ``nodes`` and ``runtime`` are optional — a sidecar
+#: that declares only its schema is a well-formed empty sidecar, not a defect. ``runtime`` is
+#: the graph-scoped table DEC-36 added under the unchanged schema tag (§2).
+_FILE_KEYS: Final[frozenset[str]] = frozenset({"schema", "nodes", "runtime"})
+
+#: The ``[runtime]`` key the format admits, and the two §1 says are extracted, never annotated
+#: — named in the warning when an author reaches for one of them.
+_EXTRACTED_RUNTIME_KEYS: Final[frozenset[str]] = frozenset({"interrupts", "checkpointer"})
 
 
 class SidecarSource(str, Enum):
@@ -137,11 +164,14 @@ class SidecarSource(str, Enum):
 class SidecarRule(str, Enum):
     """The §2 rule a :class:`SidecarIssue` reports as violated — a stable code to branch on.
 
-    §2's validation list has five bullets and each has its own code here, so "every §2 rule
-    degrades to a warning" is checkable per rule rather than by message text. The remaining
-    codes cover the ways a *file* can fail to be readable at all, which §2 does not enumerate
-    but whose grade its own sentence fixes: the sidecar surface produces warnings, never
-    errors.
+    §2's validation list had five bullets when the loader landed, and each has its own code
+    here, so "every §2 rule degrades to a warning" is checkable per rule rather than by message
+    text; DEC-36 added three ``[runtime]`` bullets — an unknown ``[runtime]`` key and a malformed
+    ``recursion_limit`` have a code each, and ``recursion_limit`` written in a ``[nodes.<id>]``
+    table stays :attr:`SLOT_KEY_UNKNOWN` with a message pointing at ``[runtime]``. The
+    remaining codes cover the ways a *file* — or one of its two tables — can fail to be
+    readable at all, which §2 does not enumerate but whose grade its own sentence fixes: the
+    sidecar surface produces warnings, never errors.
 
     Attributes:
         FILE_UNREADABLE: The path does not exist, is not a file, could not be opened, or is
@@ -154,7 +184,7 @@ class SidecarRule(str, Enum):
         SCHEMA_MISSING: §2 bullet 1, absent half — no ``schema`` key.
         SCHEMA_UNKNOWN: §2 bullet 1, wrong-value half — a ``schema`` other than
             :data:`SIDECAR_SCHEMA`.
-        FILE_KEY_UNKNOWN: A top-level key that is neither ``schema`` nor ``nodes``.
+        FILE_KEY_UNKNOWN: A top-level key that is not ``schema``, ``nodes`` or ``runtime``.
         NODES_TABLE_INVALID: ``nodes`` is present but is not a table.
         ENTRY_KEY_NOT_A_NODE_ID: A ``[nodes.…]`` key that the IR-SPEC §5 grammar does not
             admit, so it is not the escaped node id §2 requires it to be and can match
@@ -172,6 +202,21 @@ class SidecarRule(str, Enum):
             **both** slots are rejected, "the loader has no basis to prefer one".
         DETERMINISTIC_SEED_REQUIRED: §2 bullet 5 — a ``deterministic`` object without
             ``seed``.
+        RUNTIME_TABLE_INVALID: ``runtime`` is present but is not a table, so no declaration is
+            read from it (ratified — DEC-36). The ``[runtime]`` counterpart of
+            :attr:`NODES_TABLE_INVALID`.
+        RUNTIME_KEY_UNKNOWN: §2's ``[runtime]`` bullet — a key other than
+            ``recursion_limit``; ``interrupts`` and ``checkpointer`` are extracted, never
+            annotated (§1). The key is ignored (ratified — DEC-36).
+        RECURSION_LIMIT_INVALID: §2's ``[runtime].recursion_limit`` bullet — not a table, a
+            ``value`` missing, not an integer (a TOML boolean included), below ``1`` or outside
+            ±(2⁵³−1), or a ``justification`` missing, not a string or blank — and, beside the
+            bullet's clauses, a member other than ``value`` and ``justification``
+            (``member-unknown``: the IR slot's shape is exactly those two). One code for the
+            bullet, with the clause each violation breaks in ``detail["violations"]``
+            (:class:`~gebra.annotations.runtime.RecursionLimitViolation`) and any unknown member
+            in ``detail["unknown_members"]``; the declaration stays absent — never the substrate
+            default, never a bound value (ratified — DEC-36).
     """
 
     FILE_UNREADABLE = "file-unreadable"
@@ -187,6 +232,9 @@ class SidecarRule(str, Enum):
     EFFECT_TAG_UNKNOWN = "effect-tag-unknown"
     PURE_EFFECT_EXCLUSIVE = "pure-effect-exclusive"
     DETERMINISTIC_SEED_REQUIRED = "deterministic-seed-required"
+    RUNTIME_TABLE_INVALID = "runtime-table-invalid"
+    RUNTIME_KEY_UNKNOWN = "runtime-key-unknown"
+    RECURSION_LIMIT_INVALID = "recursion-limit-invalid"
 
 
 @dataclass(frozen=True)
@@ -204,12 +252,14 @@ class SidecarIssue:
         rule: The violated §2 rule.
         message: A one-line human summary. Display-only, like every other warning message in
             this build: the facts are the fields.
-        node: The entry's node id, for a node-scoped finding; ``None`` for a file-scoped one.
-            Always a string the §5 grammar admits, since an entry with any other key is
-            rejected before its contents are read.
-        slots: The IR slot names the finding concerns, empty for a file-scoped one.
-        detail: The rest of §2's "carries" list as JSON data — scope, surface, the file, the
-            rule, and the value(s) involved.
+        node: The entry's node id, for a node-scoped finding; ``None`` for a file- or
+            ``runtime``-scoped one. Always a string the §5 grammar admits, since an entry with
+            any other key is rejected before its contents are read.
+        slots: The IR slot names the finding concerns, empty for a file-scoped one — and for a
+            ``runtime``-scoped one, whose slot has no spelling in the node-slot vocabulary and is
+            named in ``detail["slot"]`` as ``runtime.recursion_limit`` instead (§4, DEC-36).
+        detail: The rest of §2's "carries" list as JSON data — scope (``file``, ``node`` or
+            ``runtime``), surface, the file, the rule, and the value(s) involved.
     """
 
     rule: SidecarRule
@@ -238,12 +288,19 @@ class SidecarReading:
             slots was rejected is still present, carrying an empty contract: the key is what
             §2's unmatched-key rule is about, and dropping it would hide a stale key behind an
             invalid value.
+        recursion_limit: The ``[runtime].recursion_limit`` declaration — the IR slot's own
+            object, both members validated — or ``None`` when the file declares none or the one
+            it declares was rejected (ratified — DEC-36). Graph-scoped: it is keyed by nothing,
+            so it applies to whatever graph this sidecar governs, and it is the second tier of
+            the graph-level ladder, below a ``gebra.recursion_limit`` declaration in code
+            (ANNOTATION-API-SPEC §3).
         issues: Every §2 finding, in file order.
     """
 
     source: SidecarSource = SidecarSource.ABSENT
     path: Path | None = None
     entries: Mapping[str, NodeContract] = field(default_factory=dict)
+    recursion_limit: RecursionLimit | None = None
     issues: tuple[SidecarIssue, ...] = ()
 
     @property
@@ -370,11 +427,14 @@ def _read_file(path: Path, *, source: SidecarSource) -> SidecarReading:
 
     Every way the bytes can fail to become a document is caught, because §2's grade for this
     surface is a warning and a single uncaught exception here would make "extraction stays
-    total" false for a file the author can fix in a second. Three of them are easy to miss:
+    total" false for a file the author can fix in a second. Four of them are easy to miss:
     ``Path.resolve`` refuses a path the operating system cannot express; ``tomllib`` decodes
     the bytes as UTF-8 *before* parsing, so a file saved in another encoding raises
-    :class:`UnicodeDecodeError` rather than ``TOMLDecodeError``; and the parse itself can
-    exhaust the interpreter's stack on a pathologically nested document.
+    :class:`UnicodeDecodeError` rather than ``TOMLDecodeError``; the parse itself can
+    exhaust the interpreter's stack on a pathologically nested document; and an integer literal
+    longer than the interpreter's integer-string limit (4300 digits by default) makes the parse
+    raise a plain :class:`ValueError` — ``TOMLDecodeError`` is a ``ValueError`` too, so one
+    clause takes both. TOML's own integers are 64-bit, so such a file is no document either.
     """
     try:
         absolute = _absolute(path)
@@ -414,7 +474,7 @@ def _read_file(path: Path, *, source: SidecarSource) -> SidecarReading:
             "extraction proceeds without it",
             {"error": error.strerror or type_identity(error)},
         )
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError, RecursionError) as error:
+    except (ValueError, RecursionError) as error:  # TOMLDecodeError, UnicodeDecodeError included
         return _not_loaded(
             source,
             absolute,
@@ -444,9 +504,17 @@ def _read_file(path: Path, *, source: SidecarSource) -> SidecarReading:
             {"schema": _reportable(schema)},
         )
 
+    # One pass over the top-level keys in the order the file defines them, so the issues come
+    # out in file order whichever of `[runtime]` and `[nodes]` the author wrote first.
     issues: list[SidecarIssue] = []
-    for key in document:
-        if key not in _FILE_KEYS:
+    entries: dict[str, NodeContract] = {}
+    recursion_limit: RecursionLimit | None = None
+    for key, value in document.items():
+        if key == "nodes":
+            entries = _read_nodes(value, absolute, issues)
+        elif key == "runtime":
+            recursion_limit = _read_runtime(value, absolute, issues)
+        elif key not in _FILE_KEYS:
             issues.append(
                 _file_issue(
                     absolute,
@@ -457,13 +525,61 @@ def _read_file(path: Path, *, source: SidecarSource) -> SidecarReading:
                     {"key": key},
                 )
             )
-    entries = _read_nodes(document.get("nodes"), absolute, issues)
     return SidecarReading(
         source=source,
         path=absolute,
         entries=MappingProxyType(entries),
+        recursion_limit=recursion_limit,
         issues=tuple(issues),
     )
+
+
+def _read_runtime(table: object, path: Path, issues: list[SidecarIssue]) -> RecursionLimit | None:
+    """``[runtime]`` → the validated ``recursion_limit`` declaration, or ``None`` (§2; DEC-36).
+
+    The table admits one key. Each other key is ignored and warned, and a ``recursion_limit``
+    the shared validator rejects leaves the declaration absent — "never the substrate default,
+    never a bound value" — with one ``recursion-limit-invalid`` naming every clause it broke. An
+    empty ``[runtime]`` table declares nothing and is no defect.
+    """
+    if not isinstance(table, dict):
+        issues.append(
+            _runtime_issue(
+                path,
+                SidecarRule.RUNTIME_TABLE_INVALID,
+                f'the sidecar {path} has a "runtime" key that is not a table, so no '
+                "runtime.recursion_limit declaration is read from it (ANNOTATION-API-SPEC §2)",
+                {"value": _runtime_reportable(table)},
+            )
+        )
+        return None
+    declared: RecursionLimit | None = None
+    for key, value in table.items():
+        if key != RECURSION_LIMIT_KEY:
+            issues.append(_unknown_runtime_key(key, value, path))
+            continue
+        checked = check_recursion_limit(value)
+        if checked.declaration is None:
+            issues.append(
+                _runtime_issue(
+                    path,
+                    SidecarRule.RECURSION_LIMIT_INVALID,
+                    f"the sidecar {path} declares [runtime].recursion_limit in a form the slot "
+                    f"does not carry: {checked.message}. The declaration is left absent — "
+                    "never the substrate's default limit, never a bound value "
+                    "(ANNOTATION-API-SPEC §2)",
+                    {
+                        "key": key,
+                        "slot": RECURSION_LIMIT_SLOT,
+                        "violations": tuple(violation.value for violation in checked.violations),
+                        "declared": _declared(value),
+                        "unknown_members": checked.unknown_members,
+                    },
+                )
+            )
+            continue
+        declared = checked.declaration
+    return declared
 
 
 def _read_nodes(
@@ -681,14 +797,91 @@ def _file_issue(
     )
 
 
+def _runtime_issue(
+    path: Path,
+    rule: SidecarRule,
+    message: str,
+    detail: Mapping[str, Any],
+) -> SidecarIssue:
+    """A ``runtime``-scoped issue: no node, no slots, scope ``runtime`` (§2, §4; DEC-36)."""
+    return SidecarIssue(
+        rule=rule,
+        message=message,
+        detail={
+            "scope": "runtime",
+            "surface": "sidecar",
+            "file": str(path),
+            "rule": rule.value,
+            **detail,
+        },
+    )
+
+
+def _unknown_runtime_key(key: str, value: object, path: Path) -> SidecarIssue:
+    """§2's ``[runtime]`` bullet — a key other than ``recursion_limit``, which is ignored."""
+    why = (
+        "it is extracted from the compiled graph, never annotated (ANNOTATION-API-SPEC §1)"
+        if key in _EXTRACTED_RUNTIME_KEYS
+        else f"the table admits only {RECURSION_LIMIT_KEY!r} (ANNOTATION-API-SPEC §2)"
+    )
+    return _runtime_issue(
+        path,
+        SidecarRule.RUNTIME_KEY_UNKNOWN,
+        f"the sidecar {path} has the [runtime] key {key!r}, which is ignored: {why}",
+        {"key": key, "value": _runtime_reportable(value)},
+    )
+
+
+def _declared(value: object) -> Any:
+    """A rejected ``recursion_limit`` as a warning carries it: its members, or what it was.
+
+    The two members a reader recognizes a declaration by are carried one by one, each through
+    :func:`_runtime_reportable`; a value that is not a table at all is named whole, the same way.
+    """
+    if not isinstance(value, dict):
+        return _runtime_reportable(value)
+    return {
+        name: _runtime_reportable(member)
+        for name, member in value.items()
+        if name in ("value", "justification")
+    }
+
+
+def _runtime_reportable(value: object) -> Any:
+    """A ``[runtime]`` value as its record carries it: :func:`_reportable`'s reading, except that
+    an integer outside ±(2⁵³−1) is named — as
+    :func:`~gebra.annotations.runtime.describe_declared` names it on the code surface — rather
+    than carried. ``tomllib`` bounds only a decimal literal by the interpreter's 4300-digit
+    limit, so a hexadecimal, octal or binary literal parses into an integer of any length, and
+    one past that limit is a number no report could render.
+    """
+    if isinstance(value, int) and not isinstance(value, bool):
+        return describe_declared(value)
+    return _reportable(value)
+
+
 def _unknown_slot_key(node_id: str, keyword: str, path: Path) -> SidecarIssue:
-    """§2 bullet 2 — a key outside the closed nine, "typos included"."""
+    """§2 bullet 2 — a key outside the closed nine, "typos included".
+
+    ``recursion_limit`` is one such key with a home of its own: it is the graph-level slot, so
+    the message points at the ``[runtime]`` table rather than leaving it at "not a node slot"
+    (§2, ratified — DEC-36).
+    """
+    pointer = (
+        (
+            "; runtime.recursion_limit is graph-level, so declare it in the [runtime] table "
+            '(recursion_limit = { value = <int>, justification = "<text>" }) or with '
+            "gebra.recursion_limit(graph, value, justification=...) (ANNOTATION-API-SPEC §1a, §2)"
+        )
+        if keyword == RECURSION_LIMIT_KEY
+        else ""
+    )
     return SidecarIssue(
         rule=SidecarRule.SLOT_KEY_UNKNOWN,
         message=(
             f"the sidecar entry for {node_id!r} has the key {keyword!r}, which is not one of "
             f"the nine annotatable slots ({', '.join(SLOT_KEYWORDS)}); the key is ignored "
-            f"(ANNOTATION-API-SPEC §1's closed set, shared byte-for-byte with §2)"
+            f"(ANNOTATION-API-SPEC §1's closed set, shared byte-for-byte with §2){pointer}"
         ),
         node=node_id,
         detail={

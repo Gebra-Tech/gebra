@@ -34,8 +34,12 @@ belong to other cards are named where they would go rather than left to be notic
   §3 ``state`` row end to end (the type/reducer/optional projection, the §6.3 collapse, and
   the managed-value split that keeps those keys in provenance rather than in Σ).
 * ``runtime`` — interrupts and the checkpointer are compiled-level surfaces that §3 records
-  as "absent (never guessed) at builder level" (§7.1), and ``recursion_limit`` is
-  annotation-only. So the block is absent here by all three routes.
+  as "absent (never guessed) at builder level" (§7.1). ``recursion_limit`` is the one
+  ``runtime`` sub-slot that is declared rather than compiled-level, "emitted at every level
+  where a declaration resolves" (§3, ratified — DEC-36): the builder's own
+  ``__gebra_runtime__``, read from its instance dictionary, over the sidecar's ``[runtime]``
+  table (:mod:`gebra.extraction.runtime`). So the block is present here exactly when a
+  declaration resolves, carrying that slot alone, and absent otherwise.
 
 **Where this path stops — the boundary refusals, and why only these.** §2 puts hard failure
 at the object boundary and nowhere else ("extraction is total over supported objects"), so a
@@ -113,6 +117,7 @@ from gebra.extraction.disclosures import (
 from gebra.extraction.envelope import ExtractedFrom, ExtractionEnvelope, RouterCodomain
 from gebra.extraction.errors import ExtractionError, ExtractionErrorReason
 from gebra.extraction.routing import RouterHint, declared_return_hint, spell_routing_label
+from gebra.extraction.runtime import DeclaredLimit, read_builder_declaration
 from gebra.extraction.sidecar import sidecar_warnings, unknown_node_warnings
 from gebra.extraction.state import read_state
 from gebra.extraction.warnings import ExtractionWarning, ExtractionWarningCode
@@ -125,6 +130,7 @@ from gebra.ir.models import (
     Node,
     NormalEdge,
     RetryPolicy,
+    Runtime,
     SendEdge,
     StateField,
     WorkflowIR,
@@ -136,7 +142,7 @@ if TYPE_CHECKING:
 
     from gebra.extraction.dispatch import Dispatch
 
-__all__ = ["extract_builder"]
+__all__ = ["BuilderExtraction", "extract_builder", "read_builder"]
 
 #: The IR spelling of the END sentinel inside a ``path_map`` (IR-SPEC §2.4/§4.2 (m3)).
 #:
@@ -174,11 +180,14 @@ def extract_builder(
     Returns:
         The envelope: the core IR, its provenance, the structured warnings and the
         disclosures. Warning order is by source: the sidecar's own file-level findings, then
-        the §3 reading's, then the unmatched-key findings — which come last because they are
-        the one sidecar fact that cannot be known before the node set exists. The disclosures
-        are one ``subgraph-read-as-one-node`` record per directly mounted subgraph, in node-id
-        order (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an
-        uncompiled builder has no ``get_subgraphs()`` to ask.
+        the §3 reading's, then the graph-level declaration's (an ill-formed
+        ``__gebra_runtime__``, a sidecar ``[runtime]`` object that differs from it), then the
+        unmatched-key findings — which come last because they are the one sidecar fact that
+        cannot be known before the node set exists. The disclosures are one
+        ``subgraph-read-as-one-node`` record per directly mounted subgraph, in node-id order
+        (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an uncompiled
+        builder has no ``get_subgraphs()`` to ask. ``runtime`` carries ``recursion_limit``
+        alone when a declaration resolves, and is absent otherwise.
 
     Raises:
         ExtractionError: at the object boundary — a node name or a routing target with no
@@ -186,6 +195,35 @@ def extract_builder(
             §6's dispatch cannot spell, or two routing labels that collide after projection.
             Never a silent partial IR (§2); nothing about the sidecar is ever raised (§2 puts
             that surface wholly at warning grade).
+    """
+    return read_builder(dispatch, sidecar=sidecar).envelope
+
+
+@dataclass(frozen=True)
+class BuilderExtraction:
+    """The §3 extraction and the one fact the compiled path layers on that it cannot re-derive.
+
+    Attributes:
+        envelope: What :func:`extract_builder` returns.
+        declared: The ``runtime.recursion_limit`` declaration the ladder resolved and the surface
+            it came from, or ``None``. The compiled path needs the surface — a binding that
+            contradicts the declaration names it (ANNOTATION-API-SPEC §3) — and reading the
+            builder's dictionary a second time to learn it would also report its findings
+            twice.
+    """
+
+    envelope: ExtractionEnvelope
+    declared: DeclaredLimit | None
+
+
+def read_builder(
+    dispatch: Dispatch, /, *, sidecar: SidecarReading | None = None
+) -> BuilderExtraction:
+    """:func:`extract_builder`'s reading, with the resolved declaration beside the envelope.
+
+    The one place the §3 rule set runs: :func:`extract_builder` returns its envelope, and the
+    builder-primary compiled path (§4.3 rule 1) layers its compiled-level facts on the same
+    reading, so the two documents of one source cannot disagree about anything §3 decides.
     """
     builder = dispatch.builder
     if builder is None:  # pragma: no cover - classify() sets it for every BUILDER dispatch
@@ -197,8 +235,13 @@ def extract_builder(
         )
     annotations = SidecarReading() if sidecar is None else sidecar
     reading = _read(builder, workflow=dispatch.workflow, sidecar=annotations)
-    ir = reading.ir()
-    return ExtractionEnvelope(
+    declaration = read_builder_declaration(builder, annotations)
+    ir = reading.ir(
+        None
+        if declaration.declared is None
+        else Runtime(recursion_limit=declaration.declared.limit)
+    )
+    envelope = ExtractionEnvelope(
         ir=ir,
         extracted_from=ExtractedFrom(
             source=type_identity(dispatch.workflow),
@@ -210,6 +253,7 @@ def extract_builder(
         warnings=(
             *sidecar_warnings(annotations),
             *reading.warnings,
+            *declaration.warnings,
             *unknown_node_warnings(annotations, (node.id for node in ir.nodes)),
         ),
         disclosures=subgraph_disclosures(
@@ -218,6 +262,7 @@ def extract_builder(
             unseen=NO_GETTER_ON_A_BUILDER,
         ),
     )
+    return BuilderExtraction(envelope=envelope, declared=declaration.declared)
 
 
 @dataclass
@@ -305,8 +350,13 @@ class _Reading:
             )
         )
 
-    def ir(self) -> WorkflowIR:
-        """Assemble the core IR from what was read (IR-SPEC §2.1)."""
+    def ir(self, runtime: Runtime | None = None) -> WorkflowIR:
+        """Assemble the core IR from what was read (IR-SPEC §2.1).
+
+        ``runtime`` is the one block this reading does not collect itself: at builder level it
+        carries ``recursion_limit`` alone, when a declaration resolves (§3, DEC-36), and is
+        ``None`` — the slot absent — otherwise.
+        """
         nodes = tuple(
             Node(
                 id=node_id,
@@ -335,7 +385,7 @@ class _Reading:
             state=self.state,
             nodes=nodes,
             edges=edges,
-            runtime=None,
+            runtime=runtime,
         )
 
 

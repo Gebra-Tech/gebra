@@ -108,9 +108,9 @@ print(f"{'exported names':22}{sum(len(p.__all__) for p in PACKAGES):4}")
 
 <!-- gebra:output id=the-public-packages -->
 ```text
-gebra                   10
-gebra.extraction        77
-gebra.annotations       55
+gebra                   11
+gebra.extraction        79
+gebra.annotations       58
 gebra.ir                68
 gebra.verify           170
 gebra.snapshot           7
@@ -125,12 +125,12 @@ gebra.testing           29
 gebra.pytest_plugin     34
 gebra.cli                2
                       ----
-exported names         589
+exported names         595
 ```
 
 | Package | What it owns | Where it is documented |
 |---|---|---|
-| `gebra` | The ten top-level entry points, resolved lazily. | [API reference](api.md#gebra) |
+| `gebra` | The eleven top-level entry points, resolved lazily. | [API reference](api.md#gebra) |
 | `gebra.extraction` | Dispatch, the provenance envelope, the warnings taxonomy and the disclosures beside it, the version check. | [API reference](api.md#gebraextraction) · [Extract your first IR](../tutorials/extract-your-first-ir.md) |
 | `gebra.annotations` | The decorator family, the `gebra.toml` sidecar, inference, and the four-tier per-slot precedence. | [API reference](api.md#gebraannotations) · [Contracts and annotations](../tutorials/contracts-and-annotations.md) |
 | `gebra.ir` | The models, node identity, the canonical form and `graph_version`, the loaders. | [API reference](api.md#gebrair) · [The IR, node identity and graph_version](../concepts/ir-and-graph-version.md) |
@@ -276,7 +276,7 @@ sixteen public packages, exactly two pull the execution substrate into their imp
 | Does not | `gebra`, `gebra.ir`, `gebra.verify`, `gebra.annotations`, `gebra.store`, `gebra.versioning`, `gebra.diff`, `gebra.lineage`, `gebra.audit`, `gebra.report`, `gebra.display`, `gebra.testing`, `gebra.pytest_plugin`, `gebra.cli` |
 
 Two consequences a reader can act on. A bare `import gebra` does not import the substrate:
-the ten top-level names are resolved lazily on first attribute access (PEP 562), so
+the eleven top-level names are resolved lazily on first attribute access (PEP 562), so
 annotating a node function with `@gebra.contract` costs nothing at import time and does not
 drag the extractor in behind it. And a process that only reads serialized IR — a CI job that
 verifies a checked-in `agent.ir.yaml`, a tool that diffs two stored versions — imports none
@@ -303,9 +303,9 @@ sets; the page that lists them is the [API reference](api.md).
 |---|---|---|---|
 | `gebra.ir` | 68 | `docs/governance/IR-MODELS-FREEZE.md` (card IR-06) | A decision record **and** an `ir_version` bump — additive-optional is a minor, anything that moves existing bytes is a major. A ruled change that moves no conforming document's bytes can carve itself out; the node-id uniqueness constraint did. |
 | `gebra.verify` | 170 | `docs/governance/VALIDATOR-API-FREEZE.md` (card VAL-12) | An R-05-routed decision: proposal, vault sign-off, then the re-vendored commit. |
-| `gebra` | 10 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 (card EX-15) | A decision record before anything new is emitted; refactors that move no name are unaffected. |
-| `gebra.extraction` | 77 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 (card EX-15) | The same, plus an `ir_version` bump for anything that lands a new ledger slot. |
-| `gebra.annotations` | 55 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 (card EX-15) | The same. |
+| `gebra` | 11 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 (card EX-15) | A decision record before anything new is emitted; refactors that move no name are unaffected. |
+| `gebra.extraction` | 79 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 (card EX-15) | The same, plus an `ir_version` bump for anything that lands a new ledger slot. |
+| `gebra.annotations` | 58 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 (card EX-15) | The same. |
 
 What a freeze does *not* do is stop ordinary work. An internal refactor that moves no name,
 alias, requiredness, discriminator or digest byte needs no record and no bump — the freeze is

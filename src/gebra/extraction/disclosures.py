@@ -16,7 +16,8 @@ warnings, outside hash scope, where nothing can carry it into a ``graph_version`
 
 **The vocabulary is closed** and grows only by an R-06 decision record. DEC-36 admits two
 codes and DEC-40 a third, and each joins :class:`ExtractionDisclosureCode` with the change that
-emits it; this build emits one, ``subgraph-read-as-one-node``.
+emits it; this build emits DEC-36's two — ``subgraph-read-as-one-node`` (EX-20) and
+``recursion-limit-bound-without-justification`` (EX-19).
 
 **One record per node and code, in the §8 order** — graph-scoped records first, then
 node-scoped ones in node-id order and, within one node, by code. Node-id order is the ledger §6
@@ -46,10 +47,22 @@ is not itself a node's bound object. Every record carries the ruled lower-bound 
 reads its extraction ran; a record made without the getter also says, in its message, what that
 leaves unseen.
 
+**The binding record.** A compiled graph can bind a limit with ``with_config(recursion_limit=…)``,
+and that binding is never a declaration: it carries no justification, so it fills no part of
+``runtime.recursion_limit`` (ANNOTATION-API-SPEC §1a, §3; INTROSPECTION-SPEC §4.1). Beside a
+declaration it corroborates or conflicts; with no declaration on either surface it is disclosed —
+one graph-scoped ``recursion-limit-bound-without-justification`` record carrying the bound value,
+the two surfaces that declare the slot, and that no witness is read from the binding alone
+(DEC-36 §3.3, §3.6). Not warned, because binding a limit is ordinary substrate use rather than a
+defect. It is disjoint from P-02's ``recursion-limit-without-justification`` note: that note is
+about a slot that is *present* with an empty justification, a document the ruled surfaces never
+produce, and this record fires only when the slot is *absent*.
+
 Nothing here imports langgraph, reads a workflow object, opens a socket, or executes anything
 (WA-07). The reads that find a subgraph live with the paths that own them — the direct-mount read
 in :mod:`gebra.extraction.builder`, ``get_subgraphs()`` in :mod:`gebra.extraction.compiled` — and
-hand this module node ids.
+hand this module node ids; the binding read lives in :mod:`gebra.extraction.runtime` and hands
+this module a number.
 """
 
 from __future__ import annotations
@@ -85,6 +98,7 @@ class ExtractionDisclosureCode(str, Enum):
     """
 
     SUBGRAPH_READ_AS_ONE_NODE = "subgraph-read-as-one-node"
+    RECURSION_LIMIT_BOUND_WITHOUT_JUSTIFICATION = "recursion-limit-bound-without-justification"
 
 
 @dataclass(frozen=True)
@@ -110,10 +124,11 @@ class DisclosureRule:
     detail_required: frozenset[str] = frozenset()
 
 
-#: The one row this build emits, with the requirement the ruling states for it in 1.0/1.1
-#: output (DEC-36 §3.6, which INTROSPECTION-SPEC §4.1 keeps standing for that output). ``reason``
-#: — why a mount was left unexpanded — is absent: §8 states it is absent in 1.0/1.1 output,
-#: where every mount is left unexpanded.
+#: The two rows this build emits, with the requirement the ruling states for each in 1.0/1.1
+#: output (DEC-36 §3.6, which INTROSPECTION-SPEC §4.1 keeps standing for that output). For the
+#: subgraph row, ``reason`` — why a mount was left unexpanded — is absent: §8 states it is
+#: absent in 1.0/1.1 output, where every mount is left unexpanded. The binding row is
+#: graph-scoped, so it names no node.
 DISCLOSURE_RULES: Final[Mapping[ExtractionDisclosureCode, DisclosureRule]] = {
     ExtractionDisclosureCode.SUBGRAPH_READ_AS_ONE_NODE: DisclosureRule(
         origin="INTROSPECTION §8 (§3 row (iv), §4.1); DEC-19 Ruling 1 as amended by DEC-36",
@@ -126,6 +141,14 @@ DISCLOSURE_RULES: Final[Mapping[ExtractionDisclosureCode, DisclosureRule]] = {
         detail_required=frozenset(
             {"seen_by", "interior_not_read", "lower_bound", "child_expansion"}
         ),
+    ),
+    ExtractionDisclosureCode.RECURSION_LIMIT_BOUND_WITHOUT_JUSTIFICATION: DisclosureRule(
+        origin="INTROSPECTION §8 (§4.1); ANNOTATION §3; DEC-36 §3.3, §3.6",
+        carries=(
+            "the bound value; the two surfaces that declare the slot; that no witness is read "
+            "from the binding alone"
+        ),
+        detail_required=frozenset({"bound_value", "declaration_surfaces", "witness"}),
     ),
 }
 
@@ -343,13 +366,55 @@ def split_subgraph_disclosures(
     parents: list[str] = []
     others: list[ExtractionDisclosure] = []
     for disclosure in disclosures:
-        # Compared by value: with one member in the vocabulary today, mypy reads a member test as
-        # always true. The test is what keeps another code's records out of the union.
+        # The test is what keeps another code's records out of the union.
         if (
-            disclosure.code.value == ExtractionDisclosureCode.SUBGRAPH_READ_AS_ONE_NODE.value
+            disclosure.code is ExtractionDisclosureCode.SUBGRAPH_READ_AS_ONE_NODE
             and disclosure.node is not None
         ):
             parents.append(disclosure.node)
         else:
             others.append(disclosure)
     return tuple(parents), tuple(others)
+
+
+# ── The binding record ───────────────────────────────────────────────────────────────────
+
+#: The two surfaces that declare ``runtime.recursion_limit`` (ANNOTATION-API-SPEC §1a, §2), as
+#: the binding record names them — the disclosure's pointer at what the author can write.
+DECLARATION_SURFACES: Final = ("gebra.recursion_limit", "gebra.toml [runtime]")
+
+#: The binding record's statement about witnesses, carried verbatim in its ``detail``.
+NO_WITNESS_FROM_A_BINDING: Final = (
+    "no termination witness is read from a with_config binding alone: a bound number carries "
+    "no justification, so it fills no part of runtime.recursion_limit"
+)
+
+
+def recursion_limit_binding_disclosure(bound_value: int) -> ExtractionDisclosure:
+    """The graph-scoped ``recursion-limit-bound-without-justification`` record (DEC-36 §3.6).
+
+    Emitted when the compiled object binds a usable limit through ``with_config`` and neither
+    declaration surface declares the slot, so ``runtime.recursion_limit`` is absent and the
+    binding is provenance only (INTROSPECTION-SPEC §4.1, §8). Its message states what the
+    document carries and what was not read — never that a loop is or is not bounded.
+
+    Args:
+        bound_value: The bound limit — an exact ``int`` the binding read has already found
+            usable (at least ``1``, within ±(2⁵³−1)).
+    """
+    return ExtractionDisclosure(
+        code=ExtractionDisclosureCode.RECURSION_LIMIT_BOUND_WITHOUT_JUSTIFICATION,
+        message=(
+            f"the compiled graph binds recursion_limit={bound_value} through `with_config`, and "
+            "neither surface that declares the slot does — `gebra.recursion_limit(graph, value, "
+            "justification=...)` in code, or the `[runtime]` table of `gebra.toml` — so "
+            "`runtime.recursion_limit` is absent from this document. The binding is recorded "
+            "beside it, and no termination witness is read from the binding alone: a bound "
+            "number carries no justification."
+        ),
+        detail={
+            "bound_value": bound_value,
+            "declaration_surfaces": DECLARATION_SURFACES,
+            "witness": NO_WITNESS_FROM_A_BINDING,
+        },
+    )

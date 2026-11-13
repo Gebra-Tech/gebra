@@ -25,6 +25,12 @@ package is where they land::
   contract against the §1 invariants — all of it warning-grade, because extraction stays
   total. Which live object supplies each tier is the extractor's question, and
   :mod:`gebra.extraction.contracts` answers it.
+* **§1a — the graph-level declaration** (ratified — DEC-36). ``gebra.recursion_limit(graph,
+  value, justification=…)``, in :mod:`gebra.annotations.runtime`, declares
+  ``runtime.recursion_limit`` — the one graph-level slot that is declared rather than
+  extracted — on the graph's builder; the sidecar's ``[runtime]`` table is its second surface,
+  and both share one validator. Its ladder (graph-level > sidecar, with a ``with_config``
+  binding that never fills the slot) runs in :mod:`gebra.extraction.runtime`.
 
 **This package never imports the substrate,** and the direction is deliberate rather than
 incidental: :mod:`gebra.extraction` imports langgraph to dispatch on its classes, and the
@@ -82,6 +88,11 @@ from gebra.annotations.resolve import (
     slot_bytes,
     slot_data,
 )
+from gebra.annotations.runtime import (
+    RUNTIME_ATTRIBUTE,
+    RecursionLimitViolation,
+    recursion_limit,
+)
 from gebra.annotations.sidecar import (
     SIDECAR_FILENAME,
     SIDECAR_SCHEMA,
@@ -104,6 +115,7 @@ __all__ = [
     "INFERENCE_SLOTS",
     "NEVER_INFERRED",
     "PRECEDENCE",
+    "RUNTIME_ATTRIBUTE",
     "SIDECAR_FILENAME",
     "SIDECAR_SCHEMA",
     "SLOT_KEYWORDS",
@@ -121,6 +133,7 @@ __all__ = [
     "NodeContract",
     "NodeSource",
     "Pattern",
+    "RecursionLimitViolation",
     "Resolution",
     "ResolutionIssue",
     "ResolutionRule",
@@ -146,6 +159,7 @@ __all__ = [
     "read_contract",
     "read_node_source",
     "read_sidecar",
+    "recursion_limit",
     "repository_root",
     "resolve",
     "slot_bytes",

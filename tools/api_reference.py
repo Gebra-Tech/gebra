@@ -88,7 +88,7 @@ SURFACES: Final[tuple[Surface, ...]] = (
         record="docs/governance/EXTRACTOR-API-FREEZE.md",
         section="§1.1",
         scope=(
-            "The ten names the specifications spell at the top level. Each is resolved "
+            "The eleven names the specifications spell at the top level. Each is resolved "
             "lazily out of the subpackage that defines it (PEP 562), so neither the "
             "extractor nor the substrate is in the closure of a bare `import gebra`."
         ),
@@ -844,7 +844,7 @@ def _owning_surface(module: str) -> str:
 
     ``gebra.extraction.dispatch`` is under both `gebra` and `gebra.extraction`; the longer
     one owns it, which is why the top-level surface's headings all read as re-exports. That
-    is not a formality: the ten names it carries are defined in the two subpackages, and the
+    is not a formality: the eleven names it carries are defined in the two subpackages, and the
     lazy resolution that keeps them out of a bare `import gebra` is the reason they are.
     """
     candidates = [

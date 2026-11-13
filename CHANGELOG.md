@@ -77,6 +77,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `extracted_from.compiled.subgraphs` still records what `get_subgraphs()` reported, now in the
   node-id order the ledger fixes (UTF-16 code units), which differs from the order it had only
   for node names that mix characters beyond U+FFFF with ones in U+E000–U+FFFF.
+- **A graph's recursion limit can now be declared, and extraction carries it into
+  `runtime.recursion_limit`** (card EX-19; DEC-36). The slot is P-02's witness form (b) — a
+  justified step budget, a blanket over every cycle — and until now no surface could set it, so
+  a loop with no counter guard and no `variant` failed P-02 however the graph was configured.
+  Two surfaces declare it, both members required: `gebra.recursion_limit(graph, value,
+  justification=…)`, a new top-level name that attaches `__gebra_runtime__` to the graph's
+  builder — which every compiled copy, `with_config` copies included, shares — and returns the
+  object it was given; and a `[runtime]` table in `gebra.toml`, `recursion_limit = { value = 38,
+  justification = "…" }`, under the unchanged `gebra-sidecar-v1` schema tag, read on the builder,
+  compiled and compiled-only paths. Both are read from graphs only: an LCEL chain's document
+  never carries the slot, and a declaration made on a chain changes nothing extraction emits —
+  a chain's edges run only from one step to the next, so it has no loop for the budget to bound;
+  an invalid `[runtime]` table is still warned on every path. The call refuses a `bool` or
+  non-integer value, one below `1`
+  or above `2**53 − 1`, a blank or non-string justification, a second declaration on the same
+  builder (identical value included) and an object that will not hold the attribute, with
+  `GebraContractError`; the sidecar rejects the same declarations with an `annotation-invalid`
+  warning of scope `runtime` naming the file, the key and the rule (new `SidecarRule` codes
+  `runtime-table-invalid`, `runtime-key-unknown`, `recursion-limit-invalid`) and leaves the slot
+  absent; the loader reports a sidecar's issues in the order the file writes its top-level keys,
+  `[runtime]` and `[nodes]` alike. The code surface outranks the sidecar; a sidecar object that
+  differs is an
+  `annotation-conflict` of scope `graph`, and the code declaration is kept. A
+  `with_config(recursion_limit=…)` binding on a compiled graph **never fills the slot**: beside
+  an equal declaration it corroborates, beside a different one it is an `annotation-conflict`
+  (the declaration kept), and with no declaration it is disclosed by a graph-scoped
+  `recursion-limit-bound-without-justification` record on the envelope's `disclosures`; it is
+  recorded in `extracted_from.compiled.recursion_limit_binding` (`RecursionLimitBinding`,
+  `BindingOutcome`) in every case, and a bound value that is not a usable integer is an
+  `unsupported-construct` warning and no binding. LangGraph's default limit is never read.
+  gebra's own reads take the declaration and the binding from instance dictionaries, through
+  the admitted class's own descriptor, so none of them runs a property or `__getattr__` of the
+  graph; LangGraph's own drawing — the compiled-level cross-check, and the compiled-only path's
+  topology read — still reads `config` through the object's attribute access and merges it, as
+  it did before this change. With a
+  declaration, P-02 passes such a loop via form (b)
+  with its WARNING-grade note, and `--strict` promotes that note; without one — or with a binding
+  alone — P-02 fails it as before. **No `ir_version` moves, and no document of a graph that
+  declares nothing changes by a byte**; a graph that declares a limit gets a different
+  `graph_version`, since the slot is inside hash scope. `contract(recursion_limit=…)` stays
+  refused, its message now naming both surfaces. The new warnings render wherever warnings do;
+  the disclosure and the binding record reach the Python API only — the `gebra` command line,
+  the pytest plugin and the run reports do not render them.
 
 ### Changed
 
@@ -186,6 +229,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `graph_version` in one case that compiles: a router whose `path_map` is a `dict` subclass with
   its own `copy()` returning a mapping that is not a `dict` was read through that mapping's
   `items()` and is now warned and left without an edge.
+
+- **A `gebra.toml` holding an integer too long to convert no longer stops extraction** (card
+  EX-19). An integer literal in `gebra.toml` longer than Python's default integer-string
+  conversion limit (4300 digits) made the TOML parser raise a `ValueError` that escaped
+  `gebra.extract()`. Such a file is now reported as any file that cannot be parsed is: an
+  `annotation-invalid` warning (`file-unparsable`) naming the file, and extraction proceeds
+  without the sidecar.
 
 ## [0.1.1] - 2026-09-21
 

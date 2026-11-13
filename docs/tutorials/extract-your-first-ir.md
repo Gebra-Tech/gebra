@@ -634,9 +634,12 @@ recorded explicitly either way, `true` or `false`, because at that level it is a
 than an absence (INTROSPECTION-SPEC §4.1, §7.1). The two are genuinely different documents,
 with different `graph_version`s.
 
-The third member of `runtime` is absent for a different reason. `recursion_limit` is
-invoke-time configuration and is not on either object, so no level of extraction produces it:
-it is there only if you declare it.
+The third member of `runtime` is absent for a different reason. `recursion_limit` is a
+declaration, not something extraction reads off either object: LangGraph's default limit and a
+limit passed when the graph runs are not part of the definition, and a limit bound with
+`with_config` is recorded beside the document without filling the slot. It is there only when a
+declaration is written — `gebra.recursion_limit(...)` in code, or the `[runtime]` table of a
+`gebra.toml` — and this graph has neither.
 
 Subgraphs are where the reads of the two levels differ, and where the limit is one the
 specification names and accepts rather than papers over.

@@ -351,6 +351,10 @@ def test_every_fixture_reads_to_its_declared_outcome(tmp_path: Path, name: str) 
     assert reading.path == (path.resolve() if fixture.loaded else None)
     assert rules(reading) == fixture.rules
     assert tuple(reading.entries) == fixture.entries
+    declared = reading.recursion_limit
+    assert (None if declared is None else (declared.value, declared.justification)) == (
+        fixture.limit
+    )
 
 
 @pytest.mark.parametrize("name", sorted(ss.SIDECAR_FIXTURES))
@@ -382,8 +386,10 @@ def test_every_issue_carries_the_fields_its_registry_row_names(tmp_path: Path, n
         if issue.detail["scope"] == "node":
             assert issue.node is not None
         else:
-            assert issue.detail["scope"] == "file"
+            # A `runtime`-scoped issue (DEC-36) is graph-level: no node, and no node slot either.
+            assert issue.detail["scope"] in ("file", "runtime")
             assert issue.node is None
+            assert issue.slots == ()
 
 
 def test_a_file_in_the_wrong_encoding_is_a_warning_not_a_crash(tmp_path: Path) -> None:
@@ -828,6 +834,137 @@ def test_the_accepted_schema_value_is_the_one_the_spec_writes() -> None:
     """Pinned against the spec's own literal rather than against the code that reads it."""
     assert SIDECAR_SCHEMA == "gebra-sidecar-v1"
     assert SIDECAR_FILENAME == "gebra.toml"
+
+
+# ── The [runtime] table (ratified — DEC-36) ──────────────────────────────────────────────
+
+
+def test_a_valid_runtime_table_fills_the_declaration_under_the_unchanged_schema_tag(
+    tmp_path: Path,
+) -> None:
+    """§2: the table is additive under ``gebra-sidecar-v1``, admits one key, and its value is the
+    IR slot's own shape — both members required."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES["runtime_table"].text)
+
+    reading = read_sidecar(path)
+
+    assert reading.issues == ()
+    assert reading.recursion_limit is not None
+    assert (reading.recursion_limit.value, reading.recursion_limit.justification) == (
+        ss.RUNTIME_LIMIT
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "violations"),
+    [
+        ("recursion_limit_not_a_table", ("not-an-object",)),
+        ("recursion_limit_boolean_value", ("value-not-an-integer",)),
+        ("recursion_limit_float_value", ("value-not-an-integer",)),
+        ("recursion_limit_string_value", ("value-not-an-integer",)),
+        ("recursion_limit_date_valued", ("value-not-an-integer",)),
+        ("recursion_limit_zero", ("value-below-one",)),
+        ("recursion_limit_negative", ("value-below-one",)),
+        ("recursion_limit_out_of_range", ("value-out-of-range",)),
+        ("recursion_limit_without_value", ("value-missing",)),
+        ("recursion_limit_without_justification", ("justification-missing",)),
+        ("recursion_limit_blank_justification", ("justification-blank",)),
+        ("recursion_limit_non_string_justification", ("justification-not-a-string",)),
+        ("recursion_limit_unknown_member", ("member-unknown",)),
+    ],
+)
+def test_a_rejected_recursion_limit_names_file_key_rule_and_violation_and_stays_absent(
+    tmp_path: Path, name: str, violations: tuple[str, ...]
+) -> None:
+    """§2: every rejection leaves the slot "absent — never the substrate default, never a bound
+    value", with an ``annotation-invalid`` naming scope ``runtime``, the slot, the value(s) found
+    and the violated rule. The card's box: "naming file, key and rule, slot absent"."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES[name].text)
+
+    reading = read_sidecar(path)
+
+    assert reading.recursion_limit is None
+    (issue,) = reading.issues
+    assert issue.rule is SidecarRule.RECURSION_LIMIT_INVALID
+    assert issue.node is None
+    assert issue.slots == ()
+    assert issue.detail["scope"] == "runtime"
+    assert issue.detail["file"] == str(path.resolve())
+    assert issue.detail["key"] == "recursion_limit"
+    assert issue.detail["rule"] == "recursion-limit-invalid"
+    assert issue.detail["slot"] == "runtime.recursion_limit"
+    assert issue.detail["violations"] == violations
+    assert "declared" in issue.detail
+    assert "never the substrate's default limit, never a bound value" in issue.message
+
+
+@pytest.mark.parametrize(
+    ("name", "key", "extracted"),
+    [
+        ("runtime_interrupts_key", "interrupts", True),
+        ("runtime_checkpointer_key", "checkpointer", True),
+        ("runtime_typo_key", "recursion_limt", False),
+    ],
+)
+def test_a_runtime_key_other_than_recursion_limit_is_ignored_and_warned(
+    tmp_path: Path, name: str, key: str, extracted: bool
+) -> None:
+    """§2: "``[runtime]`` carrying a key other than ``recursion_limit`` → key ignored;
+    ``annotation-invalid`` naming scope ``runtime`` and the key" — and the two §1 says are
+    extracted, never annotated, are told so."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES[name].text)
+
+    (issue,) = read_sidecar(path).issues
+
+    assert issue.rule is SidecarRule.RUNTIME_KEY_UNKNOWN
+    assert issue.detail["scope"] == "runtime"
+    assert issue.detail["key"] == key
+    assert ("extracted from the compiled graph, never annotated" in issue.message) is extracted
+
+
+def test_an_unknown_recursion_limit_member_is_named_in_the_detail(tmp_path: Path) -> None:
+    """§2's "the value(s) found": the member the slot's shape does not carry is named."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES["recursion_limit_unknown_member"].text)
+
+    (issue,) = read_sidecar(path).issues
+
+    assert issue.detail["unknown_members"] == ("note",)
+    assert issue.detail["declared"] == {"value": 38, "justification": "x"}
+
+
+def test_recursion_limit_in_a_node_entry_points_at_the_runtime_table(tmp_path: Path) -> None:
+    """§2: "``[nodes.<id>]`` carrying ``recursion_limit`` → key ignored … with a message pointing at
+    ``[runtime]``" — it stays ``slot-key-unknown``, and the node's other slots stand."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES["recursion_limit_in_a_node_entry"].text)
+
+    reading = read_sidecar(path)
+
+    (issue,) = reading.issues
+    assert issue.rule is SidecarRule.SLOT_KEY_UNKNOWN
+    assert issue.node == "plan_step"
+    assert "declare it in the [runtime] table" in issue.message
+    assert "gebra.recursion_limit(graph, value, justification=...)" in issue.message
+    assert reading.recursion_limit is None
+
+
+def test_runtime_is_a_top_level_key_the_format_carries(tmp_path: Path) -> None:
+    """The file's keys are ``schema``, ``nodes`` and ``runtime``: ``runtime`` is never a
+    ``file-key-unknown``, and the unknown-key message lists all three."""
+    path = ss.write_sidecar(tmp_path, ss.SIDECAR_FIXTURES["unknown_file_key"].text)
+
+    (issue,) = read_sidecar(path).issues
+
+    assert issue.rule is SidecarRule.FILE_KEY_UNKNOWN
+    assert "nodes, runtime, schema" in issue.message
+
+
+def test_the_runtime_rules_are_the_three_dec_36_codes() -> None:
+    """One code per new §2 bullet, plus the table-shape code beside ``nodes-table-invalid``."""
+    assert {
+        SidecarRule.RUNTIME_TABLE_INVALID.value,
+        SidecarRule.RUNTIME_KEY_UNKNOWN.value,
+        SidecarRule.RECURSION_LIMIT_INVALID.value,
+    } == {"runtime-table-invalid", "runtime-key-unknown", "recursion-limit-invalid"}
 
 
 # ── WA-07 — the tripwire for the path this card lands ────────────────────────────────────

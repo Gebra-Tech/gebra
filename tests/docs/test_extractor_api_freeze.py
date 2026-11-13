@@ -42,7 +42,7 @@ REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 FREEZE_NOTE: Final = REPO_ROOT / "docs" / "governance" / "EXTRACTOR-API-FREEZE.md"
 BANNED_PHRASES_FILE: Final = REPO_ROOT / "tools" / "honest-claims-phrases.txt"
 
-#: §1.1 — the ten names `gebra/__init__.py` resolves lazily.
+#: §1.1 — the eleven names `gebra/__init__.py` resolves lazily (the eleventh, DEC-36's).
 _EXPECTED_TOP_LEVEL: Final = {
     "extract",
     "ExtractionError",
@@ -54,6 +54,7 @@ _EXPECTED_TOP_LEVEL: Final = {
     "deterministic",
     "variant",
     "compensation",
+    "recursion_limit",
 }
 
 #: §1.2 — every `gebra.extraction.__all__` export, transcribed.
@@ -61,6 +62,7 @@ _EXPECTED_EXTRACTION: Final = {
     "ADMITTED_BINDING_CLASSES",
     "ANNOTATION_SLOTS",
     "AnnotationSlot",
+    "BindingOutcome",
     "CarrierRule",
     "CompatClass",
     "CompiledSurfaces",
@@ -90,6 +92,7 @@ _EXPECTED_EXTRACTION: Final = {
     "NodeDigests",
     "ObjectFamily",
     "PromptGap",
+    "RecursionLimitBinding",
     "STOCK_BINDING_NAMES",
     "STOCK_BINDING_SUBCLASSES",
     "SlotGrade",
@@ -160,6 +163,8 @@ _EXPECTED_ANNOTATIONS: Final = {
     "NodeSource",
     "PRECEDENCE",
     "Pattern",
+    "RUNTIME_ATTRIBUTE",
+    "RecursionLimitViolation",
     "Resolution",
     "ResolutionIssue",
     "ResolutionRule",
@@ -189,6 +194,7 @@ _EXPECTED_ANNOTATIONS: Final = {
     "read_contract",
     "read_node_source",
     "read_sidecar",
+    "recursion_limit",
     "repository_root",
     "resolve",
     "slot_bytes",

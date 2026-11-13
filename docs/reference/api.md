@@ -43,11 +43,11 @@ annotations below are the ones your type checker enforces.
 
 | Surface | Names | Frozen by | Freeze record |
 |---|---|---|---|
-| [`gebra`](#gebra) | 10 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
+| [`gebra`](#gebra) | 11 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
 | [`gebra.ir`](#gebrair) | 68 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
 | [`gebra.verify`](#gebraverify) | 170 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
-| [`gebra.extraction`](#gebraextraction) | 77 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
-| [`gebra.annotations`](#gebraannotations) | 55 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
+| [`gebra.extraction`](#gebraextraction) | 79 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
+| [`gebra.annotations`](#gebraannotations) | 58 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
 
 Every name below is one this list resolves, and CI runs that check as an example on this page:
 
@@ -77,24 +77,24 @@ print(f"\n{total} names across {len(SURFACES)} frozen surfaces, every one import
 
 <!-- gebra:output id=every-name-on-this-page -->
 ```text
-gebra                 10/10 resolved
+gebra                 11/11 resolved
 gebra.ir              68/68 resolved
 gebra.verify         170/170 resolved
-gebra.extraction      77/77 resolved
-gebra.annotations     55/55 resolved
+gebra.extraction      79/79 resolved
+gebra.annotations     58/58 resolved
 
-380 names across 5 frozen surfaces, every one importable
+386 names across 5 frozen surfaces, every one importable
 ```
 
 ## `gebra`
 
 gebra — design-time verification and versioning for LangGraph agent workflows.
 
-The ten names the specifications spell at the top level. Each is resolved lazily out of the subpackage that defines it (PEP 562), so neither the extractor nor the substrate is in the closure of a bare `import gebra`.
+The eleven names the specifications spell at the top level. Each is resolved lazily out of the subpackage that defines it (PEP 562), so neither the extractor nor the substrate is in the closure of a bare `import gebra`.
 
-Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 — 10 names.
+Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 — 11 names.
 
-[`ExtractionError`](#gebraextractionerror) · [`GebraContractError`](#gebragebracontracterror) · [`compensation`](#gebracompensation) · [`contract`](#gebracontract) · [`deterministic`](#gebradeterministic) · [`effect`](#gebraeffect) · [`extract`](#gebraextract) · [`idempotent`](#gebraidempotent) · [`pure`](#gebrapure) · [`variant`](#gebravariant)
+[`ExtractionError`](#gebraextractionerror) · [`GebraContractError`](#gebragebracontracterror) · [`compensation`](#gebracompensation) · [`contract`](#gebracontract) · [`deterministic`](#gebradeterministic) · [`effect`](#gebraeffect) · [`extract`](#gebraextract) · [`idempotent`](#gebraidempotent) · [`pure`](#gebrapure) · [`recursion_limit`](#gebrarecursion_limit) · [`variant`](#gebravariant)
 
 ### Defined in `gebra.annotations.contract`, re-exported by `gebra`
 
@@ -228,6 +228,32 @@ A decorator stack contradicts itself — raised at import time (§1).
 
 - `reason` — The `ContractErrorReason` code — match on this, not on the message.
 - `slot` — The annotation slot the refusal is about, as its IR name, or `None` for a refusal that is not about one slot (an unknown keyword, an unattachable target).
+
+### Defined in `gebra.annotations.runtime`, re-exported by `gebra`
+
+Source: [`src/gebra/annotations/runtime.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/annotations/runtime.py)
+
+#### `gebra.recursion_limit`
+
+```python
+recursion_limit(graph: G, value: int, *, justification: str) -> G
+```
+
+*function*, defined in `gebra.annotations.runtime`. Also exported as `gebra.annotations.recursion_limit`.
+
+Declare the graph's step budget — `runtime.recursion_limit` (ANNOTATION-API-SPEC §1a).
+
+**Parameters**
+
+- `graph` — The graph object — a `StateGraph` builder or a compiled graph. The declaration lands on its `.builder` backreference when it has one, which every compiled copy shares, and on the object itself otherwise.
+- `value` — The step budget: an `int` that is not a `bool`, at least `1` and at most `2**53 − 1`.
+- `justification` — Why that number — a string with at least one non-whitespace character.
+
+**Returns** — `graph` itself — the same object, unchanged apart from the attribute on its carrier.
+
+**Raises**
+
+- `GebraContractError` — with reason `slot-value-invalid` when `value` or `justification` breaks a call-time rule, or when the carrier already holds a `__gebra_runtime__` this call did not attach; `duplicate-slot` when the carrier already holds a declaration — a second call on the builder or on any compiled copy of it, identical value included; `attachment-impossible` when the carrier refuses the attribute, or accepts the assignment without holding it in its own instance dictionary.
 
 ### Defined in `gebra.extraction.dispatch`, re-exported by `gebra`
 
@@ -3880,9 +3906,9 @@ The extraction surface — `gebra.extract()`, its typed error, and its envelope.
 
 What `gebra.extract()` is made of: the dispatch registry, the provenance envelope, the warnings taxonomy, the annotation-resolution bridge and the first-extract version check.
 
-Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 — 77 names.
+Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 — 79 names.
 
-[`ADMITTED_BINDING_CLASSES`](#gebraextractionadmitted_binding_classes) · [`ANNOTATION_SLOTS`](#gebraextractionannotation_slots) · [`DISCLOSURE_RULES`](#gebraextractiondisclosure_rules) · [`FINDING_CODES`](#gebraextractionfinding_codes) · [`FRAGMENT_CLASSES`](#gebraextractionfragment_classes) · [`HEURISTIC_GRADE_CODES`](#gebraextractionheuristic_grade_codes) · [`STOCK_BINDING_NAMES`](#gebraextractionstock_binding_names) · [`STOCK_BINDING_SUBCLASSES`](#gebraextractionstock_binding_subclasses) · [`UNREPRESENTABLE`](#gebraextractionunrepresentable) · [`UNREPRESENTABLE_REDUCER`](#gebraextractionunrepresentable_reducer) · [`UNREPRESENTABLE_TYPE`](#gebraextractionunrepresentable_type) · [`WARNING_RULES`](#gebraextractionwarning_rules) · [`WRAPPER_MEMBERS`](#gebraextractionwrapper_members) · [`AnnotationSlot`](#gebraextractionannotationslot) · [`CarrierRule`](#gebraextractioncarrierrule) · [`CompatClass`](#gebraextractioncompatclass) · [`CompiledSurfaces`](#gebraextractioncompiledsurfaces) · [`CrossCheck`](#gebraextractioncrosscheck) · [`Declarations`](#gebraextractiondeclarations) · [`DisclosureRule`](#gebraextractiondisclosurerule) · [`Dispatch`](#gebraextractiondispatch) · [`ExtractedFrom`](#gebraextractionextractedfrom) · [`ExtractionDisclosure`](#gebraextractionextractiondisclosure) · [`ExtractionDisclosureCode`](#gebraextractionextractiondisclosurecode) · [`ExtractionEnvelope`](#gebraextractionextractionenvelope) · [`ExtractionError`](#gebraextractionextractionerror) · [`ExtractionErrorReason`](#gebraextractionextractionerrorreason) · [`ExtractionModel`](#gebraextractionextractionmodel) · [`ExtractionWarning`](#gebraextractionextractionwarning) · [`ExtractionWarningCode`](#gebraextractionextractionwarningcode) · [`Extractor`](#gebraextractionextractor) · [`FoldedDefault`](#gebraextractionfoldeddefault) · [`FragmentKind`](#gebraextractionfragmentkind) · [`FragmentReading`](#gebraextractionfragmentreading) · [`GebraVersionWarning`](#gebraextractiongebraversionwarning) · [`NodeContracts`](#gebraextractionnodecontracts) · [`NodeDigests`](#gebraextractionnodedigests) · [`ObjectFamily`](#gebraextractionobjectfamily) · [`PromptGap`](#gebraextractionpromptgap) · [`SlotGrade`](#gebraextractionslotgrade) · [`StateReading`](#gebraextractionstatereading) · [`SubstrateVersions`](#gebraextractionsubstrateversions) · [`VersionCheck`](#gebraextractionversioncheck) · [`WarningRule`](#gebraextractionwarningrule) · [`check_version_once`](#gebraextractioncheck_version_once) · [`classify`](#gebraextractionclassify) · [`classify_substrate`](#gebraextractionclassify_substrate) · [`coerce`](#gebraextractioncoerce) · [`config_form`](#gebraextractionconfig_form) · [`contract_warnings`](#gebraextractioncontract_warnings) · [`digests_for`](#gebraextractiondigests_for) · [`disclosure_rule`](#gebraextractiondisclosure_rule) · [`extract`](#gebraextractionextract) · [`extract_builder`](#gebraextractionextract_builder) · [`extract_compiled`](#gebraextractionextract_compiled) · [`extract_lcel_fragment`](#gebraextractionextract_lcel_fragment) · [`extractor_for`](#gebraextractionextractor_for) · [`is_binding`](#gebraextractionis_binding) · [`kind_of`](#gebraextractionkind_of) · [`load_sidecar`](#gebraextractionload_sidecar) · [`out_of_range_warning`](#gebraextractionout_of_range_warning) · [`prompt_form`](#gebraextractionprompt_form) · [`read_installed_versions`](#gebraextractionread_installed_versions) · [`read_state`](#gebraextractionread_state) · [`register_extractor`](#gebraextractionregister_extractor) · [`resolve_node`](#gebraextractionresolve_node) · [`sidecar_warnings`](#gebraextractionsidecar_warnings) · [`slot_grade`](#gebraextractionslot_grade) · [`state_schema_of`](#gebraextractionstate_schema_of) · [`stitch_fragment`](#gebraextractionstitch_fragment) · [`to_data`](#gebraextractionto_data) · [`to_json`](#gebraextractionto_json) · [`type_identity`](#gebraextractiontype_identity) · [`unknown_node_warnings`](#gebraextractionunknown_node_warnings) · [`unregister_extractor`](#gebraextractionunregister_extractor) · [`walk`](#gebraextractionwalk) · [`warning_rule`](#gebraextractionwarning_rule)
+[`ADMITTED_BINDING_CLASSES`](#gebraextractionadmitted_binding_classes) · [`ANNOTATION_SLOTS`](#gebraextractionannotation_slots) · [`DISCLOSURE_RULES`](#gebraextractiondisclosure_rules) · [`FINDING_CODES`](#gebraextractionfinding_codes) · [`FRAGMENT_CLASSES`](#gebraextractionfragment_classes) · [`HEURISTIC_GRADE_CODES`](#gebraextractionheuristic_grade_codes) · [`STOCK_BINDING_NAMES`](#gebraextractionstock_binding_names) · [`STOCK_BINDING_SUBCLASSES`](#gebraextractionstock_binding_subclasses) · [`UNREPRESENTABLE`](#gebraextractionunrepresentable) · [`UNREPRESENTABLE_REDUCER`](#gebraextractionunrepresentable_reducer) · [`UNREPRESENTABLE_TYPE`](#gebraextractionunrepresentable_type) · [`WARNING_RULES`](#gebraextractionwarning_rules) · [`WRAPPER_MEMBERS`](#gebraextractionwrapper_members) · [`AnnotationSlot`](#gebraextractionannotationslot) · [`BindingOutcome`](#gebraextractionbindingoutcome) · [`CarrierRule`](#gebraextractioncarrierrule) · [`CompatClass`](#gebraextractioncompatclass) · [`CompiledSurfaces`](#gebraextractioncompiledsurfaces) · [`CrossCheck`](#gebraextractioncrosscheck) · [`Declarations`](#gebraextractiondeclarations) · [`DisclosureRule`](#gebraextractiondisclosurerule) · [`Dispatch`](#gebraextractiondispatch) · [`ExtractedFrom`](#gebraextractionextractedfrom) · [`ExtractionDisclosure`](#gebraextractionextractiondisclosure) · [`ExtractionDisclosureCode`](#gebraextractionextractiondisclosurecode) · [`ExtractionEnvelope`](#gebraextractionextractionenvelope) · [`ExtractionError`](#gebraextractionextractionerror) · [`ExtractionErrorReason`](#gebraextractionextractionerrorreason) · [`ExtractionModel`](#gebraextractionextractionmodel) · [`ExtractionWarning`](#gebraextractionextractionwarning) · [`ExtractionWarningCode`](#gebraextractionextractionwarningcode) · [`Extractor`](#gebraextractionextractor) · [`FoldedDefault`](#gebraextractionfoldeddefault) · [`FragmentKind`](#gebraextractionfragmentkind) · [`FragmentReading`](#gebraextractionfragmentreading) · [`GebraVersionWarning`](#gebraextractiongebraversionwarning) · [`NodeContracts`](#gebraextractionnodecontracts) · [`NodeDigests`](#gebraextractionnodedigests) · [`ObjectFamily`](#gebraextractionobjectfamily) · [`PromptGap`](#gebraextractionpromptgap) · [`RecursionLimitBinding`](#gebraextractionrecursionlimitbinding) · [`SlotGrade`](#gebraextractionslotgrade) · [`StateReading`](#gebraextractionstatereading) · [`SubstrateVersions`](#gebraextractionsubstrateversions) · [`VersionCheck`](#gebraextractionversioncheck) · [`WarningRule`](#gebraextractionwarningrule) · [`check_version_once`](#gebraextractioncheck_version_once) · [`classify`](#gebraextractionclassify) · [`classify_substrate`](#gebraextractionclassify_substrate) · [`coerce`](#gebraextractioncoerce) · [`config_form`](#gebraextractionconfig_form) · [`contract_warnings`](#gebraextractioncontract_warnings) · [`digests_for`](#gebraextractiondigests_for) · [`disclosure_rule`](#gebraextractiondisclosure_rule) · [`extract`](#gebraextractionextract) · [`extract_builder`](#gebraextractionextract_builder) · [`extract_compiled`](#gebraextractionextract_compiled) · [`extract_lcel_fragment`](#gebraextractionextract_lcel_fragment) · [`extractor_for`](#gebraextractionextractor_for) · [`is_binding`](#gebraextractionis_binding) · [`kind_of`](#gebraextractionkind_of) · [`load_sidecar`](#gebraextractionload_sidecar) · [`out_of_range_warning`](#gebraextractionout_of_range_warning) · [`prompt_form`](#gebraextractionprompt_form) · [`read_installed_versions`](#gebraextractionread_installed_versions) · [`read_state`](#gebraextractionread_state) · [`register_extractor`](#gebraextractionregister_extractor) · [`resolve_node`](#gebraextractionresolve_node) · [`sidecar_warnings`](#gebraextractionsidecar_warnings) · [`slot_grade`](#gebraextractionslot_grade) · [`state_schema_of`](#gebraextractionstate_schema_of) · [`stitch_fragment`](#gebraextractionstitch_fragment) · [`to_data`](#gebraextractionto_data) · [`to_json`](#gebraextractionto_json) · [`type_identity`](#gebraextractiontype_identity) · [`unknown_node_warnings`](#gebraextractionunknown_node_warnings) · [`unregister_extractor`](#gebraextractionunregister_extractor) · [`walk`](#gebraextractionwalk) · [`warning_rule`](#gebraextractionwarning_rule)
 
 ### Defined in `gebra.annotations.slots`, re-exported by `gebra.extraction`
 
@@ -3980,7 +4006,7 @@ Extract an uncompiled `StateGraph` into the core IR and its provenance envelope.
 - `dispatch` — The §2 classification decision. Its `builder` is the `StateGraph` §3 applies to and is what this path reads; `workflow` is what any boundary refusal names, per §2.
 - `sidecar` — The ANNOTATION §2 sidecar reading for this extraction — already discovered, parsed and validated by the entry point. Its **path** is recorded in `extracted_from`, its findings ride the envelope, and its entries are the §3 tier-3 contribution to each node's resolved contract — filling only the slots the decorator and the tool-carried schema left open (DEC-07). `None` — for a direct call that bypasses the entry point — means "no sidecar", not "not looked for": this path never runs the discovery walk itself, since §2 puts exactly one lookup per extraction and the entry point is where it happens.
 
-**Returns** — The envelope: the core IR, its provenance, the structured warnings and the disclosures. Warning order is by source: the sidecar's own file-level findings, then the §3 reading's, then the unmatched-key findings — which come last because they are the one sidecar fact that cannot be known before the node set exists. The disclosures are one `subgraph-read-as-one-node` record per directly mounted subgraph, in node-id order (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an uncompiled builder has no `get_subgraphs()` to ask.
+**Returns** — The envelope: the core IR, its provenance, the structured warnings and the disclosures. Warning order is by source: the sidecar's own file-level findings, then the §3 reading's, then the graph-level declaration's (an ill-formed `__gebra_runtime__`, a sidecar `[runtime]` object that differs from it), then the unmatched-key findings — which come last because they are the one sidecar fact that cannot be known before the node set exists. The disclosures are one `subgraph-read-as-one-node` record per directly mounted subgraph, in node-id order (INTROSPECTION-SPEC §8; DEC-36) — this path's only subgraph read, since an uncompiled builder has no `get_subgraphs()` to ask. `runtime` carries `recursion_limit` alone when a declaration resolves, and is absent otherwise.
 
 **Raises**
 
@@ -4381,7 +4407,7 @@ DISCLOSURE_RULES: Final[Mapping[ExtractionDisclosureCode, DisclosureRule]] = ...
 
 *constant*, defined in `gebra.extraction.disclosures`.
 
-The one row this build emits, with the requirement the ruling states for it in 1.0/1.1 output (DEC-36 §3.6, which INTROSPECTION-SPEC §4.1 keeps standing for that output). `reason` — why a mount was left unexpanded — is absent: §8 states it is absent in 1.0/1.1 output, where every mount is left unexpanded.
+The two rows this build emits, with the requirement the ruling states for each in 1.0/1.1 output (DEC-36 §3.6, which INTROSPECTION-SPEC §4.1 keeps standing for that output). For the subgraph row, `reason` — why a mount was left unexpanded — is absent: §8 states it is absent in 1.0/1.1 output, where every mount is left unexpanded. The binding row is graph-scoped, so it names no node.
 
 #### `gebra.extraction.DisclosureRule`
 
@@ -4432,6 +4458,7 @@ One structured disclosure record, riding the provenance envelope (INTROSPECTION 
 ```python
 class ExtractionDisclosureCode(str, Enum):
     SUBGRAPH_READ_AS_ONE_NODE = "subgraph-read-as-one-node"
+    RECURSION_LIMIT_BOUND_WITHOUT_JUSTIFICATION = "recursion-limit-bound-without-justification"
 ```
 
 *enumeration*, defined in `gebra.extraction.disclosures`.
@@ -4566,6 +4593,21 @@ Drop the registered path for `family`, if any. For tests and for re-wiring.
 
 Source: [`src/gebra/extraction/envelope.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/extraction/envelope.py)
 
+#### `gebra.extraction.BindingOutcome`
+
+```python
+class BindingOutcome(str, Enum):
+    CORROBORATES = "corroborates"
+    CONFLICTS = "conflicts"
+    DISCLOSED = "disclosed"
+```
+
+*enumeration*, defined in `gebra.extraction.envelope`.
+
+What a `with_config(recursion_limit=…)` binding did beside the declarations (DEC-36 §3.3).
+
+The binding is never a declaration, so it never fills `runtime.recursion_limit`; it has exactly three outcomes, and the record names which (ANNOTATION-API-SPEC §3; INTROSPECTION-SPEC §4.1).
+
 #### `gebra.extraction.CompiledSurfaces`
 
 ```python
@@ -4574,13 +4616,14 @@ class CompiledSurfaces(ExtractionModel):
     folded_defaults: tuple[FoldedDefault, ...] = ()
     error_handlers: dict[str, str] = Field(default_factory=dict)
     cross_check: CrossCheck | None = None
+    recursion_limit_binding: RecursionLimitBinding | None = None
 ```
 
 *model*, defined in `gebra.extraction.envelope`.
 
 The §4.1 compiled-level facts that ir 1.0 has no slot for, plus the cross-check record.
 
-§4.1 names two facts outright as provenance-only — `node_error_handler_map` and folded-defaults resolution — and records the parents subgraph discovery found, whose children ir 1.0/1.1 does not emit (see `gebra.extraction.compiled` for why). Everything §4 knows and the IR cannot carry is collected here rather than spread across `ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one object.
+§4.1 names two facts outright as provenance-only — `node_error_handler_map` and folded-defaults resolution — and records the parents subgraph discovery found, whose children ir 1.0/1.1 does not emit (see `gebra.extraction.compiled` for why). A `with_config` recursion-limit binding is provenance too (DEC-36 §3.3): it never fills `runtime.recursion_limit`, so it is recorded here, with what it did beside the declarations. Everything §4 knows and the IR cannot carry is collected here rather than spread across `ExtractedFrom`, so a consumer asking "what did the compiled level add?" reads one object.
 
 **Attributes**
 
@@ -4588,6 +4631,7 @@ The §4.1 compiled-level facts that ir 1.0 has no slot for, plus the cross-check
 - `folded_defaults` — The graph-level defaults `compile()` folded into node specs.
 - `error_handlers` — `node_error_handler_map` — node id → its error-handler node id.
 - `cross_check` — The §4.2 cross-check record, or `None` on a path that has no builder to check against.
+- `recursion_limit_binding` — The compiled object's `with_config(recursion_limit=…)` binding and what it did beside the declarations (`RecursionLimitBinding`), or `None` when the object binds no usable limit (DEC-36 §3.3). Never a default: "the provenance record is empty when no binding exists, not 25" (DEC-36 §3.4) — nor 10007, the default LangGraph's own loop applies at the pins (INTROSPECTION-SPEC §4.1, correcting A1-D36's citation at A1-D39).
 
 #### `gebra.extraction.CrossCheck`
 
@@ -4656,7 +4700,7 @@ The core IR plus its provenance, warnings and disclosures — what `extract()` r
 - `ir` — The core IR (IR-SPEC §2–§3). The whole hash scope, and the only member `graph_version()` reads.
 - `extracted_from` — Where this IR came from.
 - `warnings` — The extraction warnings, in emission order — structured records from the one closed taxonomy (INTROSPECTION §8; ANNOTATION §4). §8: warnings "are never silently droppable", and a warning-free extraction is part of the strict-mode bar, so they are carried in the return value rather than raised through `warnings` where a filter could drop them.
-- `disclosures` — The extraction disclosures (INTROSPECTION §8, ratified — DEC-36): records of a fact about what this complete, conforming document does not contain, from the closed vocabulary of `gebra.extraction.disclosures` — in this build, one `subgraph-read-as-one-node` record per node that the §3 direct-mount read or §4.1's `get_subgraphs()` finds mounting or reaching a compiled subgraph the document carries as that one node. **Not warnings**: no disclosure is a row of the §8 warning table, counts against the warning-free strict-mode bar, moves an exit code or is promoted by a strict flag — and none is droppable either, which is why they ride the return value too. They come after the warnings, in the §8 order — graph-scoped records first, then node-scoped ones in node-id order (the ledger §6 comparator) and, within one node, by code — checked when the envelope is built, one record per node and code. Outside hash scope: `graph_version()` never reads them. The set of nodes disclosed as subgraph-bearing is a **lower bound, never a census**: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible to every read, and on the compiled-only path every `checkpointer=False` child is.
+- `disclosures` — The extraction disclosures (INTROSPECTION §8, ratified — DEC-36): records of a fact about what this complete, conforming document does not contain, from the closed vocabulary of `gebra.extraction.disclosures` — in this build, one `subgraph-read-as-one-node` record per node that the §3 direct-mount read or §4.1's `get_subgraphs()` finds mounting or reaching a compiled subgraph the document carries as that one node, and one graph-scoped `recursion-limit-bound-without-justification` record when a compiled graph binds a recursion limit through `with_config` and no surface declares one, so `runtime.recursion_limit` is absent (§4.1). **Not warnings**: no disclosure is a row of the §8 warning table, counts against the warning-free strict-mode bar, moves an exit code or is promoted by a strict flag — and none is droppable either, which is why they ride the return value too. They come after the warnings, in the §8 order — graph-scoped records first, then node-scoped ones in node-id order (the ledger §6 comparator) and, within one node, by code — checked when the envelope is built, one record per node and code. Outside hash scope: `graph_version()` never reads them. The set of nodes disclosed as subgraph-bearing is a **lower bound, never a census**: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible to every read, and on the compiled-only path every `checkpointer=False` child is.
 
 #### `gebra.extraction.FoldedDefault`
 
@@ -4676,6 +4720,25 @@ INTROSPECTION §4.1 lists "folded `set_node_defaults`" among the facts the compi
 
 - `node` — The node id whose spec member was filled from the graph-level default.
 - `member` — The `StateNodeSpec` member name (`retry_policy`, `cache_policy`, …).
+
+#### `gebra.extraction.RecursionLimitBinding`
+
+```python
+class RecursionLimitBinding(ExtractionModel):
+    value: int = Field(ge=1, le=I_JSON_MAX_INT)
+    outcome: BindingOutcome
+```
+
+*model*, defined in `gebra.extraction.envelope`.
+
+A usable `with_config(recursion_limit=…)` binding on the compiled object (DEC-36 §3.3).
+
+Provenance, outside hash scope: a binding is a compiled-level fact, read from the compiled object's own instance dictionary (its `config` mapping), and it never enters the slot — so the builder-level and compiled-level documents of one declared source carry the same `runtime.recursion_limit` (ANNOTATION-API-SPEC §6's parity). Recorded only when the bound value is usable — an `int` that is not a `bool`, at least `1` and within ±(2⁵³−1); any other bound value is an `unsupported-construct` warning and no binding. LangGraph's default limit, and a limit passed when the graph is run, are not on the object and are never read: with no binding there is no record, never a default.
+
+**Attributes**
+
+- `value` — The bound limit.
+- `outcome` — What the binding did beside the declarations — corroborated one, conflicted with one, or was disclosed because there was none.
 
 #### `gebra.extraction.to_data`
 
@@ -5138,6 +5201,7 @@ class WarningRule:
     node_required: bool = False
     slots_required: bool = False
     licensed_slots: frozenset[str] | None = None
+    graph_scopes: frozenset[str] = frozenset()
 ```
 
 *class*, defined in `gebra.extraction.warnings`.
@@ -5153,6 +5217,7 @@ The registry tables state what each warning "carries"; this is that column, in t
 - `node_required` — The row names a node id as the first thing it carries.
 - `slots_required` — The row names the slot(s) it concerns.
 - `licensed_slots` — The slots the row's own semantics admit, when the specs close the set; `None` where they do not, in which case the whole §1 annotatable set is admitted.
+- `graph_scopes` — The `detail["scope"]` values under which the row is about the graph-level slot `runtime.recursion_limit` rather than a node (ANNOTATION §4 as amended by DEC-36: "node id, or scope `graph` for `runtime.recursion_limit`"). A record carrying one of them names **no** node and **no** slots — that slot has no spelling in the node-slot vocabulary, which DEC-36 leaves unchanged — and is exempt from `node_required` and `slots_required`; a row whose node and slots are required also needs `detail["slot"]` to name the graph-level slot. Empty for every row that has no graph scope.
 
 #### `gebra.extraction.slot_grade`
 
@@ -5198,9 +5263,9 @@ The contract-declaration surface — ANNOTATION-API-SPEC.
 
 How a node's contract is declared and resolved: the decorator family, the `gebra.toml` sidecar, shallow inference, and the four-tier precedence — decorator, tool-carried, sidecar, inference — that settles, slot by slot, which of them a value came from.
 
-Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 — 55 names.
+Frozen by card EX-15, recorded in `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 — 58 names.
 
-[`ANNOTATION_SLOTS`](#gebraannotationsannotation_slots) · [`CONTRACT_ATTRIBUTE`](#gebraannotationscontract_attribute) · [`DEFAULT_EFFECT`](#gebraannotationsdefault_effect) · [`EFFECT_TAGS`](#gebraannotationseffect_tags) · [`IDENTIFIER_SLOTS`](#gebraannotationsidentifier_slots) · [`INFERENCE_SLOTS`](#gebraannotationsinference_slots) · [`NEVER_INFERRED`](#gebraannotationsnever_inferred) · [`PRECEDENCE`](#gebraannotationsprecedence) · [`SIDECAR_FILENAME`](#gebraannotationssidecar_filename) · [`SIDECAR_SCHEMA`](#gebraannotationssidecar_schema) · [`SLOT_KEYWORDS`](#gebraannotationsslot_keywords) · [`TIER_SLOTS`](#gebraannotationstier_slots) · [`AnnotationSlot`](#gebraannotationsannotationslot) · [`Blocker`](#gebraannotationsblocker) · [`ContractErrorReason`](#gebraannotationscontracterrorreason) · [`Contribution`](#gebraannotationscontribution) · [`DefaultRule`](#gebraannotationsdefaultrule) · [`GebraContractError`](#gebraannotationsgebracontracterror) · [`Inference`](#gebraannotationsinference) · [`InferenceFinding`](#gebraannotationsinferencefinding) · [`InferredKey`](#gebraannotationsinferredkey) · [`IssueKind`](#gebraannotationsissuekind) · [`NodeContract`](#gebraannotationsnodecontract) · [`NodeSource`](#gebraannotationsnodesource) · [`Pattern`](#gebraannotationspattern) · [`Resolution`](#gebraannotationsresolution) · [`ResolutionIssue`](#gebraannotationsresolutionissue) · [`ResolutionRule`](#gebraannotationsresolutionrule) · [`SidecarIssue`](#gebraannotationssidecarissue) · [`SidecarReading`](#gebraannotationssidecarreading) · [`SidecarRule`](#gebraannotationssidecarrule) · [`SidecarSource`](#gebraannotationssidecarsource) · [`SlotGrade`](#gebraannotationsslotgrade) · [`SourceCache`](#gebraannotationssourcecache) · [`SourceRule`](#gebraannotationssourcerule) · [`StateSchema`](#gebraannotationsstateschema) · [`Surface`](#gebraannotationssurface) · [`carriable`](#gebraannotationscarriable) · [`compensation`](#gebraannotationscompensation) · [`contract`](#gebraannotationscontract) · [`deterministic`](#gebraannotationsdeterministic) · [`discover_sidecar`](#gebraannotationsdiscover_sidecar) · [`effect`](#gebraannotationseffect) · [`idempotent`](#gebraannotationsidempotent) · [`infer`](#gebraannotationsinfer) · [`infer_node`](#gebraannotationsinfer_node) · [`pure`](#gebraannotationspure) · [`read_contract`](#gebraannotationsread_contract) · [`read_node_source`](#gebraannotationsread_node_source) · [`read_sidecar`](#gebraannotationsread_sidecar) · [`repository_root`](#gebraannotationsrepository_root) · [`resolve`](#gebraannotationsresolve) · [`slot_bytes`](#gebraannotationsslot_bytes) · [`slot_data`](#gebraannotationsslot_data) · [`variant`](#gebraannotationsvariant)
+[`ANNOTATION_SLOTS`](#gebraannotationsannotation_slots) · [`CONTRACT_ATTRIBUTE`](#gebraannotationscontract_attribute) · [`DEFAULT_EFFECT`](#gebraannotationsdefault_effect) · [`EFFECT_TAGS`](#gebraannotationseffect_tags) · [`IDENTIFIER_SLOTS`](#gebraannotationsidentifier_slots) · [`INFERENCE_SLOTS`](#gebraannotationsinference_slots) · [`NEVER_INFERRED`](#gebraannotationsnever_inferred) · [`PRECEDENCE`](#gebraannotationsprecedence) · [`RUNTIME_ATTRIBUTE`](#gebraannotationsruntime_attribute) · [`SIDECAR_FILENAME`](#gebraannotationssidecar_filename) · [`SIDECAR_SCHEMA`](#gebraannotationssidecar_schema) · [`SLOT_KEYWORDS`](#gebraannotationsslot_keywords) · [`TIER_SLOTS`](#gebraannotationstier_slots) · [`AnnotationSlot`](#gebraannotationsannotationslot) · [`Blocker`](#gebraannotationsblocker) · [`ContractErrorReason`](#gebraannotationscontracterrorreason) · [`Contribution`](#gebraannotationscontribution) · [`DefaultRule`](#gebraannotationsdefaultrule) · [`GebraContractError`](#gebraannotationsgebracontracterror) · [`Inference`](#gebraannotationsinference) · [`InferenceFinding`](#gebraannotationsinferencefinding) · [`InferredKey`](#gebraannotationsinferredkey) · [`IssueKind`](#gebraannotationsissuekind) · [`NodeContract`](#gebraannotationsnodecontract) · [`NodeSource`](#gebraannotationsnodesource) · [`Pattern`](#gebraannotationspattern) · [`RecursionLimitViolation`](#gebraannotationsrecursionlimitviolation) · [`Resolution`](#gebraannotationsresolution) · [`ResolutionIssue`](#gebraannotationsresolutionissue) · [`ResolutionRule`](#gebraannotationsresolutionrule) · [`SidecarIssue`](#gebraannotationssidecarissue) · [`SidecarReading`](#gebraannotationssidecarreading) · [`SidecarRule`](#gebraannotationssidecarrule) · [`SidecarSource`](#gebraannotationssidecarsource) · [`SlotGrade`](#gebraannotationsslotgrade) · [`SourceCache`](#gebraannotationssourcecache) · [`SourceRule`](#gebraannotationssourcerule) · [`StateSchema`](#gebraannotationsstateschema) · [`Surface`](#gebraannotationssurface) · [`carriable`](#gebraannotationscarriable) · [`compensation`](#gebraannotationscompensation) · [`contract`](#gebraannotationscontract) · [`deterministic`](#gebraannotationsdeterministic) · [`discover_sidecar`](#gebraannotationsdiscover_sidecar) · [`effect`](#gebraannotationseffect) · [`idempotent`](#gebraannotationsidempotent) · [`infer`](#gebraannotationsinfer) · [`infer_node`](#gebraannotationsinfer_node) · [`pure`](#gebraannotationspure) · [`read_contract`](#gebraannotationsread_contract) · [`read_node_source`](#gebraannotationsread_node_source) · [`read_sidecar`](#gebraannotationsread_sidecar) · [`recursion_limit`](#gebraannotationsrecursion_limit) · [`repository_root`](#gebraannotationsrepository_root) · [`resolve`](#gebraannotationsresolve) · [`slot_bytes`](#gebraannotationsslot_bytes) · [`slot_data`](#gebraannotationsslot_data) · [`variant`](#gebraannotationsvariant)
 
 ### Defined in `gebra.annotations.contract`
 
@@ -5396,16 +5461,16 @@ class ContractErrorReason(str, Enum):
 
 Why decoration was refused — a stable code to branch on.
 
-The first four are the four §1 consistency rules, one code each, so that "each rule raises" is a checkable statement rather than a shared code with a variable message. The last three are refusals of a *shape* the surface does not have: a slot that is not one of the nine, a value that is not of the slot's kind, and a target that cannot carry the attribute at all.
+The first four are the four §1 consistency rules, one code each, so that "each rule raises" is a checkable statement rather than a shared code with a variable message. The last three are refusals of a *shape* the surface does not have: a slot that is not one of the nine, a value that is not of the slot's kind, and a target that cannot carry the attribute at all. The graph-level call of §1a (`gebra.recursion_limit`, ratified — DEC-36) raises three of the same codes, with `slot` `"runtime.recursion_limit"`: `duplicate-slot` for a second declaration on one carrier, `slot-value-invalid` for a value or justification its call-time rules refuse, `attachment-impossible` for a carrier that will not hold the attribute.
 
 **Attributes**
 
-- `DUPLICATE_SLOT` — A slot was set twice across one decorator stack. §1: "Each slot is settable **at most once** across a decorator stack; a duplicate slot assignment is an error, not a merge — **regardless of value, identical duplicates included**." Deliberately stricter than §3's cross-surface rule, where identical values are not a conflict.
+- `DUPLICATE_SLOT` — A slot was set twice across one decorator stack. §1: "Each slot is settable **at most once** across a decorator stack; a duplicate slot assignment is an error, not a merge — **regardless of value, identical duplicates included**." Deliberately stricter than §3's cross-surface rule, where identical values are not a conflict. §1a applies the same rule per carrier to the graph-level declaration: a second `gebra.recursion_limit` call on a builder, or on any compiled copy of it, is this error.
 - `PURE_EFFECT_EXCLUSIVE` — `pure=True` and a non-empty `effects` were both declared (decision D-011). Checked over the whole stack, so declaring them through two different decorators is caught the same way as declaring both at once.
 - `UNKNOWN_EFFECT_TAG` — An `effects` tag outside the closed D-011 vocabulary `EFFECT_TAGS`. §1: "an unknown tag is an error".
 - `DETERMINISTIC_SEED_REQUIRED` — The `deterministic` object form was used without `seed`. §1 names the case outright: "`@gebra.deterministic(temperature=0.0)` without `seed=` raises at decoration time"; the frozen ledger §3 shape `{seed: int, temperature?: number}` owns the ruling.
 - `UNKNOWN_SLOT` — A keyword that is not one of the nine annotatable slots — a typo, or one of the slots §1 puts out of annotation reach ("extracted or computed, never annotated").
-- `SLOT_VALUE_INVALID` — A slot's value is not of that slot's kind — a bare string where a sequence of state keys is meant, a non-string effect tag, an `args_schema` that is not a JSON object.
+- `SLOT_VALUE_INVALID` — A slot's value is not of that slot's kind — a bare string where a sequence of state keys is meant, a non-string effect tag, an `args_schema` that is not a JSON object, a recursion limit that is not an integer of at least `1` or a blank justification. Also the refusal to overwrite a namespaced attribute gebra did not attach — a `__gebra_contract__` that is not a `NodeContract`, a `__gebra_runtime__` that is not a declaration the §1a call would write.
 - `ATTACHMENT_IMPOSSIBLE` — The target cannot carry `__gebra_contract__` at all — a slotted or frozen object, a `functools.partial`. §6 names this case and names its answer: "the **sidecar is the designated fallback**".
 
 #### `gebra.annotations.GebraContractError`
@@ -5939,6 +6004,79 @@ slot_data(slot: AnnotationSlot, value: object) -> Any
 
 One slot value as JSON data — what a warning payload carries.
 
+### Defined in `gebra.annotations.runtime`
+
+Source: [`src/gebra/annotations/runtime.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/annotations/runtime.py)
+
+#### `gebra.annotations.RUNTIME_ATTRIBUTE`
+
+```python
+RUNTIME_ATTRIBUTE: Final = "__gebra_runtime__"
+```
+
+*constant*, defined in `gebra.annotations.runtime`.
+
+The one namespaced attribute §1a fixes for the carrier — the sibling of `__gebra_contract__`. Normative, not a convention: INTROSPECTION-SPEC §3 and §4.3 rule 4 read it back under this spelling.
+
+#### `gebra.annotations.RecursionLimitViolation`
+
+```python
+class RecursionLimitViolation(str, Enum):
+    VALUE_MISSING = "value-missing"
+    VALUE_NOT_AN_INTEGER = "value-not-an-integer"
+    VALUE_BELOW_ONE = "value-below-one"
+    VALUE_OUT_OF_RANGE = "value-out-of-range"
+    JUSTIFICATION_MISSING = "justification-missing"
+    JUSTIFICATION_NOT_A_STRING = "justification-not-a-string"
+    JUSTIFICATION_BLANK = "justification-blank"
+    JUSTIFICATION_UNENCODABLE = "justification-unencodable"
+    NOT_AN_OBJECT = "not-an-object"
+    MEMBER_UNKNOWN = "member-unknown"
+    NOT_A_DECLARATION = "not-a-declaration"
+```
+
+*enumeration*, defined in `gebra.annotations.runtime`.
+
+What was wrong with a declared `{value, justification}` — one vocabulary, three surfaces.
+
+The call raises on these, the sidecar warns on them (§2's `[runtime].recursion_limit` bullet) and the extraction-time read of a hand-set attribute warns on them (§1a). Seven are the clauses §1a and §2 state (`value` missing, not an integer, below `1`, out of range; `justification` missing, not a string, blank) and `not-an-object` is §2's "not a table"; three are this build's, each the refusal of a shape the slot cannot carry (`justification-unencodable`, `member-unknown`) or of an attribute the call would never have attached (`not-a-declaration`).
+
+**Attributes**
+
+- `VALUE_MISSING` — The object has no `value` member.
+- `VALUE_NOT_AN_INTEGER` — `value` is not an `int`, or it is a `bool` (a TOML boolean included) — §1a: "an `int` that is not a `bool`".
+- `VALUE_BELOW_ONE` — `value` is below `1`, the substrate's own run-time floor.
+- `VALUE_OUT_OF_RANGE` — `value` is above `2**53 − 1`, outside the I-JSON exact range IR-SPEC §6.3 fixes for every integer in the canonical form (PD-004).
+- `JUSTIFICATION_MISSING` — The object has no `justification` member.
+- `JUSTIFICATION_NOT_A_STRING` — `justification` is not a string.
+- `JUSTIFICATION_BLANK` — `justification` has no non-whitespace character — "an empty one is no declaration" (§1a).
+- `JUSTIFICATION_UNENCODABLE` — `justification` holds a lone surrogate, which UTF-8 cannot encode, so the IR carrying it would have no canonical form and no `graph_version` (IR-SPEC §6.1 step 6). Not one of §1a's rules: it is the refusal the canonical form would otherwise make later, with nothing pointing back at the declaration — the same reason the decorator surface refuses a non-finite `temperature` where it is written. TOML cannot express such a string, so only the code surfaces reach it.
+- `NOT_AN_OBJECT` — The declared `recursion_limit` is not a mapping — a TOML table, a Python `dict` — at all.
+- `MEMBER_UNKNOWN` — The object carries a member other than `value` and `justification` (or a key that is not a plain string). The slot's shape is exactly those two (IR-SPEC §3.5), as every other object-shaped slot's is closed; the members found are named in `RecursionLimitCheck.unknown_members`.
+- `NOT_A_DECLARATION` — The `__gebra_runtime__` attribute itself is not `{"recursion_limit": {…}}` — not a mapping, or one holding anything else. Reached only by an attribute set by hand.
+
+#### `gebra.annotations.recursion_limit`
+
+```python
+recursion_limit(graph: G, value: int, *, justification: str) -> G
+```
+
+*function*, defined in `gebra.annotations.runtime`. Also exported as `gebra.recursion_limit`.
+
+Declare the graph's step budget — `runtime.recursion_limit` (ANNOTATION-API-SPEC §1a).
+
+**Parameters**
+
+- `graph` — The graph object — a `StateGraph` builder or a compiled graph. The declaration lands on its `.builder` backreference when it has one, which every compiled copy shares, and on the object itself otherwise.
+- `value` — The step budget: an `int` that is not a `bool`, at least `1` and at most `2**53 − 1`.
+- `justification` — Why that number — a string with at least one non-whitespace character.
+
+**Returns** — `graph` itself — the same object, unchanged apart from the attribute on its carrier.
+
+**Raises**
+
+- `GebraContractError` — with reason `slot-value-invalid` when `value` or `justification` breaks a call-time rule, or when the carrier already holds a `__gebra_runtime__` this call did not attach; `duplicate-slot` when the carrier already holds a declaration — a second call on the builder or on any compiled copy of it, identical value included; `attachment-impossible` when the carrier refuses the attribute, or accepts the assignment without holding it in its own instance dictionary.
+
 ### Defined in `gebra.annotations.sidecar`
 
 Source: [`src/gebra/annotations/sidecar.py`](https://github.com/Gebra-Tech/gebra/blob/main/src/gebra/annotations/sidecar.py)
@@ -5984,9 +6122,9 @@ A neutral record rather than an `ExtractionWarning` because this package must no
 
 - `rule` — The violated §2 rule.
 - `message` — A one-line human summary. Display-only, like every other warning message in this build: the facts are the fields.
-- `node` — The entry's node id, for a node-scoped finding; `None` for a file-scoped one. Always a string the §5 grammar admits, since an entry with any other key is rejected before its contents are read.
-- `slots` — The IR slot names the finding concerns, empty for a file-scoped one.
-- `detail` — The rest of §2's "carries" list as JSON data — scope, surface, the file, the rule, and the value(s) involved.
+- `node` — The entry's node id, for a node-scoped finding; `None` for a file- or `runtime`-scoped one. Always a string the §5 grammar admits, since an entry with any other key is rejected before its contents are read.
+- `slots` — The IR slot names the finding concerns, empty for a file-scoped one — and for a `runtime`-scoped one, whose slot has no spelling in the node-slot vocabulary and is named in `detail["slot"]` as `runtime.recursion_limit` instead (§4, DEC-36).
+- `detail` — The rest of §2's "carries" list as JSON data — scope (`file`, `node` or `runtime`), surface, the file, the rule, and the value(s) involved.
 
 #### `gebra.annotations.SidecarReading`
 
@@ -5995,6 +6133,7 @@ class SidecarReading:
     source: SidecarSource = SidecarSource.ABSENT
     path: Path | None = None
     entries: Mapping[str, NodeContract] = field(default_factory=dict)
+    recursion_limit: RecursionLimit | None = None
     issues: tuple[SidecarIssue, ...] = ()
 ```
 
@@ -6007,6 +6146,7 @@ What one extraction's sidecar lookup found — the whole result, never an except
 - `source` — Which §2 discovery rule produced `path`, or `SidecarSource.ABSENT`.
 - `path` — The **absolute** path of the file that was loaded, or `None`. Absolute because §2 makes it so: the envelope "MUST record the absolute sidecar path used (or its absence) so digest divergence is diagnosable". `None` covers both "no sidecar" and "a file that was found but not loaded" — §2's own wording for the latter is that "extraction proceeds sidecar-less", so recording the path as *used* would be the one lie this field exists to prevent. The file is still named, in the issue.
 - `entries` — One `NodeContract` per well-keyed entry, keyed by the node id exactly as the file spells it. An entry every one of whose slots was rejected is still present, carrying an empty contract: the key is what §2's unmatched-key rule is about, and dropping it would hide a stale key behind an invalid value.
+- `recursion_limit` — The `[runtime].recursion_limit` declaration — the IR slot's own object, both members validated — or `None` when the file declares none or the one it declares was rejected (ratified — DEC-36). Graph-scoped: it is keyed by nothing, so it applies to whatever graph this sidecar governs, and it is the second tier of the graph-level ladder, below a `gebra.recursion_limit` declaration in code (ANNOTATION-API-SPEC §3).
 - `issues` — Every §2 finding, in file order.
 
 #### `gebra.annotations.SidecarRule`
@@ -6026,13 +6166,16 @@ class SidecarRule(str, Enum):
     EFFECT_TAG_UNKNOWN = "effect-tag-unknown"
     PURE_EFFECT_EXCLUSIVE = "pure-effect-exclusive"
     DETERMINISTIC_SEED_REQUIRED = "deterministic-seed-required"
+    RUNTIME_TABLE_INVALID = "runtime-table-invalid"
+    RUNTIME_KEY_UNKNOWN = "runtime-key-unknown"
+    RECURSION_LIMIT_INVALID = "recursion-limit-invalid"
 ```
 
 *enumeration*, defined in `gebra.annotations.sidecar`.
 
 The §2 rule a `SidecarIssue` reports as violated — a stable code to branch on.
 
-§2's validation list has five bullets and each has its own code here, so "every §2 rule degrades to a warning" is checkable per rule rather than by message text. The remaining codes cover the ways a *file* can fail to be readable at all, which §2 does not enumerate but whose grade its own sentence fixes: the sidecar surface produces warnings, never errors.
+§2's validation list had five bullets when the loader landed, and each has its own code here, so "every §2 rule degrades to a warning" is checkable per rule rather than by message text; DEC-36 added three `[runtime]` bullets — an unknown `[runtime]` key and a malformed `recursion_limit` have a code each, and `recursion_limit` written in a `[nodes.<id>]` table stays `SLOT_KEY_UNKNOWN` with a message pointing at `[runtime]`. The remaining codes cover the ways a *file* — or one of its two tables — can fail to be readable at all, which §2 does not enumerate but whose grade its own sentence fixes: the sidecar surface produces warnings, never errors.
 
 **Attributes**
 
@@ -6040,7 +6183,7 @@ The §2 rule a `SidecarIssue` reports as violated — a stable code to branch on
 - `FILE_UNPARSABLE` — The bytes are not a UTF-8 TOML document. TOML *is* UTF-8 by definition, so a file saved in another encoding is this rather than a separate outcome.
 - `SCHEMA_MISSING` — §2 bullet 1, absent half — no `schema` key.
 - `SCHEMA_UNKNOWN` — §2 bullet 1, wrong-value half — a `schema` other than `SIDECAR_SCHEMA`.
-- `FILE_KEY_UNKNOWN` — A top-level key that is neither `schema` nor `nodes`.
+- `FILE_KEY_UNKNOWN` — A top-level key that is not `schema`, `nodes` or `runtime`.
 - `NODES_TABLE_INVALID` — `nodes` is present but is not a table.
 - `ENTRY_KEY_NOT_A_NODE_ID` — A `[nodes.…]` key that the IR-SPEC §5 grammar does not admit, so it is not the escaped node id §2 requires it to be and can match nothing.
 - `ENTRY_NOT_A_TABLE` — A `nodes` member that is not a table of slots.
@@ -6049,6 +6192,9 @@ The §2 rule a `SidecarIssue` reports as violated — a stable code to branch on
 - `EFFECT_TAG_UNKNOWN` — §2 bullet 3 — a tag outside the closed D-011 vocabulary.
 - `PURE_EFFECT_EXCLUSIVE` — §2 bullet 4 — `pure = true` with non-empty `effects`; **both** slots are rejected, "the loader has no basis to prefer one".
 - `DETERMINISTIC_SEED_REQUIRED` — §2 bullet 5 — a `deterministic` object without `seed`.
+- `RUNTIME_TABLE_INVALID` — `runtime` is present but is not a table, so no declaration is read from it (ratified — DEC-36). The `[runtime]` counterpart of `NODES_TABLE_INVALID`.
+- `RUNTIME_KEY_UNKNOWN` — §2's `[runtime]` bullet — a key other than `recursion_limit`; `interrupts` and `checkpointer` are extracted, never annotated (§1). The key is ignored (ratified — DEC-36).
+- `RECURSION_LIMIT_INVALID` — §2's `[runtime].recursion_limit` bullet — not a table, a `value` missing, not an integer (a TOML boolean included), below `1` or outside ±(2⁵³−1), or a `justification` missing, not a string or blank — and, beside the bullet's clauses, a member other than `value` and `justification` (`member-unknown`: the IR slot's shape is exactly those two). One code for the bullet, with the clause each violation breaks in `detail["violations"]` (`RecursionLimitViolation`) and any unknown member in `detail["unknown_members"]`; the declaration stays absent — never the substrate default, never a bound value (ratified — DEC-36).
 
 #### `gebra.annotations.SidecarSource`
 

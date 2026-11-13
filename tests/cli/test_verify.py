@@ -372,6 +372,121 @@ def test_extraction_warnings_render_on_stderr_and_never_move_the_code(
     assert json.loads(result.stdout)["subject"]["input_mode"] == "extracted"
 
 
+#: The loop of :mod:`tests.sample_workflows.sentinel_runtime` — ``draft → review → (again: draft
+#: | done: END)``, no counter guard and no variant — through ``--call``, so importing the module
+#: builds nothing and the factory is the one call (CLI-SPEC §2.4).
+_RUNTIME = "tests.sample_workflows.sentinel_runtime"
+
+
+def _p02(result: object) -> dict[str, object]:
+    report = json.loads(result.stdout)  # type: ignore[attr-defined]
+    outcome: dict[str, object] = next(
+        o for o in report["properties"] if o["property"] == "termination-witness"
+    )
+    return outcome
+
+
+@pytest.mark.parametrize("factory", ["build_declared_loop", "compile_declared_loop"])
+def test_a_declared_recursion_limit_passes_p02_via_form_b_through_gebra_verify(
+    run_cli: RunCli, monkeypatch: pytest.MonkeyPatch, factory: str
+) -> None:
+    """EX-19's end-to-end box, through the shell: a cyclic builder and its compiled form, each with
+    ``gebra.recursion_limit`` declared, extract with ``runtime.recursion_limit`` set, and P-02
+    passes via witness form (b) with its WARNING-grade note (TERMINATION-WITNESS-SPEC §2.2,
+    §2.4) — exit 0, gate ``pass-with-notes``. Witness presence: the document carries a justified
+    step budget, and that is all the verdict says."""
+    from tests.sample_workflows import sentinel_graph as sg
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parent.parent.parent))
+    sg.TRIPPED.clear()
+
+    result = run_cli("verify", "--call", f"{_RUNTIME}:{factory}", "--format", "json")
+
+    assert result.exit_code == 0, result.stderr
+    assert json.loads(result.stdout)["gate"]["outcome"] == "pass-with-notes"
+    p02 = _p02(result)
+    assert p02["result"] == "pass"
+    witness = p02["witness"]
+    assert isinstance(witness, dict)
+    assert [entry["form"] for entry in witness["inventory"]] == ["b"]
+    assert witness["inventory"][0]["source"]["recursion_limit"]["value"] == 38
+    assert [(note["kind"], note["severity"]) for note in witness["notes"]] == [
+        ("scc-covered-only-by-recursion-limit", "warning")
+    ]
+    assert sg.TRIPPED == []
+
+
+@pytest.mark.parametrize("factory", ["build_undeclared_loop", "compile_undeclared_loop"])
+def test_the_same_loop_undeclared_still_fails_p02(
+    run_cli: RunCli, monkeypatch: pytest.MonkeyPatch, factory: str
+) -> None:
+    """The same graph with nothing declared has no witness of any form: P-02 fails, exit 1."""
+    monkeypatch.syspath_prepend(str(Path(__file__).parent.parent.parent))
+
+    result = run_cli("verify", "--call", f"{_RUNTIME}:{factory}", "--format", "json")
+
+    assert result.exit_code == 1
+    p02 = _p02(result)
+    assert p02["result"] == "fail"
+    failure = p02["failure"]
+    assert isinstance(failure, dict)
+    assert failure["property_condition"] == "cycle-without-termination-witness"
+
+
+def test_a_limit_bound_with_no_declaration_still_fails_p02(
+    run_cli: RunCli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DEC-36 §4: "a graph that binds a limit and declares nothing fails P-02" — the binding never
+    fills the slot (it is disclosed on the envelope, which CLI-12 carries into the report)."""
+    monkeypatch.syspath_prepend(str(Path(__file__).parent.parent.parent))
+
+    result = run_cli("verify", "--call", f"{_RUNTIME}:bind_undeclared_loop", "--format", "json")
+
+    assert result.exit_code == 1
+    assert _p02(result)["result"] == "fail"
+
+
+def test_a_sidecar_runtime_table_reaches_p02_through_the_sidecar_flag(
+    run_cli: RunCli, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ANNOTATION-API-SPEC §2: the ``[runtime]`` table is the surface for a graph whose code an
+    adopter cannot annotate — the undeclared loop passes P-02 via form (b) with the sidecar."""
+    from tests.sample_workflows import sentinel_runtime as sr
+
+    monkeypatch.syspath_prepend(str(Path(__file__).parent.parent.parent))
+    sidecar = tmp_path / "gebra.toml"
+    sidecar.write_text(sr.SIDECAR_TEXT, encoding="utf-8")
+
+    result = run_cli(
+        "verify",
+        "--call",
+        f"{_RUNTIME}:build_undeclared_loop",
+        "--sidecar",
+        str(sidecar),
+        "--format",
+        "json",
+    )
+
+    assert result.exit_code == 0, result.stderr
+    p02 = _p02(result)
+    assert p02["result"] == "pass"
+    witness = p02["witness"]
+    assert isinstance(witness, dict)
+    assert witness["inventory"][0]["source"]["recursion_limit"]["value"] == sr.SIDECAR_LIMIT
+
+
+def test_the_form_b_note_is_what_strict_mode_promotes(
+    run_cli: RunCli, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """TERMINATION-WITNESS-SPEC §2.4: under ``--strict`` the blanket is excluded and the note is
+    promoted — the declared loop that passes with notes fails, exit 1, record unchanged."""
+    monkeypatch.syspath_prepend(str(Path(__file__).parent.parent.parent))
+    target = f"{_RUNTIME}:build_declared_loop"
+
+    assert run_cli("verify", "--call", target).exit_code == 0
+    assert run_cli("verify", "--strict", "--call", target).exit_code == 1
+
+
 def _dynamic_document() -> WorkflowIR:
     """A minimal ir 1.1 document — one ``dynamic`` edge, the DEC-28 shape."""
     edges: list[Edge] = [

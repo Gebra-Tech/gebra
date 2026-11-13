@@ -38,6 +38,7 @@ _GUARDED_PATHS: dict[str, str] = {
     "digests": "tests/extraction/test_digests.py",
     "stock": "tests/extraction/test_digests.py",
     "compat": "tests/extraction/test_compat.py",
+    "runtime": "tests/extraction/test_runtime.py",
 }
 
 #: Substrate-reaching paths whose never-invokes claim is asserted under another module's guard.

@@ -62,12 +62,30 @@ class SidecarFixture:
             so the expectation is the fixture's and not the code's.
         entries: The entry keys the reading must carry, in file order. An entry survives its
             own slot rejections: the key is what §2's unmatched-key rule is about.
+        limit: The ``[runtime].recursion_limit`` the reading must carry, as ``(value,
+            justification)``, or ``None`` when the file declares none or the one it declares is
+            rejected (ratified — DEC-36).
     """
 
     text: str | bytes
     loaded: bool
     rules: tuple[str, ...] = ()
     entries: tuple[str, ...] = ()
+    limit: tuple[int, str] | None = None
+
+
+#: A valid ``[runtime]`` table's text, and the declaration it carries (§2, DEC-36). ``38`` is
+#: deliberately not a substrate default.
+RUNTIME_LIMIT: Final = (38, "3 retry laps of 12 supersteps each, plus entry and exit")
+RUNTIME_TABLE: Final = (
+    "[runtime]\n"
+    f'recursion_limit = {{ value = {RUNTIME_LIMIT[0]}, justification = "{RUNTIME_LIMIT[1]}" }}\n'
+)
+
+
+def _limit(body: str) -> str:
+    """A sidecar whose ``[runtime].recursion_limit`` is the inline table ``{ body }``."""
+    return f"{SCHEMA_LINE}\n[runtime]\nrecursion_limit = {{ {body} }}\n"
 
 
 #: A sidecar declaring all nine annotatable slots on one node — the §2 example's vocabulary,
@@ -365,6 +383,141 @@ deterministic = {{ seed = 7, temperature = 0.0 }}
         loaded=True,
         rules=("slot-key-unknown",),
         entries=("act_step",),
+    ),
+    # ── The [runtime] table (ratified — DEC-36): loaded, then accepted or rejected ─────────
+    "runtime_table": SidecarFixture(
+        f"{SCHEMA_LINE}\n{RUNTIME_TABLE}", loaded=True, limit=RUNTIME_LIMIT
+    ),
+    "runtime_beside_nodes": SidecarFixture(
+        f"{SCHEMA_LINE}\n{RUNTIME_TABLE}\n[nodes.plan_step]\npure = true\n",
+        loaded=True,
+        entries=("plan_step",),
+        limit=RUNTIME_LIMIT,
+    ),
+    "empty_runtime_table": SidecarFixture(f"{SCHEMA_LINE}\n[runtime]\n", loaded=True),
+    "largest_exact_limit": SidecarFixture(
+        _limit('value = 9007199254740991, justification = "the I-JSON ceiling"'),
+        loaded=True,
+        limit=(9007199254740991, "the I-JSON ceiling"),
+    ),
+    "smallest_limit": SidecarFixture(
+        _limit('value = 1, justification = "one superstep"'),
+        loaded=True,
+        limit=(1, "one superstep"),
+    ),
+    "runtime_not_a_table": SidecarFixture(
+        f"{SCHEMA_LINE}\nruntime = 38\n", loaded=True, rules=("runtime-table-invalid",)
+    ),
+    # `interrupts` and `checkpointer` are extracted, never annotated (§1): a [runtime] key naming
+    # either is ignored and warned, and the table's one admitted key is still read beside it.
+    "runtime_interrupts_key": SidecarFixture(
+        f'{SCHEMA_LINE}\n{RUNTIME_TABLE}interrupts = ["plan_step"]\n',
+        loaded=True,
+        rules=("runtime-key-unknown",),
+        limit=RUNTIME_LIMIT,
+    ),
+    "runtime_checkpointer_key": SidecarFixture(
+        f"{SCHEMA_LINE}\n[runtime]\ncheckpointer = true\n",
+        loaded=True,
+        rules=("runtime-key-unknown",),
+    ),
+    "runtime_typo_key": SidecarFixture(
+        f'{SCHEMA_LINE}\n[runtime]\nrecursion_limt = {{ value = 38, justification = "x" }}\n',
+        loaded=True,
+        rules=("runtime-key-unknown",),
+    ),
+    "recursion_limit_not_a_table": SidecarFixture(
+        f"{SCHEMA_LINE}\n[runtime]\nrecursion_limit = 38\n",
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_boolean_value": SidecarFixture(
+        _limit('value = true, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_float_value": SidecarFixture(
+        _limit('value = 38.0, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_string_value": SidecarFixture(
+        _limit('value = "38", justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_zero": SidecarFixture(
+        _limit('value = 0, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_negative": SidecarFixture(
+        _limit('value = -1, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    # One past the I-JSON ceiling: an ordinary TOML integer, an impossible IR one (IR-SPEC §6.3).
+    "recursion_limit_out_of_range": SidecarFixture(
+        _limit('value = 9007199254740992, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_without_value": SidecarFixture(
+        _limit('justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_without_justification": SidecarFixture(
+        _limit("value = 38"),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_blank_justification": SidecarFixture(
+        _limit('value = 38, justification = "  \\t "'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_non_string_justification": SidecarFixture(
+        _limit("value = 38, justification = 38"),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    "recursion_limit_unknown_member": SidecarFixture(
+        _limit('value = 38, justification = "x", note = "y"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    # An integer literal past the interpreter's integer-string limit (4300 digits): the parser
+    # raises a plain ValueError for it, so the file is unparsable — never a crash of extract().
+    "recursion_limit_huge_integer": SidecarFixture(
+        _limit("value = 1" + "0" * 5000 + ', justification = "x"'),
+        loaded=False,
+        rules=("file-unparsable",),
+    ),
+    "recursion_limit_date_valued": SidecarFixture(
+        _limit('value = 2026-10-28, justification = "x"'),
+        loaded=True,
+        rules=("recursion-limit-invalid",),
+    ),
+    # §2: `[nodes.<id>] recursion_limit` stays a key outside the node slots, pointing at [runtime].
+    "recursion_limit_in_a_node_entry": SidecarFixture(
+        f'{SCHEMA_LINE}\n[nodes.plan_step]\nrecursion_limit = {{ value = 38, justification = "x" }}\n',
+        loaded=True,
+        rules=("slot-key-unknown",),
+        entries=("plan_step",),
+    ),
+    # Issues come out in file order whichever table the author wrote first.
+    "runtime_after_nodes": SidecarFixture(
+        f"{SCHEMA_LINE}\n[nodes.plan_step]\nretry_policy = 3\n\n[runtime]\nfoo = 1\n",
+        loaded=True,
+        rules=("slot-key-unknown", "runtime-key-unknown"),
+        entries=("plan_step",),
+    ),
+    "runtime_before_nodes": SidecarFixture(
+        f"{SCHEMA_LINE}\n[runtime]\nfoo = 1\n\n[nodes.plan_step]\nretry_policy = 3\n",
+        loaded=True,
+        rules=("runtime-key-unknown", "slot-key-unknown"),
+        entries=("plan_step",),
     ),
 }
 

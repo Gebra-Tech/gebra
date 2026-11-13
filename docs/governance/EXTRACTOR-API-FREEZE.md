@@ -19,14 +19,17 @@ The public surface of `gebra.extract()`/`@gebra.contract` and their two subpacka
 landed by EX-01 through EX-14, EX-16, and EX-17 (all `status: done` on
 `boards/extractor.md`):
 
-### 1.1 Top-level `gebra` entry points (INTROSPECTION-SPEC §2; ANNOTATION-API-SPEC §1)
+### 1.1 Top-level `gebra` entry points (INTROSPECTION-SPEC §2; ANNOTATION-API-SPEC §1, §1a)
 
-Ten names, resolved lazily out of the two subpackages below (`gebra/__init__.py`'s
+Eleven names, resolved lazily out of the two subpackages below (`gebra/__init__.py`'s
 `__getattr__`, PEP 562) so that neither the substrate nor the extractor is in the closure
 of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContractError`,
-`pure`, `effect`, `idempotent`, `deterministic`, `variant`, `compensation`.
+`pure`, `effect`, `idempotent`, `deterministic`, `variant`, `compensation`, and
+`recursion_limit` — the graph-level declaration of `runtime.recursion_limit`, the eleventh
+name DEC-36 adds (ANNOTATION-API-SPEC §1a; the additive member landed by EX-19, 2026-11-12),
+resolved out of `gebra.annotations` like the decorators.
 
-### 1.2 `gebra.extraction` (77 exports)
+### 1.2 `gebra.extraction` (79 exports)
 
 - **Entry points & dispatch registry** — `extract`, `extract_builder`, `extract_compiled`,
   `extract_lcel_fragment`, `extractor_for`, `register_extractor`, `unregister_extractor`,
@@ -45,6 +48,18 @@ of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContra
   EX-20, 2026-11-12) — `ExtractionDisclosure`, `ExtractionDisclosureCode`, `DisclosureRule`,
   `DISCLOSURE_RULES`, `disclosure_rule`: the closed vocabulary beside the warnings taxonomy,
   never a member of it, carried on the envelope's `disclosures` member outside hash scope.
+  EX-19 (2026-11-12) appended DEC-36's second code,
+  `recursion-limit-bound-without-justification`, with its rule row.
+- **The `runtime.recursion_limit` binding** (INTROSPECTION-SPEC §4.1; ANNOTATION-API-SPEC §3;
+  DEC-36, the additive members landed by EX-19, 2026-11-12) — `RecursionLimitBinding`,
+  `BindingOutcome`: the compiled object's `with_config(recursion_limit=…)` binding and what it
+  did beside the declarations (corroborates, conflicts, disclosed), carried on the additive
+  `CompiledSurfaces.recursion_limit_binding` member, provenance outside hash scope — a binding
+  never fills the slot. Also additive under DEC-36: `WarningRule.graph_scopes`, under which
+  the two annotation rows admit a graph-level record with no node and no slots —
+  `annotation-conflict` at `detail.scope` `graph`, naming `runtime.recursion_limit` in
+  `detail.slot`, and `annotation-invalid` at `detail.scope` `graph` or `runtime`; the ten-code
+  warning vocabulary and the nine-slot `AnnotationSlot` are unchanged.
 - **Annotation-resolution bridge** (§7.4 digests; ANNOTATION-API-SPEC §5 slot grades) —
   `ANNOTATION_SLOTS`, `AnnotationSlot`, `SlotGrade`, `slot_grade`, `CarrierRule`,
   `config_form`, `prompt_form`, `digests_for`, `coerce`, `type_identity`, `to_data`,
@@ -61,15 +76,24 @@ of a bare `import gebra`: `extract`, `ExtractionError`, `contract`, `GebraContra
 - **Sidecar loading** — `load_sidecar` (the annotation-precedence read of the resolved
   `gebra.toml` path; the sidecar model itself is §1.3's).
 
-### 1.3 `gebra.annotations` (55 exports)
+### 1.3 `gebra.annotations` (58 exports)
 
 - **Decorators & the shorthand family** (ANNOTATION-API-SPEC §1) — `contract`, `pure`,
   `effect`, `idempotent`, `deterministic`, `variant`, `compensation`,
   `CONTRACT_ATTRIBUTE`, `NodeContract`, `NodeSource`, `carriable`, `GebraContractError`,
   `ContractErrorReason`, `Blocker`, `SLOT_KEYWORDS`.
+- **The graph-level declaration** (ANNOTATION-API-SPEC §1a; DEC-36, the additive members
+  landed by EX-19, 2026-11-12) — `recursion_limit`, `RUNTIME_ATTRIBUTE`,
+  `RecursionLimitViolation`: the call that declares `runtime.recursion_limit` on a graph's
+  builder, the attribute it attaches, and the closed vocabulary of what a declaration can get
+  wrong, shared by the call (an error), the sidecar's `[runtime]` table and the
+  extraction-time read (warnings).
 - **`gebra.toml` sidecar** (§2) — `discover_sidecar`, `read_sidecar`,
   `SIDECAR_FILENAME`, `SIDECAR_SCHEMA`, `SidecarReading`, `SidecarSource`, `SidecarRule`,
-  `SidecarIssue`, `repository_root`.
+  `SidecarIssue`, `repository_root`. Additive under DEC-36 (EX-19, 2026-11-12): the
+  `[runtime]` table under the unchanged `gebra-sidecar-v1` tag — `SidecarReading.recursion_limit`
+  and three `SidecarRule` members, `runtime-table-invalid`, `runtime-key-unknown` and
+  `recursion-limit-invalid`.
 - **Shallow inference** (§4; DEC-08 pattern table) — `infer`, `infer_node`, `Inference`,
   `InferenceFinding`, `InferredKey`, `Pattern`, `DEFAULT_EFFECT`, `EFFECT_TAGS`,
   `NEVER_INFERRED`, `INFERENCE_SLOTS`, `read_node_source`, `SourceCache`, `SourceRule`,

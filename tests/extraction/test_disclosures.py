@@ -144,17 +144,18 @@ def _envelope(*disclosures: ExtractionDisclosure) -> ExtractionEnvelope:
 # ── The vocabulary: the ratified rows, beside the warnings and never among them ──────────
 
 
-def test_the_vocabulary_is_a_ratified_row_and_this_build_emits_one() -> None:
+def test_the_vocabulary_is_a_ratified_row_and_this_build_emits_two() -> None:
     """§8's disclosure table has three rows; each joins the enum with the change that emits it.
 
     DEC-36 §4: "Whichever of EX-19 and EX-20 merges first introduces the disclosure carrier; the
-    other appends its code" — and DEC-40's row is emitted from the same member by its own card.
-    So the enum is a subset of the spec's rows, and today exactly the subgraph row.
+    other appends its code" — EX-20 introduced it, EX-19 appended the binding record — and
+    DEC-40's row is emitted from the same member by its own card. So the enum is a subset of the
+    spec's rows, and today exactly DEC-36's two.
     """
     codes = {code.value for code in ExtractionDisclosureCode}
 
     assert codes <= RATIFIED_DISCLOSURE_ROWS
-    assert codes == {"subgraph-read-as-one-node"}
+    assert codes == {"subgraph-read-as-one-node", "recursion-limit-bound-without-justification"}
 
 
 def test_no_disclosure_code_is_a_warning_code() -> None:

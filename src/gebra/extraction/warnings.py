@@ -23,7 +23,12 @@ Three properties of a warning are load-bearing, and each is enforced rather than
   This lookup is normative for the P-01…P-13 validators — and is why the §4 registry's
   warnings are structured records with node-id and slot fields, never strings."
   :func:`slot_grade` is that lookup, and :data:`WARNING_RULES` is what makes the fields it
-  reads mandatory on the codes whose registry rows name them.
+  reads mandatory on the codes whose registry rows name them. One slot is outside the pair:
+  ``runtime.recursion_limit`` is graph-level, so an ``annotation-conflict`` about it carries
+  ``detail["scope"]`` ``graph`` and an ``annotation-invalid`` ``graph`` or ``runtime``, with no
+  node and no slots, and the conflict names the slot in ``detail["slot"]`` (ANNOTATION §4 as
+  amended by DEC-36) — :attr:`WarningRule.graph_scopes`. It is declared-only by construction,
+  so §5's lookup needs no entry for it.
 
 :data:`~gebra.annotations.slots.AnnotationSlot` and its members, and
 :class:`~gebra.annotations.slots.SlotGrade`, are re-exported here rather than defined here.
@@ -52,6 +57,7 @@ from typing import Any, Final
 
 from pydantic import Field, field_validator, model_validator
 
+from gebra.annotations.runtime import RECURSION_LIMIT_SLOT
 from gebra.annotations.slots import ANNOTATION_SLOTS, AnnotationSlot, SlotGrade
 from gebra.extraction.base import ExtractionModel, type_identity
 from gebra.ir.identity import NodeIdStr
@@ -117,6 +123,14 @@ class WarningRule:
         licensed_slots: The slots the row's own semantics admit, when the specs close the
             set; ``None`` where they do not, in which case the whole §1 annotatable set is
             admitted.
+        graph_scopes: The ``detail["scope"]`` values under which the row is about the
+            graph-level slot ``runtime.recursion_limit`` rather than a node (ANNOTATION §4 as
+            amended by DEC-36: "node id, or scope ``graph`` for ``runtime.recursion_limit``").
+            A record carrying one of them names **no** node and **no** slots — that slot has
+            no spelling in the node-slot vocabulary, which DEC-36 leaves unchanged — and is
+            exempt from :attr:`node_required` and :attr:`slots_required`; a row whose node and
+            slots are required also needs ``detail["slot"]`` to name the graph-level slot.
+            Empty for every row that has no graph scope.
     """
 
     origin: str
@@ -124,6 +138,22 @@ class WarningRule:
     node_required: bool = False
     slots_required: bool = False
     licensed_slots: frozenset[str] | None = None
+    graph_scopes: frozenset[str] = frozenset()
+
+
+#: The graph-level slot as a graph-scoped record names it in ``detail["slot"]`` (ANNOTATION §4,
+#: DEC-36) — the annotation surface's own spelling, so the two cannot drift apart.
+GRAPH_LEVEL_SLOT: Final = RECURSION_LIMIT_SLOT
+
+#: The graph scopes each annotation row admits, as ANNOTATION §4's normative rows spell them (the
+#: text DEC-36 §3 makes normative): ``annotation-conflict`` carries "node id, or scope ``graph``
+#: for ``runtime.recursion_limit``", and ``annotation-invalid`` carries "scope (file / node id /
+#: ``runtime`` / ``graph``)" — ``graph`` for the code surface, ``runtime`` for the sidecar table.
+#: DEC-36 §3.5's restatement gives both codes both scopes; no conflict is ever recorded at scope
+#: ``runtime`` (a conflict is between two surfaces, so it is the graph's), and the narrower row
+#: is the one held here.
+_CONFLICT_SCOPES: Final[frozenset[str]] = frozenset({"graph"})
+_INVALID_SCOPES: Final[frozenset[str]] = frozenset({"graph", "runtime"})
 
 
 #: The ten rows, each with the requirement its registry entry states.
@@ -175,18 +205,23 @@ WARNING_RULES: Final[Mapping[ExtractionWarningCode, WarningRule]] = {
         carries="construct kind; location; why unmappable; whether the IR is partial there",
     ),
     ExtractionWarningCode.ANNOTATION_CONFLICT: WarningRule(
-        origin="ANNOTATION §4 (ratified — DEC-07); §3",
-        carries="both values; both surfaces (decorator/tool/sidecar)",
+        origin="ANNOTATION §4 (ratified — DEC-07; graph scope — DEC-36); §3",
+        carries=(
+            "both values; both surfaces (decorator/tool/sidecar; at graph level "
+            "graph-level/sidecar/with_config)"
+        ),
         node_required=True,
         slots_required=True,
+        graph_scopes=_CONFLICT_SCOPES,
     ),
     ExtractionWarningCode.ANNOTATION_UNKNOWN_NODE: WarningRule(
         origin="ANNOTATION §4 (ratified — DEC-07); §2",
         carries="the sidecar path; the unmatched entry key",
     ),
     ExtractionWarningCode.ANNOTATION_INVALID: WarningRule(
-        origin="ANNOTATION §4 (this spec, §2/§3/§6)",
-        carries="scope (file / node id); surface(s); value(s); the violated rule",
+        origin="ANNOTATION §4 (this spec, §1a/§2/§3/§6; graph scope — DEC-36)",
+        carries="scope (file / node id / runtime / graph); surface(s); value(s); the violated rule",
+        graph_scopes=_INVALID_SCOPES,
     ),
 }
 
@@ -268,6 +303,23 @@ class ExtractionWarning(ExtractionModel):
     def _carries_what_its_registry_row_names(self) -> ExtractionWarning:
         """Hold the record to :data:`WARNING_RULES` — the taxonomy's own "carries" column."""
         rule = warning_rule(self.code)
+        scope = self.detail.get("scope")
+        if type(scope) is str and scope in rule.graph_scopes:
+            # The graph-level slot (DEC-36): no node, no slots — it has no node-slot spelling.
+            if self.node is not None or self.slots:
+                raise ValueError(
+                    f"{self.code.value!r} at scope {scope!r} is about runtime.recursion_limit, "
+                    f"which no node owns and no node slot spells ({rule.origin}); this record "
+                    "names a node or slots"
+                )
+            if (rule.node_required or rule.slots_required) and self.detail.get(
+                "slot"
+            ) != GRAPH_LEVEL_SLOT:
+                raise ValueError(
+                    f"{self.code.value!r} at scope {scope!r} names its slot in detail as "
+                    f"{GRAPH_LEVEL_SLOT!r} ({rule.origin}); this record does not"
+                )
+            return self
         if rule.node_required and self.node is None:
             raise ValueError(
                 f"{self.code.value!r} carries a node id ({rule.origin}); this record has none"

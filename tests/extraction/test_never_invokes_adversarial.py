@@ -162,6 +162,27 @@ def test_the_named_four_hazards_never_fire_end_to_end(family: str) -> None:
     assert FIRED == list(DECORATION_AT_IMPORT), FIRED
 
 
+@pytest.mark.parametrize("family", ["builder", "compiled", "compiled-and-bound"])
+def test_the_recursion_limit_reads_add_no_hazard(family: str) -> None:
+    """EX-19's reads join the consolidated vector (DEC-36): the hostile workflow declared through
+    ``gebra.recursion_limit`` — and, compiled, bound through ``with_config`` — fires none of §1 rule
+    4's four hazards while its ``runtime.recursion_limit`` is read from the builder's instance
+    dictionary and the binding from the compiled object's. The declaration call is the author's,
+    made before extraction, and it fires nothing either."""
+    builder = gebra.recursion_limit(build_hostile_builder(), 12, justification="the probe's budget")
+    workflow: Any = builder if family == "builder" else builder.compile()
+    if family == "compiled-and-bound":
+        workflow = workflow.with_config(recursion_limit=12)
+
+    envelope = gebra.extract(workflow)
+
+    assert envelope.ir.runtime is not None
+    assert envelope.ir.runtime.recursion_limit is not None
+    assert envelope.ir.runtime.recursion_limit.value == 12
+    assert envelope.graph_version().startswith("sha256:")
+    assert FIRED == list(DECORATION_AT_IMPORT), FIRED
+
+
 def test_extraction_reads_the_string_return_hint_without_running_the_router() -> None:
     """The string/forward-ref vector, on the surface that reads it: EX-03 edge classification.
 

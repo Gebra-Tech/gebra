@@ -192,6 +192,98 @@ def test_a_slot_outside_the_closed_annotatable_set_is_refused() -> None:
             warning(code=ExtractionWarningCode.ANNOTATION_INVALID, slots=(outside,))
 
 
+def test_only_the_two_annotation_rows_carry_the_graph_level_scope() -> None:
+    """ANNOTATION §4 as amended by DEC-36: ``annotation-conflict`` carries "node id, or scope
+    ``graph`` for ``runtime.recursion_limit``", ``annotation-invalid`` "scope (file / node id /
+    ``runtime`` / ``graph``)" — and no other row has a graph scope."""
+    scoped = {code for code, rule in WARNING_RULES.items() if rule.graph_scopes}
+
+    assert scoped == {
+        ExtractionWarningCode.ANNOTATION_CONFLICT,
+        ExtractionWarningCode.ANNOTATION_INVALID,
+    }
+    assert warning_rule(ExtractionWarningCode.ANNOTATION_CONFLICT).graph_scopes == {"graph"}
+    assert warning_rule(ExtractionWarningCode.ANNOTATION_INVALID).graph_scopes == {
+        "graph",
+        "runtime",
+    }
+
+
+def test_a_conflict_is_never_runtime_scoped() -> None:
+    """A conflict is between two surfaces, so it is the graph's: the row names scope ``graph``
+    only, and a ``runtime``-scoped conflict falls to the node rule and is refused."""
+    with pytest.raises(ValidationError, match="carries a node id"):
+        ExtractionWarning(
+            code=ExtractionWarningCode.ANNOTATION_CONFLICT,
+            message="conflict",
+            detail={"scope": "runtime", "slot": "runtime.recursion_limit"},
+        )
+
+
+@pytest.mark.parametrize(
+    ("code", "scope"),
+    [
+        (ExtractionWarningCode.ANNOTATION_CONFLICT, "graph"),
+        (ExtractionWarningCode.ANNOTATION_INVALID, "graph"),
+        (ExtractionWarningCode.ANNOTATION_INVALID, "runtime"),
+    ],
+)
+def test_a_graph_level_record_names_no_node_no_slots_and_the_slot_in_detail(
+    code: ExtractionWarningCode, scope: str
+) -> None:
+    """DEC-36 §3.5: "the graph-level slot has no ``slots`` spelling": the record's ``slots`` stay
+    empty, the node-slot vocabulary is unchanged, and the slot is named in ``detail``. Such a record
+    enters no (node id, slot) pair, so §5's grade lookup never sees it."""
+    record = ExtractionWarning(
+        code=code,
+        message="the graph-level declaration and the sidecar disagree",
+        detail={"scope": scope, "slot": "runtime.recursion_limit"},
+    )
+
+    assert record.node is None
+    assert record.slots == ()
+    assert record.targets() == ()
+
+
+def test_a_graph_level_conflict_must_name_its_slot() -> None:
+    """The node-scoped half of the row requires a node and slots; its graph half requires the
+    slot, in ``detail`` — otherwise the record would say nothing about which slot conflicted."""
+    with pytest.raises(ValidationError, match="names its slot in detail"):
+        ExtractionWarning(
+            code=ExtractionWarningCode.ANNOTATION_CONFLICT,
+            message="conflict",
+            detail={"scope": "graph"},
+        )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"node": "plan"}, {"slots": ("input",)}],
+    ids=["a-node", "a-slot"],
+)
+def test_a_graph_level_record_cannot_also_name_a_node_or_a_slot(overrides: dict[str, Any]) -> None:
+    """``runtime.recursion_limit`` is owned by no node and spelled by no node slot."""
+    with pytest.raises(ValidationError, match="which no node owns and no node slot spells"):
+        ExtractionWarning(
+            code=ExtractionWarningCode.ANNOTATION_CONFLICT,
+            message="conflict",
+            detail={"scope": "graph", "slot": "runtime.recursion_limit"},
+            **overrides,
+        )
+
+
+def test_a_scope_the_row_does_not_admit_keeps_the_node_rule() -> None:
+    """The exemption is the graph scope only: ``annotation-conflict`` at node scope still needs a
+    node and a slot (DEC-07's row is unchanged)."""
+    with pytest.raises(ValidationError, match="carries a node id"):
+        ExtractionWarning(
+            code=ExtractionWarningCode.ANNOTATION_CONFLICT,
+            message="conflict",
+            slots=("input",),
+            detail={"scope": "node", "slot": "runtime.recursion_limit"},
+        )
+
+
 def test_the_graph_and_file_scoped_rows_need_neither() -> None:
     """Not every row names a node: §8's ``compiled-only-extraction`` is once per extraction,
     and §2's malformed-sidecar ``annotation-invalid`` names a file, not a node."""

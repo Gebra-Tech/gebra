@@ -26,6 +26,7 @@ import pytest
 
 from gebra.annotations import discover_sidecar, read_sidecar
 from gebra.extraction import ExtractionEnvelope, ExtractionWarningCode, extract
+from gebra.ir.models import Runtime
 from tests.sample_workflows import sentinel_graph as sg
 from tests.sample_workflows import sentinel_sidecars as ss
 
@@ -145,7 +146,9 @@ def test_no_sidecar_can_make_extraction_fail_or_move_anything_but_a_contract(
     extraction does not raise, the IR still has a digest, no sidecar can move the topology or
     Σ by a byte, and a node the file never keyed resolves exactly as it did without the file.
     A loader that leaked an entry onto the wrong node, or a chain that let one node's
-    declaration reach another, fails here.
+    declaration reach another, fails here. ``runtime`` moves by one ruled route only (DEC-36):
+    the file's ``[runtime].recursion_limit``, which a builder with no declaration of its own takes
+    as the whole block — and only when the file declares a valid one.
     """
     sidecar = ss.write_sidecar(checkout, ss.SIDECAR_FIXTURES[name].text)
     baseline = extract(sg.build_sentinel_graph(), sidecar=checkout / "nothing-here.toml")
@@ -153,8 +156,14 @@ def test_no_sidecar_can_make_extraction_fail_or_move_anything_but_a_contract(
     envelope = extract(sg.build_sentinel_graph(), sidecar=sidecar)
 
     assert envelope.graph_version().startswith("sha256:")
-    for member in ("ir_version", "entry", "finish", "state", "edges", "runtime"):
+    for member in ("ir_version", "entry", "finish", "state", "edges"):
         assert getattr(envelope.ir, member) == getattr(baseline.ir, member), member
+    declared = read_sidecar(sidecar).recursion_limit
+    if declared is None:
+        assert envelope.ir.runtime == baseline.ir.runtime
+    else:
+        assert baseline.ir.runtime is None
+        assert envelope.ir.runtime == Runtime(recursion_limit=declared)
 
     keyed = frozenset(read_sidecar(sidecar).entries)
     for node, unannotated in zip(envelope.ir.nodes, baseline.ir.nodes, strict=True):

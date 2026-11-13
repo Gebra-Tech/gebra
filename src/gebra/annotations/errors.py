@@ -39,14 +39,20 @@ class ContractErrorReason(str, Enum):
     raises" is a checkable statement rather than a shared code with a variable message. The
     last three are refusals of a *shape* the surface does not have: a slot that is not one
     of the nine, a value that is not of the slot's kind, and a target that cannot carry the
-    attribute at all.
+    attribute at all. The graph-level call of §1a (``gebra.recursion_limit``, ratified —
+    DEC-36) raises three of the same codes, with ``slot`` ``"runtime.recursion_limit"``:
+    ``duplicate-slot`` for a second declaration on one carrier, ``slot-value-invalid`` for a
+    value or justification its call-time rules refuse, ``attachment-impossible`` for a carrier
+    that will not hold the attribute.
 
     Attributes:
         DUPLICATE_SLOT: A slot was set twice across one decorator stack. §1: "Each slot is
             settable **at most once** across a decorator stack; a duplicate slot assignment
             is an error, not a merge — **regardless of value, identical duplicates
             included**." Deliberately stricter than §3's cross-surface rule, where identical
-            values are not a conflict.
+            values are not a conflict. §1a applies the same rule per carrier to the
+            graph-level declaration: a second ``gebra.recursion_limit`` call on a builder, or
+            on any compiled copy of it, is this error.
         PURE_EFFECT_EXCLUSIVE: ``pure=True`` and a non-empty ``effects`` were both declared
             (decision D-011). Checked over the whole stack, so declaring them through two
             different decorators is caught the same way as declaring both at once.
@@ -61,7 +67,11 @@ class ContractErrorReason(str, Enum):
             annotated").
         SLOT_VALUE_INVALID: A slot's value is not of that slot's kind — a bare string where
             a sequence of state keys is meant, a non-string effect tag, an ``args_schema``
-            that is not a JSON object.
+            that is not a JSON object, a recursion limit that is not an integer of at least
+            ``1`` or a blank justification. Also the refusal to overwrite a namespaced
+            attribute gebra did not attach — a ``__gebra_contract__`` that is not a
+            ``NodeContract``, a ``__gebra_runtime__`` that is not a declaration the §1a call
+            would write.
         ATTACHMENT_IMPOSSIBLE: The target cannot carry ``__gebra_contract__`` at all — a
             slotted or frozen object, a ``functools.partial``. §6 names this case and names
             its answer: "the **sidecar is the designated fallback**".

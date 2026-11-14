@@ -9,7 +9,17 @@ refusals rather than as gaps to fill later:
 2. **FATAL and ERROR collapse** to ``level: "error"`` (A.1 loss 2). The distinction survives
    in ``result.properties["gebra/severity"]``, which is why that bag member exists.
 3. **Not-implemented markers do not map** (A.1 loss 3). "A rule with no result would advertise
-   a check that did not run", so the eight non-wedge properties are simply absent from a log.
+   a check that did not run", so a property the run answered with a marker is simply absent
+   from a log.
+
+**Extraction notes are not results** (A.2's extraction-note row; DEC-35 §3.8). A run report that
+carries ``extraction_notes`` gets one ``invocations`` entry whose ``toolExecutionNotifications``
+hold one notification per note, in emission order, at ``level: "note"`` — a statement about how
+the tool's run went, never a finding, so no rule, result, rank or fingerprint is touched by one.
+A run with no note emits no ``invocations`` at all, exactly as before. A note's ``detail`` does
+not map (A.1 loss 4): the notification carries the label, the code, the message, the node and
+the slots, and
+the structured record stays in the native report.
 
 Two more absences are deliberate. There is **no ``physicalLocation``** on any result: IR 1.0
 carries no source spans, and A.5 refuses to fabricate an artifact URI and a line — a wrong
@@ -42,11 +52,13 @@ from typing import Any, Final
 
 from gebra.report.anchors import LogicalAnchor, location_evidence, location_phrase, logical_anchor
 from gebra.report.findings import Finding, findings_of
+from gebra.report.notes import note_heading
 from gebra.report.rules import SARIF_RULE_ENTRIES, rule_copy
 from gebra.verify.base import ClaimClass, Severity
 from gebra.verify.conditions import ConditionEntry
+from gebra.verify.locations import NodeLocation
 from gebra.verify.report import PropertyReport
-from gebra.verify.run import RunReport
+from gebra.verify.run import ExtractionNote, RunReport
 
 __all__ = [
     "SARIF_SCHEMA_URI",
@@ -209,6 +221,47 @@ def _results(report: RunReport) -> list[dict[str, Any]]:
     return results
 
 
+def _notification(note: ExtractionNote) -> dict[str, Any]:
+    """One extraction note as a SARIF ``notification`` (A.2's extraction-note row).
+
+    ``level: "note"`` whatever the note's kind — a note is no finding, and a warning-level
+    notification would read as one. The message leads with the note's own label, so a
+    disclosure is never read under a warning's (INTROSPECTION-SPEC §8); the node, when the note
+    names one, is anchored exactly as a finding at that node is (§4.5's ``NodeLocation`` row).
+    """
+    notification: dict[str, Any] = {
+        "level": "note",
+        "message": _text(f"{note_heading(note)}: {note.message}"),
+    }
+    if note.node is not None:
+        anchor = logical_anchor(NodeLocation(kind="node", node=note.node))
+        notification["locations"] = [{"logicalLocations": [_logical_location(anchor)]}]
+    properties: dict[str, Any] = {
+        "gebra/noteCode": note.code,
+        "gebra/noteKind": "disclosure" if note.is_disclosure else "warning",
+    }
+    if note.slots:
+        properties["gebra/slots"] = list(note.slots)
+    notification["properties"] = properties
+    return notification
+
+
+def _invocations(report: RunReport) -> list[dict[str, Any]]:
+    """A.2's extraction-note row: one invocation carrying the notes, or nothing at all.
+
+    ``executionSuccessful`` is whether the run reached a verdict — false exactly on a tool-error
+    run (exit 2), true on a pass or a fail, since a failing gate is the tool working.
+    """
+    if not report.extraction_notes:
+        return []
+    return [
+        {
+            "executionSuccessful": report.gate.exit_code != 2,
+            "toolExecutionNotifications": [_notification(note) for note in report.extraction_notes],
+        }
+    ]
+
+
 def sarif_log(report: RunReport) -> dict[str, Any]:
     """The SARIF 2.1.0 log for ``report`` — Appendix A, as JSON data.
 
@@ -237,6 +290,9 @@ def sarif_log(report: RunReport) -> dict[str, Any]:
         # A.7 derives the id from `subject.source`; a source that slugs to nothing derives no
         # id, and omitting the optional object is honest where inventing one would not be.
         run["automationDetails"] = {"id": f"gebra/verify/{slug}"}
+    invocations = _invocations(report)
+    if invocations:
+        run["invocations"] = invocations
     run["results"] = _results(report)
     run["properties"] = run_properties
     return {"$schema": SARIF_SCHEMA_URI, "version": SARIF_VERSION, "runs": [run]}

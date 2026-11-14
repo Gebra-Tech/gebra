@@ -112,7 +112,7 @@ gebra                   11
 gebra.extraction        79
 gebra.annotations       58
 gebra.ir                68
-gebra.verify           170
+gebra.verify           174
 gebra.snapshot           7
 gebra.store             31
 gebra.versioning        13
@@ -125,7 +125,7 @@ gebra.testing           29
 gebra.pytest_plugin     34
 gebra.cli                2
                       ----
-exported names         595
+exported names         599
 ```
 
 | Package | What it owns | Where it is documented |
@@ -302,7 +302,7 @@ sets; the page that lists them is the [API reference](api.md).
 | Surface | Names | Freeze record | Changing its shape requires |
 |---|---|---|---|
 | `gebra.ir` | 68 | `docs/governance/IR-MODELS-FREEZE.md` (card IR-06) | A decision record **and** an `ir_version` bump — additive-optional is a minor, anything that moves existing bytes is a major. A ruled change that moves no conforming document's bytes can carve itself out; the node-id uniqueness constraint did. |
-| `gebra.verify` | 170 | `docs/governance/VALIDATOR-API-FREEZE.md` (card VAL-12) | An R-05-routed decision: proposal, vault sign-off, then the re-vendored commit. |
+| `gebra.verify` | 174 | `docs/governance/VALIDATOR-API-FREEZE.md` (card VAL-12) | An R-05-routed decision: proposal, vault sign-off, then the re-vendored commit. |
 | `gebra` | 11 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 (card EX-15) | A decision record before anything new is emitted; refactors that move no name are unaffected. |
 | `gebra.extraction` | 79 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 (card EX-15) | The same, plus an `ir_version` bump for anything that lands a new ledger slot. |
 | `gebra.annotations` | 58 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 (card EX-15) | The same. |

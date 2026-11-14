@@ -25,11 +25,12 @@ from collections import Counter
 from typing import TYPE_CHECKING, Final, TextIO
 
 from gebra.report import did_you_mean, suggestion_sentence
+from gebra.report.notes import note_heading
 
 if TYPE_CHECKING:
     from gebra.cli.invocation import StrictReading
     from gebra.cli.resolve import ResolvedSubject
-    from gebra.extraction.warnings import ExtractionWarning
+    from gebra.verify import ExtractionNote
 
 __all__ = [
     "OutputError",
@@ -37,7 +38,7 @@ __all__ = [
     "split_arguments",
     "strict_refusal_problems",
     "unknown_flag_problems",
-    "write_extraction_warnings",
+    "write_extraction_notes",
 ]
 
 
@@ -99,26 +100,30 @@ def unknown_flag_problems(
     return problems
 
 
-def write_extraction_warnings(subject: ResolvedSubject) -> None:
-    """Extraction warnings, on stderr, in emission order (§5.2) — never dropped.
+def write_extraction_notes(subject: ResolvedSubject) -> None:
+    """Extraction notes, on stderr, in emission order (§5.2) — never dropped.
 
-    They are not findings and never move the exit code (§3.5). An
-    ``annotation-unknown-node`` record carries the name that missed, and the IR beside it
-    holds the closed vocabulary the name missed *from*, so that one row gets §5.4's
-    did-you-mean attached — a legibility aid on the extractor's finding, never a selection.
+    The warnings first, each under the ``extraction warning`` label CLI-04 gave them, then the
+    disclosures INTROSPECTION-SPEC §8 admits beside them, each under its own
+    ``extraction disclosure`` label and never a warning's (DEC-36 §4). None is a finding and
+    none moves the exit code (§3.5); the run report the verb writes carries the same notes as
+    ``extraction_notes`` (CLI-12). An ``annotation-unknown-node`` record carries the name that
+    missed, and the IR beside it holds the closed vocabulary the name missed *from*, so that one
+    row gets §5.4's did-you-mean attached — a legibility aid on the extractor's finding, never a
+    selection.
     """
-    if not subject.warnings:
+    if not subject.notes:
         return
     stream = _stderr()
     node_ids = tuple(node.id for node in subject.ir.nodes)
-    for warning in subject.warnings:
-        stream.write(_warning_line(warning, node_ids))
+    for note in subject.notes:
+        stream.write(_note_line(note, node_ids))
 
 
-def _warning_line(warning: ExtractionWarning, node_ids: tuple[str, ...]) -> str:
-    line = f"extraction warning [{warning.code.value}]: {warning.message}"
-    if warning.code.value == "annotation-unknown-node" and warning.node is not None:
-        hint = suggestion_sentence(did_you_mean(warning.node, node_ids))
+def _note_line(note: ExtractionNote, node_ids: tuple[str, ...]) -> str:
+    line = f"{note_heading(note)}: {note.message}"
+    if note.code == "annotation-unknown-node" and note.node is not None:
+        hint = suggestion_sentence(did_you_mean(note.node, node_ids))
         if hint:
             line += f" {hint}"
     return line + "\n"

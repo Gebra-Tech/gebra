@@ -39,7 +39,7 @@ from gebra.cli.common import (
     split_arguments,
     strict_refusal_problems,
     unknown_flag_problems,
-    write_extraction_warnings,
+    write_extraction_notes,
 )
 from gebra.cli.render import elide_digest, heading, kv, write_lines
 from gebra.cli.resolve import (
@@ -51,7 +51,15 @@ from gebra.cli.resolve import (
     store_for,
 )
 from gebra.report import TerminalOptions, write
-from gebra.verify import MARKER_REASONS, NO_VERDICT, STRICT_OFF, RunPolicy, RunReport, verify
+from gebra.verify import (
+    MARKER_REASONS,
+    NO_VERDICT,
+    STRICT_OFF,
+    RunPolicy,
+    RunReport,
+    verify,
+    with_extraction_notes,
+)
 from gebra.versioning import Component
 
 if TYPE_CHECKING:
@@ -117,8 +125,13 @@ def run_snapshot(request: SnapshotRequest) -> int:
         )
         return 2
 
-    write_extraction_warnings(subject)
-    report = verify(subject.ir, RunPolicy(strict=STRICT_OFF, subject=subject.reference))
+    write_extraction_notes(subject)
+    # The eligibility report is the run report of an extraction like any other, so it
+    # carries what extraction said (CLI-12) — the refusal path below renders it whole.
+    report = with_extraction_notes(
+        verify(subject.ir, RunPolicy(strict=STRICT_OFF, subject=subject.reference)),
+        subject.notes,
+    )
     if report.error is not None:
         # The eligibility run reached no verdict (§3.2: exit 2, the store untouched); §5.5's
         # anatomy on stderr, and no artifact anywhere — there is no label to report.

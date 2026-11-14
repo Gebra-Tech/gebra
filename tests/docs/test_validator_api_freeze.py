@@ -216,3 +216,29 @@ def test_the_dec_42_amendment_is_recorded_with_its_r05_route() -> None:
     assert "no name, signature or shape" in entry
     assert "`report_format` stays `1.3`" in entry
     assert "no property moved off `DeferredToPhase1`" in entry
+
+
+#: The names CLI-12's entry adds to the frozen surface: DEC-35 §3.8's member and record model,
+#: the record's closed code vocabulary, and the two calls that carry the notes in.
+_CLI_12_ADDITIONS: Final = {
+    "ExtractionNote",
+    "ExtractionNoteCode",
+    "extraction_notes_of",
+    "with_extraction_notes",
+}
+
+
+def test_the_extraction_notes_amendment_is_recorded_with_its_r05_route() -> None:
+    """CLI-12's entry: DEC-35 as the R-05 decision for a field added on a frozen run-level
+    model, every name it adds, and the frozen calls it leaves alone, stated as plainly."""
+    entry = " ".join(_amendment("CLI-12").split())
+    assert "DEC-35" in entry and "DEC-36" in entry
+    assert "`RunReport.extraction_notes: tuple[ExtractionNote, ...] = ()`" in entry
+    mentioned = set(re.findall(r"`(\w+)`", entry))
+    assert _CLI_12_ADDITIONS <= mentioned
+    assert _CLI_12_ADDITIONS <= set(verify_module.__all__)
+    for unchanged in ("`verify(ir, policy=None)`", "`RunPolicy`", "`SubjectRef`"):
+        assert unchanged in entry, unchanged
+    assert "are unchanged" in entry
+    assert "`report_format` stays `1.4`" in entry
+    assert "no property moved off `DeferredToPhase1`" in entry

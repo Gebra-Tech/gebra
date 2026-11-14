@@ -30,11 +30,21 @@ the run report *says so*: :attr:`RunReport.best_effort` names the three properti
 outcomes a consumer must read as diagnostics on that run, so the distinction survives into
 the artifact instead of living only in the spec.
 
+**What extraction said rides beside the verdict, never inside it.** A run whose IR was
+extracted carries the extraction's warnings and disclosures as
+:attr:`RunReport.extraction_notes` (§1.2; PROPERTY-CATALOG-SPEC §0.6 item 8, DEC-35 §3.8) —
+structured records in emission order that move no exit code, enter no count and promote under
+no strict flag. :func:`verify` reads an IR and never sees an extraction, so the caller that
+extracted attaches them: :func:`extraction_notes_of` reads an extraction envelope's records and
+:func:`with_extraction_notes` returns the report carrying them.
+
 **Hermetic, like the validators it drives.** Nothing here imports langgraph, executes a
 workflow node, calls a model or opens a network connection (WA-07): the input is a validated
 :class:`~gebra.ir.WorkflowIR`, dispatch calls registered validators that read serialized IR,
 and the output is structured values. ``tests/verify/test_run.py`` proves it in a guarded
-interpreter over the whole vendored corpus rather than asserting it here.
+interpreter over the whole vendored corpus rather than asserting it here. The extraction notes
+do not breach it: :func:`extraction_notes_of` reads the records an extraction already made,
+through the attributes they declare, and :mod:`gebra.extraction` is never imported here.
 
 Example — the shape a consumer branches on::
 
@@ -50,11 +60,18 @@ Example — the shape a consumer branches on::
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+import math
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Annotated, Final, Literal, TypeAlias
+from typing import Annotated, Any, Final, Literal, Protocol, TypeAlias, cast
 
-from pydantic import Field, model_validator
+from pydantic import (
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 import gebra
 from gebra.ir import IrVersion, WorkflowIR
@@ -62,6 +79,7 @@ from gebra.ir.canonical import CanonicalizationError, graph_version
 from gebra.verify.base import (
     ClaimClass,
     ConditionId,
+    NodeId,
     PropertySlug,
     ReportModel,
     Severity,
@@ -95,6 +113,8 @@ __all__ = [
     "STRICT_ALL",
     "STRICT_OFF",
     "TOPOLOGY_SLUGS",
+    "ExtractionNote",
+    "ExtractionNoteCode",
     "GateOutcome",
     "Promotion",
     "PromotionOrigin",
@@ -109,7 +129,9 @@ __all__ = [
     "Tool",
     "ToolError",
     "anchor_location",
+    "extraction_notes_of",
     "verify",
+    "with_extraction_notes",
 ]
 
 
@@ -118,8 +140,9 @@ __all__ = [
 #: names the members it carries: "``1.4``: ``extraction_notes`` and VAL-17's P-04 members —
 #: whichever of CLI-12 and VAL-17 lands second appends". VAL-17 landed first and opened it with
 #: DEC-37's P-04 member, ``DataflowWitness.payload_readers`` and
-#: ``P04Failure.payload_readers``, emitted only when non-empty and never verdict-bearing.
-#: ``1.3`` (VAL-15; DEC-33) added ``WellFormednessWitness.contained_nodes``,
+#: ``P04Failure.payload_readers``, emitted only when non-empty and never verdict-bearing; CLI-12
+#: appended ``RunReport.extraction_notes`` (DEC-35 §3.8), present only when the run extracted
+#: and a note was emitted, and bumped nothing. ``1.3`` (VAL-15; DEC-33) added ``WellFormednessWitness.contained_nodes``,
 #: ``DataflowWitness.contained_readers`` and ``P04Failure.contained_readers``, with the
 #: catalog-driven restatements of ``reachable_from_start`` and the V_top narrowing; ``1.2``
 #: (VAL-14; DEC-28) added ``dynamic_dependent`` and ``outside_static_coverage`` and let
@@ -341,6 +364,210 @@ PropertyOutcome: TypeAlias = Annotated[
 ]
 
 
+# ── §1.2: the extraction notes (PROPERTY-CATALOG-SPEC §0.6 item 8; DEC-35 §3.8) ───────────
+
+#: The closed vocabulary an :class:`ExtractionNote` carries (DEC-35 §3.8): the ten
+#: extraction-warning codes of INTROSPECTION-SPEC §8 and ANNOTATION-API-SPEC §4, then every
+#: disclosure code an R-06 record admits as a note — §8's disclosures "reach the run report
+#: through the extraction-notes member". DEC-36 admitted the first two, which this build's
+#: extraction emits; DEC-40 admitted ``barrier-read-per-edge``, which no extraction in this
+#: release emits (its emitter is IR 1.2's) and which is spelled here already, so the build that
+#: first emits it moves no report member. Spelled rather than imported, because
+#: :mod:`gebra.extraction` imports the substrate and nothing on the verify path may (WA-07);
+#: ``tests/verify/test_extraction_notes.py`` holds this list to the extractor's warning
+#: vocabulary and to §8's disclosure table.
+ExtractionNoteCode: TypeAlias = Literal[
+    # INTROSPECTION-SPEC §8 and ANNOTATION-API-SPEC §4 — the one warning taxonomy
+    "contract-inferred",
+    "contract-defaulted",
+    "opaque-lambda",
+    "builder-compiled-divergence",
+    "compiled-only-extraction",
+    "barrier-flattened",
+    "unsupported-construct",
+    "annotation-conflict",
+    "annotation-unknown-node",
+    "annotation-invalid",
+    # INTROSPECTION-SPEC §8 "Extraction disclosures" — DEC-36's two, then DEC-40's
+    "subgraph-read-as-one-node",
+    "recursion-limit-bound-without-justification",
+    "barrier-read-per-edge",
+]
+
+#: The members of :data:`ExtractionNoteCode` that are disclosures rather than warnings. A
+#: disclosure is rendered under its own label, never a warning's (INTROSPECTION-SPEC §8).
+_DISCLOSURE_CODES: Final[frozenset[str]] = frozenset(
+    {
+        "subgraph-read-as-one-node",
+        "recursion-limit-bound-without-justification",
+        "barrier-read-per-edge",
+    }
+)
+
+#: How deep a note's ``detail`` may nest — the bound extraction holds the same records to, so a
+#: self-referential mapping is a message rather than a :class:`RecursionError`.
+_MAX_DETAIL_DEPTH: Final = 20
+
+#: ``type``'s own ``__name__`` descriptor: a class's name read through it runs nothing of the
+#: class's metaclass, where ``cls.__name__`` would go through the metaclass's attribute access.
+_TYPE_NAME: Final[Any] = type.__dict__["__name__"]
+
+
+def _exact_text(value: object) -> object:
+    """``value`` as an exact ``str`` when it is any ``str``; anything else unchanged.
+
+    The test is ``issubclass(type(value), str)`` and the conversion the unbound ``str.__str__``:
+    a subclass's own ``__str__``, ``__format__``, ``__hash__`` or attribute access never runs
+    (INTROSPECTION-SPEC §1 rule 1, the read DEC-38 rules for labels). A value that is not a
+    string is left for the field's own strict validation to refuse.
+    """
+    if issubclass(type(value), str):
+        return str.__str__(cast(str, value))
+    return value
+
+
+def _json_detail(value: object, *, path: str, depth: int) -> Any:
+    """``value`` as JSON data of exact built-in types, every sequence a tuple; else raise.
+
+    The run-report half of the discipline extraction holds a record's ``detail`` to
+    (``gebra.extraction.warnings._reportable``, which this module cannot import): the same
+    types admitted and the same refusals, sequences given one representation so that a note
+    loaded back from JSON equals the note that was written — and one rule more. A record's
+    values can be derived from the workflow (a node name a builder was given), so each is read
+    by its exact type through unbound accessors — ``issubclass(type(value), …)``, then
+    ``str.__str__``, ``int.__index__``, ``float.__float__``, ``tuple.__iter__``,
+    ``list.__iter__`` and ``dict.items`` — and converted to the exact built-in before anything
+    hashes, compares, inserts or renders it. No method of a subclass runs here, and a note
+    carries exact built-ins only, so a surface that formats one runs no user code either.
+    """
+    if depth > _MAX_DETAIL_DEPTH:
+        raise ValueError(
+            f"{path} nests deeper than {_MAX_DETAIL_DEPTH} levels; a note's detail is a record "
+            "of what extraction found, not a data structure"
+        )
+    kind = type(value)
+    if value is None or kind is bool:  # `bool` admits no subclass
+        return value
+    if issubclass(kind, str):
+        return str.__str__(cast(str, value))
+    if issubclass(kind, int):
+        return int.__index__(cast(int, value))
+    if issubclass(kind, float):
+        number = float.__float__(cast(float, value))
+        if not math.isfinite(number):
+            raise ValueError(f"{path} is {number!r}; JSON has no form for it")
+        return number
+    if issubclass(kind, (tuple, list)):
+        items: Iterator[object] = (
+            tuple.__iter__(cast(tuple[object, ...], value))
+            if issubclass(kind, tuple)
+            else list.__iter__(cast(list[object], value))
+        )
+        return tuple(
+            _json_detail(item, path=f"{path}[{index}]", depth=depth + 1)
+            for index, item in enumerate(items)
+        )
+    if issubclass(kind, dict):
+        normalized: dict[str, Any] = {}
+        for key, item in dict.items(cast(dict[object, object], value)):
+            if not issubclass(type(key), str):
+                # ValueError, not TypeError: pydantic turns a ValueError raised in a validator
+                # into a ValidationError and lets a TypeError escape as itself.
+                raise ValueError(  # noqa: TRY004
+                    f"{path} has a key of type {_TYPE_NAME.__get__(type(key))}; JSON keys are "
+                    "strings"
+                )
+            exact = str.__str__(cast(str, key))
+            normalized[exact] = _json_detail(item, path=f"{path}[{exact!r}]", depth=depth + 1)
+        return normalized
+    raise ValueError(
+        f"{path} holds a {_TYPE_NAME.__get__(kind)}, which is not JSON data; a note carries what "
+        "extraction found, in the form the report is written in"
+    )
+
+
+class ExtractionNote(RunReportModel):
+    """One extraction note: a warning or an admitted disclosure, carried into the run report.
+
+    PROPERTY-CATALOG-SPEC §0.6 item 8 (DEC-35 §3.8): the structured record extraction emitted —
+    an INTROSPECTION-SPEC §8 / ANNOTATION-API-SPEC §4 warning, or an INTROSPECTION-SPEC §8
+    disclosure an R-06 record admits as a note (DEC-36, DEC-40) — with the fields both kinds
+    carry. A note is **never a finding**: it moves no exit code, enters no count, promotes under
+    no strict flag and is never mixed into a findings list (REPORT-FORMAT-SPEC §2.1, §4.6).
+
+    Every value a note holds is an exact built-in — the strings, the slots and everything in
+    ``detail`` are converted on the way in, by type and through unbound accessors — so rendering
+    a note runs no code of the workflow's. ``detail`` is a JSON object, a ``dict`` as the
+    record's own is: a frozen model does not freeze it, and a note — with a run report that
+    carries one — is not hashable, unlike the per-property envelope models (PC-1). Nothing in
+    the library hashes a run report or alters a note.
+
+    Attributes:
+        code: The record's code, verbatim — a warning code or an admitted disclosure code.
+        message: The record's own words. **Display-only** (§4.6 rule 7): every fact a consumer
+            branches on is in the fields beside it.
+        node: The node id the record names, in the escaped IR-SPEC §5 form, or ``None`` for a
+            record about the graph or a file.
+        slots: The ANNOTATION-API-SPEC §1 slot names the record names, as it named them — empty
+            for a disclosure, which names none, and omitted from the serialized note when
+            empty. They were checked against the slot vocabulary where the record was made.
+        detail: The rest of what the record carries, as JSON data — the row's "what it carries"
+            column (INTROSPECTION-SPEC §8).
+    """
+
+    code: ExtractionNoteCode
+    message: str = Field(min_length=1)
+    node: NodeId | None = None
+    slots: tuple[str, ...] = ()
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("code", "message", "node", mode="before")
+    @classmethod
+    def _text_is_exact(cls, value: object) -> object:
+        """A string field holds an exact ``str``, whatever the record handed in."""
+        return _exact_text(value)
+
+    @field_validator("slots", mode="before")
+    @classmethod
+    def _slots_are_exact(cls, slots: object) -> object:
+        """Each slot an exact ``str``, read through the unbound sequence accessor."""
+        kind = type(slots)
+        if not issubclass(kind, (tuple, list)):
+            return slots  # not a sequence: strict validation reports it
+        items: Iterator[object] = (
+            tuple.__iter__(cast(tuple[object, ...], slots))
+            if issubclass(kind, tuple)
+            else list.__iter__(cast(list[object], slots))
+        )
+        return tuple(_exact_text(slot) for slot in items)
+
+    @field_validator("detail", mode="before")
+    @classmethod
+    def _detail_is_json_data(cls, detail: object) -> object:
+        """Refuse what JSON could not carry; convert the rest to exact built-ins."""
+        if not issubclass(type(detail), dict):
+            return detail  # not a mapping: strict validation reports it
+        return _json_detail(detail, path="detail", depth=-1)
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_slots(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """``slots`` is optional on the wire (§0.6 item 8): an empty tuple is omitted."""
+        data = handler(self)
+        if not self.slots and isinstance(data, dict):
+            data.pop("slots", None)
+        return data
+
+    @property
+    def is_disclosure(self) -> bool:
+        """Whether the record is a disclosure rather than a warning (INTROSPECTION-SPEC §8).
+
+        Read off the code, because the two vocabularies are disjoint by construction: a
+        disclosure is "not a member" of the warning table, and its renderers label it as itself,
+        "never a warning's prefix".
+        """
+        return self.code in _DISCLOSURE_CODES
+
+
 class RunReport(RunReportModel):
     """The run-level wrapper (§1.2; PROPERTY-CATALOG-SPEC §0.3's scope boundary)."""
 
@@ -348,6 +575,14 @@ class RunReport(RunReportModel):
     tool: Tool
     #: Absent only when a tool error preceded IR identity.
     subject: Subject | None = None
+    #: What extraction said about how the subject's IR was obtained — its warnings, then the
+    #: disclosures an R-06 record admits as notes (INTROSPECTION-SPEC §8), in emission order
+    #: (PROPERTY-CATALOG-SPEC §0.6 item 8;
+    #: DEC-35 §3.8). Present only when the run extracted and a note was emitted, and omitted
+    #: from the serialized report otherwise; never findings. :func:`verify` reads an IR and never
+    #: sees an extraction, so the caller that extracted attaches them
+    #: (:func:`with_extraction_notes`).
+    extraction_notes: tuple[ExtractionNote, ...] = ()
     properties: tuple[PropertyOutcome, ...] = ()
     #: The properties whose outcomes in this run are **best-effort diagnostics**, not
     #: contract-bearing verdicts — §0.3's P-01-clean precondition, reported rather than left
@@ -378,6 +613,37 @@ class RunReport(RunReportModel):
         if slugs != PROPERTY_SLUGS:  # the thirteen catalog slugs, in catalog order
             raise ValueError("a verdict run carries all thirteen properties, in catalog order")
         return self
+
+    @model_validator(mode="after")
+    def _notes_come_from_an_extraction(self) -> RunReport:
+        """§0.6 item 8's "present only when the run extracted", enforced.
+
+        A subject obtained any other way — an IR document, a stored snapshot — was not
+        extracted by this run, so it carries no note. A report with no subject at all is a tool
+        error that preceded IR identity; one that follows a successful extraction (an IR with no
+        canonical form, say) may carry the notes that extraction emitted, since the run did
+        extract and the notes are the most diagnostic thing it has.
+        """
+        subject = self.subject
+        if self.extraction_notes and subject is not None and subject.input_mode != "extracted":
+            raise ValueError(
+                f"`extraction_notes` is present only when the run extracted; this subject's "
+                f"input_mode is {subject.input_mode!r} (PROPERTY-CATALOG-SPEC §0.6 item 8)"
+            )
+        return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_notes(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """``extraction_notes`` is omitted when empty (§0.6 item 8: "omitted otherwise").
+
+        The one member the PC-4 profile's ``exclude_none`` cannot drop, because its empty value
+        is ``()`` rather than ``None``; omission round-trips all the same, since a document
+        without the key validates back to ``()``.
+        """
+        data = handler(self)
+        if not self.extraction_notes and isinstance(data, dict):
+            data.pop("extraction_notes", None)
+        return data
 
     def outcome_for(self, property_slug: PropertySlug) -> PropertyOutcome:
         """This run's answer for ``property_slug`` — a verdict or a marker, never a lookup miss.
@@ -792,7 +1058,9 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
 
     Returns:
         The :class:`RunReport` of §1 — the one artifact the human rendering, the native JSON
-        and the SARIF projection are three views of.
+        and the SARIF projection are three views of. It carries no extraction notes: this
+        function never sees an extraction, and a caller that extracted the IR attaches them
+        with :func:`with_extraction_notes`.
     """
     policy = policy if policy is not None else RunPolicy()
     strict = policy.strict
@@ -871,3 +1139,114 @@ def verify(ir: WorkflowIR, policy: RunPolicy | None = None) -> RunReport:
         best_effort=best_effort,
         gate=gate,
     )
+
+
+# ── §1.2: what extraction said, carried beside the verdict (DEC-35 §3.8) ─────────────────
+
+
+class _NoteCode(Protocol):
+    """A record's code: a ``str``-valued enum member of extraction's closed vocabularies."""
+
+    @property
+    def value(self) -> str: ...
+
+
+class _NoteRecord(Protocol):
+    """What an extraction warning and an extraction disclosure both declare.
+
+    The shape :class:`~gebra.extraction.warnings.ExtractionWarning` and
+    :class:`~gebra.extraction.disclosures.ExtractionDisclosure` share (INTROSPECTION-SPEC §8),
+    stated structurally so this module reads them without importing the extractor.
+    """
+
+    @property
+    def code(self) -> _NoteCode: ...
+
+    @property
+    def message(self) -> str: ...
+
+    @property
+    def node(self) -> str | None: ...
+
+    @property
+    def detail(self) -> Mapping[str, Any]: ...
+
+
+class _NoteSource(Protocol):
+    """An extraction envelope, as far as its notes go: the warnings, then the disclosures."""
+
+    @property
+    def warnings(self) -> Sequence[_NoteRecord]: ...
+
+    @property
+    def disclosures(self) -> Sequence[_NoteRecord]: ...
+
+
+def extraction_notes_of(envelope: _NoteSource) -> tuple[ExtractionNote, ...]:
+    """The extraction notes of ``envelope``, in emission order (§0.6 item 8; DEC-36 §4).
+
+    Every warning first, in the order extraction emitted them, then every disclosure, in the
+    order INTROSPECTION-SPEC §8 fixes for them and the envelope already holds — graph-scoped
+    first, then node-scoped in node-id order: "emission order" over the union. Each record is
+    carried field for field; nothing is re-worded, dropped or summarized.
+
+    Args:
+        envelope: What ``gebra.extract()`` returned (an
+            :class:`~gebra.extraction.envelope.ExtractionEnvelope`), read through the record
+            fields it declares and nothing else.
+
+    Raises:
+        pydantic.ValidationError: if a record carries a code this build does not admit as a
+            note — a disclosure an R-06 record admitted after this build — which is a
+            vocabulary this report cannot spell, never one to drop.
+    """
+    # Validated rather than constructed with keywords: the code is a plain string here, and the
+    # model's Literal is where it is checked against the vocabulary this build admits.
+    return tuple(
+        ExtractionNote.model_validate(
+            {
+                "code": record.code.value,
+                "message": record.message,
+                "node": record.node,
+                "slots": getattr(record, "slots", ()),
+                "detail": record.detail,
+            }
+        )
+        for record in (*envelope.warnings, *envelope.disclosures)
+    )
+
+
+def with_extraction_notes(report: RunReport, notes: Iterable[ExtractionNote]) -> RunReport:
+    """``report``, carrying the extraction notes of the run it answers (§1.2; DEC-35 §3.8).
+
+    :func:`verify` reads an IR and never sees the extraction that produced it, so the caller
+    that extracted — the CLI, the pytest plugin, a library caller holding an envelope — hands
+    the notes over here. The report comes back revalidated, so §0.6 item 8's "present only when
+    the run extracted" holds by the model's own rule: a subject obtained any other way refuses
+    them. Nothing else moves — not the gate, not a count, not an outcome: a note is never a
+    finding.
+
+    Args:
+        report: The run report :func:`verify` returned for the extracted IR.
+        notes: The notes, in emission order — :func:`extraction_notes_of` over the envelope.
+
+    Returns:
+        ``report`` itself when there is no note to carry; otherwise a new report whose
+        ``extraction_notes`` are ``notes``.
+
+    Raises:
+        ValueError: if ``report`` already carries notes — a run extracts once, and replacing
+            them would drop what the first extraction said.
+        pydantic.ValidationError: if ``report``'s subject was not extracted.
+    """
+    carried = tuple(notes)
+    if not carried:
+        return report
+    if report.extraction_notes:
+        raise ValueError(
+            "this run report already carries its extraction notes; a run extracts once, and "
+            "replacing them would drop what that extraction said"
+        )
+    members: dict[str, Any] = {name: getattr(report, name) for name in RunReport.model_fields}
+    members["extraction_notes"] = carried
+    return RunReport.model_validate(members)

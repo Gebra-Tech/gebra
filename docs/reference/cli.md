@@ -361,8 +361,10 @@ different reasons.
 
 ### What never moves an exit code
 
-Extraction warnings are rendered on stderr and are not findings — they belong to a different
-vocabulary from the severity ladder, and a warning-free extraction is not a gate. Not-implemented
+Extraction notes — the warnings extraction emits, and the disclosures beside them — are
+rendered on stderr and carried in the run report, and they are not findings: they belong to a
+different vocabulary from the severity ladder, no strict flag promotes one, and a warning-free
+extraction is not a gate ([Extraction notes](#extraction-notes) below). Not-implemented
 markers do not move a code either: the eight properties outside this release's scope are
 reported as *not checked*, and a run is neither stronger nor weaker for saying so. Neither do
 did-you-mean suggestions, progress output, styling, or the choice of output surface — the same
@@ -523,6 +525,79 @@ nothing reconstructs a run report from it, so keep the JSON if you want the whol
 Choosing a surface never changes the answer written on it. `json` has to be spelled
 explicitly; the no-flag default is the human surface, and `--format human` is a legal way to
 say so in a script that prefers to be explicit.
+
+### Extraction notes
+
+When the subject is extracted from a live workflow, extraction says what it could not read and
+what it filled in on your behalf, and the run carries that beside the verdict. The **warnings**
+are INTROSPECTION-SPEC §8's closed taxonomy — a contract slot inferred or defaulted, a construct
+extraction cannot map — and the **disclosures** are facts about what the document does not
+contain: a node that mounts a compiled subgraph is read as one node and its interior is not read
+(`subgraph-read-as-one-node`), and a limit bound with `with_config` and declared nowhere is not a
+witness (`recursion-limit-bound-without-justification`). Every note arrives on stderr, in the
+order extraction emitted it, the warnings under `extraction warning` and then the disclosures
+under `extraction disclosure` — so a log searched for warnings never counts a disclosure. The run
+report carries the same records as `extraction_notes`: the human surface shows them in a block of
+their own under the subject line, `--format json` carries each record whole (`code`, `message`,
+`node`, `slots`, `detail`), and `--format sarif` carries one tool execution notification per note
+at level `note`. A run over an IR document or a stored snapshot extracted nothing and carries
+none.
+
+**A note is never a finding.** It moves no exit code, enters no count and is promoted by no
+strict flag; the same IR verified as a document, with no notes at all, answers with the same exit
+code and the same gate:
+
+<!-- gebra:example id=extraction-notes -->
+```python
+import contextlib
+import io
+import json
+from pathlib import Path
+
+from gebra import extract
+from gebra.cli import main
+from gebra.ir import write_ir
+from tests.sample_workflows.sentinel_cli import graph
+
+target = "tests.sample_workflows.sentinel_cli:graph"
+with contextlib.redirect_stderr(io.StringIO()) as stderr:
+    live = main(["verify", target, "--format", "json", "--output", "live.json"])
+    main(["verify", target, "--format", "sarif", "--output", "live.sarif.json"])
+for line in stderr.getvalue().splitlines()[:2]:
+    print("stderr  ", line.split(": ", 1)[0])
+
+report = json.loads(Path("live.json").read_text(encoding="utf-8"))
+for note in report["extraction_notes"]:
+    print("report  ", note["code"], "at", note["node"], "slots", note["slots"])
+
+log = json.loads(Path("live.sarif.json").read_text(encoding="utf-8"))
+notifications = log["runs"][0]["invocations"][0]["toolExecutionNotifications"]
+print("sarif   ", len(notifications), "notifications at", {item["level"] for item in notifications})
+
+write_ir(extract(graph).ir, Path("pipeline.ir.yaml"))
+stored = main(["verify", "pipeline.ir.yaml", "--format", "json", "--output", "doc.json"])
+document = json.loads(Path("doc.json").read_text(encoding="utf-8"))
+same_gate = document["gate"] == report["gate"]
+print("exit     live", live, "| document", stored, "| same gate", same_gate)
+print("document carries notes:", "extraction_notes" in document)
+```
+
+<!-- gebra:output id=extraction-notes -->
+```text
+stderr   extraction warning [contract-inferred]
+stderr   extraction warning [contract-defaulted]
+report   contract-inferred at draft_answer slots ['output']
+report   contract-defaulted at draft_answer slots ['effect']
+report   contract-inferred at fetch_context slots ['output']
+report   contract-defaulted at fetch_context slots ['effect']
+sarif    4 notifications at {'note'}
+exit     live 0 | document 0 | same gate True
+document carries notes: False
+```
+
+Both stderr and the report show a note, so an interactive terminal shows each one twice; a
+report written with `--output`, piped or captured by CI is whole on its own, and stderr stays the
+diagnostic channel a log reader has whatever surface stdout carries.
 
 ### Strict mode
 
@@ -1087,7 +1162,8 @@ schema to live.
 
 **stdout carries the artifact** — the run report, the Mermaid text or the HTML page carrying
 it, the history table, the diff rendering, the recorded label — and nothing else. **stderr carries diagnostics about the
-run**: extraction warnings, tool-error messages, usage errors, suggestions, progress. So
+run**: extraction notes (the warnings, then the disclosures), tool-error messages, usage
+errors, suggestions, progress. So
 `gebra verify --format json > report.json` writes exactly the report bytes, and a consumer
 parsing stdout never has to strip anything out of it.
 

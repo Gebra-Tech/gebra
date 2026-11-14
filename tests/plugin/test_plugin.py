@@ -825,6 +825,7 @@ def test_a_workflow_ir_target_needs_no_extraction() -> None:
     assert resolution.input_mode == "ir-document"
     assert resolution.extractor_version is None
     assert resolution.notes == ()
+    assert resolution.report_notes == ()
 
 
 def test_a_live_workflow_target_is_extracted_and_labelled_extracted() -> None:
@@ -841,6 +842,7 @@ def test_a_live_workflow_target_is_extracted_and_labelled_extracted() -> None:
     assert subject.graph_version.startswith("sha256:")
     assert subject.extractor_version is not None
     assert verification.extraction_notes == ()
+    assert verification.report.extraction_notes == ()  # nothing said, nothing carried
     assert verification.report.gate.exit_code == 0
     assert travel_booking.TRIPPED == []
 
@@ -1039,6 +1041,93 @@ def test_graph_fixture(gebra_graph):
     result.stdout.fnmatch_lines(
         ["*test_widener.py::test_graph_fixture*", "*extraction warning [[]contract-defaulted[]]*"]
     )
+
+
+# ── CLI-12: the disclosures beside the warnings, and the run report that carries both ────
+
+
+def test_a_disclosure_is_carried_under_its_own_label() -> None:
+    """INTROSPECTION-SPEC §8: a disclosure renders "under its own label, never a warning's
+    prefix" (DEC-36 §4) — so a CI grep for ``extraction warning`` never counts one, as the
+    strict-mode bar a disclosure is outside of would not. The subgraph-bearing builder's direct
+    mount is the one EX-20 discloses; its three undecorated nodes are the warnings before it."""
+    from tests.sample_workflows import sentinel_graph
+    from tests.sample_workflows.sentinel_subgraphs import build_direct_mount_parent
+
+    ledger = len(sentinel_graph.TRIPPED)  # shared: other suites' controls fire sentinels
+    resolution = resolve_ir(build_direct_mount_parent())
+
+    assert [(note.code, note.disclosure) for note in resolution.notes] == [
+        ("contract-defaulted", False),
+        ("contract-defaulted", False),
+        ("contract-defaulted", False),
+        ("subgraph-read-as-one-node", True),
+    ]
+    disclosure = resolution.notes[-1]
+    assert disclosure.node == "legs"
+    assert disclosure.render().startswith(
+        "extraction disclosure [subgraph-read-as-one-node] at legs: node `legs` mounts"
+    )
+    assert "extraction warning" not in disclosure.render()
+    assert all(note.render().startswith("extraction warning [") for note in resolution.notes[:3])
+    assert sentinel_graph.TRIPPED[ledger:] == []  # no body ran during this test
+
+
+def test_the_run_report_carries_the_notes_the_plugin_renders() -> None:
+    """REPORT-FORMAT-SPEC §1.2: the report a target's run returns carries the same notes, in
+    the same order, as ``extraction_notes`` — and no gate member moves for them."""
+    from tests.sample_workflows import sentinel_graph
+    from tests.sample_workflows.sentinel_subgraphs import build_direct_mount_parent
+
+    ledger = len(sentinel_graph.TRIPPED)  # shared: other suites' controls fire sentinels
+    verification = verify_target(
+        build_direct_mount_parent(), name="mounts", source="tests/plugin::direct#mounts"
+    )
+    without = verify(resolve_ir(build_direct_mount_parent()).ir)  # the same IR, no notes
+    report = verification.report
+
+    assert [(note.code, note.is_disclosure) for note in report.extraction_notes] == [
+        (note.code, note.disclosure) for note in verification.extraction_notes
+    ]
+    assert [note.message for note in report.extraction_notes] == [
+        note.message for note in verification.extraction_notes
+    ]
+    assert report.gate == without.gate
+    assert sentinel_graph.TRIPPED[ledger:] == []  # no body ran during this test
+
+
+def test_the_closing_report_names_a_mounted_subgraph_under_the_disclosure_label(
+    pytester: pytest.Pytester,
+) -> None:
+    """The card's closing-report box: a default ``pytest`` run over a subgraph-bearing target
+    shows the disclosure in the gebra section, once for the target, under its own label."""
+    from tests.sample_workflows import sentinel_graph
+
+    ledger = len(sentinel_graph.TRIPPED)  # shared: other suites' controls fire sentinels
+    pytester.makepyfile(
+        test_mounts=_PREAMBLE
+        + f"""
+from tests.sample_workflows.sentinel_subgraphs import build_direct_mount_parent
+
+@pytest.mark.{MARKER}(name="mounts")
+def test_gebra():
+    return build_direct_mount_parent()
+"""
+    )
+    result = pytester.runpytest("test_mounts.py")
+
+    result.assert_outcomes(passed=len(EXPECTED_SLUGS), failed=0)
+    result.stdout.fnmatch_lines(
+        [
+            "*= gebra =*",
+            "*test_mounts.py::test_gebra[[]mounts[]]*",
+            "*note: extraction disclosure [[]subgraph-read-as-one-node[]] at legs: node `legs`*",
+        ]
+    )
+    disclosed = [line for line in result.stdout.lines if "subgraph-read-as-one-node" in line]
+    assert len(disclosed) == 1, disclosed
+    assert not any("extraction warning [subgraph" in line for line in result.stdout.lines)
+    assert sentinel_graph.TRIPPED[ledger:] == []  # no body ran during this test
 
 
 def test_an_explicit_sidecar_can_be_declared_on_both_surfaces(

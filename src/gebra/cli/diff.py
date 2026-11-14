@@ -55,7 +55,7 @@ from gebra.cli.common import (
     split_arguments,
     strict_refusal_problems,
     unknown_flag_problems,
-    write_extraction_warnings,
+    write_extraction_notes,
 )
 from gebra.cli.render import blank, elide_digest, heading, kv, render_lines, write_lines
 from gebra.cli.resolve import (
@@ -319,7 +319,7 @@ def _resolve_side(
         subject = resolve_import_reference(target, call=request.call, sidecar=request.sidecar)
     except Refusal as refusal:
         raise Refusal(refusal.stage, f"{side} {target!r}: {refusal.detail}") from refusal
-    write_extraction_warnings(subject)
+    write_extraction_notes(subject)
     return subject.ir
 
 

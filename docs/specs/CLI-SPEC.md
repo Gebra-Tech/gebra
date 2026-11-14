@@ -546,8 +546,15 @@ spellings**, so a reader who arrived from the frozen spec finds the one they typ
   ladder is the catalog's, and INTROSPECTION-SPEC §8's warning taxonomy is a different
   vocabulary. A warning-free extraction is a strict-mode bar for the *extractor*'s conformance
   suite (EX-14), not a CLI gate.
-- **Not-implemented markers.** The eight non-wedge properties are outside Phase-0 scope; a run
-  is neither stronger nor weaker for saying so (REPORT-FORMAT-SPEC §2.2).
+- **Extraction notes in the run report.** The warnings above, and the disclosures
+  INTROSPECTION-SPEC §8 admits beside them (DEC-36, DEC-40), carried as `extraction_notes` since
+  `report_format` 1.4 (REPORT-FORMAT-SPEC §1.2). A note is never a finding: it moves no exit
+  code, enters no count, and no strict flag promotes it (PROPERTY-CATALOG-SPEC §0.6 item 8).
+  A disclosure is outside the warning taxonomy, so it does not count against the extractor's
+  warning-free bar either (DEC-36 §3.8). *(Added at CLI-12, 2026-11-13.)*
+- **Not-implemented markers.** A property whose registry row is `deferred-to-phase-1` has no
+  validator in this release; a run is neither stronger nor weaker for saying so
+  (REPORT-FORMAT-SPEC §2.2).
 - **Did-you-mean suggestions, progress output and styling.** Display only.
 - **`--no-color`, `--format`, `-o`.** Choosing a surface never changes the answer written on
   it. CLI-07 tests this directly: the same subject under all three `verify` formats returns one
@@ -689,8 +696,8 @@ its close-out this pair was an unhandled exception, §3.4).
 `EVOLUTION_SAFETY_DEFERRED` — the property registry's `not_implemented("evolution-safety")`
 marker. It renders as *not checked*, with its status, exactly as a marker renders in a run
 report (REPORT-FORMAT-SPEC §4.2): **no diff is labelled safe or breaking**, in any format, at
-any severity. P-12 `evolution-safety` is outside the Phase-0 wedge (SOW §8), the bump class is
-a statement about which counters moved and not about risk, and copy that turned one into the
+any severity. P-12 `evolution-safety` has no validator in this release, the bump class is a
+statement about which counters moved and not about risk, and copy that turned one into the
 other would be precisely the overclaim WA-06 forbids. A diff has no surrounding pass/fail
 context to read the marker against, so one more rule holds here that §4.2 there states for a
 run: the marker is **never** rendered as a pass, as "no issues found", or as a clean bill —
@@ -849,11 +856,17 @@ same facts, and CLI-07 goldens both.
   ends with a single trailing newline; one written to a stream does not add one
   (REPORT-FORMAT-SPEC §1.5). A file that cannot be written is the §3.4 exit-`2` case stated
   there: a diagnostic, no artifact anywhere, never a silent fallback to stdout.
-- **Extraction warnings are rendered on every surface**, always to stderr, in emission order,
-  as the structured records they are (INTROSPECTION-SPEC §8's closed taxonomy). They are never
-  silently dropped, and they never move an exit code (§3.5). The run report carries no warning
-  field, so they have no machine-format home in Phase-0 — stated as open item OI-2 rather than
-  patched over by smuggling them into a report the format does not define.
+- **Extraction notes are rendered on every surface.** On stderr, always, in emission order, as
+  the structured records they are: the warnings of INTROSPECTION-SPEC §8's closed taxonomy,
+  each under the `extraction warning` label, then the disclosures §8 admits beside them, each
+  under its own `extraction disclosure` label and never a warning's (DEC-36 §4). They are
+  never silently dropped, and they never move an exit code (§3.5). Since `report_format` 1.4
+  the run report carries the same records as `extraction_notes` (REPORT-FORMAT-SPEC §1.2), so
+  the human surface shows them in a block of their own, `--format json` carries them as
+  serialized, and `--format sarif` carries them as tool execution notifications
+  (REPORT-FORMAT-SPEC A.2). Both stderr and the artifact show a note, so a terminal shows each
+  twice; §7's CLI-12 note says why. *(Open item OI-2 until CLI-12, 2026-11-13: before it the
+  run report carried no such member, and the warnings had no machine-format home.)*
 
 ### 5.3 Multi-error reporting in one run
 
@@ -1185,6 +1198,34 @@ an input mode, so §0.5's tripwire table gains no row. The substrate-blocked gua
 `tests/cli/test_never_invokes.py` gained two `html` legs, plain and overlaid, so the wrapper
 is observed to emit with the substrate unimportable rather than inferred to.
 
+**CLI-12 (extraction notes in the run report) — landed 2026-11-13**, a post-final landing note under
+§6 item 3 of the promotion record (a card plus a note here). **What moved.** The run report carries
+what extraction said as `extraction_notes` (REPORT-FORMAT-SPEC §1.2; PROPERTY-CATALOG-SPEC §0.6 item
+8, DEC-35 §3.8), appended to the `report_format` 1.4 row VAL-17 opened, so the warnings §5.2 renders
+— and the disclosures INTROSPECTION-SPEC §8 admits beside them (DEC-36), which no surface printed
+before — have a machine-format home: the human surface shows them in a block of their own under the
+subject line, `--format json` as serialized, `--format sarif` as tool execution notifications at
+`level: "note"` (REPORT-FORMAT-SPEC A.2). `gebra verify` attaches them, and so does `gebra
+snapshot`'s eligibility run, whose report the refusal renders; `gebra diff` writes no run report,
+and its stderr carries every note of an import-reference side. §3.5 gains the row that notes never
+move an exit code, which `tests/cli/test_extraction_notes.py` tests directly: the same IR verified
+live, with its notes, and as an IR document, without them, returns one exit code on every surface
+and under `--strict`. **What stayed.** The stderr rendering of §5.2: every warning still arrives on
+stderr under `extraction warning`, in emission order, and the disclosures follow under their own
+`extraction disclosure` label, never a warning's prefix, so a CI log grepped for warnings counts
+none of them. **Both stderr and the artifact show a note**, which is the question DEC-35 §3.8 left
+to this note: stderr stays the diagnostic channel a log reader has whatever surface stdout carries,
+and the human artifact is the run report rendered, which now carries the notes, so a report written
+with `--output`, piped or captured is whole on its own; the price is that a terminal shows each note
+twice. No verb, flag or exit-code rule changes. **Why.** EX-20's disclosure is the consumer OI-2
+waited for: without a member, a CI consumer reading JSON or SARIF never learned that a mounted
+subgraph was read as one node or that a slot was inferred. The same card carried the catalog
+charter's copy into this document — §3.5's marker bullet and §4.3's P-12 sentence now say *has no
+validator in this release* (DEC-42 §3.1, the token read as DEC-42 §3.3 states) where they named
+Phase 0 as the present — and rewrote the rule help of P-01's `dead-end-node-not-wired-to-end` to
+name the explicit edge to END, `builder.add_edge(<node>, END)`, the fix adopters needed when a
+builder ends its chain at a node with no outgoing edge. OI-2 is closed below.
+
 ---
 
 ## Appendix A — the consolidated flag table
@@ -1225,7 +1266,7 @@ Two absences are deliberate and stated so an implementer does not read them as o
 | Id | Item | Owner / route |
 |---|---|---|
 | OI-1 | No source anchors exist in IR 1.0, so diagnostics anchor structurally and SARIF results carry no `physicalLocation` (§5.7). Pairs with REPORT-FORMAT-SPEC OI-1. | **Re-routed to Phase-1 at the D-12 promotion (CLI-08, 2026-08-31): IR/EX tracks.** Not closable by a presentation decision — IR 1.0 carries no source spans, IR-SPEC is frozen, and adding them is an `ir_version` question. §5.7 declares the absence rather than fabricating an anchor, and that stays the Phase-0 answer. Not a Phase-0 blocker. |
-| OI-2 | Extraction warnings have no machine-format home: they render to stderr, and the run report defines no warning field (§5.2). | An amendment to REPORT-FORMAT-SPEC (a new optional member, MINOR per its §1.6) on evidence of a consumer that needs them structured. **Re-routed unchanged at CLI-08 (2026-08-31)**, now under the post-final route: a Phase-1 card carries the amendment. No such consumer has appeared. |
+| OI-2 | ~~Extraction warnings have no machine-format home: they render to stderr, and the run report defines no warning field (§5.2).~~ **Closed at CLI-12, 2026-11-13: the run report carries them.** `extraction_notes`, a new optional member at `report_format` 1.4 (REPORT-FORMAT-SPEC §1.2, §1.6), carries the warnings and the disclosures INTROSPECTION-SPEC §8 admits beside them, and every surface shows them (§5.2, §7's CLI-12 note). | Closed. Routed as an amendment to REPORT-FORMAT-SPEC (a new optional member, MINOR per its §1.6) on evidence of a consumer that needs them structured, and **re-routed unchanged at CLI-08 (2026-08-31)** under the post-final route. The consumer was EX-20's subgraph disclosure, and the member was ruled by DEC-35 §3.8 (PROPERTY-CATALOG-SPEC §0.6 item 8). |
 | OI-3 | `snapshot` and `diff` have no `--format json`: neither engine ships a stable JSON projection, and inventing one here would be a new schema no card owns. `--quiet` covers the scripting case for `snapshot`. | A future card owning the projection, plus an amendment here. **Re-routed to Phase-1 at CLI-08 (2026-08-31)**, unchanged in substance; §0.1 rule 3 is why the projection cannot be invented at this layer. |
 | OI-4 | SD-07's audit export (`.gebra/reports/<version>.report.json`, REPORT-FORMAT-SPEC §6) is exposed by no verb: no Phase-0 card wires it to the CLI. | **Closed as a decision at CLI-08 (2026-08-31).** SD-07 landed (`gebra.audit`, 2026-08-12) and writes the export through the store; **no verb produces, discovers or is wired to it**, and none is added. Not "no verb touches it", which would be false: the file is native JSON at `report_format` `1.1` — the same document `gebra verify --format json` emits — so `display --report` (§4.4) already reads it like any other run report, digest check and all, and that is the disposition's own point. A consumer needs no gebra-specific tooling and the export needs no verb, while a sixth verb would widen the five-verb §1.1 surface brief D-12 fixes. Exposing it later is a Phase-1 card plus an amendment here. |
 | OI-5 | `display` has no live-target (import-reference) input mode (§4.4), per PD-034 finding 2 and CLI-06's prereq set. | **Closed as a Phase-0 decision at CLI-08 (2026-08-31); the capability is re-routed to Phase-1.** Not added, for a structural reason rather than a budgetary one: an import reference makes `display` a live-target path and pulls §0.5 item 3's tripwire obligation with it (§7's `display` paragraph says exactly this). A Phase-1 card that wants it owns the added extraction scope *and* the tripwire; the specified refusal is stable meanwhile. |

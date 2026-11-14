@@ -215,6 +215,7 @@ def test_the_normative_stubs_are_valid_python_declaring_the_wrapper(spec_text: s
         "SeverityCounts",
         "ToolError",
         "GateOutcome",
+        "ExtractionNote",
     }
     assert expected <= declared, f"§1.2 declares no {sorted(expected - declared)}"
 
@@ -324,3 +325,120 @@ def test_consumers_have_stated_obligations(spec_text: str) -> None:
     obligations = _section(spec_text, "## 7. Conformance obligations")
     for card in ("CLI-03", "VAL-11", "SD-07", "TE-07", "CLI-07"):
         assert card in obligations, f"§7 states no obligation for {card}"
+
+
+# ── CLI-12: the extraction-notes member and the charter's remaining moves ────────────────
+
+CLI_SPEC_PATH: Final = REPO_ROOT / "docs" / "specs" / "CLI-SPEC.md"
+
+#: The three phrases that named Phase 0 as the present in the two repo-authored specs (PD-063
+#: §2.3; PD-072 §3), retired at CLI-12 for DEC-42 §3.1's copy. They may survive only where a
+#: record quotes history: an amendment-log row or a dated landing note.
+RETIRED_PHASE_0_PHRASES: Final = (
+    "out of Phase-0 scope (SOW §8)",
+    "outside the Phase-0 wedge",
+    "outside Phase-0 scope",
+)
+
+#: DEC-42 §3.1's copy, the words that replaced them.
+CHARTER_COPY: Final = "has no validator in this release"
+
+_LANDING_NOTE = re.compile(r"^\*\*[A-Z]+-\d+ \(")
+
+
+def _prose_outside_records(text: str) -> str:
+    """``text`` without its amendment-log rows and its §7 landing notes, whitespace folded.
+
+    A landing note is a §7 paragraph that opens with a card id in bold and a parenthesis
+    (``**VAL-17 (P-04 over ...``); an amendment-log row is a §1.6 table row opening with a
+    backticked version. Both are records of what moved, which may quote what they replaced.
+    """
+    kept: list[str] = []
+    in_section_7 = False
+    for paragraph in re.split(r"\n\s*\n", text):
+        heading = paragraph.lstrip().split("\n", 1)[0]
+        if heading.startswith("## "):
+            in_section_7 = heading.startswith("## 7.")
+        if in_section_7 and _LANDING_NOTE.match(paragraph.lstrip()):
+            continue
+        lines = [line for line in paragraph.splitlines() if not line.startswith("| `1.")]
+        kept.append(" ".join(" ".join(lines).split()))
+    return "\n".join(kept)
+
+
+def test_no_passage_names_phase_0_as_the_present_outside_the_records(spec_text: str) -> None:
+    """CLI-12's sixth box: the three phrases are gone from both specs' standing text."""
+    for name, text in (
+        ("REPORT-FORMAT-SPEC", spec_text),
+        ("CLI-SPEC", CLI_SPEC_PATH.read_text(encoding="utf-8")),
+    ):
+        standing = _prose_outside_records(text)
+        for phrase in RETIRED_PHASE_0_PHRASES:
+            assert phrase not in standing, f"{name} still says {phrase!r} outside its records"
+
+
+def test_the_rewritten_passages_carry_the_charter_s_copy(spec_text: str) -> None:
+    """Where the phrases were, DEC-42 §3.1's words now are."""
+    derivation = _flat(_section(spec_text, "### 2.2 Derivation"))
+    assert CHARTER_COPY in derivation
+    catalog = _flat(_section(spec_text, "### 4.2 Report-level variants"))
+    assert CHARTER_COPY in catalog
+    assert "No verdict was reached — this is not a pass." in catalog
+    assert "have no validator in this release" in _section(
+        spec_text, "### 5.2 Illustrative rendering"
+    )
+    cli = CLI_SPEC_PATH.read_text(encoding="utf-8")
+    assert "validator in this release" in _flat(
+        _section(cli, "### 3.5 What never moves an exit code")
+    )
+    assert CHARTER_COPY in _flat(_section(cli, "### 4.3 `gebra diff`"))
+
+
+def test_the_1_4_row_records_the_member_and_the_clarifications(spec_text: str) -> None:
+    """DEC-35 §3.3: the release's one row lists what the release added; PD-063 §2.2, PD-072 §3
+    and DEC-42 §4 put the clarifications on it with no bump of their own."""
+    versioning = _section(spec_text, "### 1.6 `report_format` versioning")
+    row = " ".join(
+        next(line for line in versioning.splitlines() if line.startswith("| `1.4` |")).split()
+    )
+    for needle in (
+        "`extraction_notes`",
+        "`ExtractionNote`",
+        "both shipped scopes",
+        "*has no validator in this release*",
+        "`NotImplementedMarker.detail`",
+        '"no validator in this release"',
+        "DEC-42 §3.3",
+        "CLI-12 appended",
+    ):
+        assert needle in row, needle
+
+
+def test_the_stub_s_note_vocabulary_is_the_code_s(spec_text: str) -> None:
+    """§1.2's `ExtractionNoteCode` and the model's Literal list the same codes, in order."""
+    from gebra.verify import ExtractionNoteCode
+
+    stub = _code_blocks(_section(spec_text, "### 1.2 Normative model stubs"), "python")[0]
+    tree = ast.parse(stub)
+    (assignment,) = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "ExtractionNoteCode" for t in node.targets)
+    ]
+    assert isinstance(assignment.value, ast.Subscript)
+    slice_ = assignment.value.slice
+    assert isinstance(slice_, ast.Tuple)
+    codes = tuple(element.value for element in slice_.elts if isinstance(element, ast.Constant))
+    assert codes == get_args(ExtractionNoteCode)
+
+
+def test_the_catalog_renders_the_extraction_notes(spec_text: str) -> None:
+    """§4.2 carries both kinds of note and the member, on all three surfaces."""
+    catalog = _section(spec_text, "### 4.2 Report-level variants")
+    for name in ("`RunReport.extraction_notes` (non-empty", "`ExtractionNote` (a warning code)"):
+        assert name in catalog, name
+    assert "`ExtractionNote` (a disclosure code" in catalog
+    assert "toolExecutionNotifications" in catalog
+    losses = _section(spec_text, "### A.1 Scope and the losses it accepts")
+    assert "Four losses are" in losses and "does not map" in losses

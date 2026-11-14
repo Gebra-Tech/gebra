@@ -427,6 +427,15 @@ SAMPLE_WORKFLOW_LEDGER_CONTROLS = (
         "travel_booking_evolution:travel-booking-evolution.join_waitlist",
         id="travel-booking-evolution",
     ),
+    # The CLI's tripwire graph, whose two undeclared bodies are what the CLI reference's
+    # extraction-notes example verifies (CLI-12): the page imports `graph` and hands it to
+    # `gebra verify` as an import reference, so its ledger is swept by name like the others.
+    pytest.param(
+        "sentinel_cli",
+        "fetch_context({})",
+        "sentinel_cli:fetch_context",
+        id="sentinel-cli",
+    ),
 )
 
 

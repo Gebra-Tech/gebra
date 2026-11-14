@@ -1,0 +1,250 @@
+{
+  "report_format": "1.4",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "tests.sample_workflows.sentinel_subgraphs:build_direct_mount_parent",
+    "ir_version": "1.0",
+    "graph_version": "sha256:4fc2d1f0b690c4a97520d67db9e037f1245f464888a6ad78ccb615aee610dfff",
+    "extractor_version": "<gebra-version>"
+  },
+  "extraction_notes": [
+    {
+      "code": "contract-defaulted",
+      "message": "no ANNOTATION-API-SPEC §4 pattern set 'effect', so the decision D-011 conservative default applied (body-unavailable); declare the contract with @gebra.contract or a gebra.toml entry to replace it",
+      "node": "legs",
+      "slots": [
+        "effect"
+      ],
+      "detail": {
+        "surface": "inference",
+        "rule": "body-unavailable",
+        "applied": {
+          "effect": [
+            "write"
+          ]
+        },
+        "why": [
+          "body-unavailable"
+        ],
+        "source": "not-a-python-function",
+        "declaration_surfaces": [
+          "decorator",
+          "sidecar"
+        ]
+      }
+    },
+    {
+      "code": "contract-defaulted",
+      "message": "no ANNOTATION-API-SPEC §4 pattern set 'pure', so the decision D-011 conservative default applied (no-write-evidence); declare the contract with @gebra.contract or a gebra.toml entry to replace it",
+      "node": "plan_step",
+      "slots": [
+        "pure"
+      ],
+      "detail": {
+        "surface": "inference",
+        "rule": "no-write-evidence",
+        "applied": {
+          "pure": true
+        },
+        "why": [
+          "string-annotation",
+          "string-annotation",
+          "no-licensed-pattern"
+        ],
+        "source": "read",
+        "declaration_surfaces": [
+          "decorator",
+          "sidecar"
+        ]
+      }
+    },
+    {
+      "code": "contract-defaulted",
+      "message": "no ANNOTATION-API-SPEC §4 pattern set 'pure', so the decision D-011 conservative default applied (no-write-evidence); declare the contract with @gebra.contract or a gebra.toml entry to replace it",
+      "node": "summarize_step",
+      "slots": [
+        "pure"
+      ],
+      "detail": {
+        "surface": "inference",
+        "rule": "no-write-evidence",
+        "applied": {
+          "pure": true
+        },
+        "why": [
+          "string-annotation",
+          "string-annotation",
+          "no-licensed-pattern"
+        ],
+        "source": "read",
+        "declaration_surfaces": [
+          "decorator",
+          "sidecar"
+        ]
+      }
+    },
+    {
+      "code": "subgraph-read-as-one-node",
+      "message": "node `legs` mounts or reaches a compiled subgraph that this document carries as one node; its interior (child nodes, edges, entry, finish and state) was not read — child expansion is the named ir 1.x feature of DEC-19's design register, not performed in ir_version 1.0/1.1 output. The set of mounts this document knows of is a lower bound, not a census: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible, and on the compiled-only path (INTROSPECTION-SPEC §4.3 rule 4), where no builder-level direct-mount read exists, every `checkpointer=False` child is. On an uncompiled builder no `get_subgraphs()` read exists, so a subgraph that is not itself a node's bound object is invisible here whatever its checkpointer.",
+      "node": "legs",
+      "detail": {
+        "seen_by": [
+          "direct-mount"
+        ],
+        "reads_performed": [
+          "direct-mount"
+        ],
+        "interior_not_read": [
+          "nodes",
+          "edges",
+          "entry",
+          "finish",
+          "state"
+        ],
+        "lower_bound": "The set of mounts this document knows of is a lower bound, not a census: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible, and on the compiled-only path (INTROSPECTION-SPEC §4.3 rule 4), where no builder-level direct-mount read exists, every `checkpointer=False` child is.",
+        "child_expansion": "the named ir 1.x feature of DEC-19's design register; not performed in ir_version 1.0/1.1 output"
+      }
+    }
+  ],
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "pass",
+      "witness": {
+        "kind": "well-formedness",
+        "reachable_from_start": [
+          "legs",
+          "plan_step",
+          "summarize_step"
+        ],
+        "terminal_nodes": [
+          "summarize_step"
+        ],
+        "orphan_nodes": [],
+        "unresolved_targets": []
+      }
+    },
+    {
+      "property": "termination-witness",
+      "result": "pass",
+      "witness": {
+        "kind": "termination",
+        "inventory": [],
+        "certificate": [
+          "START",
+          "plan_step",
+          "legs",
+          "summarize_step",
+          "END"
+        ],
+        "notes": [],
+        "cycles": {
+          "exhaustive": true,
+          "cycles": []
+        }
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "pass",
+      "witness": {
+        "kind": "dataflow",
+        "coverage": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-05. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "pass",
+      "witness": {
+        "kind": "effect-safety",
+        "cycles": [],
+        "effects": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-07. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "pass",
+      "witness": {
+        "kind": "determinism",
+        "claims": [],
+        "claim_class": "heuristic"
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-09. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-10. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-11. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-12. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-13. No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 0,
+    "outcome": "pass",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": true
+  }
+}

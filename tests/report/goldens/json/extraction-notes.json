@@ -1,0 +1,218 @@
+{
+  "report_format": "1.4",
+  "tool": {
+    "name": "gebra",
+    "version": "<gebra-version>"
+  },
+  "subject": {
+    "input_mode": "extracted",
+    "source": "travel_booking:build_graph",
+    "ir_version": "1.0",
+    "graph_version": "sha256:490e53db21df7302885595801dfdbc95cf571e9cf7e6eb0983e31c982247b2d6",
+    "extractor_version": "<gebra-version>"
+  },
+  "extraction_notes": [
+    {
+      "code": "contract-defaulted",
+      "message": "no ANNOTATION-API-SPEC §4 pattern set 'effect', so the decision D-011 conservative default applied (body-unavailable); declare the contract with @gebra.contract or a gebra.toml entry to replace it",
+      "node": "book_flight",
+      "slots": [
+        "effect"
+      ],
+      "detail": {
+        "surface": "inference",
+        "rule": "body-unavailable",
+        "applied": {
+          "effect": [
+            "write"
+          ]
+        },
+        "why": [
+          "body-unavailable"
+        ],
+        "source": "not-a-python-function",
+        "declaration_surfaces": [
+          "decorator",
+          "sidecar"
+        ]
+      }
+    },
+    {
+      "code": "recursion-limit-bound-without-justification",
+      "message": "the compiled graph binds recursion_limit=50 through `with_config`, and neither surface that declares the slot does — `gebra.recursion_limit(graph, value, justification=...)` in code, or the `[runtime]` table of `gebra.toml` — so `runtime.recursion_limit` is absent from this document. The binding is recorded beside it, and no termination witness is read from the binding alone: a bound number carries no justification.",
+      "detail": {
+        "bound_value": 50,
+        "declaration_surfaces": [
+          "gebra.recursion_limit",
+          "gebra.toml [runtime]"
+        ],
+        "witness": "no termination witness is read from a with_config binding alone: a bound number carries no justification, so it fills no part of runtime.recursion_limit"
+      }
+    },
+    {
+      "code": "subgraph-read-as-one-node",
+      "message": "node `book_flight` mounts or reaches a compiled subgraph that this document carries as one node; its interior (child nodes, edges, entry, finish and state) was not read — child expansion is the named ir 1.x feature of DEC-19's design register, not performed in ir_version 1.0/1.1 output. The set of mounts this document knows of is a lower bound, not a census: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible, and on the compiled-only path (INTROSPECTION-SPEC §4.3 rule 4), where no builder-level direct-mount read exists, every `checkpointer=False` child is.",
+      "node": "book_flight",
+      "detail": {
+        "seen_by": [
+          "direct-mount",
+          "get-subgraphs"
+        ],
+        "reads_performed": [
+          "direct-mount",
+          "get-subgraphs"
+        ],
+        "interior_not_read": [
+          "nodes",
+          "edges",
+          "entry",
+          "finish",
+          "state"
+        ],
+        "lower_bound": "The set of mounts this document knows of is a lower bound, not a census: a subgraph compiled with `checkpointer=False` and reached only from inside a node body is invisible, and on the compiled-only path (INTROSPECTION-SPEC §4.3 rule 4), where no builder-level direct-mount read exists, every `checkpointer=False` child is.",
+        "child_expansion": "the named ir 1.x feature of DEC-19's design register; not performed in ir_version 1.0/1.1 output"
+      }
+    }
+  ],
+  "properties": [
+    {
+      "property": "graph-well-formed",
+      "result": "pass",
+      "witness": {
+        "kind": "well-formedness",
+        "reachable_from_start": [
+          "book_flight",
+          "check_availability",
+          "send_confirmation"
+        ],
+        "terminal_nodes": [
+          "send_confirmation"
+        ],
+        "orphan_nodes": [],
+        "unresolved_targets": []
+      }
+    },
+    {
+      "property": "termination-witness",
+      "result": "pass",
+      "witness": {
+        "kind": "termination",
+        "inventory": [],
+        "certificate": [
+          "START",
+          "check_availability",
+          "book_flight",
+          "send_confirmation",
+          "END"
+        ],
+        "notes": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "signature-soundness",
+      "property_id": "P-03",
+      "status": "deferred-to-phase-1",
+      "detail": "P-03 signature-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-03. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "dataflow-completeness",
+      "result": "pass",
+      "witness": {
+        "kind": "dataflow",
+        "coverage": [
+          {
+            "node": "send_confirmation",
+            "key": "booking_id",
+            "satisfied_by": [
+              "book_flight"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "guard-exhaustiveness",
+      "property_id": "P-05",
+      "status": "deferred-to-phase-1",
+      "detail": "P-05 guard-exhaustiveness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-05. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "effect-safety",
+      "result": "pass",
+      "witness": {
+        "kind": "effect-safety",
+        "cycles": [],
+        "effects": []
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "retry-coherence",
+      "property_id": "P-07",
+      "status": "deferred-to-phase-1",
+      "detail": "P-07 retry-coherence has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-07. No verdict was reached — this is not a pass."
+    },
+    {
+      "property": "determinism-replay",
+      "result": "pass",
+      "witness": {
+        "kind": "determinism",
+        "claims": [],
+        "claim_class": "heuristic"
+      }
+    },
+    {
+      "kind": "not-implemented",
+      "property": "parallel-safety",
+      "property_id": "P-09",
+      "status": "deferred-to-phase-1",
+      "detail": "P-09 parallel-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-09. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "subgraph-consistency",
+      "property_id": "P-10",
+      "status": "deferred-to-phase-1",
+      "detail": "P-10 subgraph-consistency has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-10. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "join-key-soundness",
+      "property_id": "P-11",
+      "status": "deferred-to-phase-1",
+      "detail": "P-11 join-key-soundness has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-11. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "evolution-safety",
+      "property_id": "P-12",
+      "status": "deferred-to-phase-1",
+      "detail": "P-12 evolution-safety has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-12. No verdict was reached — this is not a pass."
+    },
+    {
+      "kind": "not-implemented",
+      "property": "interrupt-gate-coverage",
+      "property_id": "P-13",
+      "status": "deferred-to-phase-1",
+      "detail": "P-13 interrupt-gate-coverage has no validator in this release. Its catalog section is PROPERTY-CATALOG-SPEC §P-13. No verdict was reached — this is not a pass."
+    }
+  ],
+  "best_effort": [],
+  "gate": {
+    "exit_code": 0,
+    "outcome": "pass",
+    "counts": {
+      "fatal": 0,
+      "error": 0,
+      "warning": 0
+    },
+    "strict": {
+      "mode": "off",
+      "properties": []
+    },
+    "promotions": [],
+    "snapshot_eligible": true
+  }
+}

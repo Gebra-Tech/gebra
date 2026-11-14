@@ -19,7 +19,8 @@
 > Phase-0 shipped at (v0.0.1) and was stamped final for Phase-0 at the promotion; `1.0` was this
 > document's shape before VAL-11 built it and was never emitted. The four MINOR amendments
 > since `1.0` are recorded in §1.6 — `1.1` at VAL-11, then `1.2` at VAL-14, `1.3` at VAL-15 and
-> `1.4` at VAL-17 under the post-final route the stamp itself fixes: its own card, its own
+> `1.4` at VAL-17, its row extended at CLI-12 with `extraction_notes`, under the post-final
+> route the stamp itself fixes: its own card, its own
 > amendment-log row, its CHANGELOG entry — since Phase 1 one MINOR per release, whose later
 > landings append to the row the first one opened (DEC-35 §3.3). §1.6's bump table — including the value-rule row added at the promotion —
 > is the route any later change travels. Final means no Phase-0 card amends this contract
@@ -128,6 +129,10 @@ adding one is a scope change, not a schema change.
     "graph_version": "sha256:5db68464…",
     "extractor_version": "0.0.1.dev0"
   },
+  "extraction_notes": [
+    { "code": "subgraph-read-as-one-node", "message": "…", "node": "book_flight",
+      "detail": { "…": "…" } }
+  ],
   "properties": [
     { "property": "graph-well-formed", "result": "pass", "witness": { "kind": "well-formedness", "…": "…" } },
     { "property": "termination-witness", "result": "fail", "failure": { "…": "…" } },
@@ -152,10 +157,14 @@ The stubs below are normative in the same sense PROPERTY-CATALOG-SPEC §0.3's ar
 field names, types, optionality and the model invariants. They follow the same A6 conventions
 as the envelope they wrap — PC-1/PC-3 (frozen, `extra="forbid"`, strict), PC-2 (tuples, unions
 discriminated where a discriminator exists), PC-4 (canonical serialization: definition order,
-`exclude_none=True`).
+`exclude_none=True`). One member departs from PC-1 and PC-2 by construction, because the
+ruling makes it a JSON object: `ExtractionNote.detail` (added at `1.4`) is a `dict`, as the
+extraction record's own is, so a note — and a report carrying one — is neither hashable nor
+deeply immutable; its sequences are tuples and every value it holds is an exact built-in
+(§1.3).
 
 ```python
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -163,6 +172,7 @@ from gebra.verify import (  # the frozen §0.3 envelope, unchanged
     PROPERTY_SLUGS,
     AnyLocation,
     ConditionId,
+    NodeId,
     NotImplementedMarker,
     PropertyReport,
     PropertySlug,
@@ -288,6 +298,37 @@ PropertyOutcome = Annotated[
     Union[NotImplementedMarker, PropertyReport], Field(union_mode="left_to_right")
 ]
 
+#: The closed vocabulary of a note's `code` (added at `1.4`; PROPERTY-CATALOG-SPEC §0.6 item 8,
+#: DEC-35 §3.8): the ten extraction-warning codes of INTROSPECTION-SPEC §8 / ANNOTATION-API-SPEC
+#: §4, then the disclosure codes an R-06 record admits as notes — INTROSPECTION-SPEC §8's table,
+#: DEC-36's two and DEC-40's `barrier-read-per-edge`, which no extraction in this release
+#: emits. A code a later record admits joins on its release's §1.6 row.
+ExtractionNoteCode = Literal[
+    "contract-inferred",
+    "contract-defaulted",
+    "opaque-lambda",
+    "builder-compiled-divergence",
+    "compiled-only-extraction",
+    "barrier-flattened",
+    "unsupported-construct",
+    "annotation-conflict",
+    "annotation-unknown-node",
+    "annotation-invalid",
+    "subgraph-read-as-one-node",
+    "recursion-limit-bound-without-justification",
+    "barrier-read-per-edge",
+]
+
+
+class ExtractionNote(RunReportModel):
+    """One record extraction emitted, carried into the report (§1.3). Never a finding."""
+
+    code: ExtractionNoteCode
+    message: str  # display-only (§4.6 rule 7); non-empty
+    node: Optional[NodeId] = None
+    slots: tuple[str, ...] = ()  # ANNOTATION-API-SPEC §1 slot names; omitted when empty
+    detail: dict[str, Any] = {}  # JSON data, every sequence a tuple; always serialized
+
 
 class RunReport(RunReportModel):
     """The run-level wrapper (PROPERTY-CATALOG-SPEC §0.3 scope boundary)."""
@@ -295,6 +336,10 @@ class RunReport(RunReportModel):
     report_format: Literal["1.4"]
     tool: Tool
     subject: Optional[Subject] = None  # absent only when a ToolError preceded IR identity
+    # What extraction said about how the subject's IR was obtained — its warnings, then the
+    # disclosures an R-06 record admits as notes — in emission order (`1.4`; §1.3). Present
+    # only when the run extracted and a note was emitted, and omitted otherwise (§1.5).
+    extraction_notes: tuple[ExtractionNote, ...] = ()
     properties: tuple[PropertyOutcome, ...] = ()
     # The properties whose outcomes in THIS run are best-effort diagnostics rather than
     # contract-bearing verdicts — PROPERTY-CATALOG-SPEC §0.3's P-01-clean precondition,
@@ -319,6 +364,13 @@ class RunReport(RunReportModel):
         slugs = tuple(outcome.property for outcome in self.properties)
         if slugs != PROPERTY_SLUGS:  # the thirteen catalog slugs, in catalog order
             raise ValueError("a verdict run carries all thirteen properties, in catalog order")
+        return self
+
+    @model_validator(mode="after")
+    def _notes_come_from_an_extraction(self) -> "RunReport":
+        subject = self.subject  # absent: identity never established, extraction possible
+        if self.extraction_notes and subject is not None and subject.input_mode != "extracted":
+            raise ValueError("`extraction_notes` is present only when the run extracted")
         return self
 ```
 
@@ -367,6 +419,29 @@ class RunReport(RunReportModel):
   not contract-bearing verdicts" — a distinction that lived only in the spec until this field
   carried it into the artifact. It is not a second gate: the run already exits `1` with no
   snapshot on P-01's FATAL alone (§2.5), whatever the other four found.
+- **`extraction_notes`** (added at `1.4`; PROPERTY-CATALOG-SPEC §0.6 item 8, DEC-35 §3.8) is
+  what extraction said about how the subject's IR was obtained: the warnings of
+  INTROSPECTION-SPEC §8 and ANNOTATION-API-SPEC §4, then the disclosures an R-06 record admits
+  as notes (INTROSPECTION-SPEC §8 "Extraction disclosures": DEC-36 admits
+  `subgraph-read-as-one-node` and `recursion-limit-bound-without-justification`, and DEC-40
+  `barrier-read-per-edge`, which no extraction in this release emits), as structured records in
+  emission order — the warnings first, then the disclosures, graph-scoped before node-scoped
+  and these in node-id order, the order the extraction envelope holds them in. Each note
+  carries the record's `code`, its display-only `message`, its `node` and `slots` when it names
+  them, and its `detail`, a JSON object; every value it holds is an exact built-in, converted on
+  the way in by type and through unbound accessors, so that rendering a note runs nothing a
+  workflow's names or values could carry (WA-07). It is **present only when the run extracted
+  and at least one note was emitted**, and omitted otherwise. On a report with a subject,
+  "extracted" is `subject.input_mode == "extracted"`, and the model refuses notes on any other
+  mode: a document or snapshot run carries none, since the notes were reported when its IR was
+  extracted (carrying stored notes is a later question for the SD track — PD-063 §8). A report
+  with no subject is a tool error that preceded IR identity; it carries notes only when the
+  producer that built it extracted, which the model cannot check — the CLI and the pytest plugin
+  attach notes only from their own extraction, as on a tool error that followed one. Notes are
+  **never findings**, and not notes in §2.1's sense either: they move no exit code, enter no
+  count and promote under no strict flag. `verify()` reads an IR and never sees an extraction,
+  so the caller that extracted attaches them — in code, `gebra.verify.extraction_notes_of` and
+  `gebra.verify.with_extraction_notes`, which the CLI and the pytest plugin both call.
 - **`gate.counts`** and **`gate.promotions`** are derived from `properties` (§2). They are
   carried because every consumer needs the headline, and because a renderer that recomputed
   them independently would be a second place for the derivation to drift.
@@ -381,10 +456,13 @@ class RunReport(RunReportModel):
 1. **All thirteen, always.** A verdict run carries one outcome per catalog slug, in the catalog
    order `P-01 … P-13` (`gebra.verify.PROPERTY_SLUGS`). A property with no registered validator
    contributes a `NotImplementedMarker`, never an omission and never a pass.
-2. **A missing wedge validator is a tool error, not a thin gate.** If any member of the wedge
-   five (P-01, P-02, P-04, P-06, P-08) has no registered validator, the run is exit `2` with
-   `error.stage: "dispatch"` (§2.4). A run that silently checked four of the five would be a
-   weakened gate wearing a pass.
+2. **A missing shipped validator is a tool error, not a thin gate.** If any property in either
+   shipped scope — a member of the wedge five (P-01, P-02, P-04, P-06, P-08; scope
+   `phase-0-wedge`) or a `catalog` property (PROPERTY-CATALOG-SPEC §0.6 item 1) — has no
+   registered validator, the run is exit `2` with `error.stage: "dispatch"` (§2.4). A run that
+   silently checked four of the five would be a weakened gate wearing a pass, and so would one
+   that skipped a catalog property. (Read over both shipped scopes since DEC-35 §3.1; recorded
+   on §1.6's `1.4` row as a clarification.)
 3. **Within a property, order is the catalog's.** Each §P-nn section fixes its own ordering
    rule for its records (which finding is primary, and the order of `co_failures`); the run
    report carries that order through untouched.
@@ -401,6 +479,9 @@ class RunReport(RunReportModel):
   sorted at write time.
 - **Absent optionals are omitted**, not `null` (`exclude_none=True`, PC-4). Omission
   round-trips: a key the producer never set and a key a consumer drops read back the same.
+  Two members whose empty value is `()` rather than `None` are omitted when empty by the
+  models' own serializers: `RunReport.extraction_notes` and `ExtractionNote.slots` (added
+  at `1.4`).
 - **Indentation** two spaces, matching `.editorconfig`; the compact single-line form is
   available for stream consumers and carries identical content.
 - **Non-ASCII characters stay themselves** (`ensure_ascii=False`).
@@ -452,7 +533,8 @@ amendment-log row". For G10 the same section names the row's members — "`1.4`:
 `extraction_notes` and VAL-17's P-04 members — whichever of CLI-12 and VAL-17 lands second
 appends" — and VAL-17's member, a new optional member on two existing shapes, is a MINOR by
 this table's first row; so `1.4` is the `0.2.0` release's row, opened by whichever of the two
-landed first. The two value-rule rows above were added by the
+landed first. VAL-17 opened it; CLI-12 appended `extraction_notes`, on the same first row, and
+the clarifications its row lists. The two value-rule rows above were added by the
 promotion itself and are not a bump: they classify future changes without making one, on this
 table's own "editorial change, clarified prose" row.
 
@@ -464,7 +546,7 @@ table's own "editorial change, clarified prose" row.
 | `1.1` | Two members join shapes that did not carry them at `1.0`: `Promotion.property_condition` on a `witness-note` promotion (§2.3), and `RunReport.best_effort` (§1.3). Two invariants `1.0` stated only in prose become model validators — §2.2's "the two never disagree" on `GateOutcome`, and `Promotion`'s own present-iff rules. | MINOR — `best_effort` on the new-optional-member row; `property_condition` on the present-iff row, which this amendment added because it was the class OI-7 flagged as unrowed and this is an instance of it (its field declaration is unchanged; what widened is when it is populated) | VAL-11, 2026-08-06 |
 | `1.2` | The `dynamic` edge's validator semantics land (DEC-28 clauses 1–3; PROPERTY-CATALOG-SPEC §0.3). Three optional members join envelope shapes that did not carry them at `1.1`, each emitted only when non-empty and never verdict-bearing: `WellFormednessWitness.dynamic_dependent` (§4.3), `DataflowWitness.outside_static_coverage` (§4.3) and `P04Failure.outside_static_coverage` (§4.4). `subject.ir_version` admits `"1.1"` — the stamp a `dynamic`-bearing document carries — so a document `1.1` refused as an `ir-validation` tool error now reaches a verdict (§1.3, §2.4). Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added and no new record carries a severity. | MINOR — the three members on the new-optional-member row; `ir_version` on the same row's "new member joining a closed vocabulary" clause (its `Literal` gained the token `"1.1"`; a strict `1.1` consumer's `Literal["1.0"]` refuses a `"1.1"` subject, which is §1.6's own MAY). Both are MINOR and no MAJOR row applies. The run-level model retype is recorded against VALIDATOR-API-FREEZE §4 in PD-057, since that note separates the Python model surface from this document's wire-format version. | VAL-14, 2026-09-04 |
 | `1.3` | PROPERTY-CATALOG-SPEC §0.3's containment convention and the P-01 witness partition land (DEC-33 §3.1–§3.4, ratified 2026-09-06; PD-058 + PD-056). Three optional members join envelope shapes that did not carry them at `1.2`, each emitted only when non-empty and never verdict-bearing: `WellFormednessWitness.contained_nodes` (§4.3 — the nodes whose id has a proper path prefix that is itself a node, which P-01's conditions (i)–(iii) no longer evaluate), `DataflowWitness.contained_readers` (§4.3) and `P04Failure.contained_readers` (§4.4 — the contained readers outside P-04's static `Reach`, whose reads no analysis covers). Three value rules move with the ruling and are recorded here as **catalog-driven**, not as bumps of this document's own: `reachable_from_start` is restated as the static `START`-closure ∩ $V_{top}$ (it was `sorted(V)` — every node — and on a dynamic-bearing pass since `1.2` listed the very nodes `dynamic_dependent` named), and `dynamic_dependent` and `outside_static_coverage` narrow to $V_{top}$ so that neither ever lists a contained node. On every P-01 pass `reachable_from_start` ⊎ `dynamic_dependent` ⊎ `contained_nodes` is the whole node set. Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added, removed, renamed or reclassified, and no new record carries a severity — the two LCEL conformance documents that failed P-01 with 27 and 3 FATALs as written now reach `pass`, which is the ruling's verdict change, not a derivation change. | MINOR — the three members on the new-optional-member row, which is what makes it MINOR. The restated `reachable_from_start` value rule is one the value-rule rows above **do not reach**: its value is fixed by PROPERTY-CATALOG-SPEC §1.4 Step 5, so it changes "only by catalog addendum under WA-03, never by a bump here" — DEC-33 is that addendum, and this row records it. The $V_{top}$ narrowing of the two `1.2` diagnostics is a value rule "narrowed or merely made precise" and carries no bump of its own. No MAJOR row applies (no member removed, retyped, renamed or made required; §2's derivation, §2.1's finding set and §2.3's reach untouched). Consumer consequence: a strict `1.2` consumer (`extra="forbid"`) refuses a `1.3` report that carries one of the new members — §1.6's own MAY — and `gebra display --report` in this build refuses a `1.2` report file written by the previous build, naming the version it reads. | VAL-15, 2026-09-07 |
-| `1.4` | The `0.2.0` release's one MINOR (DEC-35 §3.3: one bump per release, later landings appending to its row; for G10, "`1.4`: `extraction_notes` and VAL-17's P-04 members — whichever of CLI-12 and VAL-17 lands second appends"). **VAL-17 — P-04 over `Send` payloads (DEC-37, ratified 2026-10-28; PD-065).** A reachable node entered through a `send` edge from a reachable source is a *payload reader*: along that edge its declared reads are reads of the payload the edge delivers, which the IR does not carry, so they raise no obligation and are not decided, while its state arm — every other in-edge — is decided as any reachable reader's. One optional member joins two envelope shapes that did not carry it at `1.3`, emitted only when non-empty and never verdict-bearing: `DataflowWitness.payload_readers` (§4.3) and `P04Failure.payload_readers` (§4.4), the payload readers in node-id order — disjoint from `outside_static_coverage` and `contained_readers`, which name readers outside the static `START`-closure where this one names readers inside it. Further value rules move with the ruling and are recorded here as **catalog-driven**, not as bumps of this document's own (DEC-37 §3.1–§3.3): `DataflowWitness.coverage` carries one entry per *decided* (reader, Σ key) — a send-only reader's keys are abstained and the reader is named on the member instead, and a reader entered both ways is decided over its state arm; on such a reader `DataflowCoverage.satisfied_by` and `P04Failure.writers_on_other_paths` name only the writers upstream of it *through the state arm* — a writer upstream of the `send` edge alone is no longer listed — and `satisfied_by` can be empty on a covered entry, which no `1.3` document carried (a payload reader that writes the key and is re-entered only through its state arm is covered by its own earlier visit, and §4.4 never lists the reader itself); and a P-04 `DataflowLocation.path` on such a reader ends on a state-arm edge, never the `send` edge, and on a loop that re-enters the reader through its state arm is a walk that visits the reader twice. Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added, removed, renamed or reclassified, and no new record carries a severity — a document whose only P-04 finding was a payload read through a `send` edge now passes, which is the ruling's verdict change, not a derivation change. | MINOR — the member on the new-optional-member row, which is what makes it MINOR. The restated value rules are ones the value-rule rows above **do not reach**: `coverage`, `satisfied_by`, `writers_on_other_paths` and `path` are fixed by PROPERTY-CATALOG-SPEC §4.3/§4.4, changed only by catalog addendum under WA-03 — DEC-37 is that addendum, and this row records it. No MAJOR row applies. Consumer consequence: a strict `1.3` consumer (`extra="forbid"`) refuses a `1.4` report that carries `payload_readers` — §1.6's own MAY — and `gebra display --report` in this build refuses a `1.3` report file written by the previous build, naming the version it reads. | VAL-17, 2026-11-13 (the row stays open for the release: CLI-12's `extraction_notes`, DEC-35 §3.8, appends to it) |
+| `1.4` | The `0.2.0` release's one MINOR (DEC-35 §3.3: one bump per release, later landings appending to its row; for G10, "`1.4`: `extraction_notes` and VAL-17's P-04 members — whichever of CLI-12 and VAL-17 lands second appends"). **VAL-17 — P-04 over `Send` payloads (DEC-37, ratified 2026-10-28; PD-065).** A reachable node entered through a `send` edge from a reachable source is a *payload reader*: along that edge its declared reads are reads of the payload the edge delivers, which the IR does not carry, so they raise no obligation and are not decided, while its state arm — every other in-edge — is decided as any reachable reader's. One optional member joins two envelope shapes that did not carry it at `1.3`, emitted only when non-empty and never verdict-bearing: `DataflowWitness.payload_readers` (§4.3) and `P04Failure.payload_readers` (§4.4), the payload readers in node-id order — disjoint from `outside_static_coverage` and `contained_readers`, which name readers outside the static `START`-closure where this one names readers inside it. Further value rules move with the ruling and are recorded here as **catalog-driven**, not as bumps of this document's own (DEC-37 §3.1–§3.3): `DataflowWitness.coverage` carries one entry per *decided* (reader, Σ key) — a send-only reader's keys are abstained and the reader is named on the member instead, and a reader entered both ways is decided over its state arm; on such a reader `DataflowCoverage.satisfied_by` and `P04Failure.writers_on_other_paths` name only the writers upstream of it *through the state arm* — a writer upstream of the `send` edge alone is no longer listed — and `satisfied_by` can be empty on a covered entry, which no `1.3` document carried (a payload reader that writes the key and is re-entered only through its state arm is covered by its own earlier visit, and §4.4 never lists the reader itself); and a P-04 `DataflowLocation.path` on such a reader ends on a state-arm edge, never the `send` edge, and on a loop that re-enters the reader through its state arm is a walk that visits the reader twice. Exit-code derivation, the finding set and strict-mode reach are untouched: no condition ID is added, removed, renamed or reclassified, and no new record carries a severity — a document whose only P-04 finding was a payload read through a `send` edge now passes, which is the ruling's verdict change, not a derivation change. **CLI-12 — extraction notes (PROPERTY-CATALOG-SPEC §0.6 item 8, DEC-35 §3.8, ratified 2026-10-28; DEC-36 §4, ratified 2026-10-28; PD-063 §8).** One optional member joins `RunReport`, which did not carry it at `1.3`: `extraction_notes`, the warnings an extraction emitted and then the disclosures an R-06 record admits as notes (INTROSPECTION-SPEC §8), in emission order (§1.2, §1.3) — present only when the run extracted and a note was emitted, omitted otherwise, and never verdict-bearing: no note moves an exit code, enters a count or is promoted by a strict flag. The member's records are a new model, `ExtractionNote`, whose `code` takes the ten warning codes and INTROSPECTION-SPEC §8's three disclosure codes — DEC-36's two and DEC-40's `barrier-read-per-edge`, admitted with them so that the build that first emits it (IR 1.2's) moves no report member. Rendered in a block of its own on the human surface (§4.2, §4.6 rule 10, §5.1 rule 9) and projected into SARIF as tool execution notifications (A.2; a note's `detail` is A.1's fourth loss). Recorded here as **clarifications**, the charter's remaining moves (PD-063 §2.2–§2.3, extended at PD-072 §3): §1.4 rule 2 and §2.4's `dispatch` row read over both shipped scopes, so a `phase-0-wedge` or `catalog` row with no registered validator is a tool error (DEC-35 §3.1); the passages that still named Phase 0 as the present — §2.2, §4.2's `NotImplementedMarker` row, §5.2's illustrative rendering and §7's consumer note 5 — carry the charter's copy as DEC-42 §3.1 states it, *has no validator in this release*; `NotImplementedMarker.detail`'s prose for `deferred-to-phase-1` changed in this release (VAL-16, then VAL-29 — display-only, §4.6 rule 7); and the token `deferred-to-phase-1` is read as "no validator in this release", its name kept on the wire as brief D-09's historical word with no schedule read from it (DEC-42 §3.3, §4; PD-073 §10.1 item 9). Two editorial corrections weighed at this landing (PD-073 §12.2): §4.2's marker row now says that the marker's words are PROPERTY-CATALOG-SPEC §0.6 item 1's, the renderer's latitude (§0.4, §4.1) reaching their layout only, since where this document and the catalog would differ the catalog wins (§0.3); and A.1's third loss no longer names a count of absent properties, which the first catalog landing would make untrue. | MINOR — the member on the new-optional-member row, which is what makes it MINOR. The restated value rules are ones the value-rule rows above **do not reach**: `coverage`, `satisfied_by`, `writers_on_other_paths` and `path` are fixed by PROPERTY-CATALOG-SPEC §4.3/§4.4, changed only by catalog addendum under WA-03 — DEC-37 is that addendum, and this row records it. No MAJOR row applies. Consumer consequence: a strict `1.3` consumer (`extra="forbid"`) refuses a `1.4` report that carries `payload_readers` — §1.6's own MAY — and `gebra display --report` in this build refuses a `1.3` report file written by the previous build, naming the version it reads. **CLI-12** — `extraction_notes` on the new-optional-member row; a strict `1.3` consumer refuses a `1.4` report carrying it, as it refuses one carrying `payload_readers`. The clarifications and corrections carry no bump of their own: the both-scopes dispatch reading is the same derivation for every build that exists — registration is at import and test-held (PD-063 §2.2) — so the MAJOR row for exit-code derivation is not engaged, and with the token's reading, which §2.2 and §4.2's marker row now state as this document's own statement of the status (DEC-42 §3.3), it is a value rule made precise, admitting nothing a consumer was not already told to expect; the marker's `detail` is display-only prose (§4.6 rule 7); and §5.2's example, note 5 and the two corrections are editorial. No MAJOR row applies. | VAL-17, 2026-11-13; CLI-12 appended, 2026-11-13 (the row stays open for the release, whose cut stamps it — DEC-35 §3.3) |
 
 The `1.1` amendment is recorded rather than folded in because §1.6's rule is applied
 literally, on the CLI-02 precedent (its `subject.source` amendment was measured against this
@@ -485,7 +567,8 @@ produces a `1.3` report. What is *not* a compatibility event is the restated val
 the list it reads is now exactly what its name says, the static `START`-closure of the
 top-level nodes, where a `1.2` witness on a dynamic-bearing document listed every node. The
 `1.4` amendment is the same shape of event once more: every `1.3` document is still readable, a
-strict `1.3` consumer refuses a `1.4` report carrying `payload_readers`, and `gebra display
+strict `1.3` consumer refuses a `1.4` report carrying `payload_readers` or `extraction_notes`,
+and `gebra display
 --report` in this build refuses a `1.3` file naming `1.4` — re-running `gebra verify` produces a
 `1.4` report. A consumer built against `1.3` that read `coverage` as one entry per reachable
 reader and key will find a `send` target's payload reads absent from it on a `1.4` report:
@@ -517,7 +600,9 @@ carries the finding that made it `1` — but omitting it from `gate.promotions` 
 understate what a strict run selected.
 
 Notes are not findings: they never fail a gate on their own, and they are counted separately
-from `gate.counts`. Everything else in a witness is evidence, not a grade.
+from `gate.counts`. Everything else in a witness is evidence, not a grade. An extraction note
+(§1.3, `extraction_notes`) is neither a finding nor a note in this section's sense: it carries
+no severity, is counted nowhere and reaches no branch of §2.2.
 
 `gate.counts` tallies findings only, by their own per-record `severity` — never by the property's
 `PropertyEntry.severities` union, which is a documentation-level statement about what a property
@@ -549,8 +634,8 @@ and leaves the run at exit `0` unless strict mode names it. The record says what
 gate says what CI does about it, and §0.2 keeps those two separate on purpose.
 
 A `NotImplementedMarker` never contributes to the exit code. It is neither a pass nor a fail:
-the eight non-wedge properties are out of Phase-0 scope (SOW §8), and a run is not stronger or
-weaker for having said so.
+a property whose registry row is `deferred-to-phase-1` has no validator in this release
+(PROPERTY-CATALOG-SPEC §0.6 item 1), and a run is not stronger or weaker for having said so.
 
 ### 2.3 Strict mode
 
@@ -611,7 +696,7 @@ Exit `2` means no verdict was reached. `error.stage` says where it stopped:
 | `input` | The invocation could not be resolved to a subject at all (no such target, unreadable file). |
 | `extraction` | `gebra.extract()` failed on a live target. |
 | `ir-validation` | The IR document did not validate against the IR model (`ir_version` 1.0 or 1.1), or validated but has no canonical form and so no identity to report against. Until `1.2` this row also covered a `dynamic`-bearing 1.1 document, which `verify()` refused while the kind's validator semantics were pending (DEC-28's paired validator card); since VAL-14 such a document is verified, not refused. |
-| `dispatch` | The run could not be assembled: a wedge validator is not registered (§1.4 rule 2), a validator returned a report for a different property, or the gate could not be derived from the outcomes (below). |
+| `dispatch` | The run could not be assembled: a shipped property's validator — a `phase-0-wedge` or a `catalog` row's — is not registered (§1.4 rule 2, read over both shipped scopes), a validator returned a report for a different property, or the gate could not be derived from the outcomes (below). |
 
 A tool-error run carries `properties: []` and, where identity was never established,
 `subject: null`. Partial outcomes are deliberately not carried: exit `2` is "no verdict", and a
@@ -770,13 +855,17 @@ stubs as built.
 |---|---|---|---|
 | `PropertyReport` (`result: "pass"`) | as serialized, inside `properties` | property id + slug; the word *pass*; the **claim class**, read from the property catalog (a pass carries no per-record grade); a witness summary per §4.3 | does not project (C.3) |
 | `PropertyReport` (`result: "fail"`) | as serialized, inside `properties` | property id + slug; the primary finding rendered per §4.4; every co-failure and advisory rendered too — never summarized away | one `result` per finding (A.4) |
-| `NotImplementedMarker` (`status: "deferred-to-phase-1"`) | as serialized, inside `properties` | property id + slug; *not checked*; that it is outside the Phase-0 wedge; explicitly **not a pass** | does not project — a rule with no result would advertise a check that did not run |
-| `NotImplementedMarker` (`status: "not-yet-implemented"`) | as serialized | as above, with the reason being that no validator is registered in this build | does not project |
+| `NotImplementedMarker` (`status: "deferred-to-phase-1"`) | as serialized, inside `properties` | property id + slug; *not checked*; that it *has no validator in this release*, with the sentence "No verdict was reached — this is not a pass." verbatim — PROPERTY-CATALOG-SPEC §0.6 item 1's copy, whose words are the catalog's: the renderer's latitude (§0.4, §4.1) reaches their layout and not their wording — "Layout per surface stays the landing card's; the copy's words are this record's" (DEC-42 §3.1); explicitly **not a pass** | does not project — a rule with no result would advertise a check that did not run |
+| `NotImplementedMarker` (`status: "not-yet-implemented"`) | as serialized | property id + slug; *not checked*; that no validator is registered in this build; explicitly **not a pass** | does not project |
 | `ToolError` | `error`, with `properties: []` | the stage; the detail prose; that no verdict was reached; exit code 2 | a valid log with `results: []` MAY be written; it MUST NOT be presented as a clean run (A.7) |
 | `GateOutcome` | `gate` | counts by severity; the exit code and why; snapshot eligibility per §2.5; the strict policy in force and what it promoted | run-level properties (A.7) |
 | `Promotion` | as serialized, inside `gate.promotions` | the owning property; what was promoted (the record's condition id, or the note kind); its location; that the record is **unchanged** and keeps its own WARNING grade. A `property_condition` here is the identity the item is *reported under* — never shown as a severity, never as a second finding (§4.6 rule 8) | does not project — a promotion is a gate decision, not a finding |
 | `RunReport.best_effort` (non-empty) | as serialized | which properties this run answered on topology their contract does not cover, and that their reports are **diagnostics, not verdicts** (§1.3); shown beside those reports, not only in the summary | does not project — SARIF has no place to qualify a result's weight, so the qualification stays in the native report |
 | `RunReport.best_effort` (empty) | as serialized (`[]`) | nothing — an empty list is the normal case and needs no line | — |
+| `RunReport.extraction_notes` (non-empty; added at `1.4`, DEC-35 §3.8) | as serialized, after `subject`, in emission order | a block of its own beside the subject it qualifies, saying that notes are not findings — never inside a property's block, never in a findings list, never in the summary's counts (§4.6 rule 10, §5.1 rule 9) | `invocations[0].toolExecutionNotifications`, one per note (A.2) |
+| `RunReport.extraction_notes` (empty) | omitted (§1.5) | nothing | no `invocations` |
+| `ExtractionNote` (a warning code) | as serialized | the label *extraction warning* and the code; the node and the slots when the note names them; the message; the `detail`, since a warning's message is a one-line summary of the record | one `notification` at `level: "note"` (A.2) |
+| `ExtractionNote` (a disclosure code, DEC-36, DEC-40) | as serialized | the label *extraction disclosure* — its own, never a warning's (INTROSPECTION-SPEC §8) — and the code; the node when the note names one; the message, which states what INTROSPECTION-SPEC §8 says the record carries; its `detail` stays in the native report | as a warning note, under the disclosure label |
 
 ### 4.3 Witness variants
 
@@ -919,6 +1008,10 @@ These bind every surface, and they are lint-enforced (WA-06, TE-15; `tools/hones
 9. **A best-effort report is never shown as a plain verdict.** Where `best_effort` names a
    property, its pass or fail is rendered as a diagnostic on topology outside its contract
    (§1.3), never counted toward "checks passed", and never used to soften P-01's own failure.
+10. **An extraction note is not a finding** (added at `1.4`; PROPERTY-CATALOG-SPEC §0.6 item
+    8). The records of `extraction_notes` are rendered in a block of their own, never mixed
+    into a findings list, never counted in a summary and never shown as promoted; and a
+    disclosure is rendered under its own label, never a warning's (INTROSPECTION-SPEC §8).
 
 ---
 
@@ -952,6 +1045,10 @@ rendering must *say*.
    exists to prevent — a P-02 pass on a graph with a dangling target reads as a verdict.
 8. **Degradation changes styling only.** No finding is dropped, reordered or reworded going from
    styled to plain output (PD-031).
+9. **Extraction notes, when the report carries them, are shown in a block of their own**
+   beside the subject line (added at `1.4`): each with its label and code, the node and slots
+   it names and its message, a warning with its `detail`, and none counted in the summary
+   (§4.2, §4.6 rule 10).
 
 ### 5.2 Illustrative rendering
 
@@ -982,7 +1079,7 @@ pass: dataflow-completeness                      [P-04 · DEFENSIBLE-A]
 
 not checked: retry-coherence                     [P-07 · deferred-to-phase-1]
   no verdict was reached — this is not a pass
-  … seven further properties are outside the Phase-0 wedge and are listed the same way …
+  … seven further properties have no validator in this release and are listed the same way …
 
 5 properties reported · 8 not checked · 1 fatal · 0 error · 1 warning
 exit 1 — a FATAL finding is present. No snapshot is recorded for this run (§0.2).
@@ -1149,12 +1246,35 @@ and a `Send` fan-out extracted as `conditional` (a router that declares its targ
 `Send` return hint) or as `dynamic` (one with the hint and no declared targets) is decided
 exactly as before.
 
+**CLI-12 (extraction notes in the run report; the charter's remaining moves)** — appended to the
+`1.4` row VAL-17 opened, bumping nothing (DEC-35 §3.3). **Landed 2026-11-13**:
+`RunReport.extraction_notes` and its record model `ExtractionNote` (§1.2, §1.3;
+PROPERTY-CATALOG-SPEC §0.6 item 8, DEC-35 §3.8), carrying an extraction's warnings and then the two
+DEC-36 disclosures this release emits, with DEC-40's `barrier-read-per-edge` admitted ahead of its
+emitter, in emission order. `verify()` is unchanged — it never sees an extraction — and the callers
+that extract attach the notes (`gebra.verify.extraction_notes_of`,
+`gebra.verify.with_extraction_notes`): the CLI's `verify` and `snapshot` verbs, whose stderr carries
+the same notes with each disclosure under its own label (CLI-SPEC §5.2), and the pytest plugin,
+whose closing report shows them. Every producer and consumer moved together: the human block (§4.2,
+§4.6 rule 10, §5.1 rule 9), the native JSON as serialized, the SARIF tool execution notifications
+(A.2), `gebra display --report` and the audit export reading the member through the one model — a
+snapshot-profile export carries none: its run reads a stored snapshot and did not extract (§1.3;
+PD-063 §8 leaves carrying stored notes to a later SD-track question). No exit code, count or
+promotion moves for a note, and the CLI and plugin goldens over a subgraph-bearing target show the
+notes on every surface. The same card wrote the charter's remaining moves into this document (§1.4
+rule 2, §2.2, §2.4, §4.2, §5.2, note 5 below, A.1), recorded on the `1.4` row, and rewrote the A.3
+help text of `dead-end-node-not-wired-to-end` to name the explicit edge to END —
+`builder.add_edge(<node>, END)` — display prose, never a fingerprint input, so no result identity
+moved.
+
 **Notes for consumers.** (1) Read `report_format` before anything else (§1.6). (2) Branch on
 structured fields only; prose fields are display-only (§4.6 rule 7). (3) A marker is not a
 verdict — handle the third member of `PropertyOutcome` explicitly. (4) `gate.counts` and
 `gate.promotions` are derived; recomputing them must agree. (5) A structural diff (`gebra diff`)
-is **not** a run report: P-12 `evolution-safety` is a two-snapshot property outside the Phase-0
-wedge, and the S/F/E class of a diff is the SD track's own output shape.
+is **not** a run report: P-12 `evolution-safety` is a two-snapshot property with no validator
+in this release, and the S/F/E class of a diff is the SD track's own output shape. (6)
+`extraction_notes` rides only an extracted run that noted something; a note is never a
+finding, so branch on `gate`, never on the notes, and on a note's `code`, never its message.
 
 ---
 
@@ -1168,7 +1288,7 @@ defect to file.
 
 ### A.1 Scope and the losses it accepts
 
-The projection is derived from the run report and is **never round-tripped**. Three losses are
+The projection is derived from the run report and is **never round-tripped**. Four losses are
 structural, not implementation shortcuts:
 
 1. **Pass witnesses do not map** (C.3). SARIF has no witness structure, and `kind: "pass"` results
@@ -1177,8 +1297,11 @@ structural, not implementation shortcuts:
 2. **FATAL and ERROR collapse** to `level: "error"`; the distinction survives only in
    `result.properties["gebra/severity"]` and in the native report.
 3. **Not-implemented markers do not map.** A rule with no result would advertise a check that did
-   not run; the eight non-wedge properties are simply absent from a SARIF log, and a consumer
-   that needs to know reads the native report.
+   not run; a property the run answered with a marker is simply absent from a SARIF log, and a
+   consumer that needs to know reads the native report.
+4. **An extraction note's `detail` does not map** (added at `1.4`). A note projects as a tool
+   execution notification — its label, code, message, node and slots (A.2) — never as a result,
+   and the structured `detail` rides only the native report.
 
 ### A.2 Mapping table
 
@@ -1195,6 +1318,7 @@ structural, not implementation shortcuts:
 | Stable result identity | `partialFingerprints["gebraConditionHash/v1"]` | `hash(condition ID + canonical logical FQN)` — line-number-independent (A.6). |
 | Diff status vs a baseline | `result.baselineState` | `new \| unchanged \| updated \| absent`; only emitted when the run actually has a baseline to compare against. |
 | Run identity | `automationDetails.id` | `gebra/verify/<subject-slug>` (A.7). |
+| Extraction note (`extraction_notes`; added at `1.4`) | `runs[0].invocations[0].toolExecutionNotifications[]`, one per note in emission order | `level: "note"` whatever the note's kind: a note is never a finding, so no rule, result, rank or fingerprint is touched by one. `message.text` is `<label> [<code>]: <message>`, the label *extraction warning* or *extraction disclosure* (§4.2); `locations[0].logicalLocations[0]` is §4.5's `NodeLocation` projection when the note names a node; `properties` carries `gebra/noteCode`, `gebra/noteKind` (`warning` or `disclosure`) and, when non-empty, `gebra/slots`. The invocation's `executionSuccessful` is `exit_code != 2`. A run with no note emits no `invocations` member. |
 
 ### A.3 The `rules[]` catalog
 
@@ -1315,6 +1439,8 @@ extraction track and a promotion question for D-12 (Appendix B, OI-1).
   carries a V.S.F.E label.
 - `run.properties["gebra/exitCode"]` — the run's exit code, so a SARIF-only consumer can see the
   gate outcome the projection's `level` collapsing would otherwise hide.
+- `run.invocations` — present only when the run report carries `extraction_notes` (A.2's
+  extraction-note row).
 - **A clean run emits `results: []`** in an otherwise complete log, so GitHub closes alerts that
   are fixed. An empty results array is a real statement, not an empty file.
 - **A tool-error run (exit 2) MAY emit a log with `results: []`**, and when it does it MUST carry

@@ -223,6 +223,8 @@ from gebra.verify.run import (
     STRICT_ALL,
     STRICT_OFF,
     TOPOLOGY_SLUGS,
+    ExtractionNote,
+    ExtractionNoteCode,
     GateOutcome,
     Promotion,
     PromotionOrigin,
@@ -237,7 +239,9 @@ from gebra.verify.run import (
     Tool,
     ToolError,
     anchor_location,
+    extraction_notes_of,
     verify,
+    with_extraction_notes,
 )
 from gebra.verify.witnesses import (
     CounterGuardSource,
@@ -326,6 +330,8 @@ __all__ = [
     "EdgeOrigin",
     "EffectSafetyWitness",
     "ExpandedEdge",
+    "ExtractionNote",
+    "ExtractionNoteCode",
     "Failure",
     "GateOutcome",
     "GraphModel",
@@ -407,6 +413,7 @@ __all__ = [
     "emit_co_failure",
     "emit_failure",
     "emittable_condition",
+    "extraction_notes_of",
     "from_display",
     "is_emittable",
     "is_implemented",
@@ -436,4 +443,5 @@ __all__ = [
     "validate_witness",
     "validator_for",
     "verify",
+    "with_extraction_notes",
 ]

@@ -189,7 +189,9 @@ def test_no_property_reported_a_blocking_finding(gebra_verification: TargetVerif
 
 `gebra_graph` is a plain value — a `WorkflowIR` — so assertions about topology, state schema or
 declared contracts are ordinary Python. `gebra_verification` carries the run: all thirteen
-outcomes, the derived gate, and the warnings extraction raised on the way.
+outcomes, the derived gate, and the notes extraction emitted on the way — its warnings, then
+any disclosure, such as a mounted subgraph read as one node — which the run report carries
+too, as `extraction_notes`, and the closing report prints.
 
 <!-- gebra:example id=the-two-fixtures -->
 ```python
@@ -215,7 +217,7 @@ print(
     f"{len(report.properties) - len(verdicts)} not-implemented markers)"
 )
 print(f"  gate {report.gate.outcome}, exit {report.gate.exit_code}")
-print(f"  extraction warnings {len(verification.extraction_notes)}")
+print(f"  extraction notes {len(verification.extraction_notes)}")
 ```
 
 <!-- gebra:output id=the-two-fixtures -->
@@ -226,7 +228,7 @@ gebra_graph
 gebra_verification
   13 outcomes (5 verdicts, 8 not-implemented markers)
   gate pass, exit 0
-  extraction warnings 0
+  extraction notes 0
 ```
 
 Two practical notes about what you hand these surfaces.

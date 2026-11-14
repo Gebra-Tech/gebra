@@ -341,6 +341,24 @@ The last line matters as much as the rest: every one of the seven reports equals
 own `expected:` block. These are frozen examples the validator is held to in CI, not
 illustrations written beside it.
 
+The explicit edge to `END` that repairs `negative-02`'s dead end is also the repair condition
+(ii)'s rule help names first — the text `gebra verify --format sarif` writes into the rule's
+`help`, which a code-scanning UI shows beside the finding. It is the one adopters needed: a LangGraph template that ends its chain at
+a node with no outgoing edge has a compiled graph whose drawing shows a finish edge the builder
+never declares, and P-01 reads the builder's definition, so the builder has to say it:
+
+<!-- gebra:example id=dead-end-help -->
+```python
+from gebra.report import rule_copy
+
+print(rule_copy("dead-end-node-not-wired-to-end").help_text)
+```
+
+<!-- gebra:output id=dead-end-help -->
+```text
+Wire the node to END explicitly: `builder.add_edge(<node>, END)`, with `END` imported from `langgraph.graph` — or give the node another outgoing edge, or list it in `finish`. P-01 reads the edges the definition declares; a finish edge that only the compiled graph's drawing shows is not declared by it. See PROPERTY-CATALOG-SPEC §P-01.
+```
+
 ## Wired by a sentinel is still wired
 
 The P-01 rule most likely to surprise: **membership in `entry` or `finish` counts as edge

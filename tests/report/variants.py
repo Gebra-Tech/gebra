@@ -44,6 +44,7 @@ from gebra.verify import (
     DeterminismWitness,
     EdgeLocation,
     EffectSafetyWitness,
+    ExtractionNote,
     Failure,
     GuardEdgeLabels,
     GuardEdgeRef,
@@ -76,6 +77,7 @@ from gebra.verify import (
     unregister_validator,
     validator_for,
     verify,
+    with_extraction_notes,
 )
 from gebra.verify.base import to_data
 
@@ -852,6 +854,116 @@ def _tool_error_without_a_subject() -> RunReport:
     return RunReport.model_validate_json(json.dumps(data))
 
 
+# ── §1.2's extraction notes (CLI-12; DEC-35 §3.8, DEC-36) ─────────────────────────────────
+
+#: What extraction says about a compiled, subgraph-bearing target that binds a recursion limit
+#: through ``with_config`` and declares none, as the run report carries it: the warning first,
+#: then the two disclosures — graph-scoped before node-scoped (INTROSPECTION-SPEC §8). The words
+#: are the extractor's own for these records, with the node named as this module's IR names it;
+#: they are copied here because this module imports no extractor (WA-07), and
+#: ``tests/cli/test_extraction_notes.py`` shows a live extraction producing them end to end.
+_SUBGRAPH_NOTES: Final[tuple[ExtractionNote, ...]] = (
+    ExtractionNote(
+        code="contract-defaulted",
+        message=(
+            "no ANNOTATION-API-SPEC §4 pattern set 'effect', so the decision D-011 conservative "
+            "default applied (body-unavailable); declare the contract with @gebra.contract or a "
+            "gebra.toml entry to replace it"
+        ),
+        node="book_flight",
+        slots=("effect",),
+        detail={
+            "surface": "inference",
+            "rule": "body-unavailable",
+            "applied": {"effect": ("write",)},
+            "why": ("body-unavailable",),
+            "source": "not-a-python-function",
+            "declaration_surfaces": ("decorator", "sidecar"),
+        },
+    ),
+    ExtractionNote(
+        code="recursion-limit-bound-without-justification",
+        message=(
+            "the compiled graph binds recursion_limit=50 through `with_config`, and neither "
+            "surface that declares the slot does — `gebra.recursion_limit(graph, value, "
+            "justification=...)` in code, or the `[runtime]` table of `gebra.toml` — so "
+            "`runtime.recursion_limit` is absent from this document. The binding is recorded "
+            "beside it, and no termination witness is read from the binding alone: a bound "
+            "number carries no justification."
+        ),
+        detail={
+            "bound_value": 50,
+            "declaration_surfaces": ("gebra.recursion_limit", "gebra.toml [runtime]"),
+            "witness": (
+                "no termination witness is read from a with_config binding alone: a bound "
+                "number carries no justification, so it fills no part of "
+                "runtime.recursion_limit"
+            ),
+        },
+    ),
+    ExtractionNote(
+        code="subgraph-read-as-one-node",
+        message=(
+            "node `book_flight` mounts or reaches a compiled subgraph that this document "
+            "carries as one node; its interior (child nodes, edges, entry, finish and state) "
+            "was not read — child expansion is the named ir 1.x feature of DEC-19's design "
+            "register, not performed in ir_version 1.0/1.1 output. The set of mounts this "
+            "document knows of is a lower bound, not a census: a subgraph compiled with "
+            "`checkpointer=False` and reached only from inside a node body is invisible, and on "
+            "the compiled-only path (INTROSPECTION-SPEC §4.3 rule 4), where no builder-level "
+            "direct-mount read exists, every `checkpointer=False` child is."
+        ),
+        node="book_flight",
+        detail={
+            "seen_by": ("direct-mount", "get-subgraphs"),
+            "reads_performed": ("direct-mount", "get-subgraphs"),
+            "interior_not_read": ("nodes", "edges", "entry", "finish", "state"),
+            "lower_bound": (
+                "The set of mounts this document knows of is a lower bound, not a census: a "
+                "subgraph compiled with `checkpointer=False` and reached only from inside a "
+                "node body is invisible, and on the compiled-only path (INTROSPECTION-SPEC "
+                "§4.3 rule 4), where no builder-level direct-mount read exists, every "
+                "`checkpointer=False` child is."
+            ),
+            "child_expansion": (
+                "the named ir 1.x feature of DEC-19's design register; not performed in "
+                "ir_version 1.0/1.1 output"
+            ),
+        },
+    ),
+)
+
+
+def _extraction_notes_report() -> RunReport:
+    """A clean extracted run whose extraction warned, and disclosed a binding and a mount."""
+    return with_extraction_notes(case_report({}), _SUBGRAPH_NOTES)
+
+
+def _tool_error_after_extraction() -> RunReport:
+    """A dispatch tool error on an extracted subject that still carries its notes.
+
+    §0.6 item 8's "present only when the run extracted" holds — the subject says so — and the
+    notes are what such a run has most to say, since no verdict was reached.
+    """
+    original = validator_for("graph-well-formed")
+    unregister_validator("graph-well-formed")
+    try:
+        report = verify(
+            IR,
+            RunPolicy(
+                subject=SubjectRef(
+                    source="travel_booking:build_graph",
+                    input_mode="extracted",
+                    extractor_version=__version__,
+                )
+            ),
+        )
+    finally:
+        if original is not None:
+            register_validator("graph-well-formed", original)
+    return with_extraction_notes(report, _SUBGRAPH_NOTES[:1])
+
+
 def not_implemented_marker(slug: PropertySlug) -> Any:
     """The ``not-yet-implemented`` marker the registry answers with for an unwired wedge slug."""
     original = validator_for(slug)
@@ -1046,6 +1158,18 @@ def _build_cases() -> tuple[Case, ...]:
                 ir=SEND_IR,
             ),
             covers="§4.4's `1.4` row: payload_readers riding a primary P04Failure",
+        ),
+        Case(
+            name="extraction-notes",
+            report=_extraction_notes_report(),
+            covers="§4.2's `1.4` extraction-notes rows: a warning and two disclosures, one "
+            "graph-scoped, on an extracted run, each under its own label, beside a clean gate",
+        ),
+        Case(
+            name="tool-error-with-extraction-notes",
+            report=_tool_error_after_extraction(),
+            covers="§1.2: a run that extracted and then reached no verdict keeps its notes; "
+            "A.2's invocation reads executionSuccessful false",
         ),
     )
 

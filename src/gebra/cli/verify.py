@@ -8,8 +8,9 @@ resolution** (§2): a failure there is a run that reached no verdict, reported a
 tool-error run report on the selected surface with the §2.6 stage named. **Then the run**:
 :func:`gebra.verify.verify` over the resolved IR, with the strict policy and the subject
 reference recorded verbatim. **Then the artifact**: the run report written on the selected
-surface — stdout, or ``--output`` — with extraction warnings on stderr, in emission order,
-never dropped and never moving the exit code (§3.5, §5.2).
+surface — stdout, or ``--output`` — with extraction notes (the warnings, then the disclosures
+beside them) on stderr, in emission order, never dropped and never moving the exit code (§3.5,
+§5.2), and carried in the report itself as ``extraction_notes`` (CLI-12).
 
 The verb reaches no verdict of its own and returns ``gate.exit_code`` from the report it
 rendered (§3.1); the one exit outside the report is the §3.4 usage error's ``2``, raised
@@ -28,7 +29,7 @@ from gebra.cli.common import (
     UsageFailure,
     split_arguments,
     unknown_flag_problems,
-    write_extraction_warnings,
+    write_extraction_notes,
 )
 from gebra.cli.invocation import StrictReading
 from gebra.cli.resolve import (
@@ -59,6 +60,7 @@ from gebra.verify import (
     Tool,
     ToolError,
     verify,
+    with_extraction_notes,
 )
 
 if TYPE_CHECKING:
@@ -129,8 +131,14 @@ def run_verify(request: VerifyRequest) -> int:
         _write_artifact(report, request)
         return report.gate.exit_code
 
-    _write_extraction_warnings(subject)
-    report = verify(subject.ir, RunPolicy(strict=strict_policy, subject=subject.reference))
+    _write_extraction_notes(subject)
+    # The run report carries what extraction said (REPORT-FORMAT-SPEC §1.2, `extraction_notes`;
+    # CLI-12), and stderr keeps saying it too (§5.2, unchanged): a report written to a file, a
+    # pipe or a CI log is whole, and a terminal shows each note in both places.
+    report = with_extraction_notes(
+        verify(subject.ir, RunPolicy(strict=strict_policy, subject=subject.reference)),
+        subject.notes,
+    )
     if report.error is not None:
         # verify()'s own refusals (an ir 1.1 document, a dispatch failure) reach stderr in
         # the same §5.5 anatomy as a resolution refusal, whatever surface stdout carries.
@@ -323,9 +331,9 @@ def _write_stage_diagnostic(stage: str, detail: str) -> None:
     _stderr().write(f"gebra verify: no verdict was reached (stage: {stage}): {detail}\n")
 
 
-def _write_extraction_warnings(subject: ResolvedSubject) -> None:
-    """The §5.2 warning rendering, by :func:`gebra.cli.common.write_extraction_warnings`."""
-    write_extraction_warnings(subject)
+def _write_extraction_notes(subject: ResolvedSubject) -> None:
+    """The §5.2 note rendering, by :func:`gebra.cli.common.write_extraction_notes`."""
+    write_extraction_notes(subject)
 
 
 def _write_artifact(report: RunReport, request: VerifyRequest) -> None:

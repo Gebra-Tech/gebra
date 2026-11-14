@@ -50,7 +50,7 @@ from gebra.ir import (
 )
 from gebra.report import did_you_mean, suggestion_sentence
 from gebra.store import Snapshot, SnapshotStore, StoreError
-from gebra.verify import SubjectRef
+from gebra.verify import ExtractionNote, SubjectRef, extraction_notes_of
 
 __all__ = [
     "IMPORT_REFERENCE_PATTERN",
@@ -108,19 +108,24 @@ class ResolvedSubject:
             ``verify()`` composes it with the IR's own identity, which it computes rather
             than accepts.
         warnings: Extraction's structured warnings, in emission order — non-empty only in
-            ``extracted`` mode. Rendered to stderr by the verb (§5.2), never dropped, and
-            never a finding (§3.5).
+            ``extracted`` mode. Never dropped, and never a finding (§3.5).
         envelope: The whole extraction envelope, in ``extracted`` mode only. Carried for
             ``gebra snapshot`` (CLI-05): §4.2 requires the eligibility run and the write to
             share **one** resolution, and :func:`gebra.snapshot.record` takes the envelope,
             so the extraction that produced :attr:`ir` must travel with it rather than be
             made a second time.
+        notes: What extraction said, as the run report carries it — the warnings, then the
+            disclosures INTROSPECTION-SPEC §8 admits beside them, in emission order
+            (:func:`gebra.verify.extraction_notes_of`; REPORT-FORMAT-SPEC §1.2). Non-empty
+            only in ``extracted`` mode. Rendered to stderr by the verb (§5.2) and attached to
+            the run report the verb writes (``extraction_notes``, CLI-12); never a finding.
     """
 
     ir: WorkflowIR
     reference: SubjectRef
     warnings: tuple[ExtractionWarning, ...] = ()
     envelope: ExtractionEnvelope | None = None
+    notes: tuple[ExtractionNote, ...] = ()
 
 
 def detect_mode(target: str) -> Mode:
@@ -362,6 +367,7 @@ def resolve_import_reference(
         ),
         warnings=envelope.warnings,
         envelope=envelope,
+        notes=extraction_notes_of(envelope),
     )
 
 

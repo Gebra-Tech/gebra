@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The run report carries what extraction said: `extraction_notes`** (card CLI-12; DEC-35 §3.8,
+  DEC-36 §4; REPORT-FORMAT-SPEC §1.2). A run whose subject was extracted from a live workflow now
+  carries extraction's warnings, then its disclosures — a node that mounts a compiled subgraph read
+  as one node (`subgraph-read-as-one-node`), a limit bound with `with_config` and declared nowhere
+  (`recursion-limit-bound-without-justification`) — as structured records in the order extraction
+  emitted them: `code`, a display-only `message`, the `node` and `slots` they name, and a JSON
+  `detail`. Before, the warnings reached stderr only and the disclosures the Python API only, so a
+  CI job reading the JSON or SARIF report never learned that a mounted subgraph's interior went
+  unread. The human report shows the notes in a block of their own under the
+  subject line, each disclosure under the label `extraction disclosure`, never the warning's;
+  `--format json` carries each record whole; `--format sarif` carries one tool execution
+  notification per note at level `note`, in `runs[0].invocations`, which a run with no note does
+  not emit; and the pytest plugin's closing report prints them, its `ExtractionNote` gaining
+  `disclosure`. `gebra verify`, `gebra snapshot` and `gebra diff` write every disclosure to stderr
+  after the warnings, under the same label, and `gebra snapshot`'s refusal renders the notes with
+  its report. **Notes are never findings**: no exit code, count or strict promotion turns on one,
+  and the same IR verified as a document — which carries none, as a stored snapshot carries none —
+  answers with the same exit code and the same gate. New in `gebra.verify`: `ExtractionNote`,
+  `ExtractionNoteCode`, `extraction_notes_of(envelope)` and `with_extraction_notes(report,
+  notes)`; `verify()` itself is unchanged, and the caller that extracted attaches the notes.
+  `report_format` stays `1.4`: the member joins the row `payload_readers` opened, as the release's
+  one MINOR. A strict `1.3` consumer refuses a `1.4` report that carries it.
+
 - **P-04 reads a `Send` target's input as the payload it is** (card VAL-17; DEC-37).
   LangGraph's `Send(node, arg)` hands its target `arg`, not the graph state, and the IR's `send`
   edge records neither what the payload carries nor how many branches run. P-04 used to decide such
@@ -107,8 +130,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   codes are unchanged, a subgraph-bearing extraction carries exactly the warnings it did, no
   exit code moves and no strict flag promotes a disclosure, so a strict run does not fail
   because a subgraph's interior was not checked. They sit outside hash scope, so no
-  `graph_version`, conformance golden or stored snapshot moves, and they reach the Python API
-  only: the `gebra` command line, the pytest plugin and the run reports do not render them.
+  `graph_version`, conformance golden or stored snapshot moves. Every run that extracts the
+  workflow now reports them, through the run report's `extraction_notes` (the first entry
+  above); verifying a saved IR document or a stored snapshot extracts nothing and carries
+  none.
   `extracted_from.compiled.subgraphs` still records what `get_subgraphs()` reported, now in the
   node-id order the ledger fixes (UTF-16 code units), which differs from the order it had only
   for node names that mix characters beyond U+FFFF with ones in U+E000–U+FFFF.
@@ -153,10 +178,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   declares nothing changes by a byte**; a graph that declares a limit gets a different
   `graph_version`, since the slot is inside hash scope. `contract(recursion_limit=…)` stays
   refused, its message now naming both surfaces. The new warnings render wherever warnings do;
-  the disclosure and the binding record reach the Python API only — the `gebra` command line,
-  the pytest plugin and the run reports do not render them.
+  the binding record, a disclosure, is reported by every run that extracts the workflow,
+  through the run report's `extraction_notes` (the first entry above).
 
 ### Changed
+
+- **P-01's `dead-end-node-not-wired-to-end` help names the explicit edge to END** (card CLI-12).
+  The rule's `help` text in every SARIF log now leads with `builder.add_edge(<node>, END)` — the
+  repair adopters needed when a builder ends its chain at a node with no outgoing edge — and says
+  that a finish edge only the compiled graph's drawing shows is not declared by the definition P-01
+  reads; giving the node another outgoing edge or listing it in `finish` are still named. Only the
+  prose moved: no rule id, level, rank, result or fingerprint did, and the P-01 page shows the text.
 
 - **`report_format` is `1.4`** (card VAL-17; DEC-37; REPORT-FORMAT-SPEC §1.6). The
   `payload_readers` member joins two envelope shapes (§1.6's new-optional-member row) and opens

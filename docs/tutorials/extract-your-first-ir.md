@@ -673,13 +673,17 @@ specification names and accepts rather than papers over.
       cannot see, so this paragraph is the disclosure. Do not read an empty or short list as
       evidence that there are none.
 
-    A disclosure is not a warning. A subgraph-bearing document is **complete**, carries no
-    warning for the unexpansion and reaches the strict-mode bar like any other, and no exit
-    code moves for it — so a strict run does not fail because a subgraph's interior went
-    unchecked. The `gebra` command line, the pytest plugin and the run reports do not print
-    the disclosure: read it from the envelope `gebra.extract()` returns. Child expansion is a
-    recorded design item for a later format version; it is described in this repository's
-    `docs/governance/EXTRACTOR-API-FREEZE.md` and is not part of this release.
+    A disclosure is not a warning. A subgraph-bearing document is **complete**, carries no warning
+    for the unexpansion and reaches the strict-mode bar like any other, and no exit code moves for
+    it — so a strict run does not fail because a subgraph's interior went unchecked. It is reported
+    by every run that extracts the workflow: `gebra verify` writes it to stderr after the warnings,
+    under its own label, `extraction disclosure`, and the run report carries it in
+    `extraction_notes` — the human report's extraction-notes block, `--format json`, and a SARIF
+    tool notification — as does the pytest plugin's closing report; the envelope `gebra.extract()`
+    returns holds it as `envelope.disclosures`. Verifying a saved IR document or a stored snapshot
+    extracts nothing and carries none. Child expansion is a recorded design item for a later format
+    version; it is described in this repository's `docs/governance/EXTRACTOR-API-FREEZE.md` and is
+    not part of this release.
 
 The honest summary is the one INTROSPECTION-SPEC §0 gives the whole extraction contract: where
 something is not statically knowable, the IR models its absence rather than guessing — and
@@ -719,6 +723,8 @@ The subgraph box is held by the extractor's disclosure tests in this repository,
 per shape: which read sees a subgraph mounted directly or reached from a node body, with and
 without `checkpointer=False`, on an uncompiled builder, a compiled graph and a compiled graph
 with no builder — including the shape no read sees, which those tests show produces no record.
+Its reporting is held by the command line's and the plugin's extraction-notes tests, over the
+directly mounted shape.
 What no test can show is that a workflow nobody wrote a fixture for holds no subgraph the reads
 miss: the lower bound is the specification's statement about every workflow
 (INTROSPECTION-SPEC §4.1, §8), which is why the box says so in those words.

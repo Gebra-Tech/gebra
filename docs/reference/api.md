@@ -45,7 +45,7 @@ annotations below are the ones your type checker enforces.
 |---|---|---|---|
 | [`gebra`](#gebra) | 11 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
 | [`gebra.ir`](#gebrair) | 68 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
-| [`gebra.verify`](#gebraverify) | 170 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
+| [`gebra.verify`](#gebraverify) | 174 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
 | [`gebra.extraction`](#gebraextraction) | 79 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
 | [`gebra.annotations`](#gebraannotations) | 58 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
 
@@ -79,11 +79,11 @@ print(f"\n{total} names across {len(SURFACES)} frozen surfaces, every one import
 ```text
 gebra                 11/11 resolved
 gebra.ir              68/68 resolved
-gebra.verify         170/170 resolved
+gebra.verify         174/174 resolved
 gebra.extraction      79/79 resolved
 gebra.annotations     58/58 resolved
 
-386 names across 5 frozen surfaces, every one importable
+390 names across 5 frozen surfaces, every one importable
 ```
 
 ## `gebra`
@@ -1314,9 +1314,9 @@ Property validators P-01..P-13 and the §0.3 result envelope every report is wri
 
 The result envelope, the condition-ID and property registry, the five wedge validators and the run-level aggregation. A finding is a model here, not a string: the same model the golden harness asserts on.
 
-Frozen by card VAL-12, recorded in `docs/governance/VALIDATOR-API-FREEZE.md` §1 — 170 names.
+Frozen by card VAL-12, recorded in `docs/governance/VALIDATOR-API-FREEZE.md` §1 — 174 names.
 
-[`BOUND_DIRECTIONS`](#gebraverifybound_directions) · [`CMP_OPS`](#gebraverifycmp_ops) · [`CONDITION_IDS`](#gebraverifycondition_ids) · [`CONDITION_REGISTRY`](#gebraverifycondition_registry) · [`DEFERRED_READING`](#gebraverifydeferred_reading) · [`EMITTABLE_CONDITION_IDS`](#gebraverifyemittable_condition_ids) · [`END`](#gebraverifyend) · [`END_VERTEX`](#gebraverifyend_vertex) · [`IN_PROCESS_SOURCE`](#gebraverifyin_process_source) · [`MARKER_REASONS`](#gebraverifymarker_reasons) · [`NON_WEDGE_SLUGS`](#gebraverifynon_wedge_slugs) · [`NO_VERDICT`](#gebraverifyno_verdict) · [`PROMOTION_ORIGINS`](#gebraverifypromotion_origins) · [`PROPERTY_REGISTRY`](#gebraverifyproperty_registry) · [`PROPERTY_SLUGS`](#gebraverifyproperty_slugs) · [`PROPOSED_CONDITION_IDS`](#gebraverifyproposed_condition_ids) · [`RATIFIED_CONDITION_IDS`](#gebraverifyratified_condition_ids) · [`REPORT_FORMAT`](#gebraverifyreport_format) · [`RESERVED_CONDITION_IDS`](#gebraverifyreserved_condition_ids) · [`RESERVED_WORDS`](#gebraverifyreserved_words) · [`SENTINEL_VERTICES`](#gebraverifysentinel_vertices) · [`SHIPPED_SCOPES`](#gebraverifyshipped_scopes) · [`START`](#gebraverifystart) · [`START_VERTEX`](#gebraverifystart_vertex) · [`STRICT_ALL`](#gebraverifystrict_all) · [`STRICT_OFF`](#gebraverifystrict_off) · [`TOPOLOGY_SLUGS`](#gebraverifytopology_slugs) · [`UNREGISTERED_CORPUS_STRINGS`](#gebraverifyunregistered_corpus_strings) · [`WEDGE_SLUGS`](#gebraverifywedge_slugs) · [`Advisory`](#gebraverifyadvisory) · [`AdvisoryCarriageError`](#gebraverifyadvisorycarriageerror) · [`AnyFailure`](#gebraverifyanyfailure) · [`AnyLocation`](#gebraverifyanylocation) · [`BoundDirection`](#gebraverifybounddirection) · [`BoundedComparison`](#gebraverifyboundedcomparison) · [`ClaimClass`](#gebraverifyclaimclass) · [`CoFailure`](#gebraverifycofailure) · [`Components`](#gebraverifycomponents) · [`ConditionEntry`](#gebraverifyconditionentry) · [`ConditionId`](#gebraverifyconditionid) · [`ConditionOwnershipError`](#gebraverifyconditionownershiperror) · [`ConditionRegistryError`](#gebraverifyconditionregistryerror) · [`ConditionTier`](#gebraverifyconditiontier) · [`CounterGuardSource`](#gebraverifycounterguardsource) · [`CounterQualification`](#gebraverifycounterqualification) · [`CycleCensus`](#gebraverifycyclecensus) · [`CycleLocation`](#gebraverifycyclelocation) · [`DataflowCoverage`](#gebraverifydataflowcoverage) · [`DataflowLocation`](#gebraverifydataflowlocation) · [`DataflowWitness`](#gebraverifydataflowwitness) · [`DeterminismClaim`](#gebraverifydeterminismclaim) · [`DeterminismNodeLocation`](#gebraverifydeterminismnodelocation) · [`DeterminismWitness`](#gebraverifydeterminismwitness) · [`DischargeScope`](#gebraverifydischargescope) · [`DisplayNodeRef`](#gebraverifydisplaynoderef) · [`EdgeKind`](#gebraverifyedgekind) · [`EdgeLocation`](#gebraverifyedgelocation) · [`EdgeOrigin`](#gebraverifyedgeorigin) · [`EffectSafetyWitness`](#gebraverifyeffectsafetywitness) · [`ExpandedEdge`](#gebraverifyexpandededge) · [`Failure`](#gebraverifyfailure) · [`GateOutcome`](#gebraverifygateoutcome) · [`GraphModel`](#gebraverifygraphmodel) · [`GuardClassification`](#gebraverifyguardclassification) · [`GuardEdgeLabels`](#gebraverifyguardedgelabels) · [`GuardEdgeRef`](#gebraverifyguardedgeref) · [`GuardGate`](#gebraverifyguardgate) · [`Location`](#gebraverifylocation) · [`NodeId`](#gebraverifynodeid) · [`NodeLocation`](#gebraverifynodelocation) · [`NonEmittableConditionError`](#gebraverifynonemittableconditionerror) · [`NotImplementedMarker`](#gebraverifynotimplementedmarker) · [`NotImplementedStatus`](#gebraverifynotimplementedstatus) · [`P01EdgeLocation`](#gebraverifyp01edgelocation) · [`P02CycleLocation`](#gebraverifyp02cyclelocation) · [`P02SccLocation`](#gebraverifyp02scclocation) · [`P04Failure`](#gebraverifyp04failure) · [`P06EffectRecord`](#gebraverifyp06effectrecord) · [`P06NodeLocation`](#gebraverifyp06nodelocation) · [`PathLocation`](#gebraverifypathlocation) · [`Promotion`](#gebraverifypromotion) · [`PromotionOrigin`](#gebraverifypromotionorigin) · [`PropertyArity`](#gebraverifypropertyarity) · [`PropertyEntry`](#gebraverifypropertyentry) · [`PropertyId`](#gebraverifypropertyid) · [`PropertyOutcome`](#gebraverifypropertyoutcome) · [`PropertyRegistryError`](#gebraverifypropertyregistryerror) · [`PropertyReport`](#gebraverifypropertyreport) · [`PropertyScope`](#gebraverifypropertyscope) · [`PropertySlug`](#gebraverifypropertyslug) · [`QualificationOutcome`](#gebraverifyqualificationoutcome) · [`RecognizedGuard`](#gebraverifyrecognizedguard) · [`RecursionLimitDecl`](#gebraverifyrecursionlimitdecl) · [`RecursionLimitSource`](#gebraverifyrecursionlimitsource) · [`ReferenceRole`](#gebraverifyreferencerole) · [`Region`](#gebraverifyregion) · [`RegistryCounts`](#gebraverifyregistrycounts) · [`ReportModel`](#gebraverifyreportmodel) · [`RunPolicy`](#gebraverifyrunpolicy) · [`RunReport`](#gebraverifyrunreport) · [`RunReportModel`](#gebraverifyrunreportmodel) · [`SccLocation`](#gebraverifyscclocation) · [`SetCompared`](#gebraverifysetcompared) · [`Severity`](#gebraverifyseverity) · [`SeverityCounts`](#gebraverifyseveritycounts) · [`StateKeyLocation`](#gebraverifystatekeylocation) · [`StrictPolicy`](#gebraverifystrictpolicy) · [`StrictPromotion`](#gebraverifystrictpromotion) · [`Subject`](#gebraverifysubject) · [`SubjectRef`](#gebraverifysubjectref) · [`TerminationWitness`](#gebraverifyterminationwitness) · [`Tool`](#gebraverifytool) · [`ToolError`](#gebraverifytoolerror) · [`UnregisteredConditionError`](#gebraverifyunregisteredconditionerror) · [`UnresolvedReference`](#gebraverifyunresolvedreference) · [`Validator`](#gebraverifyvalidator) · [`VariantDecl`](#gebraverifyvariantdecl) · [`VariantSource`](#gebraverifyvariantsource) · [`WellFormednessWitness`](#gebraverifywellformednesswitness) · [`Witness`](#gebraverifywitness) · [`WitnessElement`](#gebraverifywitnesselement) · [`WitnessInventoryEntry`](#gebraverifywitnessinventoryentry) · [`WitnessNote`](#gebraverifywitnessnote) · [`WitnessNoteKind`](#gebraverifywitnessnotekind) · [`WitnessSource`](#gebraverifywitnesssource) · [`anchor_location`](#gebraverifyanchor_location) · [`build_graph_model`](#gebraverifybuild_graph_model) · [`canonical_rotation`](#gebraverifycanonical_rotation) · [`check_dataflow_completeness`](#gebraverifycheck_dataflow_completeness) · [`check_determinism_replay`](#gebraverifycheck_determinism_replay) · [`check_effect_safety`](#gebraverifycheck_effect_safety) · [`check_graph_well_formed`](#gebraverifycheck_graph_well_formed) · [`check_termination_witness`](#gebraverifycheck_termination_witness) · [`classify_guard`](#gebraverifyclassify_guard) · [`condition`](#gebraverifycondition) · [`conditions_for`](#gebraverifyconditions_for) · [`deferred_slugs`](#gebraverifydeferred_slugs) · [`emit_advisory`](#gebraverifyemit_advisory) · [`emit_co_failure`](#gebraverifyemit_co_failure) · [`emit_failure`](#gebraverifyemit_failure) · [`emittable_condition`](#gebraverifyemittable_condition) · [`from_display`](#gebraverifyfrom_display) · [`is_emittable`](#gebraverifyis_emittable) · [`is_implemented`](#gebraverifyis_implemented) · [`is_integer_compatible`](#gebraverifyis_integer_compatible) · [`is_registered`](#gebraverifyis_registered) · [`json_text`](#gebraverifyjson_text) · [`ledger_sort_key`](#gebraverifyledger_sort_key) · [`models_equivalent`](#gebraverifymodels_equivalent) · [`not_implemented`](#gebraverifynot_implemented) · [`property_entry`](#gebraverifyproperty_entry) · [`property_for_condition`](#gebraverifyproperty_for_condition) · [`qualify_counter_guard`](#gebraverifyqualify_counter_guard) · [`recognize_bounded_comparison`](#gebraverifyrecognize_bounded_comparison) · [`register_validator`](#gebraverifyregister_validator) · [`registry_counts`](#gebraverifyregistry_counts) · [`run_property`](#gebraverifyrun_property) · [`set_compared_fields`](#gebraverifyset_compared_fields) · [`shipped_slugs`](#gebraverifyshipped_slugs) · [`strict_promotions`](#gebraverifystrict_promotions) · [`to_data`](#gebraverifyto_data) · [`to_display`](#gebraverifyto_display) · [`to_json`](#gebraverifyto_json) · [`unregister_validator`](#gebraverifyunregister_validator) · [`validate_failure`](#gebraverifyvalidate_failure) · [`validate_location`](#gebraverifyvalidate_location) · [`validate_report`](#gebraverifyvalidate_report) · [`validate_witness`](#gebraverifyvalidate_witness) · [`validator_for`](#gebraverifyvalidator_for) · [`verify`](#gebraverifyverify)
+[`BOUND_DIRECTIONS`](#gebraverifybound_directions) · [`CMP_OPS`](#gebraverifycmp_ops) · [`CONDITION_IDS`](#gebraverifycondition_ids) · [`CONDITION_REGISTRY`](#gebraverifycondition_registry) · [`DEFERRED_READING`](#gebraverifydeferred_reading) · [`EMITTABLE_CONDITION_IDS`](#gebraverifyemittable_condition_ids) · [`END`](#gebraverifyend) · [`END_VERTEX`](#gebraverifyend_vertex) · [`IN_PROCESS_SOURCE`](#gebraverifyin_process_source) · [`MARKER_REASONS`](#gebraverifymarker_reasons) · [`NON_WEDGE_SLUGS`](#gebraverifynon_wedge_slugs) · [`NO_VERDICT`](#gebraverifyno_verdict) · [`PROMOTION_ORIGINS`](#gebraverifypromotion_origins) · [`PROPERTY_REGISTRY`](#gebraverifyproperty_registry) · [`PROPERTY_SLUGS`](#gebraverifyproperty_slugs) · [`PROPOSED_CONDITION_IDS`](#gebraverifyproposed_condition_ids) · [`RATIFIED_CONDITION_IDS`](#gebraverifyratified_condition_ids) · [`REPORT_FORMAT`](#gebraverifyreport_format) · [`RESERVED_CONDITION_IDS`](#gebraverifyreserved_condition_ids) · [`RESERVED_WORDS`](#gebraverifyreserved_words) · [`SENTINEL_VERTICES`](#gebraverifysentinel_vertices) · [`SHIPPED_SCOPES`](#gebraverifyshipped_scopes) · [`START`](#gebraverifystart) · [`START_VERTEX`](#gebraverifystart_vertex) · [`STRICT_ALL`](#gebraverifystrict_all) · [`STRICT_OFF`](#gebraverifystrict_off) · [`TOPOLOGY_SLUGS`](#gebraverifytopology_slugs) · [`UNREGISTERED_CORPUS_STRINGS`](#gebraverifyunregistered_corpus_strings) · [`WEDGE_SLUGS`](#gebraverifywedge_slugs) · [`Advisory`](#gebraverifyadvisory) · [`AdvisoryCarriageError`](#gebraverifyadvisorycarriageerror) · [`AnyFailure`](#gebraverifyanyfailure) · [`AnyLocation`](#gebraverifyanylocation) · [`BoundDirection`](#gebraverifybounddirection) · [`BoundedComparison`](#gebraverifyboundedcomparison) · [`ClaimClass`](#gebraverifyclaimclass) · [`CoFailure`](#gebraverifycofailure) · [`Components`](#gebraverifycomponents) · [`ConditionEntry`](#gebraverifyconditionentry) · [`ConditionId`](#gebraverifyconditionid) · [`ConditionOwnershipError`](#gebraverifyconditionownershiperror) · [`ConditionRegistryError`](#gebraverifyconditionregistryerror) · [`ConditionTier`](#gebraverifyconditiontier) · [`CounterGuardSource`](#gebraverifycounterguardsource) · [`CounterQualification`](#gebraverifycounterqualification) · [`CycleCensus`](#gebraverifycyclecensus) · [`CycleLocation`](#gebraverifycyclelocation) · [`DataflowCoverage`](#gebraverifydataflowcoverage) · [`DataflowLocation`](#gebraverifydataflowlocation) · [`DataflowWitness`](#gebraverifydataflowwitness) · [`DeterminismClaim`](#gebraverifydeterminismclaim) · [`DeterminismNodeLocation`](#gebraverifydeterminismnodelocation) · [`DeterminismWitness`](#gebraverifydeterminismwitness) · [`DischargeScope`](#gebraverifydischargescope) · [`DisplayNodeRef`](#gebraverifydisplaynoderef) · [`EdgeKind`](#gebraverifyedgekind) · [`EdgeLocation`](#gebraverifyedgelocation) · [`EdgeOrigin`](#gebraverifyedgeorigin) · [`EffectSafetyWitness`](#gebraverifyeffectsafetywitness) · [`ExpandedEdge`](#gebraverifyexpandededge) · [`ExtractionNote`](#gebraverifyextractionnote) · [`ExtractionNoteCode`](#gebraverifyextractionnotecode) · [`Failure`](#gebraverifyfailure) · [`GateOutcome`](#gebraverifygateoutcome) · [`GraphModel`](#gebraverifygraphmodel) · [`GuardClassification`](#gebraverifyguardclassification) · [`GuardEdgeLabels`](#gebraverifyguardedgelabels) · [`GuardEdgeRef`](#gebraverifyguardedgeref) · [`GuardGate`](#gebraverifyguardgate) · [`Location`](#gebraverifylocation) · [`NodeId`](#gebraverifynodeid) · [`NodeLocation`](#gebraverifynodelocation) · [`NonEmittableConditionError`](#gebraverifynonemittableconditionerror) · [`NotImplementedMarker`](#gebraverifynotimplementedmarker) · [`NotImplementedStatus`](#gebraverifynotimplementedstatus) · [`P01EdgeLocation`](#gebraverifyp01edgelocation) · [`P02CycleLocation`](#gebraverifyp02cyclelocation) · [`P02SccLocation`](#gebraverifyp02scclocation) · [`P04Failure`](#gebraverifyp04failure) · [`P06EffectRecord`](#gebraverifyp06effectrecord) · [`P06NodeLocation`](#gebraverifyp06nodelocation) · [`PathLocation`](#gebraverifypathlocation) · [`Promotion`](#gebraverifypromotion) · [`PromotionOrigin`](#gebraverifypromotionorigin) · [`PropertyArity`](#gebraverifypropertyarity) · [`PropertyEntry`](#gebraverifypropertyentry) · [`PropertyId`](#gebraverifypropertyid) · [`PropertyOutcome`](#gebraverifypropertyoutcome) · [`PropertyRegistryError`](#gebraverifypropertyregistryerror) · [`PropertyReport`](#gebraverifypropertyreport) · [`PropertyScope`](#gebraverifypropertyscope) · [`PropertySlug`](#gebraverifypropertyslug) · [`QualificationOutcome`](#gebraverifyqualificationoutcome) · [`RecognizedGuard`](#gebraverifyrecognizedguard) · [`RecursionLimitDecl`](#gebraverifyrecursionlimitdecl) · [`RecursionLimitSource`](#gebraverifyrecursionlimitsource) · [`ReferenceRole`](#gebraverifyreferencerole) · [`Region`](#gebraverifyregion) · [`RegistryCounts`](#gebraverifyregistrycounts) · [`ReportModel`](#gebraverifyreportmodel) · [`RunPolicy`](#gebraverifyrunpolicy) · [`RunReport`](#gebraverifyrunreport) · [`RunReportModel`](#gebraverifyrunreportmodel) · [`SccLocation`](#gebraverifyscclocation) · [`SetCompared`](#gebraverifysetcompared) · [`Severity`](#gebraverifyseverity) · [`SeverityCounts`](#gebraverifyseveritycounts) · [`StateKeyLocation`](#gebraverifystatekeylocation) · [`StrictPolicy`](#gebraverifystrictpolicy) · [`StrictPromotion`](#gebraverifystrictpromotion) · [`Subject`](#gebraverifysubject) · [`SubjectRef`](#gebraverifysubjectref) · [`TerminationWitness`](#gebraverifyterminationwitness) · [`Tool`](#gebraverifytool) · [`ToolError`](#gebraverifytoolerror) · [`UnregisteredConditionError`](#gebraverifyunregisteredconditionerror) · [`UnresolvedReference`](#gebraverifyunresolvedreference) · [`Validator`](#gebraverifyvalidator) · [`VariantDecl`](#gebraverifyvariantdecl) · [`VariantSource`](#gebraverifyvariantsource) · [`WellFormednessWitness`](#gebraverifywellformednesswitness) · [`Witness`](#gebraverifywitness) · [`WitnessElement`](#gebraverifywitnesselement) · [`WitnessInventoryEntry`](#gebraverifywitnessinventoryentry) · [`WitnessNote`](#gebraverifywitnessnote) · [`WitnessNoteKind`](#gebraverifywitnessnotekind) · [`WitnessSource`](#gebraverifywitnesssource) · [`anchor_location`](#gebraverifyanchor_location) · [`build_graph_model`](#gebraverifybuild_graph_model) · [`canonical_rotation`](#gebraverifycanonical_rotation) · [`check_dataflow_completeness`](#gebraverifycheck_dataflow_completeness) · [`check_determinism_replay`](#gebraverifycheck_determinism_replay) · [`check_effect_safety`](#gebraverifycheck_effect_safety) · [`check_graph_well_formed`](#gebraverifycheck_graph_well_formed) · [`check_termination_witness`](#gebraverifycheck_termination_witness) · [`classify_guard`](#gebraverifyclassify_guard) · [`condition`](#gebraverifycondition) · [`conditions_for`](#gebraverifyconditions_for) · [`deferred_slugs`](#gebraverifydeferred_slugs) · [`emit_advisory`](#gebraverifyemit_advisory) · [`emit_co_failure`](#gebraverifyemit_co_failure) · [`emit_failure`](#gebraverifyemit_failure) · [`emittable_condition`](#gebraverifyemittable_condition) · [`extraction_notes_of`](#gebraverifyextraction_notes_of) · [`from_display`](#gebraverifyfrom_display) · [`is_emittable`](#gebraverifyis_emittable) · [`is_implemented`](#gebraverifyis_implemented) · [`is_integer_compatible`](#gebraverifyis_integer_compatible) · [`is_registered`](#gebraverifyis_registered) · [`json_text`](#gebraverifyjson_text) · [`ledger_sort_key`](#gebraverifyledger_sort_key) · [`models_equivalent`](#gebraverifymodels_equivalent) · [`not_implemented`](#gebraverifynot_implemented) · [`property_entry`](#gebraverifyproperty_entry) · [`property_for_condition`](#gebraverifyproperty_for_condition) · [`qualify_counter_guard`](#gebraverifyqualify_counter_guard) · [`recognize_bounded_comparison`](#gebraverifyrecognize_bounded_comparison) · [`register_validator`](#gebraverifyregister_validator) · [`registry_counts`](#gebraverifyregistry_counts) · [`run_property`](#gebraverifyrun_property) · [`set_compared_fields`](#gebraverifyset_compared_fields) · [`shipped_slugs`](#gebraverifyshipped_slugs) · [`strict_promotions`](#gebraverifystrict_promotions) · [`to_data`](#gebraverifyto_data) · [`to_display`](#gebraverifyto_display) · [`to_json`](#gebraverifyto_json) · [`unregister_validator`](#gebraverifyunregister_validator) · [`validate_failure`](#gebraverifyvalidate_failure) · [`validate_location`](#gebraverifyvalidate_location) · [`validate_report`](#gebraverifyvalidate_report) · [`validate_witness`](#gebraverifyvalidate_witness) · [`validator_for`](#gebraverifyvalidator_for) · [`verify`](#gebraverifyverify) · [`with_extraction_notes`](#gebraverifywith_extraction_notes)
 
 ### Defined in `gebra.verify.base`
 
@@ -3224,7 +3224,7 @@ REPORT_FORMAT: Final = "1.4"
 
 *constant*, defined in `gebra.verify.run`.
 
-The `report_format` this build produces and reads. `1.4` under §1.6's new-optional-member row — the `0.2.0` release's one MINOR. DEC-35 §3.3 rules one bump per release and, for G10, names the members it carries: "`1.4`: `extraction_notes` and VAL-17's P-04 members — whichever of CLI-12 and VAL-17 lands second appends". VAL-17 landed first and opened it with DEC-37's P-04 member, `DataflowWitness.payload_readers` and `P04Failure.payload_readers`, emitted only when non-empty and never verdict-bearing. `1.3` (VAL-15; DEC-33) added `WellFormednessWitness.contained_nodes`, `DataflowWitness.contained_readers` and `P04Failure.contained_readers`, with the catalog-driven restatements of `reachable_from_start` and the V_top narrowing; `1.2` (VAL-14; DEC-28) added `dynamic_dependent` and `outside_static_coverage` and let `Subject.ir_version` admit `"1.1"`; `1.1` (VAL-11) added `Promotion.property_condition` on a witness-note promotion and `RunReport.best_effort`; Phase-0 shipped at `1.1`.
+The `report_format` this build produces and reads. `1.4` under §1.6's new-optional-member row — the `0.2.0` release's one MINOR. DEC-35 §3.3 rules one bump per release and, for G10, names the members it carries: "`1.4`: `extraction_notes` and VAL-17's P-04 members — whichever of CLI-12 and VAL-17 lands second appends". VAL-17 landed first and opened it with DEC-37's P-04 member, `DataflowWitness.payload_readers` and `P04Failure.payload_readers`, emitted only when non-empty and never verdict-bearing; CLI-12 appended `RunReport.extraction_notes` (DEC-35 §3.8), present only when the run extracted and a note was emitted, and bumped nothing. `1.3` (VAL-15; DEC-33) added `WellFormednessWitness.contained_nodes`, `DataflowWitness.contained_readers` and `P04Failure.contained_readers`, with the catalog-driven restatements of `reachable_from_start` and the V_top narrowing; `1.2` (VAL-14; DEC-28) added `dynamic_dependent` and `outside_static_coverage` and let `Subject.ir_version` admit `"1.1"`; `1.1` (VAL-11) added `Promotion.property_condition` on a witness-note promotion and `RunReport.best_effort`; Phase-0 shipped at `1.1`.
 
 #### `gebra.verify.STRICT_ALL`
 
@@ -3259,6 +3259,43 @@ TOPOLOGY_SLUGS: Final[tuple[PropertySlug, ...]] = (
 *constant*, defined in `gebra.verify.run`.
 
 The topology-consuming wedge properties: §0.3 defines their results **only over P-01-clean topology**, and where P-01 fails their reports are best-effort diagnostics rather than contract-bearing verdicts. Listed in catalog order, as `RunReport.best_effort` carries them.
+
+#### `gebra.verify.ExtractionNote`
+
+```python
+class ExtractionNote(RunReportModel):
+    code: ExtractionNoteCode
+    message: str = Field(min_length=1)
+    node: NodeId | None = None
+    slots: tuple[str, ...] = ()
+    detail: dict[str, Any] = Field(default_factory=dict)
+```
+
+*model*, defined in `gebra.verify.run`.
+
+One extraction note: a warning or an admitted disclosure, carried into the run report.
+
+PROPERTY-CATALOG-SPEC §0.6 item 8 (DEC-35 §3.8): the structured record extraction emitted — an INTROSPECTION-SPEC §8 / ANNOTATION-API-SPEC §4 warning, or an INTROSPECTION-SPEC §8 disclosure an R-06 record admits as a note (DEC-36, DEC-40) — with the fields both kinds carry. A note is **never a finding**: it moves no exit code, enters no count, promotes under no strict flag and is never mixed into a findings list (REPORT-FORMAT-SPEC §2.1, §4.6).
+
+Every value a note holds is an exact built-in — the strings, the slots and everything in `detail` are converted on the way in, by type and through unbound accessors — so rendering a note runs no code of the workflow's. `detail` is a JSON object, a `dict` as the record's own is: a frozen model does not freeze it, and a note — with a run report that carries one — is not hashable, unlike the per-property envelope models (PC-1). Nothing in the library hashes a run report or alters a note.
+
+**Attributes**
+
+- `code` — The record's code, verbatim — a warning code or an admitted disclosure code.
+- `message` — The record's own words. **Display-only** (§4.6 rule 7): every fact a consumer branches on is in the fields beside it.
+- `node` — The node id the record names, in the escaped IR-SPEC §5 form, or `None` for a record about the graph or a file.
+- `slots` — The ANNOTATION-API-SPEC §1 slot names the record names, as it named them — empty for a disclosure, which names none, and omitted from the serialized note when empty. They were checked against the slot vocabulary where the record was made.
+- `detail` — The rest of what the record carries, as JSON data — the row's "what it carries" column (INTROSPECTION-SPEC §8).
+
+#### `gebra.verify.ExtractionNoteCode`
+
+```python
+ExtractionNoteCode: TypeAlias = ...
+```
+
+*type alias*, defined in `gebra.verify.run`.
+
+The closed vocabulary an `ExtractionNote` carries (DEC-35 §3.8): the ten extraction-warning codes of INTROSPECTION-SPEC §8 and ANNOTATION-API-SPEC §4, then every disclosure code an R-06 record admits as a note — §8's disclosures "reach the run report through the extraction-notes member". DEC-36 admitted the first two, which this build's extraction emits; DEC-40 admitted `barrier-read-per-edge`, which no extraction in this release emits (its emitter is IR 1.2's) and which is spelled here already, so the build that first emits it moves no report member. Spelled rather than imported, because `gebra.extraction` imports the substrate and nothing on the verify path may (WA-07); `tests/verify/test_extraction_notes.py` holds this list to the extractor's warning vocabulary and to §8's disclosure table.
 
 #### `gebra.verify.GateOutcome`
 
@@ -3349,6 +3386,7 @@ class RunReport(RunReportModel):
     report_format: Literal["1.4"]
     tool: Tool
     subject: Subject | None = None
+    extraction_notes: tuple[ExtractionNote, ...] = ()
     properties: tuple[PropertyOutcome, ...] = ()
     best_effort: tuple[PropertySlug, ...] = ()
     gate: GateOutcome
@@ -3362,6 +3400,7 @@ The run-level wrapper (§1.2; PROPERTY-CATALOG-SPEC §0.3's scope boundary).
 **Fields**
 
 - `subject` — Absent only when a tool error preceded IR identity.
+- `extraction_notes` — What extraction said about how the subject's IR was obtained — its warnings, then the disclosures an R-06 record admits as notes (INTROSPECTION-SPEC §8), in emission order (PROPERTY-CATALOG-SPEC §0.6 item 8; DEC-35 §3.8). Present only when the run extracted and a note was emitted, and omitted from the serialized report otherwise; never findings. `verify()` reads an IR and never sees an extraction, so the caller that extracted attaches them (`with_extraction_notes()`).
 - `best_effort` — The properties whose outcomes in this run are **best-effort diagnostics**, not contract-bearing verdicts — §0.3's P-01-clean precondition, reported rather than left to the reader. Non-empty exactly when P-01 produced a FATAL finding, in which case it is `TOPOLOGY_SLUGS`; empty on every P-01-clean run and on a tool-error run. §0.3 says "when P-01 fails"; this is keyed on a FATAL P-01 finding, and the two coincide because every P-01 condition in the §0.4 registry is FATAL. That equivalence is read off the registry, not stated by §0.3, so a future P-01 condition at another grade is a question for this field rather than a silent change of meaning.
 
 #### `gebra.verify.RunReportModel`
@@ -3499,6 +3538,24 @@ anchor_location(location: AnyLocation) -> Location
 
 Reduce `location` to its §0.3 anchor variant — §3.2 rule 3, as a function.
 
+#### `gebra.verify.extraction_notes_of`
+
+```python
+extraction_notes_of(envelope: _NoteSource) -> tuple[ExtractionNote, ...]
+```
+
+*function*, defined in `gebra.verify.run`.
+
+The extraction notes of `envelope`, in emission order (§0.6 item 8; DEC-36 §4).
+
+**Parameters**
+
+- `envelope` — What `gebra.extract()` returned (an `ExtractionEnvelope`), read through the record fields it declares and nothing else.
+
+**Raises**
+
+- `pydantic.ValidationError` — if a record carries a code this build does not admit as a note — a disclosure an R-06 record admitted after this build — which is a vocabulary this report cannot spell, never one to drop.
+
 #### `gebra.verify.verify`
 
 ```python
@@ -3514,7 +3571,29 @@ Run the registered validators over `ir` and derive the run's gate.
 - `ir` — A validated workflow IR at `ir_version` `"1.0"` or `"1.1"`. Each validator reads only the fields its own §P-nn.3 I/O contract lists.
 - `policy` — The §0.2 strict-mode request and the caller's subject label. `None` is strict off over an unnamed in-process IR.
 
-**Returns** — The `RunReport` of §1 — the one artifact the human rendering, the native JSON and the SARIF projection are three views of.
+**Returns** — The `RunReport` of §1 — the one artifact the human rendering, the native JSON and the SARIF projection are three views of. It carries no extraction notes: this function never sees an extraction, and a caller that extracted the IR attaches them with `with_extraction_notes()`.
+
+#### `gebra.verify.with_extraction_notes`
+
+```python
+with_extraction_notes(report: RunReport, notes: Iterable[ExtractionNote]) -> RunReport
+```
+
+*function*, defined in `gebra.verify.run`.
+
+`report`, carrying the extraction notes of the run it answers (§1.2; DEC-35 §3.8).
+
+**Parameters**
+
+- `report` — The run report `verify()` returned for the extracted IR.
+- `notes` — The notes, in emission order — `extraction_notes_of()` over the envelope.
+
+**Returns** — `report` itself when there is no note to carry; otherwise a new report whose `extraction_notes` are `notes`.
+
+**Raises**
+
+- `ValueError` — if `report` already carries notes — a run extracts once, and replacing them would drop what the first extraction said.
+- `pydantic.ValidationError` — if `report`'s subject was not extracted.
 
 ### Defined in `gebra.verify.witnesses`
 

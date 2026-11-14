@@ -42,7 +42,7 @@
                 "text": "P-01 graph-well-formed, condition (ii): a node with no outgoing edge is wired to END through the definition's `finish` set. This node has neither an outgoing edge nor that wiring."
               },
               "help": {
-                "text": "Add an outgoing edge, or list the node in `finish` so its wiring to END is declared. See PROPERTY-CATALOG-SPEC §P-01."
+                "text": "Wire the node to END explicitly: `builder.add_edge(<node>, END)`, with `END` imported from `langgraph.graph` — or give the node another outgoing edge, or list it in `finish`. P-01 reads the edges the definition declares; a finish edge that only the compiled graph's drawing shows is not declared by it. See PROPERTY-CATALOG-SPEC §P-01."
               },
               "defaultConfiguration": {
                 "level": "error"

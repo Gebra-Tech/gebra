@@ -533,7 +533,7 @@ def test_the_post_final_landing_notes_are_recorded_in_landing_order(spec_text: s
     in the order the cards landed — the route the FINAL stamp prescribes, held open."""
     obligations = _section(spec_text, "## 7. Conformance obligations")
     positions = []
-    for card in ("VAL-14", "VAL-15", "SD-13", "CLI-11", "REL-05"):
+    for card in ("VAL-14", "VAL-15", "SD-13", "CLI-11", "REL-05", "CLI-12"):
         marker = f"**{card} ("
         assert marker in obligations, f"§7 carries no landing note for {card}"
         assert "landed 2026-" in obligations[obligations.index(marker) :].split("\n")[0]

@@ -1452,6 +1452,9 @@ def test_the_aggregation_module_imports_nothing_that_could_execute_anything() ->
         elif isinstance(node, ast.ImportFrom) and node.module is not None and node.level == 0:
             imported.add(node.module)
 
+    # `math` joined at CLI-12, for the one finiteness check an extraction note's JSON
+    # `detail` needs (REPORT-FORMAT-SPEC §1.2); the notes are read off extraction's records
+    # structurally, so `gebra.extraction` — which imports the substrate — is not in this set.
     assert imported == {
         "__future__",
         "collections.abc",
@@ -1465,6 +1468,7 @@ def test_the_aggregation_module_imports_nothing_that_could_execute_anything() ->
         "gebra.verify.registry",
         "gebra.verify.report",
         "gebra.verify.witnesses",
+        "math",
         "pydantic",
         "typing",
     }

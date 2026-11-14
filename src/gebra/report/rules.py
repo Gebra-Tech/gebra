@@ -82,9 +82,16 @@ _COPY: Final[Mapping[ConditionId, RuleCopy]] = MappingProxyType(
                 "to END through the definition's `finish` set. This node has neither an "
                 "outgoing edge nor that wiring."
             ),
+            # CLI-12: the help names the fix adopters needed — an explicit edge to END in the
+            # builder. Two published LangGraph templates end their chain at a node with no
+            # outgoing edge; their compiled drawing shows a finish edge the builder does not
+            # declare, and `add_edge(<node>, END)` is what clears P-01's condition (ii).
             help_text=(
-                "Add an outgoing edge, or list the node in `finish` so its wiring to END is "
-                "declared. See PROPERTY-CATALOG-SPEC §P-01."
+                "Wire the node to END explicitly: `builder.add_edge(<node>, END)`, with `END` "
+                "imported from `langgraph.graph` — or give the node another outgoing edge, or "
+                "list it in `finish`. P-01 reads the edges the definition declares; a finish "
+                "edge that only the compiled graph's drawing shows is not declared by it. See "
+                "PROPERTY-CATALOG-SPEC §P-01."
             ),
         ),
         "path-map-target-undefined": RuleCopy(

@@ -19,6 +19,11 @@ a passed tally; a promoted record keeps its own WARNING grade and a promotion is
 a second finding; and the severity tally, the exit code and the promotion list are read off
 ``gate`` rather than recounted (CLI-SPEC §0.1 rule 3).
 
+**Extraction notes are a block of their own** (§4.2's ``RunReport.extraction_notes`` row, §4.6
+rule 10, §5.1 rule 9): right under the subject they qualify, never inside a property's block,
+never in a findings list and never in the summary's counts, and a disclosure under its own label
+(:mod:`gebra.report.notes`).
+
 Nothing here imports langgraph, executes anything, or opens a socket (WA-07): the input is a
 :class:`~gebra.verify.run.RunReport` and the output is text.
 """
@@ -36,6 +41,7 @@ from rich.text import Text
 from gebra.report.anchors import location_lines, location_phrase
 from gebra.report.evidence import note_lines, witness_lines, witness_summary
 from gebra.report.findings import Finding, findings_of, notes_of
+from gebra.report.notes import detail_text, note_heading
 from gebra.report.rules import RULE_COPY
 from gebra.verify.base import ClaimClass, PropertySlug, Severity
 from gebra.verify.registry import MARKER_REASONS, NotImplementedMarker, property_entry
@@ -58,6 +64,10 @@ _SEVERITY_STYLE: Final[dict[str, str]] = {
 
 _LABEL_STYLE: Final = "dim"
 _HEADING_STYLE: Final = "bold"
+
+#: The style of an extraction note's label — the witness note's colour, because neither is a
+#: severity; the label word, not the colour, is what says which kind of note it is.
+_NOTE_STYLE: Final = _SEVERITY_STYLE["note"]
 
 #: Width of the label column in an evidence line. Layout is CLI-03's latitude (§4.1).
 _LABEL_WIDTH: Final = 24
@@ -194,6 +204,44 @@ def _strict_phrase(gate: GateOutcome) -> str:
     if gate.strict.mode == "per-property":
         return f"per-property ({', '.join(gate.strict.properties)})"
     return gate.strict.mode
+
+
+def _extraction_note_lines(report: RunReport) -> list[Text]:
+    """§4.2's ``RunReport.extraction_notes`` rows — a block of its own, and never a finding.
+
+    One entry per note, in emission order: its label and code, the node and slots it names, its
+    message. A warning's ``detail`` follows, because a warning's message is a one-line summary
+    of the record (INTROSPECTION-SPEC §8's "what it carries" column is the detail); a
+    disclosure's does not, because its message states what INTROSPECTION-SPEC §8 says the record
+    carries. Every record is carried whole in the native report. Nothing here is counted, graded
+    or gated, and nothing is added to the summary, whose notes are witness notes (§2.1, §4.6
+    rule 10).
+    """
+    if not report.extraction_notes:
+        return []
+    heading = Text()
+    heading.append("extraction notes", style=_HEADING_STYLE)
+    heading.append(
+        " — what extraction recorded while reading this subject; not findings, and not the "
+        "witness notes the summary counts: no exit code, count or strict promotion turns on "
+        "them, and the native JSON report carries each record whole"
+    )
+    lines = [heading]
+    for note in report.extraction_notes:
+        header = Text(" " * _RECORD_INDENT)
+        header.append(note_heading(note), style=_NOTE_STYLE)
+        where = []
+        if note.node is not None:
+            where.append(f"node {note.node}")
+        if note.slots:
+            where.append(f"slots {', '.join(note.slots)}")
+        if where:
+            header.append(f"  [{' | '.join(where)}]", style=_LABEL_STYLE)
+        lines.append(header)
+        lines.append(_kv("message", note.message))
+        if not note.is_disclosure and note.detail:
+            lines.append(_kv("detail", detail_text(note.detail)))
+    return lines
 
 
 def _finding_lines(finding: Finding) -> list[Text]:
@@ -453,8 +501,17 @@ _SNAPSHOT_REASON: Final[dict[bool, str]] = {
 
 
 def _lines(report: RunReport) -> list[Text]:
-    """Every line of the human surface, in order."""
+    """Every line of the human surface, in order.
+
+    The extraction notes come straight after the subject they qualify, on a tool-error run as
+    on a verdict run: a run that reached no verdict after an extraction that warned is exactly
+    the run whose notes say most about why.
+    """
     lines = _subject_lines(report)
+    notes = _extraction_note_lines(report)
+    if notes:
+        lines.append(_blank())
+        lines.extend(notes)
     if report.error is not None:
         lines.append(_blank())
         lines.extend(_tool_error_lines(report))

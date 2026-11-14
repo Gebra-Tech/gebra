@@ -217,6 +217,7 @@ if TYPE_CHECKING:
         WitnessNote,
         WitnessNoteKind,
     )
+    from gebra.verify import ExtractionNote as ReportExtractionNote
 
 __all__ = [
     "BLOCKING_SEVERITIES",
@@ -358,16 +359,22 @@ class GebraCheck:
 
 @dataclass(frozen=True)
 class ExtractionNote:
-    """One INTROSPECTION-SPEC §8 extraction warning, flattened to plain strings.
+    """One extraction note — an INTROSPECTION-SPEC §8 warning or disclosure — as plain strings.
 
-    Flattened rather than carried as the
-    :class:`~gebra.extraction.warnings.ExtractionWarning` model itself, and the reason is the
-    same one that keeps the extractor out of this module's import closure: this shape is
-    annotated and constructed on the fixture-only path too, where the extraction models are
-    not importable without the substrate. Flattened to **strings**, not to prose — ``code`` is
-    the §8 taxonomy member verbatim (``compiled-only-extraction``, not the Python enum's
-    ``repr``), so a consumer or a CI grep keyed on the vocabulary finds it, and TE-07's strict
-    bar has a field to match on rather than a message to parse.
+    The flattened twin of :class:`gebra.verify.ExtractionNote`, the record the run report
+    carries as ``extraction_notes`` (REPORT-FORMAT-SPEC §1.2; CLI-12). Flattened rather than
+    carried as the model, and the reason is the same one that keeps the extractor out of this
+    module's import closure: this shape is annotated and constructed on the fixture-only path
+    too, where the extraction models are not importable without the substrate. Flattened to
+    **strings**, not to prose — ``code`` is the §8 vocabulary member verbatim
+    (``compiled-only-extraction``, not the Python enum's ``repr``), so a consumer or a CI grep
+    keyed on the vocabulary finds it, and TE-07's strict bar has a field to match on rather than
+    a message to parse.
+
+    A disclosure (``disclosure`` true) is a fact about what a complete document does not
+    contain, beside the warning taxonomy and outside it (DEC-36): it is rendered under its own
+    label, ``extraction disclosure``, never the warning's — so a grep for ``extraction warning``
+    never counts one, as the strict-mode bar it is outside of would not.
     """
 
     code: str
@@ -375,15 +382,25 @@ class ExtractionNote:
     node: str | None = None
     slots: tuple[str, ...] = ()
     #: The rest of the §8 row's "what it carries" column, flattened to ``key=value`` strings in
-    #: the order the warning wrote them. Carried rather than dropped because the column names
+    #: the order the record wrote them. Carried rather than dropped because the column names
     #: facts a reader of a *pytest* run has no other way to reach — ``ir_partial`` above all,
     #: which is whether the IR is partial at that location, and which a run that reached no
     #: verdict is exactly the run that needs.
     detail: tuple[str, ...] = ()
+    #: Whether the record is a disclosure (DEC-36) rather than a warning.
+    disclosure: bool = False
 
     def render(self) -> str:
-        """One line, code first — how the note reads on an item and in the summary."""
+        """One line, label and code first — how the note reads on an item and in the summary.
+
+        A warning's line carries its detail, because a warning's message is a one-line summary
+        of the record. A disclosure's does not: its message states what INTROSPECTION-SPEC §8
+        says the record carries, and the bracket would print it a second time — the
+        structured detail stays on :attr:`detail` and on the run report's note.
+        """
         where = f" at {self.node}" if self.node is not None else ""
+        if self.disclosure:
+            return f"extraction disclosure [{self.code}]{where}: {self.message}"
         slots = f" ({', '.join(self.slots)})" if self.slots else ""
         detail = f" [{', '.join(self.detail)}]" if self.detail else ""
         return f"extraction warning [{self.code}]{where}{slots}{detail} {self.message}"
@@ -396,10 +413,11 @@ class TargetVerification:
     Attributes:
         target: The declared target name.
         report: The :class:`~gebra.verify.RunReport` of the run, carrying all thirteen
-            catalog outcomes, the §2.2 gate, and ``best_effort``.
-        extraction_notes: The INTROSPECTION-SPEC §8 warnings this extraction raised, when the
-            target was a live workflow. Empty on the fixture-only path, where nothing was
-            extracted.
+            catalog outcomes, the §2.2 gate, ``best_effort`` and — when the target was a live
+            workflow and extraction said something — ``extraction_notes``.
+        extraction_notes: What this extraction said, flattened: the INTROSPECTION-SPEC §8
+            warnings, then the disclosures beside them, the same records the report carries.
+            Empty on the fixture-only path, where nothing was extracted.
     """
 
     target: str
@@ -767,7 +785,10 @@ class Resolution:
         sidecar: The ``gebra.toml`` path extraction resolved, when there was one — so a digest
             that moved because a different sidecar was in reach is diagnosable
             (ANNOTATION-API-SPEC §2).
-        notes: The INTROSPECTION-SPEC §8 warnings the extraction raised, if any.
+        notes: What the extraction said, flattened — the INTROSPECTION-SPEC §8 warnings, then
+            the disclosures beside them — if anything.
+        report_notes: The same notes as the run report carries them
+            (:class:`gebra.verify.ExtractionNote`), for :func:`verify_target` to attach.
     """
 
     ir: WorkflowIR
@@ -775,6 +796,7 @@ class Resolution:
     extractor_version: str | None = None
     sidecar: str | None = None
     notes: tuple[ExtractionNote, ...] = ()
+    report_notes: tuple[ReportExtractionNote, ...] = ()
 
 
 def resolve_ir(target: object, *, sidecar: str | None = None) -> Resolution:
@@ -812,6 +834,7 @@ def resolve_ir(target: object, *, sidecar: str | None = None) -> Resolution:
         return Resolution(ir=target, input_mode="ir-document")
 
     from gebra import ExtractionError, extract
+    from gebra.verify import extraction_notes_of
 
     try:
         envelope = extract(target, sidecar=sidecar)
@@ -822,21 +845,28 @@ def resolve_ir(target: object, *, sidecar: str | None = None) -> Resolution:
         raise GebraTargetError(
             f"{error} [object_type={error.object_type}, reason={error.reason.value}]"
         ) from error
+    # One reading of the envelope's records — the warnings, then the disclosures — serves both
+    # shapes: the run report's notes and the flattened ones this plugin renders.
+    report_notes = extraction_notes_of(envelope)
     return Resolution(
         ir=envelope.ir,
         input_mode="extracted",
         extractor_version=envelope.extracted_from.extractor_version,
         sidecar=envelope.extracted_from.sidecar,
-        notes=tuple(
-            ExtractionNote(
-                code=warning.code.value,
-                message=warning.message,
-                node=warning.node,
-                slots=tuple(str(slot) for slot in warning.slots),
-                detail=tuple(f"{key}={value}" for key, value in warning.detail.items()),
-            )
-            for warning in envelope.warnings
-        ),
+        notes=tuple(_flattened(note) for note in report_notes),
+        report_notes=report_notes,
+    )
+
+
+def _flattened(note: ReportExtractionNote) -> ExtractionNote:
+    """A run report's note as this plugin's plain-string twin — the same record, field for field."""
+    return ExtractionNote(
+        code=note.code,
+        message=note.message,
+        node=note.node,
+        slots=note.slots,
+        detail=tuple(f"{key}={value}" for key, value in note.detail.items()),
+        disclosure=note.is_disclosure,
     )
 
 
@@ -862,12 +892,14 @@ def verify_target(
             second time here.
 
     Returns:
-        The :class:`TargetVerification`: the run report plus any extraction warnings.
+        The :class:`TargetVerification`: the run report — carrying the extraction notes when
+        the target was extracted (REPORT-FORMAT-SPEC §1.2; CLI-12) — plus the same notes,
+        flattened.
 
     Raises:
         GebraTargetError: if the target could not be reduced to IR.
     """
-    from gebra.verify import STRICT_OFF, RunPolicy, SubjectRef, verify
+    from gebra.verify import STRICT_OFF, RunPolicy, SubjectRef, verify, with_extraction_notes
 
     resolution = resolve_ir(target, sidecar=sidecar)
     reference = SubjectRef(
@@ -877,7 +909,7 @@ def verify_target(
         sidecar=resolution.sidecar,
     )
     policy = RunPolicy(strict=strict if strict is not None else STRICT_OFF, subject=reference)
-    report = verify(resolution.ir, policy)
+    report = with_extraction_notes(verify(resolution.ir, policy), resolution.report_notes)
     return TargetVerification(target=name, report=report, extraction_notes=resolution.notes)
 
 
@@ -1273,8 +1305,9 @@ def _render_notes(outcome: ItemOutcome, verification: TargetVerification) -> lis
 
     Four kinds now. A WARNING-grade **finding** this property owns. A structured
     :class:`~gebra.verify.WitnessNote` its report carries — the channel TE-06 left unbuilt,
-    and the one ``--gebra-strict`` reaches that no finding walk can see. An
-    INTROSPECTION-SPEC §8 extraction warning about how the IR was obtained at all. And —
+    and the one ``--gebra-strict`` reaches that no finding walk can see. An extraction
+    note — an INTROSPECTION-SPEC §8 warning, or a disclosure under its own label — about how
+    the IR was obtained at all. And —
     attached to a **passing** item as much as to a failing one — the §0.3 qualifier, because a
     P-04 pass on an ill-formed topology is a qualified pass and dropping the qualifier is what
     would turn a diagnostic into a verdict (§5.1 obligation 7).
@@ -1348,7 +1381,7 @@ def _record_notes(config: pytest.Config, where: str, notes: list[str]) -> None:
     """Put notes with no report block behind them where a default run will still show them.
 
     The `gebra_graph` surface is the one that needs this: it hands back the IR and never
-    verifies, so nothing else in the closing report would speak for its extraction warnings.
+    verifies, so nothing else in the closing report would speak for its extraction notes.
     A verified target's notes ride its own report block instead, once per target rather than
     once per item.
     """
@@ -1709,7 +1742,11 @@ def _render_ungated(report: RunReport, itemized: tuple[PropertySlug, ...]) -> li
 
 
 def _render_run_notes(verification: TargetVerification) -> list[str]:
-    """The run's notes, once per target: the §8 extraction warnings and every witness note."""
+    """The run's notes, once per target: the extraction notes and every witness note.
+
+    The extraction notes are the run report's own (``extraction_notes``, REPORT-FORMAT-SPEC
+    §1.2): the §8 warnings, then the disclosures, each under its own label (DEC-36 §4).
+    """
     from gebra.verify import PropertyReport
 
     report = verification.report
@@ -2305,8 +2342,8 @@ def gebra_graph(
     would force every user's ``gebra_workflow`` override to be session-scoped too. Hand it a
     ``WorkflowIR`` and no extraction — and no substrate import — happens at all.
 
-    Any INTROSPECTION-SPEC §8 warning the extraction raised is recorded on this item and in
-    the run's gebra summary rather than discarded: §8 makes warnings "never silently
+    Any extraction note — an INTROSPECTION-SPEC §8 warning or a disclosure — is recorded on
+    this item and in the run's gebra summary rather than discarded: §8 makes them "never silently
     droppable", and this fixture returns only the IR, so dropping them here would be the
     silent drop in a surface that never mentions it.
     """
@@ -2325,7 +2362,7 @@ def gebra_verification(
     """``gebra_workflow`` verified — the whole run, for assertions of your own.
 
     A :class:`TargetVerification`, not a bare report, and named for what it is: ``.report`` is
-    the :class:`~gebra.verify.RunReport` and ``.extraction_notes`` the warnings extraction
+    the :class:`~gebra.verify.RunReport` and ``.extraction_notes`` the notes extraction
     raised on the way. ``.report.properties`` carries all thirteen catalog outcomes, so this
     is where the properties with no validator in this release are visible as the structured
     :class:`~gebra.verify.NotImplementedMarker`\\ s they are; ``.report.gate`` is the §2.2

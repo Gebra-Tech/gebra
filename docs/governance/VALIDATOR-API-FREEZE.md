@@ -229,6 +229,37 @@ move the surface in §1 need no R-05 routing, exactly as before.
   module, read off the shared model's multigraph view (`GraphModel.in_edges`); nothing was added to
   the shared graph model. The wire-format consequence is REPORT-FORMAT-SPEC §1.6's `1.4` row, which
   this landing opens for the `0.2.0` release.
+- **CLI-12 (2026-11-13) — DEC-35's extraction-notes member.** The R-05-routed decision is DEC-35
+  itself (ratified 2026-10-28 by the product owner acting as R-05 authority, vendored in the
+  development-process repository's `docs/decisions/`; PROPERTY-CATALOG-SPEC re-vendored at vault
+  `7664a17` in the same commit, its §0.6 item 8 the normative text), whose §3.8 names the member
+  and its record's fields and whose §4 names this amendment ("`RunReport` gains
+  `extraction_notes`") and assigns it to this card; DEC-36 §4 admits its two disclosure codes as
+  notes and assigns their carriage here, and DEC-40 (ratified 2026-11-10) adds a third,
+  `barrier-read-per-edge`, to INTROSPECTION-SPEC §8's table, whose disclosures reach the run
+  report through this member — so no PD-057-style latitude record is owed. Field added on
+  the frozen surface: `RunReport.extraction_notes: tuple[ExtractionNote, ...] = ()` — an
+  extraction's warnings, then the disclosures admitted as notes, in emission order; present only
+  when the run extracted and a note was emitted (a model validator refuses notes on a subject whose
+  `input_mode` is not `extracted`), and omitted from the serialized report when empty. Model added
+  to the run-level family: `ExtractionNote` — `code`, display-only `message`, optional `node` and
+  `slots`, and a JSON `detail` — whose `code` is the closed `ExtractionNoteCode`: the ten warning
+  codes and §8's three disclosure codes, DEC-36's two, which this build emits, and DEC-40's
+  `barrier-read-per-edge`, admitted with them ahead of its emitter (IR 1.2's), held to the
+  extractor's warning enumeration and to §8's disclosure table by test.
+  Additive names: `extraction_notes_of`, which reads an extraction envelope's warnings and then its
+  disclosures through the record fields they declare (`gebra.verify` imports no extractor), and
+  `with_extraction_notes`, which returns a run report carrying the notes, revalidated, and refuses a
+  second set. That pair is the carrier, not `verify()`: `verify(ir, policy=None)`, `RunPolicy` and
+  `SubjectRef` are unchanged — DEC-35 §4 keeps `RunPolicy` at its two fields, and PD-063 §8 left
+  the carrier to this card. Unlike the per-property envelope models (PC-1), a note's `detail` is
+  `dict`-typed, as the extraction record's own is, so a run report that carries a note is
+  neither hashable nor deeply immutable — a frozen model does not freeze a `dict`; nothing in
+  the library hashes one or alters a note. Every value a note holds is an exact built-in,
+  converted on the way in by type and through unbound accessors (WA-07). No condition ID is added, renamed or reclassified;
+  no witness shape, location subtype, validator signature or exit-code rule changes; no property
+  moved off `DeferredToPhase1`; and `report_format` stays `1.4` — the member is appended to the
+  row VAL-17 opened (DEC-35 §3.3).
 
 ## 5. D-12 promotion eligibility
 

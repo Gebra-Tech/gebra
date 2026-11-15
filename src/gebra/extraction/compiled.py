@@ -58,9 +58,21 @@ rather than reviewed.
 
 What the gate lets through is a real ``langgraph.pregel.Pregel`` — at the object *and* at every
 level ``xray`` would recurse into — all of whose channels, checkpointer, cache key functions and
-write mappers come from LangGraph itself. Verified as the boundary rather than assumed: node
-functions, routers, pydantic state-schema validators and reducers bound to stock channels are
-**not** reached by a drawing.
+write mappers come from LangGraph itself, whose writers and write entries are instances of
+classes LangGraph defines, and whose static write declarations are exact lists or tuples of exact
+tuples carrying a ``str`` label or none (EX-28: the drawing hashes and compares each declared
+label and invokes each ``ChannelWrite`` writer, and a dict-valued ``destinations=`` hands it the
+author's own label objects — DEC-38 §3.10 records that read outside the six). Verified as the
+boundary rather than assumed: node functions, routers, pydantic state-schema validators and
+reducers bound to stock channels are **not** reached by a drawing. What the drawing still reads of
+what the gate admits is listed as far as it has been measured — the reads measured so far, not a
+census (``tests/never_invokes_audit.md`` keeps the list): the ``config`` a ``Pregel`` carries; the
+hash and comparison a ``str``-subclass label, or a ``str``-subclass target equal to ``END``,
+defines for itself; from langgraph 1.2.19, a ``tools_by_name`` member of each node's bound object
+(measured on 1.2.22: a property's body runs, and a mapping it returns is tested for truth and
+iterated); and on a hand-built ``Pregel``, a write entry's value and ``skip_none``, a static
+write's channel, an invoked or registered ``Send``'s payload, and the rendering of a LangGraph
+object that is no write entry, which the gate does not read.
 
 The two call sites are then graded differently, because their costs are:
 
@@ -113,7 +125,7 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from langgraph.graph import END, START
 from langgraph.pregel import Pregel
@@ -188,6 +200,14 @@ _SUBSTRATE_PACKAGE: Final = "langgraph"
 
 #: The channel key whose ``ValueType`` ``draw_graph`` calls as a constructor (``_draw.py``).
 _ROOT_CHANNEL: Final = "__root__"
+
+#: The attribute ``ChannelWrite.register_writer`` sets on a writer it marks, holding the
+#: ``(entry, label)`` pairs that writer declares for static analysis — how a branch's declared
+#: targets reach the drawing (``ChannelWrite.get_static_writes``, ``pregel/_write.py``). The gate
+#: reads it as the drawing does; ``tests/extraction/test_compiled.py`` pins that a stock branch
+#: writer carries its declaration here, so a substrate that renamed it fails a test rather than
+#: leaving the carrier unread.
+_REGISTERED_DECLARATION: Final = "_is_channel_writer"
 
 #: The ``_NodeDefaults`` members that name a ``StateNodeSpec`` member of the same name. The
 #: substrate's fourth default (``error_handler``) lands on a synthesized handler node rather
@@ -712,6 +732,13 @@ def _drawing_hazard(compiled: object, *, xray: bool) -> str | None:
     dispatches on. Every level ``xray`` would recurse into is tested the same way, because each
     is drawn by the same loop.
 
+    **One read outside the six** (EX-28; DEC-38 §3.10): the drawing hashes and compares every
+    routing label a writer declares for it, and a dict-valued ``destinations=`` hands it the
+    author's own label objects. A drawing whose declared labels are not all ``str`` instances is
+    declined, and route 4 is applied to the writes a writer registers for the drawing as well as
+    to the ones it invokes — each entry read only once its class is known to be LangGraph's
+    (:func:`_writer_hazard`, :func:`_entry_hazard`).
+
     Conservative in the safe direction throughout: a surface that cannot be read is a hazard,
     not an absence of one.
     """
@@ -769,7 +796,12 @@ def _level_hazard(graph: object) -> str | None:
 
 
 def _node_hazard(node: object) -> str | None:
-    """The two per-node callables a drawing runs: a cache key function and a write mapper."""
+    """What a drawing would run or hash on one node: a cache key function, and what its writers hold.
+
+    The cache key function is route 3. Each writer is then read by :func:`_writer_hazard`: its
+    write mappers (route 4) and the static writes it declares for the drawing, whose labels the
+    drawing hashes and compares (EX-28; DEC-38 §3.10).
+    """
     policy = getattr(node, "cache_policy", None)
     key_func = getattr(policy, "key_func", None) if policy is not None else None
     if key_func is not None and not _from_substrate(key_func):
@@ -781,16 +813,138 @@ def _node_hazard(node: object) -> str | None:
     if not isinstance(writers, Iterable):
         return None
     for writer in writers:
-        entries = getattr(writer, "writes", None)
-        if not isinstance(entries, Iterable):
-            continue
+        hazard = _writer_hazard(writer)
+        if hazard is not None:
+            return hazard
+    return None
+
+
+def _writer_hazard(writer: object) -> str | None:
+    """What a drawing would run or hash on one writer, named, or ``None``.
+
+    A drawing reaches a writer's contents two ways (``pregel/_draw.py``). It **invokes** a
+    ``ChannelWrite``, which calls each of its entries' ``mapper`` — route 4. And it reads the
+    writes a writer **declares for static analysis** through ``ChannelWrite.get_static_writes``,
+    which has two carriers: the ``static`` member of a write entry — where ``add_node(...,
+    destinations=...)`` puts its ``(channel, value, label)`` triples — and the declaration
+    ``ChannelWrite.register_writer`` attaches to a writer it marks, which is how a branch's
+    ``(entry, label)`` pairs travel. From a declared write the drawing hashes and compares the
+    label, and from a registered pair it first assembles the entry, which calls the entry's
+    ``mapper`` too. Both carriers are read here, by :func:`_declaration_hazard`.
+
+    **The writer's class first** (EX-28). The drawing invokes every writer that is a
+    ``ChannelWrite`` — a subclass's own ``invoke`` included — and reads every other writer while
+    it prepares the node, so a writer whose class LangGraph did not define — the author's, or
+    another package's — is a hazard by its class, decided from the class alone
+    (:func:`_class_from_substrate`) before anything is read from it.
+    Every writer LangGraph builds — a ``ChannelWrite``, or the runnable a branch registers — is
+    an instance of a LangGraph class.
+    """
+    if not _class_from_substrate(type(writer)):
+        return (
+            f"binds a writer of type {type_identity(writer)}, which is not one LangGraph "
+            "builds, so the drawing would call or read it through that object's own methods"
+        )
+    entries = getattr(writer, "writes", None)
+    if isinstance(entries, Iterable):
         for entry in entries:
-            mapper = getattr(entry, "mapper", None)
-            if mapper is not None and not _from_substrate(mapper):
-                return (
-                    f"binds the user-defined write mapper {type_identity(mapper)}, which "
-                    "`ChannelWrite.invoke` calls — a `Runnable.invoke` the drawing performs"
-                )
+            hazard = _entry_hazard(entry)
+            if hazard is not None:
+                return hazard
+            static = getattr(entry, "static", None)
+            if static is not None:
+                hazard = _declaration_hazard(static, width=3)
+                if hazard is not None:
+                    return hazard
+    registered = getattr(writer, _REGISTERED_DECLARATION, None)
+    if registered is not None:
+        return _declaration_hazard(registered, width=2)
+    return None
+
+
+def _entry_hazard(entry: object) -> str | None:
+    """Route 4 on one write entry: its class first, then — only on LangGraph's own — its ``mapper``.
+
+    The drawing reads an entry through its own class — ``isinstance`` tests on it, its fields,
+    and on a type it does not know a message that renders it — so an entry whose class LangGraph
+    did not define (a foreign object, a subclass of LangGraph's entry with a ``mapper`` property
+    of its own, or another package's class) is a hazard by its class, decided from the class alone
+    (:func:`_class_from_substrate`) before anything is read from the entry. Every entry LangGraph
+    builds — ``ChannelWriteEntry``, ``ChannelWriteTupleEntry``, ``Send`` — is an instance of a
+    LangGraph class, so its ``mapper``, when it has one, is read through that class's own field
+    and takes route 4's test.
+    """
+    if not _class_from_substrate(type(entry)):
+        return (
+            f"declares a write entry of type {type_identity(entry)}, which is not one LangGraph "
+            "builds, so the drawing would read it through that object's own methods"
+        )
+    mapper = getattr(entry, "mapper", None)
+    if mapper is not None and not _from_substrate(mapper):
+        return (
+            f"binds the user-defined write mapper {type_identity(mapper)}, which the drawing "
+            "calls — through `ChannelWrite.invoke`, a `Runnable.invoke`, or while assembling a "
+            "writer's static declaration (`ChannelWrite.get_static_writes`)"
+        )
+    return None
+
+
+def _declaration_hazard(declared: object, *, width: int) -> str | None:
+    """Whether the static writes one declaration carries can be drawn without running the author's code.
+
+    ``width`` is 3 for a write entry's ``static`` triples, ``(channel, value, label)``, and 2 for
+    a registered writer's ``(entry, label)`` pairs; LangGraph builds each declaration as an exact
+    ``list`` of exact ``tuple``s. The drawing reads them by plain iteration, indexing and
+    unpacking, which a subclass of either could answer with code of its own, so the gate admits an
+    exact ``list`` or ``tuple`` of exact tuples — iterated and unpacked by the built-in types
+    themselves — and calls any other shape a hazard: conservative in the safe direction, and no
+    LangGraph builder produces one.
+
+    **The label** (EX-28; DEC-38 §3.10). The drawing hashes every declared label — an ``Edge``
+    and a ``TriggerEdge`` are tuples, kept in sets — and compares it with the edge's target, and
+    the builder hands it a ``destinations=`` label exactly as the author wrote it: a dict-valued
+    ``destinations=`` reaches ``static`` raw, where a branch's labels arrive rendered by the
+    substrate's own ``str()``. A label that is not a ``str`` instance — tested as
+    ``issubclass(type(label), str)``, which reads the object's type slot and nothing of the
+    object — is the author's object, and its hash is the author's code: an ``Enum`` member's
+    reads ``_name_`` through the member's own attribute access. So the drawing is declined
+    whatever the object is, as a user-defined channel class is declined whatever its body does,
+    and an admitted enum member's ruled read (INTROSPECTION-SPEC §6) is applied by the builder
+    reading, never here: it reads the stored value and certifies nothing about the member's own
+    methods. A ``str`` instance is admitted, as INTROSPECTION-SPEC §6 reads one as a string
+    label; the drawing still runs the hash and comparison a ``str`` subclass defines for itself,
+    which this gate does not read.
+
+    **A registered pair's entry** is assembled through its ``mapper`` before its label is read,
+    so the entry takes the test a ``ChannelWrite``'s own entries take (:func:`_entry_hazard`):
+    its class, read from the class alone, then route 4 on its ``mapper``.
+    """
+    kind = type(declared)
+    if kind is not list and kind is not tuple:
+        return (
+            f"declares its static writes in a {type_identity(declared)}, which is not an exact "
+            "list or tuple, so the drawing would read them through that object's own methods"
+        )
+    for member in list(cast("list[object]", declared)):
+        if type(member) is not tuple or len(cast("tuple[object, ...]", member)) != width:
+            return (
+                f"declares a static write that is a {type_identity(member)} rather than the "
+                f"{width}-tuple LangGraph builds, so the drawing would read it through that "
+                "object's own methods"
+            )
+        write = cast("tuple[object, ...]", member)
+        label = write[-1]
+        if label is not None and not issubclass(type(label), str):
+            return (
+                f"declares the routing label of type {type_identity(label)}, which is not a "
+                "string: the drawing hashes and compares every label it draws, and an object "
+                "that is not a string answers both with its own code — an `Enum` member's hash "
+                "reads `_name_` through the member's own attribute access (DEC-38 §3.10)"
+            )
+        if width == 2:
+            hazard = _entry_hazard(write[0])
+            if hazard is not None:
+                return hazard
     return None
 
 
@@ -832,6 +986,32 @@ def _from_substrate(value: object) -> bool:
     if not isinstance(module, str):
         module = getattr(type(value), "__module__", None)
     return isinstance(module, str) and module.partition(".")[0] == _SUBSTRATE_PACKAGE
+
+
+#: ``type``'s own ``__module__`` descriptor, taken once: applied to a class it reads the class's
+#: module without going through the class's metaclass (EX-28's entry test).
+_TYPE_MODULE: Final = type.__dict__["__module__"]
+
+
+def _class_from_substrate(cls: type[object]) -> bool:
+    """Whether ``cls`` is a class LangGraph defines — decided from the class, never an instance.
+
+    :func:`_from_substrate` reads ``__module__`` off the value it is handed, which on an instance
+    of the author's class is that class's own attribute access. This reads the class's module
+    through ``type``'s own descriptor and requires an exact ``str``, so no ``__getattribute__``
+    of the instance and no hook of the class's metaclass runs; what it trusts is the same
+    ``__module__`` provenance the gate trusts everywhere (``tests/never_invokes_audit.md`` §5). A
+    heap class keeps its module in its own namespace, so the read is a lookup there — the
+    lookup :func:`gebra.naming.type_identity` makes too (EX-27's residue 3, EX-30's). A class
+    whose namespace holds no ``__module__`` key (one ``type()`` built under globals with no
+    ``__name__``), or whose descriptor read fails any other way, is not LangGraph's: a surface
+    that cannot be read is a hazard, never an exception out of ``extract()``.
+    """
+    try:
+        module = _TYPE_MODULE.__get__(cls)
+    except Exception:  # noqa: BLE001 - an unreadable provenance is a hazard, as everywhere here
+        return False
+    return type(module) is str and module.partition(".")[0] == _SUBSTRATE_PACKAGE
 
 
 def _draw(compiled: object, *, xray: bool) -> object | None:
@@ -951,11 +1131,11 @@ def _fold(identifier: str) -> str | None:
 
 
 def _drawn_node_ids(drawn: object) -> tuple[str, ...]:
-    """The drawn graph's node ids. Reads two attributes and calls nothing."""
+    """The drawn graph's node ids, each a built-in ``str``. Reads two attributes, calls nothing."""
     nodes = getattr(drawn, "nodes", None)
     if not isinstance(nodes, Mapping):
         return ()
-    return tuple(identifier for identifier in nodes if isinstance(identifier, str))
+    return tuple(text for text in map(_drawn_text, nodes) if text is not None)
 
 
 def _drawn_edges(drawn: object) -> tuple[tuple[str, str], ...]:
@@ -965,11 +1145,27 @@ def _drawn_edges(drawn: object) -> tuple[tuple[str, str], ...]:
         return ()
     pairs: list[tuple[str, str]] = []
     for edge in edges:
-        source = getattr(edge, "source", None)
-        target = getattr(edge, "target", None)
-        if isinstance(source, str) and isinstance(target, str):
+        source = _drawn_text(getattr(edge, "source", None))
+        target = _drawn_text(getattr(edge, "target", None))
+        if source is not None and target is not None:
             pairs.append((source, target))
     return tuple(pairs)
+
+
+def _drawn_text(value: object) -> str | None:
+    """A drawn id or label as a built-in ``str``, or ``None`` when it is not a ``str`` instance.
+
+    Tested as ``issubclass(type(value), str)``, never ``isinstance(value, str)``: on a miss
+    ``isinstance`` reads ``__class__`` through the value's own attribute access, and a drawn
+    edge's ``data`` is whatever object the author declared as its label (EX-28; DEC-38 §3.10).
+    A ``str`` subclass is projected through ``"".join((value,))``, which reads its buffer at C
+    level and returns a built-in ``str`` without calling one of its methods — so the
+    comparisons, hashing and normalization that follow run ``str``'s own code, the reading
+    INTROSPECTION-SPEC §6 gives a ``str``-instance label (DEC-32's str-subclass clause).
+    """
+    if not issubclass(type(value), str):
+        return None
+    return "".join((cast("str", value),))
 
 
 def _deltas(builder: _Topology, compiled: _Topology) -> dict[str, Any]:
@@ -1248,32 +1444,55 @@ def _read_drawn(drawn: object, *, workflow: object) -> _DrawnReading:
 
 @dataclass(frozen=True)
 class _DrawnEdge:
-    """One drawn edge, read down to the three members the IR can use."""
+    """One drawn edge, read down to the members the IR can use."""
 
     source: str
     target: str
     label: str | None
     conditional: bool
+    unspelled: str | None = None
+    """The type of a label that is not a ``str`` instance, named; ``None`` for every other edge.
+
+    The drawn path spells string labels only — INTROSPECTION-SPEC §6's admission of an ``Enum``
+    member is applied on the builder path, and DEC-38 §3.10 applies it on the drawn path nowhere
+    — so such a row is read as an unlabelled one and warned (:func:`_read_drawn_edge`).
+    """
 
 
 def _drawn_edge_records(drawn: object) -> tuple[_DrawnEdge, ...]:
-    """The drawn edges as records. Attribute reads only; nothing on the edge is called."""
+    """The drawn edges as records. Attribute reads only; nothing on the edge is called.
+
+    The source, target and label are each read by :func:`_drawn_text` — a type-slot test and a
+    C-level copy — so a label the author declared as an object of their own (a dict-valued
+    ``destinations=`` reaches the drawing raw) has no attribute read and no method run here:
+    not its ``__class__``, which ``isinstance`` read before EX-28, and none of its methods. Its
+    type is named for the warning by :func:`gebra.naming.type_identity`, the spelling every
+    boundary refusal uses, whose lookup in that type's namespace is a recorded route of its own
+    (``tests/never_invokes_audit.md``, EX-27's residue 3). Since EX-28 the gate declines every
+    drawing whose declared labels are not ``str`` instances, so such a label reaches this
+    reading only from a drawing the substrate did not make.
+    """
     edges = getattr(drawn, "edges", None)
     if not isinstance(edges, Iterable):
         return ()
     records: list[_DrawnEdge] = []
     for edge in edges:
-        source = getattr(edge, "source", None)
-        target = getattr(edge, "target", None)
-        if not isinstance(source, str) or not isinstance(target, str):
+        source = _drawn_text(getattr(edge, "source", None))
+        target = _drawn_text(getattr(edge, "target", None))
+        if source is None or target is None:
             continue
-        label = getattr(edge, "data", None)
+        conditional = getattr(edge, "conditional", False) is True
+        data = getattr(edge, "data", None)
+        label = _drawn_text(data)
+        # Only a conditional row carries a label into the IR, so only its type is named.
+        unspelled = conditional and data is not None and label is None
         records.append(
             _DrawnEdge(
                 source=source,
                 target=target,
-                label=label if isinstance(label, str) and label else None,
-                conditional=getattr(edge, "conditional", False) is True,
+                label=label or None,
+                conditional=conditional,
+                unspelled=type_identity(data) if unspelled else None,
             )
         )
     return tuple(sorted(records, key=lambda record: (record.source, record.target)))
@@ -1299,6 +1518,24 @@ def _read_drawn_edge(
         if target is not None:
             reading.entry.add(target)
         return
+    if edge.conditional and edge.unspelled is not None:
+        # INTROSPECTION-SPEC §2's posture for a supported object: a construct the IR cannot map is
+        # warned inside the IR — never a silent partial IR, and no refusal past the boundary — and
+        # DEC-38 §3.10 applies its enum read on the drawn path nowhere. So the row is read as an
+        # unlabelled one, by the convention below, and the warning says so. (DEC-32's
+        # Consequences record the drawn reading's never-refuse totality as the reason its
+        # collision rule stays open there; they rule nothing about this row.)
+        reading.warnings.append(
+            _unsupported(
+                "drawn-label-unrepresentable",
+                f"the drawing labels its conditional row from {edge.source!r} to "
+                f"{edge.target!r} with an object of type {edge.unspelled}, which is not a "
+                "string; the drawn path spells string labels only, so the row is read as an "
+                "unlabelled one and the declared label is not carried",
+                location={"edge": {"from": edge.source, "to": edge.target}},
+                ir_partial=True,
+            )
+        )
     if edge.target == END:
         source = _drawn_reference(edge.source, reading, where="finish wiring")
         if source is None:

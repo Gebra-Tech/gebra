@@ -15,6 +15,7 @@ guarded read that a ``try`` block swallowed still shows up in ``TRIPPED``.
 
 from __future__ import annotations
 
+import contextlib
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -22,6 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from langgraph.pregel._write import ChannelWriteEntry
+from langgraph.types import Send
 
 from gebra.extraction import (
     CompiledSurfaces,
@@ -1219,6 +1222,7 @@ def test_the_compiled_only_path_refuses_rather_than_drawing_a_foreign_object() -
         ("armed-checkpointer", "checkpointer"),
         ("armed-cache-policy", "cache key function"),
         ("armed-mapper-pregel", "write mapper"),
+        ("registered-mapper-pregel", "write mapper"),
         ("armed-root-pregel", "constructor"),
         ("recording-channel-pregel", "channel class"),
         ("socket-opening-pregel", "network"),
@@ -1407,6 +1411,478 @@ def test_the_recording_channel_is_the_only_thing_that_records() -> None:
         sc.pregel_step("anything")
 
 
+# ── EX-28 — the drawing's routing labels (DEC-38 §3.10) ──────────────────────────────────
+#
+# A dict-valued `destinations=` hands its label values to the drawing exactly as the author
+# wrote them, and the drawing hashes and compares each one. `DrawnDecision` records every
+# attribute read made on a member with the module that made it, into `DRAWN_LABEL_READS`
+# (and into `LABEL_READS`, the DEC-38 ledger). The compiled graphs are compiled before the
+# ledgers are cleared: compiling reads nothing of a label, but defining the enum class did.
+
+#: The reads LangGraph's own drawing makes of a `DrawnDecision` label, as ``(member, attribute,
+#: module)`` — measured identical on langgraph 1.0.10, 1.1.10 and 1.2.22 (CPython 3.10 and
+#: 3.13): ``Enum.__hash__`` reads ``_name_`` through the member's own attribute access, and
+#: ``pregel/_draw.py`` hashes every declared label while it draws (twelve reads for the two
+#: members on every cell measured; the count is not pinned, the reads are).
+SUBSTRATE_DRAWING_READS = frozenset(
+    {
+        ("TOOL", "_name_", "langgraph.pregel._draw"),
+        ("DONE", "_name_", "langgraph.pregel._draw"),
+    }
+)
+
+
+def _clear_label_ledgers() -> None:
+    sg.LABEL_READS.clear()
+    sg.DRAWN_LABEL_READS.clear()
+
+
+def _moduleless_instance() -> object:
+    """An instance of a class whose namespace holds no ``__module__`` key.
+
+    ``type()`` takes a new class's module from the calling frame's globals and writes none when
+    those globals have no ``__name__``, so ``type``'s own ``__module__`` descriptor raises on the
+    class. The gate must call such an entry a hazard, never let the error out of ``extract()``.
+    """
+    namespace: dict[str, Any] = {}
+    exec("Moduleless = type('Moduleless', (), {})", namespace)  # noqa: S102 - the fixture
+    moduleless = namespace["Moduleless"]
+    assert "__module__" not in moduleless.__dict__
+    instance: object = moduleless()
+    return instance
+
+
+def test_a_drawing_whose_routing_labels_are_not_strings_is_declined() -> None:
+    """The cross-check stands down before the drawing that would hash the author's labels.
+
+    ``destinations={"tool": DrawnDecision.TOOL, "review": DrawnDecision.DONE}`` compiles — the
+    substrate validates the dict's keys as targets and never looks at its values — and the
+    compiled node's write entry carries both members raw in its ``static`` triples. The gate
+    reads each label's type and nothing else of it, finds no ``str``, and declines: the
+    extraction makes no read of either member, and the IR is the builder reading's, as a
+    declined cross-check always leaves it (§4.3 rule 3).
+    """
+    compiled = sc.build_drawn_enum_label_compiled()
+    _clear_label_ledgers()
+
+    envelope = extract(compiled)
+
+    check = _cross_check(envelope)
+    assert check.performed is False
+    assert check.declined is not None
+    assert "the compiled graph declares the routing label of type tests:DrawnDecision" in (
+        check.declined
+    )
+    assert sg.DRAWN_LABEL_READS == []
+    assert sg.LABEL_READS == []
+    assert _warnings_of(envelope, ExtractionWarningCode.BUILDER_COMPILED_DIVERGENCE) == ()
+
+
+@pytest.mark.parametrize(
+    ("factory", "xray", "members"),
+    [
+        (sc.build_drawn_enum_label_compiled, True, ("TOOL", "DONE")),
+        (sc.build_drawn_enum_label_builderless, False, ("TOOL", "DONE")),
+        (sc.build_drawn_enum_label_subgraph_parent, True, ("TOOL", "DONE")),
+        (sc.build_registered_label_pregel, False, ("TOOL",)),
+    ],
+    ids=["compiled-twin", "builderless", "subgraph-parent", "registered-label"],
+)
+def test_the_declined_drawing_reads_the_labels_inside_the_substrate(
+    factory: Any, xray: bool, members: tuple[str, ...]
+) -> None:
+    """The control for every decline and refusal here: the drawing the gate stops does read them.
+
+    Called directly, outside any extraction and at the ``xray`` level the extraction would have
+    drawn at (``True`` for the cross-check, ``False`` where the drawing is the only surface),
+    ``get_graph()`` hashes each declared label, and every read it makes of a member is
+    ``_name_``, made from LangGraph's own ``langgraph.pregel._draw`` — the substrate's reads,
+    listed in :data:`SUBSTRATE_DRAWING_READS`, none of them gebra's. So each empty ledger in the
+    tests around this one is the gate stopping the drawing, not a recorder that stopped
+    recording; and the drawn path is not claimed to reach no code of the author's — this is the
+    code it reaches, which is why it is stopped. The registered writer's drawing raises after its
+    reads — LangGraph's own ``LastValue`` channel refuses the two writes its step makes to
+    ``answer`` (``InvalidUpdateError``, measured) — and the reads are what is asserted.
+    """
+    workflow = factory()
+    _clear_label_ledgers()
+    sg.TRIPPED.clear()
+
+    # The reads are the subject, not the drawing's outcome (the registered writer's raises) —
+    # and no node body ran: every body records into `sentinel_graph.TRIPPED` before it raises,
+    # so a swallowed one would still show below.
+    with contextlib.suppress(Exception):
+        workflow.get_graph(xray=xray)
+
+    assert sg.TRIPPED == []
+    expected = {entry for entry in SUBSTRATE_DRAWING_READS if entry[0] in members}
+    assert set(sg.DRAWN_LABEL_READS) == expected
+    _clear_label_ledgers()
+
+
+def test_the_compiled_twin_carries_the_builder_twins_edges_and_is_a_different_document() -> None:
+    """DEC-38 §3.10's parity, stated for this graph: one routing reading, two documents.
+
+    The builder twin extracts as EX-27 landed it — the members spelled by their stored values,
+    ``path_map: {"tool": "tool", "finished": "review"}``, nothing of either read. The compiled
+    twin takes its topology from the same builder reading (§4.3 rule 1), so its edges are the
+    builder twin's; its document adds the compiled-level ``runtime`` block, so the two are not
+    equal and are not claimed to be. On the drawn path, which DEC-38 §3.10 records as
+    knowability-downgraded, this graph has no document at all: a copy with no builder is refused
+    (the next test).
+    """
+    builder_envelope = extract(sg.build_drawn_enum_label_graph())
+    compiled_envelope = extract(sc.build_drawn_enum_label_compiled())
+
+    (conditional,) = [
+        edge for edge in builder_envelope.ir.edges if isinstance(edge, ConditionalEdge)
+    ]
+    assert conditional.from_ == "agent"
+    assert conditional.path_map == {"tool": "tool", "finished": "review"}
+    assert compiled_envelope.ir.edges == builder_envelope.ir.edges
+    assert compiled_envelope.ir.nodes == builder_envelope.ir.nodes
+    assert builder_envelope.ir.runtime is None
+    assert _checkpointer(compiled_envelope).present is False
+    assert compiled_envelope.graph_version() != builder_envelope.graph_version()
+
+
+def test_a_builderless_object_whose_drawing_carries_an_enum_label_is_refused() -> None:
+    """Where the drawing is the only surface, the gate's hazard is a boundary refusal (§1 rule 3).
+
+    Before EX-28 this copy extracted: the drawing ran — hashing both members — and the drawn
+    reading's ``isinstance(label, str)`` read ``__class__`` through each member and, finding no
+    ``str``, spelled the row by its target, ``{"review": "review"}`` where the declaration says
+    ``"finished"``. It is refused now, before the drawing, with nothing of either member read.
+    """
+    workflow = sc.build_drawn_enum_label_builderless()
+    _clear_label_ledgers()
+
+    with pytest.raises(ExtractionError) as raised:
+        extract(workflow)
+
+    assert raised.value.reason is ExtractionErrorReason.NO_EXTRACTABLE_SURFACE
+    assert "routing label of type tests:DrawnDecision" in str(raised.value)
+    assert sg.DRAWN_LABEL_READS == []
+    assert sg.LABEL_READS == []
+
+
+def test_the_label_check_reaches_every_level_xray_would_draw() -> None:
+    """A stock parent mounting the compiled twin: the drawing would draw the child too."""
+    compiled = sc.build_drawn_enum_label_subgraph_parent()
+    _clear_label_ledgers()
+
+    check = _cross_check(extract(compiled))
+
+    assert check.performed is False
+    assert check.declined is not None
+    assert "the subgraph at 'route' declares the routing label" in check.declined
+    assert sg.DRAWN_LABEL_READS == []
+
+
+@pytest.mark.parametrize(
+    ("name", "fragment"),
+    [
+        ("registered-label-pregel", "declares the routing label of type tests:DrawnDecision"),
+        ("registered-mapper-pregel", "write mapper builtins:function"),
+        ("registered-foreign-entry-pregel", "write entry of type tests:ForeignWriteEntry"),
+        ("registered-entry-subclass-pregel", "write entry of type tests:RecordingMapperEntry"),
+        ("foreign-write-entry-pregel", "write entry of type tests:ForeignWriteEntry"),
+        ("author-channel-write-pregel", "writer of type tests:ArmedChannelWrite"),
+        ("foreign-writer-pregel", "writer of type tests:ForeignWriter"),
+    ],
+)
+def test_a_writer_registered_for_the_drawing_is_read_by_the_gate(name: str, fragment: str) -> None:
+    """The drawing's second carrier of static writes, and every writer and entry the gate reads.
+
+    LangGraph registers a branch's writer with ``(entry, label)`` pairs; the drawing assembles
+    each entry — reading it through its class and calling its ``mapper`` — then hashes the label.
+    The gate reads all of it before any drawing: the label by its type; each writer and each
+    entry by its class, read from the class alone, and only then an entry's ``mapper`` by route
+    4's test — on this carrier and on a ``ChannelWrite``'s own entries. A writer whose class
+    LangGraph did not define is refused by its class as well: the drawing would invoke a
+    ``ChannelWrite`` subclass's own ``invoke`` and read any other writer. Every object is
+    builderless, so the hazard is a boundary refusal, and nothing records: the armed mapper, the
+    armed ``invoke`` and the author's entries and writer record into ``TRIPPED``, which the
+    autouse fixture asserts empty.
+    """
+    workflow = sc.REFUSED_COMPILED[name]()
+    _clear_label_ledgers()
+
+    with pytest.raises(ExtractionError) as raised:
+        extract(workflow)
+
+    assert raised.value.reason is ExtractionErrorReason.NO_EXTRACTABLE_SURFACE
+    assert fragment in str(raised.value)
+    assert sg.DRAWN_LABEL_READS == []
+
+
+@pytest.mark.parametrize(
+    ("name", "recorded"),
+    [
+        ("registered-foreign-entry-pregel", "ForeignWriteEntry.__getattribute__:__class__"),
+        ("registered-entry-subclass-pregel", "RecordingMapperEntry.mapper"),
+        ("foreign-write-entry-pregel", "ForeignWriteEntry.__getattribute__:__class__"),
+        ("foreign-writer-pregel", "ForeignWriter.__getattribute__:__class__"),
+    ],
+)
+def test_an_entry_of_the_authors_class_is_read_by_the_drawing(name: str, recorded: str) -> None:
+    """The control for the entry and writer cases above: the drawing reads them through their class.
+
+    Called directly, the drawing tests a foreign entry or writer with ``isinstance`` — reading its
+    ``__class__`` through its own attribute access — and reads a ``ChannelWriteEntry``
+    subclass's ``mapper`` through the subclass's property. So the empty ``TRIPPED`` above is the
+    gate deciding by the class alone, not a recorder that never records.
+    """
+    workflow = sc.REFUSED_COMPILED[name]()
+    sc.TRIPPED.clear()
+    sg.TRIPPED.clear()
+
+    # The reads are the subject, not the drawing's outcome (it fails on these entries) — and no
+    # node body ran: each records into `sentinel_graph.TRIPPED` before it raises.
+    with contextlib.suppress(Exception):
+        workflow.get_graph(xray=False)
+
+    assert sg.TRIPPED == []
+    assert recorded in sc.TRIPPED
+    sc.TRIPPED.clear()
+
+
+def test_an_authors_channel_write_is_invoked_by_the_drawing() -> None:
+    """The control for the armed ``ChannelWrite`` subclass: the drawing does call its ``invoke``.
+
+    The drawing invokes every ``ChannelWrite`` among a node's writers once ``flat_writers`` has
+    run, and a subclass it has not merged away keeps its own ``invoke``. The gate admitted such
+    a writer before this card — it read ``writes`` off it and found nothing to refuse.
+    """
+    workflow = sc.build_author_channel_write_pregel()
+    sc.TRIPPED.clear()
+
+    with pytest.raises(sc.ChannelSentinelError):
+        workflow.get_graph(xray=False)
+
+    assert sc.TRIPPED == ["ArmedChannelWrite.invoke"]
+    sc.TRIPPED.clear()
+
+
+def test_the_registered_mapper_is_one_the_drawing_runs() -> None:
+    """The control for the mapper case above: the drawing does run a registered entry's mapper.
+
+    Before EX-28 the gate scanned a ``ChannelWrite``'s own ``writes`` only, so this object passed
+    it and its drawing ran :func:`~tests.sample_workflows.sentinel_compiled.armed_mapper` from
+    ``ChannelWrite.get_static_writes`` — measured with langgraph 1.0.10, 1.1.10 and 1.2.22 on
+    CPython 3.13, and with 1.2.22 on 3.10.
+    """
+    workflow = sc.build_registered_mapper_pregel()
+
+    with pytest.raises(sc.ChannelSentinelError):
+        workflow.get_graph()
+
+    assert sc.TRIPPED == ["armed_mapper"]
+    sc.TRIPPED.clear()
+
+
+def test_a_stock_branch_writer_carries_its_declaration_where_the_gate_reads_it() -> None:
+    """The gate reads the registered carrier by the attribute LangGraph sets; this pins it.
+
+    Were a substrate to rename the attribute, the gate would read nothing there and say nothing
+    — so the attribute is asserted present, holding the shape the gate admits (an exact ``list``
+    of ``(entry, label)`` pairs, each entry LangGraph's own ``ChannelWriteEntry`` with no
+    ``mapper``, each label a ``str``), on a stock branch writer.
+    """
+    from gebra.extraction.compiled import _REGISTERED_DECLARATION, _declaration_hazard
+
+    compiled = sc.build_agreeing_graph()
+    declared = [
+        getattr(writer, _REGISTERED_DECLARATION, None)
+        for writer in compiled.nodes["plan_step"].writers
+    ]
+    (pairs,) = [entry for entry in declared if entry is not None]
+
+    assert type(pairs) is list
+    assert pairs
+    for pair in pairs:
+        assert type(pair) is tuple
+        assert len(pair) == 2
+        assert type(pair[0]) is ChannelWriteEntry
+        assert pair[0].mapper is None
+        assert type(pair[1]) is str
+    assert _declaration_hazard(pairs, width=2) is None
+
+
+@pytest.mark.parametrize(
+    ("make", "width", "fragment"),
+    [
+        (lambda: sg.RecordingList([("branch:to:a", None, "go")]), 3, "not an exact list or tuple"),
+        (lambda: (x for x in [("branch:to:a", None, "go")]), 3, "not an exact list or tuple"),
+        (lambda: [sg.RecordingTuple(("branch:to:a", None, "go"))], 3, "rather than the 3-tuple"),
+        (lambda: [("branch:to:a", None)], 3, "rather than the 3-tuple"),
+        (lambda: [("branch:to:a", None, "go")], 2, "rather than the 2-tuple"),
+        (lambda: [("branch:to:a", None, sg.RecordingDecision.TOOL)], 3, "routing label of type"),
+        (lambda: [("branch:to:a", None, 7)], 3, "routing label of type builtins:int"),
+        (
+            lambda: [(sc.ForeignWriteEntry(), "go")],
+            2,
+            "write entry of type tests:ForeignWriteEntry",
+        ),
+        (lambda: [(None, "go")], 2, "write entry of type builtins:NoneType"),
+        (lambda: [(_moduleless_instance(), "go")], 2, "which is not one LangGraph builds"),
+    ],
+    ids=[
+        "list-subclass",
+        "generator",
+        "tuple-subclass-member",
+        "short-member",
+        "long-pair",
+        "enum-label",
+        "int-label",
+        "foreign-entry",
+        "no-entry",
+        "entry-class-with-no-module",
+    ],
+)
+def test_a_declaration_the_gate_cannot_admit_is_a_hazard_read_without_its_own_methods(
+    make: Any, width: int, fragment: str
+) -> None:
+    """Every shape the gate does not admit is a hazard, and finding that out runs none of it.
+
+    LangGraph builds a static declaration as an exact ``list`` of exact ``tuple``s, and the
+    drawing reads it by iteration, indexing and unpacking — which a subclass answers with its
+    own methods. So the gate admits an exact ``list`` or ``tuple`` of exact tuples, read through
+    the built-in types themselves, and calls anything else a hazard rather than iterating it: the
+    recording containers and the recording member below are refused with their ledgers untouched.
+    """
+    from gebra.extraction.compiled import _declaration_hazard
+
+    declared = make()
+    sg.LABEL_READS.clear()
+    sc.TRIPPED.clear()
+
+    hazard = _declaration_hazard(declared, width=width)
+
+    assert hazard is not None
+    assert fragment in hazard
+    assert sg.LABEL_READS == []
+    assert sc.TRIPPED == []
+
+
+@pytest.mark.parametrize(
+    ("declared", "width"),
+    [
+        ([], 3),
+        ([("branch:to:a", None, "go"), ("__end__", None, None)], 3),
+        ((("branch:to:a", None, "go"),), 3),
+        ([("branch:to:a", None, sg.AgentDecisionStr.TOOL)], 3),
+        (
+            [
+                (ChannelWriteEntry("branch:to:a", None), "go"),
+                (ChannelWriteEntry("__end__", None), None),
+            ],
+            2,
+        ),
+        ([(Send("a", {}), "go")], 2),
+    ],
+    ids=["empty", "labels-and-none", "tuple-carrier", "string-mixin-label", "pairs", "send-pair"],
+)
+def test_the_shapes_langgraph_builds_are_admitted(declared: Any, width: int) -> None:
+    """The stock shapes pass, a ``str``-instance label included: a string-mixin member is one.
+
+    The gate admits what INTROSPECTION-SPEC §6 reads as a string label, and a string-mixin
+    member's hash and comparison are ``str``'s own (they precede ``Enum``'s in its MRO), so its
+    drawing reads nothing of it (``probe_static_carriers``: langgraph 1.0.10, 1.1.10 and 1.2.22
+    on CPython 3.13, 1.2.22 on 3.10). A registered pair's entry is LangGraph's own
+    ``ChannelWriteEntry`` with no mapper, or a ``Send``, which has none.
+    """
+    from gebra.extraction.compiled import _declaration_hazard
+
+    sg.LABEL_READS.clear()
+
+    assert _declaration_hazard(declared, width=width) is None
+    assert sg.LABEL_READS == []
+
+
+def test_a_string_subclass_label_is_admitted_by_its_type_alone() -> None:
+    """A ``str``-subclass label passes the gate, which reads its type and nothing of it.
+
+    What the drawing then does with it is the drawing's: it runs the label's own ``__hash__``
+    and ``__ne__`` (measured), the residue ``tests/never_invokes_audit.md`` states and this
+    card does not close — the gate's predicate is the one the card rules, a ``str`` instance.
+    """
+    from gebra.extraction.compiled import _declaration_hazard
+
+    label = sg.RecordingName("go to the tool")
+    sg.LABEL_READS.clear()
+
+    assert _declaration_hazard([("branch:to:tool", None, label)], width=3) is None
+    assert sg.LABEL_READS == []
+
+
+def test_a_drawn_row_whose_label_is_not_a_string_is_warned_and_read_unlabelled() -> None:
+    """The drawn reading stays total: a label it cannot spell is warned inside the IR.
+
+    The gate keeps such a label out of every drawing the substrate makes, so this row reaches
+    the reading only from a drawing the substrate did not make — handed in here as an authored
+    one. The reading tests the label's type alone (``isinstance`` read ``__class__`` through it
+    before EX-28), carries the row as an unlabelled one — by its target, the convention a
+    drawing's own unlabelled rows take — and says so with ``drawn-label-unrepresentable``:
+    INTROSPECTION-SPEC §2 keeps a supported object's unmappable construct inside the IR,
+    warned, and DEC-38 §3.10 applies its enum read on the drawn path nowhere.
+    """
+    workflow = _drawn(
+        {"__start__": None, "n1": None, "n2": None, "__end__": None},
+        [
+            sc.DrawnEdge("__start__", "n1"),
+            sc.DrawnEdge("n1", "n2", data=sg.DrawnDecision.TOOL, conditional=True),
+            sc.DrawnEdge("n1", "__end__", data=sg.DrawnDecision.DONE, conditional=True),
+            sc.DrawnEdge("n2", "__end__"),
+        ],
+    )
+    _clear_label_ledgers()
+
+    envelope = extract(workflow)
+
+    warnings = _warnings_of(envelope, ExtractionWarningCode.UNSUPPORTED_CONSTRUCT)
+    assert [warning.detail["construct"] for warning in warnings] == [
+        "drawn-label-unrepresentable",
+        "drawn-label-unrepresentable",
+    ]
+    assert all(warning.detail["ir_partial"] for warning in warnings)
+    assert all("tests:DrawnDecision" in warning.message for warning in warnings)
+    (conditional,) = [edge for edge in envelope.ir.edges if isinstance(edge, ConditionalEdge)]
+    assert conditional.path_map == {"n2": "n2"}
+    assert envelope.ir.finish == ("n1", "n2")
+    assert sg.DRAWN_LABEL_READS == []
+    assert sg.LABEL_READS == []
+
+
+def test_drawn_names_and_labels_are_read_as_built_in_strings() -> None:
+    """A ``str`` subclass in a drawing is copied to a built-in ``str`` before anything uses it.
+
+    The node ids, the endpoints and the label below are recording ``str`` subclasses. Every
+    comparison, hash and normalization after the read is ``str``'s own, because each one is
+    projected through ``"".join((value,))`` first — before EX-28 the reserved-segment test and
+    the comparisons with the sentinels ran their ``__hash__`` and ``__eq__``. The document is the
+    one their plain-string twins give.
+    """
+    name = sg.RecordingName
+    workflow = _drawn(
+        {"__start__": None, name("n1"): None, name("n2"): None, "__end__": None},
+        [
+            sc.DrawnEdge("__start__", name("n1")),
+            sc.DrawnEdge(name("n1"), name("n2"), data=name("go"), conditional=True),
+            sc.DrawnEdge(name("n2"), "__end__"),
+        ],
+    )
+    sg.LABEL_READS.clear()
+
+    envelope = extract(workflow)
+
+    assert sg.LABEL_READS == []
+    (conditional,) = [edge for edge in envelope.ir.edges if isinstance(edge, ConditionalEdge)]
+    assert conditional.path_map == {"go": "n2"}
+    assert type(next(iter(conditional.path_map))) is str
+    assert [node.id for node in envelope.ir.nodes] == ["n1", "n2"]
+
+
 # ── the taxonomy, held to its registry rows ──────────────────────────────────────────────
 
 
@@ -1522,12 +1998,17 @@ from langchain_core.runnables.base import Runnable
 from langgraph.graph.state import StateGraph
 from langgraph.pregel._write import ChannelWrite
 from tests.sample_workflows import sentinel_compiled as sc
+from tests.sample_workflows import sentinel_graph as sg
 
 # Compile every fixture while compile() still exists. Compiling is the fixture's own step;
 # what §1 rule 2 forbids is extraction ever taking it, which the raiser below checks.
 extractable = {name: factory() for name, factory in sc.EXTRACTABLE_COMPILED.items()}
 refused = {name: factory() for name, factory in sc.REFUSED_COMPILED.items()}
 sc.TRIPPED.clear()
+# Defining the recording enum read its members; compiling reads nothing of a label. Every
+# extraction below starts from empty label ledgers and must leave them empty (EX-28).
+del sg.LABEL_READS[:]
+del sg.DRAWN_LABEL_READS[:]
 
 assert attempts == [], attempts
 socket.socket = _TripSocket
@@ -1583,6 +2064,10 @@ assert "langgraph.pregel.remote" not in sys.modules, [m for m in sys.modules if 
 # The armed channels never answered anything but the licensed ValueType read: `get`/`update`
 # would have raised, and this record is what catches one an `except` block swallowed.
 assert [call for call in sc.TRIPPED if not call.startswith("ValueType")] == [], sc.TRIPPED
+# The drawing gate declined every drawing whose declared routing labels are not strings, so no
+# member was hashed — not by gebra, and not by a drawing gebra took (EX-28; DEC-38 §3.10).
+assert sg.DRAWN_LABEL_READS == [], sg.DRAWN_LABEL_READS
+assert sg.LABEL_READS == [], sg.LABEL_READS
 """
 
 _REPORT = "print(attempts)\n"
@@ -1616,7 +2101,10 @@ def test_compiled_extraction_invokes_nothing_and_compiles_nothing() -> None:
     And the two user-authored channels record before they act, so the child asserts the record
     rather than only its own exit status: the cross-check's never-invokes precondition is what
     keeps that record empty, and a precondition that quietly stopped working would show up here as
-    a recorded ``ArmedChannel.get`` even though the extraction still succeeded.
+    a recorded ``ArmedChannel.get`` even though the extraction still succeeded. The same holds
+    for the routing-label ledgers (EX-28): the enum members a ``destinations=`` dict hands the
+    drawing record every attribute read, and the child asserts none was made — the gate declined
+    each such drawing before it ran.
 
     The counts come from the fixture tables, so a shape added there joins this claim with it.
     """
@@ -1635,14 +2123,23 @@ def test_compiled_extraction_invokes_nothing_and_compiles_nothing() -> None:
         ("socket.getaddrinfo('example.invalid', 80)\n", "getaddrinfo was reached"),
         ("socket.gethostbyname('example.invalid')\n", "gethostbyname was reached"),
         ("socket.create_connection(('example.invalid', 80))\n", "create_connection was reached"),
+        (
+            (
+                "hash(sg.DrawnDecision.TOOL)\n"
+                "assert sg.DRAWN_LABEL_READS == [], 'the drawn-label ledger records'\n"
+            ),
+            "the drawn-label ledger records",
+        ),
     ],
-    ids=["compile", "socket", "getaddrinfo", "gethostbyname", "create_connection"],
+    ids=["compile", "socket", "getaddrinfo", "gethostbyname", "create_connection", "label-ledger"],
 )
 def test_each_raiser_is_armed(probe: str, expected: str) -> None:
     """A tripwire nobody trips proves nothing — so every raiser gets its own control.
 
     The controls run *after* the child's own assertions, so each one proves the raiser was live
-    at the end of the very run that made the claim.
+    at the end of the very run that made the claim. The last one hashes a ``DrawnDecision``
+    member — what a drawing does to a declared label — and shows the ledger the child asserts
+    empty records it (EX-28).
     """
     result = _run_guarded(probe)
 

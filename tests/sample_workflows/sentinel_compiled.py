@@ -39,14 +39,16 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.pregel import NodeBuilder, Pregel
-from langgraph.pregel._write import ChannelWriteEntry
+from langgraph.pregel._write import ChannelWrite, ChannelWriteEntry
 from langgraph.types import CachePolicy, RetryPolicy
 
 from tests import substrate
 from tests.sample_workflows.sentinel_graph import (
+    DrawnDecision,
     SentinelExecutedError,
     SentinelState,
     act_step,
+    build_drawn_enum_label_graph,
     plan_step,
     raiser,
     summarize_step,
@@ -495,6 +497,203 @@ def build_command_routing_graph() -> CompiledStateGraph[RouterState]:
     return builder.compile()
 
 
+# ── the drawing's routing labels (DEC-38 §3.10; EX-28) ───────────────────────────────────
+#
+# A drawing hashes and compares every routing label a writer declares for it, and a dict-valued
+# `destinations=` hands it the author's own objects. The compiled path's gate declines such a
+# drawing (EX-28). `DrawnDecision` records every attribute read made on one of its members, with
+# the module that made it, into `sentinel_graph.DRAWN_LABEL_READS`.
+
+
+def build_drawn_enum_label_compiled() -> CompiledStateGraph[SentinelState]:
+    """The compiled twin of ``build_drawn_enum_label_graph``: builder-primary, drawing declined."""
+    return build_drawn_enum_label_graph().compile()
+
+
+def build_drawn_enum_label_builderless() -> CompiledStateGraph[SentinelState]:
+    """The same compiled graph with its builder removed: the drawing is its only surface.
+
+    A copy rather than the object itself, so the builder-primary twin above stays intact; the
+    copy keeps the compiled nodes, whose write entries still carry both members raw in their
+    ``static`` triples. Extraction refuses it at the boundary before drawing (EX-28).
+    """
+    stripped = build_drawn_enum_label_compiled().copy()
+    del stripped.builder
+    return stripped
+
+
+def build_drawn_enum_label_subgraph_parent() -> CompiledStateGraph[SentinelState]:
+    """A stock parent mounting the compiled twin as a subgraph — the gate's ``xray`` scope.
+
+    ``xray`` draws each discovered subgraph with the same loop, so the label check has to reach
+    one level down, as every other precondition of the gate does.
+    """
+    parent: StateGraph[Any] = StateGraph(SentinelState)
+    parent.add_node("plan_step", plan_step)
+    parent.add_node("route", build_drawn_enum_label_compiled())
+    parent.add_edge(START, "plan_step")
+    parent.add_edge("plan_step", "route")
+    parent.add_edge("route", END)
+    return parent.compile()
+
+
+def _registered_writer_pregel(declared: Any) -> Pregel[Any, Any, Any, Any]:
+    """A hand-built ``Pregel`` one of whose writers ``ChannelWrite.register_writer`` marks.
+
+    The second carrier of a drawing's static writes: LangGraph registers a branch's writer with
+    its ``(entry, label)`` pairs this way, and the drawing reads them through
+    ``ChannelWrite.get_static_writes`` — assembling each entry, which calls its ``mapper``, then
+    hashing its label. The registered object is the armed ``pregel_step`` wrapped as LangGraph
+    wraps a node function (a hashable runnable — the drawing keeps the writers it has read in a
+    set), and a drawing never invokes it: only a ``ChannelWrite`` is invoked.
+    """
+    bound = NodeBuilder().do(pregel_step).build().bound
+    writer = ChannelWrite.register_writer(bound, static=declared)
+    node = NodeBuilder().subscribe_only("question").do(pregel_step).write_to("answer").build()
+    node.writers.append(writer)
+    return Pregel(
+        nodes={"pregel_step": node},
+        channels={"question": LastValue(str), "answer": LastValue(str)},
+        input_channels="question",
+        output_channels="answer",
+    )
+
+
+def build_registered_label_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A registered static write whose label is a ``DrawnDecision`` member — refused, unread."""
+    return _registered_writer_pregel([(ChannelWriteEntry("answer", None), DrawnDecision.TOOL)])
+
+
+def build_registered_mapper_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A registered static write whose entry carries :func:`armed_mapper` — route 4, refused.
+
+    The drawing assembles a registered pair's entry through its mapper before it reads the label
+    (``_assemble_writes``), and the gate scanned only a ``ChannelWrite``'s own ``writes`` before
+    EX-28 — so this mapper ran while the drawing was taken (measured with langgraph 1.0.10, 1.1.10
+    and 1.2.22, on CPython 3.13 and, for 1.2.22, 3.10).
+    """
+    return _registered_writer_pregel(
+        [(ChannelWriteEntry("answer", None, mapper=armed_mapper), "go to the answer")]
+    )
+
+
+class ForeignWriteEntry:
+    """A write entry of the author's own class, recording every attribute read made on it.
+
+    The drawing reads an entry through its own class — ``isinstance`` tests (its ``__class__``),
+    its fields, and a message that renders it — so the gate decides it by its class alone and
+    reads nothing of it: an extraction leaves :data:`TRIPPED` without one of these records.
+    """
+
+    def __init__(self) -> None:
+        object.__setattr__(self, "channel", "answer")
+        object.__setattr__(self, "value", None)
+        object.__setattr__(self, "mapper", None)
+
+    def __getattribute__(self, name: str) -> Any:
+        TRIPPED.append(f"ForeignWriteEntry.__getattribute__:{name}")
+        return object.__getattribute__(self, name)
+
+
+class RecordingMapperEntry(ChannelWriteEntry):
+    """LangGraph's write entry subclassed by the author, its ``mapper`` a recording property.
+
+    An instance of a class the author defined, however it derives: the gate refuses it by its
+    class before its ``mapper`` — which the drawing would read through this property — is read.
+    """
+
+    __slots__ = ()
+
+    @property
+    def mapper(self) -> Any:  # a field shadowed by a property is the fixture
+        TRIPPED.append("RecordingMapperEntry.mapper")
+        return None
+
+
+class ArmedChannelWrite(ChannelWrite):
+    """LangGraph's ``ChannelWrite`` subclassed by the author, its ``invoke`` armed.
+
+    The drawing invokes every ``ChannelWrite`` among a node's writers — a subclass's own
+    ``invoke`` included, once ``flat_writers`` has not merged it away — so the gate decides a
+    writer by its class before anything else; this one is the author's. Records into
+    :data:`TRIPPED`, then raises :class:`ChannelSentinelError` (a ``BaseException``, which the
+    drawing's ``except Exception`` cannot swallow).
+    """
+
+    def invoke(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override, unused-ignore]
+        TRIPPED.append("ArmedChannelWrite.invoke")
+        raise ChannelSentinelError("an author's ChannelWrite.invoke ran during extraction")
+
+
+class ForeignWriter:
+    """A writer of the author's own class, recording every attribute read made on it.
+
+    Hashable, as the drawing needs a writer to be; the drawing reads it while it prepares the
+    node (its ``__class__``, its ``__call__``), and the gate refuses it by its class alone.
+    """
+
+    def __hash__(self) -> int:
+        return 0
+
+    def __getattribute__(self, name: str) -> Any:
+        TRIPPED.append(f"ForeignWriter.__getattribute__:{name}")
+        return object.__getattribute__(self, name)
+
+
+def _writer_pregel(writer: Any) -> Pregel[Any, Any, Any, Any]:
+    """A hand-built ``Pregel`` whose one node's only writer is ``writer``.
+
+    Only, because ``PregelNode.flat_writers`` merges trailing consecutive ``ChannelWrite``s into
+    one stock ``ChannelWrite`` — beside the writer ``build()`` gives the node, a subclass would
+    be merged away before the drawing ever saw it.
+    """
+    node = NodeBuilder().subscribe_only("question").do(pregel_step).build()
+    node.writers.clear()
+    node.writers.append(writer)
+    return Pregel(
+        nodes={"pregel_step": node},
+        channels={"question": LastValue(str), "answer": LastValue(str)},
+        input_channels="question",
+        output_channels="answer",
+    )
+
+
+def build_author_channel_write_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A node whose writer is an :class:`ArmedChannelWrite` — refused before the drawing."""
+    return _writer_pregel(ArmedChannelWrite([ChannelWriteEntry("answer")]))
+
+
+def build_foreign_writer_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A node whose writer is a :class:`ForeignWriter` — refused by its class, unread."""
+    return _writer_pregel(ForeignWriter())
+
+
+def build_registered_foreign_entry_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A registered static write whose entry is a :class:`ForeignWriteEntry` — refused, unread."""
+    return _registered_writer_pregel([(ForeignWriteEntry(), "go to the answer")])
+
+
+def build_registered_entry_subclass_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A registered static write whose entry is a :class:`RecordingMapperEntry` — refused, unread."""
+    return _registered_writer_pregel([(RecordingMapperEntry("answer", None), "go to the answer")])
+
+
+def build_foreign_write_entry_pregel() -> Pregel[Any, Any, Any, Any]:
+    """A ``ChannelWrite`` among a node's writers whose entry is a :class:`ForeignWriteEntry`.
+
+    The invoked carrier: the drawing invokes every ``ChannelWrite``, which reads each entry
+    through its class; the gate refuses the object by the entry's class, reading nothing of it.
+    """
+    node = NodeBuilder().subscribe_only("question").do(pregel_step).write_to("answer").build()
+    node.writers.append(ChannelWrite([ForeignWriteEntry()]))  # type: ignore[list-item]
+    return Pregel(
+        nodes={"pregel_step": node},
+        channels={"question": LastValue(str), "answer": LastValue(str)},
+        input_channels="question",
+        output_channels="answer",
+    )
+
+
 # ── §4.3 rule 4: builderless Pregel objects ──────────────────────────────────────────────
 
 
@@ -775,6 +974,10 @@ EXTRACTABLE_COMPILED: dict[str, Any] = {
     "armed-channel-subgraph": build_armed_channel_subgraph_parent,
     "command-routing": build_command_routing_graph,
     "gated-pregel": build_gated_pregel,
+    # EX-28: drawings whose `destinations=` labels are enum members, declined at the root and
+    # one `xray` level down; the IR comes from the builder reading either way.
+    "drawn-enum-label": build_drawn_enum_label_compiled,
+    "drawn-enum-label-subgraph": build_drawn_enum_label_subgraph_parent,
 }
 # The 1.2-era shapes, joined to the table only where their builder API exists. The two
 # conditions are separate members of :mod:`tests.substrate` rather than one "is 1.2" flag, so
@@ -795,6 +998,19 @@ REFUSED_COMPILED: dict[str, Any] = {
     "third-party-protocol-pregel": lambda: DrawnPregel(
         Drawing({"__start__": None, "n1": None}, [DrawnEdge("__start__", "n1")])
     ),
+    # EX-28: the drawing is the only surface, and it would hash an enum label (the builderless
+    # twin; a registered static write) or run a registered static write's mapper (route 4).
+    "drawn-enum-label-pregel": build_drawn_enum_label_builderless,
+    "registered-label-pregel": build_registered_label_pregel,
+    "registered-mapper-pregel": build_registered_mapper_pregel,
+    # ...and an entry whose class is the author's, on either carrier, refused by its class alone.
+    "registered-foreign-entry-pregel": build_registered_foreign_entry_pregel,
+    "registered-entry-subclass-pregel": build_registered_entry_subclass_pregel,
+    "foreign-write-entry-pregel": build_foreign_write_entry_pregel,
+    # ...and a writer whose class is the author's: a `ChannelWrite` subclass the drawing would
+    # invoke, and a foreign object it would read.
+    "author-channel-write-pregel": build_author_channel_write_pregel,
+    "foreign-writer-pregel": build_foreign_writer_pregel,
 }
 
 __all__ = [
@@ -803,6 +1019,7 @@ __all__ = [
     "TRIPPED",
     "UNAVAILABLE_COMPILED",
     "ArmedChannel",
+    "ArmedChannelWrite",
     "ArmedRootValueType",
     "ArmedSaver",
     "ArmedState",
@@ -810,10 +1027,13 @@ __all__ = [
     "Drawing",
     "DrawnEdge",
     "DrawnPregel",
+    "ForeignWriteEntry",
+    "ForeignWriter",
     "LastValue",
     "LegState",
     "NodelessPregel",
     "RecordingChannel",
+    "RecordingMapperEntry",
     "RecordingState",
     "RouterState",
     "SentinelExecutedError",
@@ -829,15 +1049,25 @@ __all__ = [
     "build_armed_checkpointer_graph",
     "build_armed_mapper_pregel",
     "build_armed_root_pregel",
+    "build_author_channel_write_pregel",
     "build_command_routing_graph",
+    "build_drawn_enum_label_builderless",
+    "build_drawn_enum_label_compiled",
+    "build_drawn_enum_label_subgraph_parent",
     "build_empty_gates_graph",
     "build_error_handler_graph",
     "build_folded_defaults_graph",
+    "build_foreign_write_entry_pregel",
+    "build_foreign_writer_pregel",
     "build_gated_graph",
     "build_gated_pregel",
     "build_natural_divergence",
     "build_recording_channel_graph",
     "build_recording_channel_pregel",
+    "build_registered_entry_subclass_pregel",
+    "build_registered_foreign_entry_pregel",
+    "build_registered_label_pregel",
+    "build_registered_mapper_pregel",
     "build_router_to_end_graph",
     "build_seeded_divergence",
     "build_subgraph_parent",

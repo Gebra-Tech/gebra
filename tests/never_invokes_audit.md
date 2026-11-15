@@ -33,7 +33,7 @@ nothing.
 | `state.py` — Σ (state-schema) projection | §3 | `tests/extraction/test_state.py` | pydantic validators, `__init_subclass__`, `ValueType`, reducers armed |
 | `contracts.py` — §3/§6 precedence + §6 wrapper walk | §3/§6 | `tests/extraction/test_contracts.py` | `StateNodeSpec.runnable` wrapper-chain reads armed (`TRIPPED`/`PROBED`) |
 | `inference.py` — §4 engine-side warning records | §4 | `tests/extraction/test_contracts.py` (shares) | reaches no substrate of its own; shares the contract path's guard |
-| `compiled.py` — `CompiledStateGraph`/`Pregel` (§4) + `get_graph()` gate | §4 | `tests/extraction/test_compiled.py`; the subgraph disclosure's union and getter also `tests/extraction/test_disclosures.py` | six drawing routes armed (table 2); `Runnable.invoke` armed with a counted `ChannelWrite` allow-list |
+| `compiled.py` — `CompiledStateGraph`/`Pregel` (§4) + `get_graph()` gate | §4 | `tests/extraction/test_compiled.py`; the subgraph disclosure's union and getter also `tests/extraction/test_disclosures.py` | six drawing routes armed (table 2), and the routing labels a drawing would hash recorded with the module that read them (§4's EX-28 entry); `Runnable.invoke` armed with a counted `ChannelWrite` allow-list |
 | `lcel.py` — LCEL fragment (§5) stitching | §5 | `tests/extraction/test_lcel.py` | every `Runnable` execution entry point + `get_graph` + `uuid4` armed |
 | `digests.py` — §7.4 prompt/config digests | §7.4 | `tests/extraction/test_digests.py` | `repr`/`__str__`/config-source reads armed (`TRIPPED`) |
 | `stock.py` — §7.4(a) stock binding-wrapper enumeration | §7.4(a) | `tests/extraction/test_digests.py` (`NonStockBinding`) | non-stock `kwargs` records and raises; `tests/extraction/test_stock.py` re-derives the enumeration from the installed substrate |
@@ -72,7 +72,7 @@ asserted in `tests/extraction/test_compiled.py`.
 | 1 | a user `BaseChannel` method (earliest `from_checkpoint`) | `ArmedChannel` |
 | 2 | a checkpointer's `get_next_version()` | `ArmedSaver` |
 | 3 | a node `cache_policy.key_func` | `armed_cache_key` |
-| 4 | a `ChannelWrite` entry `mapper` (a literal `Runnable.invoke`) | `armed_mapper` |
+| 4 | a `ChannelWrite` entry `mapper` (a literal `Runnable.invoke`), and the entry of a static write a writer registers for the drawing, assembled through its `mapper` (EX-28) | `armed_mapper`, invoked (`build_armed_mapper_pregel`) and registered (`build_registered_mapper_pregel`) |
 | 5 | a `__root__` channel's `ValueType()`, **called as a constructor** | `ArmedRootValueType` |
 | 6 | a builderless `PregelProtocol` object's network call (`RemoteGraph`) | `SocketOpeningPregel`; the child also asserts `langgraph.pregel.remote` never enters `sys.modules` |
 
@@ -80,6 +80,12 @@ The gate lets one thing through by design: a drawing of a *stock* `Pregel` runs 
 `ChannelWrite.invoke` on LangGraph's own objects — library code, not the workflow. The compiled
 guarded child arms `Runnable.invoke`, allow-lists `ChannelWrite`, and **counts** those calls, so
 that stated residue is a counted one and every other invoke trips.
+
+One read outside the six is gated too, since EX-28: a drawing hashes and compares every routing
+label a writer declares for it, and a dict-valued `destinations=` hands it the author's own
+objects (DEC-38 §3.10). The gate declines a drawing whose declared labels are not all `str`
+instances, with `DrawnDecision` (`tests/sample_workflows/sentinel_graph.py`) as the armed label;
+§4's EX-28 entry names the substrate's reads and what the gate still admits.
 
 ## 3. The §1 rule 4 named hazards and the consolidated adversarial suite
 
@@ -1226,14 +1232,15 @@ value and hashes each member through `_name_`; the string-annotation twin record
 the separate `EVALUATED_READS` ledger, and `test_builder.py` asserts extraction makes exactly
 the reads one `get_type_hints()` call makes in the same typing-cache state — and none on the
 resolved twin. (2) On a **compiled** graph whose `destinations=` dict holds an enum member as a
-label, extraction now succeeds where it used to stop at a raw `TypeError`, and the compiled-level
-cross-check's `get_graph()` drawing — LangGraph's own code — hashes the member while drawing
-(reads of `_name_` through the member's attribute access, all inside
-`langgraph/pregel/_draw.py` on the pinned substrate and none by gebra's own code — measured
-when this card landed, not pinned by a test). That is the substrate-side
-route DEC-38 §3.10 records outside A1-D19's six pinned drawing routes, and it is not changed
-here: the armed `AgentDecision` is never compiled (the substrate calls `str()` on every branch
-label at `compile()`), and no compiled fixture with an enum label value is added. (3) Naming a
+label, extraction now succeeds where it used to stop at a raw `TypeError`. The compiled-level
+cross-check's `get_graph()` drawing — LangGraph's own code — would hash the member (reads of
+`_name_` through the member's attribute access, all inside `langgraph/pregel/_draw.py`): the
+substrate-side route DEC-38 §3.10 records outside A1-D19's six pinned drawing routes. This card
+left it unchanged; EX-28 closed gebra's half of it — the gate declines that drawing, so an
+extraction makes none of those reads, and a test pins them as the substrate's own by calling
+the declined drawing directly (its entry below, with `DrawnDecision`, the compiled fixture that
+carries an enum label value). The armed `AgentDecision` is never compiled: the substrate calls
+`str()` on every branch label at `compile()`. (3) Naming a
 type goes through `gebra.naming.type_identity`, which reads `__module__` through `type`'s own
 descriptor — a lookup in that class's namespace, where a planted `str`-subclass `__module__`
 key's comparison would run. On these routes it names the label's type and a refused target's
@@ -1527,6 +1534,158 @@ term or the loop re-entry read-out; `tests/verify/test_send_payload.py` reaches 
 (the entry-wired and loop shapes), data-only (observed with socket creation, name resolution and
 connect set to raise).
 
+### EX-28 — the drawing's routing labels, and the static writes a writer registers for it
+
+No extraction path is added — `compiled.py` keeps its §1 row — but its gate and its drawn
+reading change on three routes, each landed with fixtures that record a regression (DEC-38 §3.10;
+INTROSPECTION-SPEC §1 rule 3). **The labels a drawing hashes.** A dict-valued `destinations=`
+keeps its label values as the author wrote them: the substrate checks the dict's keys as targets,
+never looks at its values, and puts each value raw into the compiled node's write entry
+(`ChannelWriteTupleEntry.static`), where `get_graph()` hashes and compares it.
+`compiled._declaration_hazard` now reads every static write a writer declares for the drawing —
+on that entry, and on a writer `ChannelWrite.register_writer` marked, which is how a branch's
+`(entry, label)` pairs travel — and the gate declines the drawing when a label is not a `str`
+instance: on the builder-primary path the cross-check is declined and recorded, and where the
+drawing is the only surface the object is refused at the boundary (`no-extractable-surface`). A
+label is tested by `issubclass(type(label), str)` and nothing else of it is read; a declaration
+is read only when it is an exact `list` or `tuple` of exact `tuple`s of the right width, and any
+other container or member is called a hazard rather than iterated. DEC-38's enum read is not
+applied in the gate: the card left the choice open (decline the drawing, or admit the ruled enum
+form through that read) and it is decline, because the read certifies a member's stored value and
+nothing about its own methods, while the drawing hashes the member. **Route 4, on its second
+carrier, and the writers and entries themselves.** The drawing assembles a registered pair's
+entry through the entry's `mapper` before it reads the label (`ChannelWrite.get_static_writes`);
+the gate used to scan a `ChannelWrite`'s own `writes` only, so on a hand-built `Pregel` whose
+registered static write carried a user mapper that mapper ran while the drawing was taken. And the
+drawing invokes every `ChannelWrite` among a node's writers — a subclass's own `invoke` included —
+and reads every other writer while it prepares the node, where the gate read only `writes` off a
+writer and admitted a `ChannelWrite` subclass of the author's. Every writer and every write entry
+the gate reads is now decided by its class first, read from the class alone
+(`compiled._class_from_substrate`: the class's module through `type`'s own descriptor, an exact
+`str`, the `__module__` provenance §5 states; a class whose module cannot be read so is not
+LangGraph's): one whose class LangGraph did not define — a foreign object, a subclass of
+LangGraph's own, or another package's class — is a hazard and nothing of it is read; on
+LangGraph's own the gate's reads are attribute reads of LangGraph classes, and an entry's
+`mapper` takes route 4's test. **The drawn reading.**
+`_drawn_node_ids`, `_drawn_edges` and `_drawn_edge_records` read
+each drawn id and label through `_drawn_text` — `issubclass(type(x), str)`, then
+`"".join((x,))` — so a `str` subclass's own methods do not run and a label that is not a string
+has no attribute read, where `isinstance(label, str)` read its `__class__`. The gate keeps such a
+label out of every drawing LangGraph makes, so it reaches the reading only from a drawing the
+substrate did not make; the row is read as unlabelled and warned `unsupported-construct`
+(`drawn-label-unrepresentable`), where it used to be respelled by its target with no warning.
+
+The fixtures. `tests/sample_workflows/sentinel_graph.py`: `DrawnDecision`, a plain `Enum` whose
+members record every attribute read into `LABEL_READS` and, with the module that triggered the
+read, into `DRAWN_LABEL_READS`; `build_drawn_enum_label_graph`, a node routing by
+`destinations={"tool": DrawnDecision.TOOL, "review": DrawnDecision.DONE}`, in
+`EXTRACTABLE_BUILDERS`, so `test_builder.py`'s guarded child covers the builder twin.
+`tests/sample_workflows/sentinel_compiled.py`: the compiled twin and a stock parent mounting it
+(`drawn-enum-label`, `drawn-enum-label-subgraph`) in `EXTRACTABLE_COMPILED`, and eight refusals
+in `REFUSED_COMPILED` — `drawn-enum-label-pregel` (the compiled twin with its builder removed),
+`registered-label-pregel`, `registered-mapper-pregel` (its registered entry carries
+`armed_mapper`), `registered-foreign-entry-pregel` and `registered-entry-subclass-pregel` (a
+registered entry that is a `ForeignWriteEntry`, whose every attribute read records, and a
+`RecordingMapperEntry`, a `ChannelWriteEntry` subclass whose `mapper` is a recording property),
+`foreign-write-entry-pregel` (a `ForeignWriteEntry` among a `ChannelWrite`'s own entries),
+`author-channel-write-pregel` (an `ArmedChannelWrite`, a `ChannelWrite` subclass whose `invoke`
+records and raises, as a node's only writer, which nothing merges away) and
+`foreign-writer-pregel` (a `ForeignWriter`, a writer object whose every attribute read records).
+`tests/extraction/test_compiled.py` asserts the twin's cross-check declined with both ledgers
+empty; lists the substrate's own reads (`SUBSTRATE_DRAWING_READS`: `_name_` on each member, from
+`langgraph.pregel._draw`) in a control that calls each stopped drawing directly at the `xray`
+level extraction would draw — the compiled twin, the builderless copy, the subgraph parent and the
+registered label — with `sentinel_graph.TRIPPED` asserted empty after it, so no node body ran
+either; declines the subgraph level; refuses the builderless objects with both ledgers and
+`TRIPPED` empty, beside controls showing a drawing does run the registered mapper and the
+`ArmedChannelWrite`'s `invoke`, and does read the author's entries and writer (`__class__`
+through their own attribute access, the subclass's `mapper` property); pins that a stock branch
+writer carries its declaration under the attribute the gate reads, each entry LangGraph's own
+`ChannelWriteEntry`; runs the gate's verdicts over recording containers, members and entries —
+an entry whose class has no `__module__` key among them — with `LABEL_READS` and `TRIPPED`
+untouched; and extracts two authored drawings — rows labelled with `DrawnDecision` members
+(warned, nothing read) and ids and a label that are `RecordingName` objects (nothing recorded).
+The guarded child clears both ledgers after compiling, asserts them empty once every fixture has
+been extracted, and carries a `label-ledger` control. Run against the gate as it stood before
+this card (a scratch copy of the tree with the earlier `compiled.py`), these tests failed: the
+cross-checks ran, the builderless copy extracted, the registered mapper and the author's
+`ChannelWrite.invoke` ran inside `extract()` — the mapper in the guarded child too — the author's
+entries and writer were read (the foreign objects' `mapper`, `writes` and `__class__` through
+their own attribute access, the subclass's `mapper` property), the authored rows were not
+warned, and the recording names had their `__hash__` and `__eq__` run.
+
+**The parity, stated as DEC-38 §3.10 states it.** The builder twin extracts as EX-27 landed it,
+`path_map: {"tool": "tool", "finished": "review"}`, reading nothing of either member. The compiled
+twin takes its topology from the same builder reading, so its edges equal the builder twin's;
+its document adds the compiled-level `runtime` block, so the two documents differ and are not
+claimed equal. On the drawn path, which DEC-38 §3.10 records as knowability-downgraded, this graph
+has no document now: before this card its builderless copy extracted as `{"review": "review",
+"tool": "tool"}` — the row declared `"finished"` respelled by its target — and it is refused.
+
+**What the substrate reads, named** — measured on CPython 3.13.3 with langgraph 1.2.22 and
+langchain-core 1.8.0, and in scratch environments built with compatibility cell 1's pins (CPython
+3.13.15, langgraph 1.0.10, langchain-core 1.1.3), cell 2's (1.1.10, 1.3.3) and cell 3's on CPython
+3.10.20 (1.2.22, 1.7.7). `compile()` reads nothing of either member. A drawing of the compiled
+twin — `get_graph(xray=True)` or `xray=False` — reads `_name_` on each member through
+`Enum.__hash__`, twelve times for the two members on every environment, each read from
+`langgraph.pregel._draw` (on 3.10 two of them from its set comprehension's own frame). The test
+pins the reads and their module, not the count. Since this card an extraction makes none of
+them.
+
+**Residue, stated rather than hidden.** (1) The gate admits a `str` instance, as INTROSPECTION-SPEC
+§6 reads one as a string label, and the drawing still runs the hash and comparison a `str` subclass
+defines for itself — measured on a `str`-subclass label (its own `__hash__` and `__ne__`) and,
+reachable from LangGraph's own builders, on a `str`-subclass target equal to `END` in a
+`destinations=` dict or a branch `path_map`, which the builders keep as the static write's channel
+object (its own `__eq__`, `__ne__` and `__hash__` — ten calls with the probe's recorder, the
+cross-check performed, the extraction complete); a stock string-mixin member's are `str`'s own, and
+a drawing reads nothing of it. (2) The gate reads a static write's label and, on a registered pair,
+its entry — not the channel, the value or a registered entry's `skip_none`, which LangGraph's
+builders write as a string, `None` and the default. On a hand-built `Pregel` the drawing tests a
+value for truth and hashes it (measured: its own `__bool__` and `__hash__`), tests `skip_none` for
+truth (its `__bool__`), runs a `str`-subclass channel's own comparison and hash, and hashes a
+registered `Send`'s payload through `Send.__hash__` — that one extracts, as before this card. The
+invoked carrier is read the same way: the drawing tests the value a `ChannelWriteEntry` holds for
+truth and hashes it (a value the public `NodeBuilder.write_to(answer=<object>)` sets), hashes an
+invoked `Send`'s payload, and renders a LangGraph object that is no write entry into its "Invalid
+write entry" message (measured: `Command(update=obj)` ran `obj.__bool__` and `__repr__`). (3) The
+gate names a refused label's, entry's or writer's type, and the drawn reading a warned conditional
+row's, through `gebra.naming.type_identity` — the route EX-27's residue (3) states and EX-30
+carries; the class test reads a class's module through the same namespace lookup. (4) The gate's
+reads of a writer (`writes`, and `_is_channel_writer`, new with this card) and of an entry
+(`mapper`; `static`, new with this card) are attribute reads made only once the object's class is
+known to be LangGraph's, so they run LangGraph's attribute access, not the author's. Two of the
+gate's reads still go through an object of the author's: it iterates a node's `writers` and a
+`ChannelWrite`'s `writes` as they come, through the container's own `__class__` and `__iter__`
+(measured with a recording `list` subclass, as before this card; the admitted drawing never reads
+`writers`' `__class__` or calls its `__iter__`: it tests it for truth where it copies a node to drop
+the node's input `mapper` (`PregelNode.__init__`; read from LangGraph's source and not measured),
+and calls its own `copy` at most once for a node its bounded run schedules
+(`PregelNode.flat_writers`); it iterates a `writes` container through its own `__iter__` only where
+its bounded run schedules the node and `flat_writers` keeps the writer as it is (measured: a node's
+only writer); read from LangGraph's source and not measured, a merged writer's container it reads
+only through `+`, and an unscheduled node's `writes` containers not at all — so the gate's
+`__class__` and `__iter__` reads of `writers`, and of any other `writes` container, are not reads
+the drawing makes), and `_from_substrate` reads `__module__` off an entry's mapper through the
+mapper's own attribute access — on the registered carrier a read new with this card, made in place
+of the drawing's call of that mapper. Neither is closed here; a container or a mapper that raises
+when read lets the exception leave `extract()`, as a raising planted `__module__` does at every
+`type_identity` in (3), EX-30's route. What the gate admits of a `Pregel` subclass, of a member set
+on a stock instance, and of the content in (2) and (4) is EX-D6's to rule (§5). (5) One more read,
+outside this card's diff and not closed by it: the drawing reads `tools_by_name` from each node's
+bound object and, when the answer is a mapping that is true, iterates it — three lines present in
+the langgraph wheels read from 1.2.19 to 1.2.22 and in none of the thirteen earlier wheels read. On
+langgraph 1.2.22, with CPython 3.13.3 and langchain-core 1.8.0 and with CPython 3.10.20 and 1.7.7, a
+stock `StateGraph` whose node is an author's `Runnable` with a `tools_by_name` property draws
+through the gate, the cross-check is performed, and during `extract()` the property body and the
+returned mapping's `__len__` and `__iter__` run from `langgraph.pregel._draw`; no node body runs. On
+langgraph 1.0.10 and 1.1.10 the same probe records nothing, which says nothing of other reads of a
+bound object there. EX-D6 carries it. The measurements in (1), (2), (4) and (5) were made at this
+card's landing and review, on the environments named above, and are not pinned by a test. (1), (2)
+and (5) are reads outside A1-D19's six pinned drawing routes, measured here and not closed; with the
+registered carrier of route 4 they are recorded for the next R-06 record that touches the A1 memo
+rather than written into it.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package
@@ -1539,15 +1698,22 @@ graph. The gate therefore trusts `__module__`.
 The consequence, stated plainly: an object that **forges** `__module__ = "langgraph…"` on an
 otherwise user-authored channel is admitted, and its methods would run in the drawing. This is
 outside the never-invokes threat model rather than a hole in it. `gebra.extract()` runs in the
-author's own process over the author's own workflow; it is not a sandbox, and there is no
-privilege boundary an author crosses by arranging to run their own code during their own
-extraction (they could call it directly). The invariant the tripwires hold is the one that
-matters in practice: extraction of an **honest** workflow — including one with honestly-custom
-channels, checkpointers, or mappers, which are correctly declined by provenance — runs no node,
-router, tool, LLM, or network call, and no user callable the six pinned routes would reach. It
-is not wider than that: the drawing also reads the compiled object's `config` and merges its
-contents, so methods of non-plain values an author passed to `with_config()`, and members a
-`Pregel` subclass overrides, run in a drawing the gate admits (§4's EX-19 entry measures them;
-EX-31 and EX-D6 carry them). Any
-change to what the gate *verifies* is an extraction-semantics change for its own card and review,
-never a quiet edit here.
+author's own process over the author's own workflow; it is not a sandbox, and there is no privilege
+boundary an author crosses by arranging to run their own code during their own extraction (they
+could call it directly). The invariant the tripwires hold is the one that matters in practice:
+extraction of an **honest** workflow — including one with honestly-custom channels, checkpointers,
+or mappers, which are correctly declined by provenance — runs no node, router, tool, LLM, or network
+call, and no user callable the six pinned routes would reach. Beyond that, what follows is a list of
+the reads measured so far, not a census — whether it is complete is not known: the drawing also
+reads the compiled object's `config` and merges its contents, so methods of non-plain values an
+author passed to `with_config()`, and members a `Pregel` subclass overrides, run in a drawing the
+gate admits (§4's EX-19 entry measures them; EX-31 and EX-D6 carry them); it hashes and compares
+every routing label a writer declares for it, so the hash and comparison a `str`-subclass label or
+`END` target defines run there too, and on a hand-built `Pregel` the truth test of a write entry's
+value and of `skip_none`, the value's hash, a `str`-subclass channel's comparison and hash, an
+invoked or registered `Send`'s payload hash, and the rendering of a LangGraph object that is no
+write entry; and from langgraph 1.2.19 it reads `tools_by_name` from each node's bound object, which
+on 1.2.22 runs a property's body and iterates the mapping it returns (§4's EX-28 entry measures
+these; a label that is not a string, and a writer or write entry whose class LangGraph did not
+define, are declined since that card). Any change to what the gate *verifies* is an
+extraction-semantics change for its own card and review, never a quiet edit here.

@@ -101,11 +101,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ever produced IR. A new conformance golden, `builder-enum-labels`, pins the admitted form, and
   every existing conformance, round-trip and drift golden is byte-identical. The rule applies
   wherever the builder is read — an uncompiled graph, or a compiled one through its `.builder`;
-  a compiled graph with no builder keeps the labels the substrate drew. On a compiled graph whose
+  a compiled graph with no builder keeps the labels the substrate drew, and is refused when a
+  label it would draw is not a string (card EX-28, under Fixed below). On a compiled graph whose
   `destinations=` dict holds an enum member as a label, extraction used to stop at a raw
-  `TypeError` before the compiled-level cross-check; it now completes, and LangGraph's own
-  drawing for that cross-check hashes the member, reading its `_name_` inside the substrate.
-  That read is LangGraph's, and this change does not alter it.
+  `TypeError` before the compiled-level cross-check; it now completes, and that cross-check is
+  declined: LangGraph's own drawing would hash the member, reading its `_name_` inside the
+  substrate, so the drawing is not taken (card EX-28).
 - **A compiled subgraph that extraction reads as one node is now disclosed** (card EX-20;
   DEC-36, which amends DEC-19's Ruling 1). In `ir_version` 1.0 and 1.1 a mounted subgraph is
   carried as its parent node only — no child nodes, edges, `entry`, `finish` or state — and
@@ -348,6 +349,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `graph_version` in one case that compiles: a router whose `path_map` is a `dict` subclass with
   its own `copy()` returning a mapping that is not a `dict` was read through that mapping's
   `items()` and is now warned and left without an edge.
+
+- **The compiled path no longer takes a drawing that would hash routing labels that are not strings,
+  or run a writer or write entry whose class LangGraph did not define** (card EX-28; DEC-38 §3.10).
+  A dict-valued `destinations=` keeps its label values as written — `add_node(...,
+  destinations={"tool": AgentDecision.TOOL})` compiles, because LangGraph checks only the keys — and
+  LangGraph's own `get_graph()` drawing hashes and compares every label a writer declares for it; an
+  `Enum` member's hash reads its `_name_` through the member's own attribute access. A compiled
+  graph with no builder, whose drawing is its only surface, used to be drawn anyway, with each such
+  row labelled by its target (`"review"` for a row declared `"finished"`); it is now refused at the
+  boundary with `no-extractable-surface` before the drawing runs. On a compiled graph with a
+  builder, the builder reading admits such a label only as an enum member of the admitted form and
+  refuses every other: that graph extracts since the admission above (card EX-27), where `gebra
+  0.1.1` stopped at a raw `TypeError`, and it ships with that drawing declined —
+  `extracted_from.compiled.cross_check` records `performed: false` with the reason, and the IR is
+  the builder reading's. Both hold at every subgraph level the cross-check draws. A label that is a
+  `str` instance, a string-mixin member included, is drawn as before. The drawing also assembles the
+  entries a writer registers for it (`ChannelWrite.register_writer`) through their write mappers,
+  and the gate used to read a `ChannelWrite`'s own entries only, so on a hand-built `Pregel` a user
+  mapper declared there ran while the drawing was taken; the gate now reads both kinds of entry, and
+  every writer, each by its class before anything else. Newly refused at the boundary, or declined
+  on the cross-check where a builder exists: a graph whose drawing carries a non-string label, a
+  user mapper in a registered entry, a writer or write entry whose class LangGraph did not define (a
+  foreign object; a subclass of LangGraph's own — the drawing would call a `ChannelWrite` subclass's
+  own `invoke`; or another package's class, such as a langchain-core `RunnableLambda` registered as
+  a writer on a hand-built `Pregel`), or static writes declared in any container but an exact `list`
+  or `tuple` of exact tuples (LangGraph builds an exact `list`). Reading a drawing, gebra now tests
+  each id and label by its type and copies a `str` subclass to a built-in `str` before using it,
+  where `isinstance` read a non-string label's `__class__` through its own attribute access; a drawn
+  row whose label is not a string — only a drawing LangGraph did not make can carry one now — is
+  read as unlabelled and warned `unsupported-construct` (`drawn-label-unrepresentable`) instead of
+  being relabelled silently. `ir_version` does not move, and every conformance, round-trip and drift
+  golden is byte-identical. No document that still extracts changes inside hash scope, except where
+  a drawn id or label is a `str` subclass whose own methods — its truth test, hashing or comparison
+  — disagree with `str`'s: the old reading ran that code, the new one reads its characters.
 
 - **A `gebra.toml` holding an integer too long to convert no longer stops extraction** (card
   EX-19). An integer literal in `gebra.toml` longer than Python's default integer-string

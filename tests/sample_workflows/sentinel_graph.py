@@ -14,6 +14,7 @@ external service, and requires no API keys. ``compile()`` is guarded behind
 from __future__ import annotations
 
 import enum
+import sys
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
@@ -22,6 +23,7 @@ from langgraph.types import Command, RetryPolicy, Send
 
 if TYPE_CHECKING:  # imported for typing only — never at runtime
     from collections.abc import Callable, Hashable, Iterator
+    from types import FrameType
 
     from langgraph.graph.state import CompiledStateGraph
 
@@ -1208,6 +1210,77 @@ def build_set_target_graph() -> StateGraph[SentinelState]:
     return builder
 
 
+# ── the compiled path's drawn routing labels (DEC-38 §3.10; EX-28) ───────────────────────
+#
+# A dict-valued `destinations=` keeps its label values as the author wrote them: the substrate
+# validates the dict's keys as targets, never looks at its values, and hands each value raw to
+# its drawing (`ChannelWriteTupleEntry.static`), where `get_graph()` hashes and compares it. The
+# compiled path's gate declines that drawing (EX-28). The member below records every attribute
+# read made on it together with the module whose code made the read, so a test can tell the
+# drawing's reads — LangGraph's, inside `langgraph.pregel._draw` — from any of gebra's own, and
+# show that an extraction leaves the record empty.
+
+#: Every attribute read made on a `DrawnDecision` member, newest last, as ``(member, attribute,
+#: module)``: the member's name, the attribute read, and the module whose code triggered the
+#: read — the first frame outside this module and the standard library's `enum`, whose
+#: ``Enum.__hash__`` is how a drawing reaches the member.
+DRAWN_LABEL_READS: list[tuple[str, str, str]] = []
+
+
+def _reading_module() -> str:
+    """The module that triggered the attribute read being recorded (see `DRAWN_LABEL_READS`)."""
+    frame: FrameType | None = sys._getframe(2)
+    while frame is not None:
+        module = frame.f_globals.get("__name__", "?")
+        if module not in (__name__, "enum"):
+            return str(module)
+        frame = frame.f_back
+    return "?"
+
+
+class DrawnDecision(enum.Enum):
+    """A plain ``Enum`` routing label recording every attribute read made on one of its members.
+
+    INTROSPECTION-SPEC §6 admits it (a plain ``Enum`` whose stored values are exact ``str``), so
+    the builder path spells its members ``"tool"`` and ``"finished"`` and reads no attribute of
+    either. Declared as the *labels* of a ``destinations=`` dict it also reaches the compiled
+    graph's drawing, which hashes each member — ``Enum.__hash__`` reads ``_name_`` through the
+    member's own attribute access — so this hook records the drawing's reads, attributed to the
+    drawing's module. Each read also goes to `LABEL_READS`, the ledger every DEC-38 guarded
+    child asserts empty, so the builder twin is covered by `test_builder.py`'s child unchanged.
+    """
+
+    TOOL = "tool"
+    DONE = "finished"
+
+    def __getattribute__(self, name: str) -> Any:
+        member = dict.get(object.__getattribute__(self, "__dict__"), "_name_", "?")
+        LABEL_READS.append(f"DrawnDecision.__getattribute__:{name}")
+        DRAWN_LABEL_READS.append((str(member), name, _reading_module()))
+        return object.__getattribute__(self, name)
+
+
+def build_drawn_enum_label_graph() -> StateGraph[SentinelState]:
+    """A node routing by a ``destinations=`` dict whose labels are ``DrawnDecision`` members.
+
+    Keys are targets and values are labels — the orientation the substrate documents and EX-27
+    reads — so the builder path emits one edge group, ``path_map: {"tool": "tool", "finished":
+    "review"}``, reading nothing of either member. Compiled, the substrate passes both members
+    raw into its drawing: the compiled path's gate declines that drawing (EX-28), and a copy with
+    no builder, whose only surface is the drawing, is refused at the boundary
+    (`tests/sample_workflows/sentinel_compiled.py` holds both compiled twins).
+    """
+    labels: dict[str, Any] = {"tool": DrawnDecision.TOOL, "review": DrawnDecision.DONE}
+    builder = StateGraph(SentinelState)
+    builder.add_node("agent", raiser("agent"), destinations=labels)
+    builder.add_node("tool", raiser("tool"))
+    builder.add_node("review", raiser("review"))
+    builder.add_edge(START, "agent")
+    builder.add_edge("tool", END)
+    builder.add_edge("review", END)
+    return builder
+
+
 #: Every §3 shape that extracts, as (name, factory). The tripwire runs the whole list, so a
 #: shape added here is a shape the never-invokes claim covers from that commit on.
 EXTRACTABLE_BUILDERS: dict[str, Callable[[], StateGraph[SentinelState]]] = {
@@ -1242,6 +1315,9 @@ EXTRACTABLE_BUILDERS: dict[str, Callable[[], StateGraph[SentinelState]]] = {
     "enum_label_planted_dict": build_planted_dict_enum_label_graph,
     "recording_ends": build_recording_ends_graph,
     "recording_sequences": build_recording_sequences_graph,
+    # The builder twin of EX-28's compiled fixtures: enum members as `destinations=` labels,
+    # read as EX-27 landed them. Compiled, this graph is what the drawing gate declines.
+    "enum_label_drawn": build_drawn_enum_label_graph,
 }
 
 #: The §3 shapes that are refused at the object boundary, as (name, factory). The tripwire

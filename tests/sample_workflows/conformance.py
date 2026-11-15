@@ -586,13 +586,15 @@ class SubstrateGate:
 
 
 #: The exact langchain-core release the ``lcel-tool-bound`` golden was taken at — the
-#: locked development pin. A lock bump that moves langchain-core retakes that golden in the
-#: same commit (the WA-05 justification is the bump itself; see the golden README).
+#: locked development pin on Python 3.11 and later (below 3.11 the lock resolves 1.7.7, because
+#: core 1.8.0's ``Requires-Python`` excludes 3.10 — the split cell 3 pins by marker, PD-078). A
+#: lock bump that moves langchain-core retakes that golden in the same commit (the WA-05
+#: justification is the bump itself; see the golden README).
 TOOL_BOUND_CORE_PIN: Final = (
     1,
-    5,
-    3,
-)  # cell 3's ruled pin (PD-030 §C3); aligned at PD-049's lock regen
+    8,
+    0,
+)  # the locked development core since GOV-16's lock refresh (cell 3 on 3.11+, PD-078)
 
 #: The one gate in the set. The tool-bound chain's canonical bytes contain the model's
 #: ``config_digest``, which projects the installed core's ``model_fields`` (§7.4 (c)) —
@@ -601,11 +603,13 @@ TOOL_BOUND_CORE_PIN: Final = (
 #: explicitly passed ``metadata``). Every core release therefore moves this digest, which
 #: is §7.4 (e)'s ruled substrate-version movement observed at its sharpest. A byte golden
 #: can hold only at the exact release it was taken at, so the gate is equality with the
-#: locked development pin — not a floor. VERSION-COMPAT cell 3 deliberately floats
-#: ("1.2.latest", re-resolved per PD-030 Q2), so on a matrix cell ahead of the lock this
-#: comparison skips by name; the extraction *capability* for tool-bound chains stays tested
-#: on every cell by ``tests/extraction/test_digests.py``/``test_stock.py``, which compute
-#: their expectations from the installed substrate rather than from committed bytes.
+#: locked development pin — not a floor — and the comparison skips by name on every other
+#: core: cells 1 and 2, cell 3 on Python 3.10 and a 3.10 checkout of the lock (core 1.7.7,
+#: PD-078), and any cell ahead of the lock, since VERSION-COMPAT cell 3 deliberately floats
+#: ("1.2.latest", re-resolved per PD-030 Q2). The extraction *capability* for tool-bound
+#: chains stays tested on every cell by ``tests/extraction/test_digests.py``/
+#: ``test_stock.py``, which compute their expectations from the installed substrate rather
+#: than from committed bytes.
 TOOL_BOUND_GATE: Final = SubstrateGate(
     available=substrate.LANGCHAIN_CORE_VERSION == TOOL_BOUND_CORE_PIN,
     reason=(
@@ -613,7 +617,7 @@ TOOL_BOUND_GATE: Final = SubstrateGate(
         "langchain-core's own version string, filled at construction from core 1.4.7 — so "
         "the committed bytes hold only at the exact release they were taken at: "
         f"langchain-core {'.'.join(map(str, TOOL_BOUND_CORE_PIN))}, the locked development "
-        "pin; installed langchain-core is "
+        "pin on Python 3.11 and later; installed langchain-core is "
         f"{'.'.join(map(str, substrate.LANGCHAIN_CORE_VERSION))}"
     ),
 )

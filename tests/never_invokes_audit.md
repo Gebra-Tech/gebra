@@ -521,7 +521,13 @@ under `pip install -c` at the `uv.lock` versions). That change is environment-pi
 checked leg by leg at pre-review: the divergent substrate family is excluded from constraint by
 construction and by test, so each cell's sentinel suites see the same substrate bytes as before;
 the two constrained family members (pydantic, langchain-protocol) are held to exactly the version
-every cell extra already pins; and the `--pre` cell's substrate resolve stays unconstrained. No
+every cell extra already pins *(corrected at GOV-16, 2026-11-14: cell 3's ceiling extension pinned
+pydantic 2.14.3 and langchain-protocol 0.0.21, apart from the other cells — pydantic 2.13.4 on cells
+1 and 2, langchain-protocol 0.0.18 on cell 2 — so neither is constrained any longer:
+`tools/matrix-constraints.txt` names both as substrate family, and the jobs that install no cell
+extra (`docs`, `pip-editable`, the `--pre` cell's dev half) resolve them fresh, as they already
+resolved langgraph and langchain-core; no tripwire, sentinel or guard depends on either version)*;
+and the `--pre` cell's substrate resolve stays unconstrained. No
 tripwire, sentinel, or hermeticity child was weakened, skipped, or re-scoped by it.
 
 The **CI-gating guide's example suite** (`examples/ci_gate/`, its workflow
@@ -858,8 +864,11 @@ caught by it; the real function is captured at import, before any test has run, 
 after all of this module's items the real reader is bound, `_cached` is `None`, `_warned` is
 `False`, and combined runs in both orders are green. It adds no extraction path: it calls
 `gebra.extract()`, `classify_substrate()`, `out_of_range_warning()`, `check_version_once()`,
-`reset_version_check_cache()`, the version engine, and the honest-claims lint's text-only
-`scan()` — and nothing else. Its one subprocess is a bare
+`reset_version_check_cache()`, the version engine, the honest-claims lint's text-only
+`scan()`, and — since GOV-16 — `tools.matrix_constraints.cell_pins`, which parses the extras'
+requirement strings (the tool's import closure is `argparse`, `re`, `sys`, `collections.abc`,
+`pathlib` and `tomllib`/`tomli`; the `tools` package's own `__init__` imports nothing) — and
+nothing else. Its one subprocess is a bare
 `python -W error -c "import gebra; …"` child — the second such child in `tests/docs/`, after
 `test_architecture_overview.py`'s import-closure children — which imports the library only
 (fifteen modules, none of them the substrate), constructs no workflow, and asserts on

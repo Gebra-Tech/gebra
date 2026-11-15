@@ -140,7 +140,7 @@ dev = [
 #
 # **One extra per cell, because one extra cannot hold three cells.** The cells pin the same
 # distributions to different versions, so a single requirement set carrying all three
-# (`langgraph==1.0.10` and `langgraph==1.2.10` at once) is unsatisfiable by construction.
+# (`langgraph==1.0.10` and `langgraph==1.2.22` at once) is unsatisfiable by construction.
 # `compat-test` is therefore cell 3 — the newest frozen pair, the substrate line `uv.lock`
 # already tracks — repeated verbatim rather than as a self-referential `gebra[compat-cell-3]`
 # requirement, since a self-reference invites the resolver to look for `gebra` on an index
@@ -158,8 +158,18 @@ dev = [
 # (langgraph 1.1.7, 1.2.3) are excluded by these pins, not by the metadata range — a range
 # cannot exclude a point version.
 #
-# Every version except one is what the resolver produced from the cell's named pair. The
-# exception is cell 1's `langgraph-checkpoint==4.0.3`, a Gebra-chosen bound (PD-030 Q1,
+# **Cell 3's ceiling extension (GOV-16, 2026-11-14).** Cell 3 moved to langgraph 1.2.22 and
+# its family — the §3 rule re-run at execution — justified by drift-suite CI run
+# 43651528532 (Gebra-Tech/gebra); the living document records it with the same
+# citation. The rule's langchain-core, 1.8.0, declares `Requires-Python >=3.11`, so cell 3
+# pins its core per Python (PD-078): 1.8.0 on 3.11 and later, and on 3.10 the newest core
+# inside both pins that installed there at the extension, 1.7.7. The split is an environment
+# marker on the requirement — the one marker form these extras carry, which
+# `tools/matrix_constraints.py` reads and refuses in any other form — so at the extension each
+# Python's cell installed what pip installed for that Python's users. Cells 1 and 2 did not move.
+#
+# Every version except one is what the resolver produced from the cell's named pair on each
+# Python. The exception is cell 1's `langgraph-checkpoint==4.0.3`, a Gebra-chosen bound (PD-030 Q1,
 # option A): checkpoint 4.1.0 changed a module-level `Reviver()` to
 # `Reviver(allowed_objects="core")`, and that parameter first exists in the langchain-core 1.2
 # line — so an unbounded cell 1 floats to checkpoint 4.1.1 and dies at `import langgraph.graph`
@@ -170,13 +180,14 @@ dev = [
 # The `--pre` cell has no extra on purpose: it is `pip install --pre langgraph langchain-core`,
 # re-resolved on every run, and pinning it would delete the early warning it exists to give.
 compat-test = [
-    "langgraph==1.2.10",
-    "langchain-core==1.5.3",
-    "langgraph-checkpoint==4.1.1",
-    "langgraph-prebuilt==1.1.0",
-    "langgraph-sdk==0.4.2",
-    "langchain-protocol==0.0.18",
-    "pydantic==2.13.4",
+    "langgraph==1.2.22",
+    "langchain-core==1.8.0; python_version >= '3.11'",
+    "langchain-core==1.7.7; python_version < '3.11'",
+    "langgraph-checkpoint==4.3.2",
+    "langgraph-prebuilt==1.1.2",
+    "langgraph-sdk==0.4.14",
+    "langchain-protocol==0.0.21",
+    "pydantic==2.14.3",
 ]
 # Cell 1 — langgraph 1.0.x + core 1.0-1.1 (§1 row 1).
 compat-cell-1 = [
@@ -199,17 +210,19 @@ compat-cell-2 = [
     "langchain-protocol==0.0.18",
     "pydantic==2.13.4",
 ]
-# Cell 3 — langgraph 1.2.latest + core >=1.4.7 (§1 row 3; 1.2.3 yanked, hence 1.2.10).
-# Read literally per PD-030 Q2: the latest non-yanked core satisfying the band, re-resolved
-# at each ceiling extension. Kept identical to `compat-test` above.
+# Cell 3 — langgraph 1.2.latest + core >=1.4.7 (§1 row 3; 1.2.3 yanked; 1.2.22 since GOV-16).
+# Read literally per PD-030 Q2 — the latest non-yanked core satisfying the band, re-resolved
+# at each ceiling extension — and per Python since PD-078: core 1.8.0 requires Python 3.11,
+# so 3.10 takes the newest core that installs there. Kept identical to `compat-test` above.
 compat-cell-3 = [
-    "langgraph==1.2.10",
-    "langchain-core==1.5.3",
-    "langgraph-checkpoint==4.1.1",
-    "langgraph-prebuilt==1.1.0",
-    "langgraph-sdk==0.4.2",
-    "langchain-protocol==0.0.18",
-    "pydantic==2.13.4",
+    "langgraph==1.2.22",
+    "langchain-core==1.8.0; python_version >= '3.11'",
+    "langchain-core==1.7.7; python_version < '3.11'",
+    "langgraph-checkpoint==4.3.2",
+    "langgraph-prebuilt==1.1.2",
+    "langgraph-sdk==0.4.14",
+    "langchain-protocol==0.0.21",
+    "pydantic==2.14.3",
 ]
 
 # The three frozen matrix cells pin mutually exclusive substrate versions by design

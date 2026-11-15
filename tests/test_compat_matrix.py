@@ -7,7 +7,8 @@ pair cells), §3 ("The matrix, exactly": Python {3.10, 3.11, 3.12, 3.13} x three
 pydantic", are recorded in the ``gebra[compat-test]`` extra) and SOW §4 (every cell runs
 ``ruff check`` + ``ruff format --check`` + ``mypy --strict`` + ``pytest``). The pin *values*
 are GOV-D3's, recorded in PD-030 §C3 and **FROZEN at the GOV-08 F2 freeze** (gate G7,
-2026-08-31, citing green drift-suite run 33336160085).
+2026-08-31, citing green drift-suite run 33336160085); cell 3's were extended at GOV-16,
+with langchain-core pinned per Python by a ``python_version`` marker (PD-078).
 
 The point of holding both halves here is that they can only drift together: the workflow
 names a cell number and nothing else, so the pins it installs are the ones in
@@ -30,6 +31,7 @@ import pytest
 import yaml
 
 from gebra.extraction.compat import CompatClass, SubstrateVersions, classify_substrate
+from tools.matrix_constraints import cell_pins, split_requirement
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -46,15 +48,30 @@ FROZEN_CELLS = ("1", "2", "3")
 BLOCKING_CELL_COUNT = len(TESTED_PYTHONS) * len(FROZEN_CELLS)
 TOTAL_CELL_COUNT = BLOCKING_CELL_COUNT + 1
 
-#: PD-030 §C3's pin table, frozen at F2 (GOV-08) — the substrate axis of each frozen cell.
-#: The full pin set per cell lives in ``pyproject.toml``; these are the values a reviewer
-#: checks against the PD and the freeze record, and the three the §3 rule and §4's
-#: "including the transitively resolved pydantic" name directly.
+#: The pin table: PD-030 §C3's values, frozen at F2 (GOV-08), with cell 3 extended at GOV-16
+#: (PD-078) — the substrate axis of each frozen cell, on every tested Python unless
+#: ``PER_PYTHON_PINS`` says otherwise. The full pin set per cell lives in ``pyproject.toml``;
+#: these are the values a reviewer checks against the PDs and the living document's records,
+#: and the three the §3 rule and §4's "including the transitively resolved pydantic" name
+#: directly.
 FROZEN_PINS: dict[str, dict[str, str]] = {
     "1": {"langgraph": "1.0.10", "langchain-core": "1.1.3", "pydantic": "2.13.4"},
     "2": {"langgraph": "1.1.10", "langchain-core": "1.3.3", "pydantic": "2.13.4"},
-    "3": {"langgraph": "1.2.10", "langchain-core": "1.5.3", "pydantic": "2.13.4"},
+    "3": {"langgraph": "1.2.22", "langchain-core": "1.8.0", "pydantic": "2.14.3"},
 }
+
+#: Where a cell pins per Python (PD-078, ruled at GOV-16): langchain-core 1.8.0 declares
+#: ``Requires-Python >=3.11``, so cell 3 on 3.10 pins the newest core inside both of its pins
+#: that installs there. The extras carry the split as a ``python_version`` marker.
+PER_PYTHON_PINS: dict[tuple[str, str], dict[str, str]] = {
+    ("3", "3.10"): {"langchain-core": "1.7.7"},
+}
+
+
+def expected_pins(cell: str, python: str) -> dict[str, str]:
+    """The ruled pins of ``cell`` on ``python``."""
+    return {**FROZEN_PINS[cell], **PER_PYTHON_PINS.get((cell, python), {})}
+
 
 #: A2 §1 / §4: yanked releases are excluded by the matrix pins, never by the metadata range
 #: (a version range cannot exclude a point version).
@@ -92,14 +109,15 @@ def workflow() -> dict[str, Any]:
     return data
 
 
-def _pins(requirements: list[str]) -> dict[str, str]:
-    """The ``name == version`` pins in a requirement list, keyed by distribution name."""
-    pinned: dict[str, str] = {}
-    for requirement in requirements:
-        name, separator, version = requirement.partition("==")
-        if separator:
-            pinned[name.strip()] = version.strip()
-    return pinned
+def _python(version: str) -> tuple[int, int]:
+    major, minor = (int(part) for part in version.split("."))
+    return major, minor
+
+
+def _pins(requirements: list[str], python: str) -> dict[str, str]:
+    """The exact pins an extra installs on ``python``: its ``python_version`` lines resolved
+    by the same reader the constraints generator uses (``tools/matrix_constraints.py``)."""
+    return cell_pins(requirements, _python(python))
 
 
 def _version_triple(version: str) -> tuple[int, int, int]:
@@ -122,7 +140,7 @@ def test_every_frozen_cell_has_its_own_pin_extra(extras: dict[str, list[str]], c
     """One installable extra per §1 pair cell.
 
     A single extra cannot hold the matrix: the three cells pin the same distributions to
-    different versions, so ``langgraph==1.0.10`` and ``langgraph==1.2.10`` in one
+    different versions, so ``langgraph==1.0.10`` and ``langgraph==1.2.22`` in one
     requirement set is unsatisfiable by construction. The extra §4 names is therefore
     realized as one per cell, and `test_compat_test_extra_is_the_newest_frozen_cell` keeps
     the bare name pointing at a real cell rather than at nothing.
@@ -130,21 +148,57 @@ def test_every_frozen_cell_has_its_own_pin_extra(extras: dict[str, list[str]], c
     assert f"compat-cell-{cell}" in extras
 
 
+@pytest.mark.parametrize("python", TESTED_PYTHONS)
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
-def test_each_cell_pins_the_frozen_substrate(extras: dict[str, list[str]], cell: str) -> None:
-    """The pin values are PD-030 §C3's, frozen at F2, incl. the transitive pydantic (§4).
+def test_each_cell_pins_the_frozen_substrate(
+    extras: dict[str, list[str]], cell: str, python: str
+) -> None:
+    """The pin values are PD-030 §C3's, frozen at F2 and extended for cell 3 at GOV-16,
+    incl. the transitive pydantic (§4) — on every tested Python.
 
-    pydantic is pinned *per cell* rather than once for the matrix even though all three
-    resolve to the same version today: PD-030 §C3 records that as "a property of today's
-    resolution, not a durable one" — it changes the moment a cell's langchain-core caps
-    pydantic, and drift test 7's soft full-dict assertion reads exactly this axis.
+    pydantic is pinned *per cell* rather than once for the matrix: PD-030 §C3 recorded the
+    three cells agreeing on it as "a property of today's resolution, not a durable one", and
+    cell 3's extension moved it — drift test 7's soft full-dict assertion reads exactly this
+    axis.
     """
-    pinned = _pins(extras[f"compat-cell-{cell}"])
-    for distribution, version in FROZEN_PINS[cell].items():
+    pinned = _pins(extras[f"compat-cell-{cell}"], python)
+    for distribution, version in expected_pins(cell, python).items():
         assert pinned.get(distribution) == version, (
-            f"cell {cell} must pin {distribution}=={version} (PD-030 §C3, frozen at GOV-08/F2 — "
-            "changing it is a §4 ceiling extension with its own drift-suite run citation)"
+            f"cell {cell} on Python {python} must pin {distribution}=={version} (PD-030 §C3 at "
+            "F2, PD-078 for cell 3 — changing it is a §4 ceiling extension with its own "
+            "drift-suite run citation)"
         )
+
+
+@pytest.mark.parametrize("cell", FROZEN_CELLS)
+def test_every_tested_python_gets_the_same_distributions(
+    extras: dict[str, list[str]], cell: str
+) -> None:
+    """A per-Python split moves a version, never a distribution: no Python is left with a
+    family member unpinned for the resolver to float."""
+    names = {python: set(_pins(extras[f"compat-cell-{cell}"], python)) for python in TESTED_PYTHONS}
+    assert len({frozenset(pinned) for pinned in names.values()}) == 1, names
+
+
+def test_the_only_per_python_split_is_the_ruled_one(extras: dict[str, list[str]]) -> None:
+    """PD-078 rules one split — cell 3's langchain-core on 3.10. Any other version that differs
+    by Python inside a cell is a new reading of §3's rule and needs its own ruling."""
+    for cell in FROZEN_CELLS:
+        by_python = {
+            python: _pins(extras[f"compat-cell-{cell}"], python) for python in TESTED_PYTHONS
+        }
+        varying = {
+            distribution
+            for distribution in by_python[TESTED_PYTHONS[-1]]
+            if len({pins[distribution] for pins in by_python.values()}) > 1
+        }
+        ruled = {
+            distribution
+            for (ruled_cell, _), pins in PER_PYTHON_PINS.items()
+            if ruled_cell == cell
+            for distribution in pins
+        }
+        assert varying == ruled, f"cell {cell}: {sorted(varying)} vary by Python"
 
 
 def test_cell_one_bounds_the_transitive_checkpoint(extras: dict[str, list[str]]) -> None:
@@ -157,31 +211,35 @@ def test_cell_one_bounds_the_transitive_checkpoint(extras: dict[str, list[str]])
     ``langgraph-checkpoint<5.0.0`` — both satisfied by the failing resolution, which is why
     the bound is a recorded decision rather than something the resolver could find.
     """
-    assert _pins(extras["compat-cell-1"]).get("langgraph-checkpoint") == "4.0.3"
+    for python in TESTED_PYTHONS:
+        assert _pins(extras["compat-cell-1"], python).get("langgraph-checkpoint") == "4.0.3"
 
 
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
 def test_cell_pins_are_exact(extras: dict[str, list[str]], cell: str) -> None:
-    """§3: per-cell pins resolve *deterministically*. A range is not a pin."""
-    loose = [
-        requirement
-        for requirement in extras[f"compat-cell-{cell}"]
-        if "==" not in requirement or any(op in requirement for op in ("<", ">", "!", "~", ","))
-    ]
-    assert loose == [], f"cell {cell} carries non-exact requirements: {loose}"
+    """§3: per-cell pins resolve *deterministically*. A range is not a pin, and the one marker
+    a pin may carry is a ``python_version`` bound (PD-078) — the reader refuses anything else."""
+    for requirement in extras[f"compat-cell-{cell}"]:
+        _, version, marker = split_requirement(requirement)
+        assert version and not set(version) & set("<>!=~,*"), requirement
+        assert marker is None or marker.startswith("python_version"), requirement
 
 
+@pytest.mark.parametrize("python", TESTED_PYTHONS)
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
-def test_no_cell_pins_a_yanked_release(extras: dict[str, list[str]], cell: str) -> None:
+def test_no_cell_pins_a_yanked_release(
+    extras: dict[str, list[str]], cell: str, python: str
+) -> None:
     """§4: yanked releases (langgraph 1.1.7, 1.2.3) are excluded by the pins themselves."""
-    pinned = _pins(extras[f"compat-cell-{cell}"])
+    pinned = _pins(extras[f"compat-cell-{cell}"], python)
     for distribution, yanked_versions in YANKED.items():
         assert pinned.get(distribution) not in yanked_versions
 
 
+@pytest.mark.parametrize("python", TESTED_PYTHONS)
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
 def test_cell_pins_stay_inside_the_declared_metadata_range(
-    pyproject: dict[str, Any], extras: dict[str, list[str]], cell: str
+    pyproject: dict[str, Any], extras: dict[str, list[str]], cell: str, python: str
 ) -> None:
     """The tested matrix lives inside the installability envelope, never outside it.
 
@@ -193,7 +251,7 @@ def test_cell_pins_stay_inside_the_declared_metadata_range(
         requirement.split(">=")[0].strip(): requirement
         for requirement in pyproject["project"]["dependencies"]
     }
-    pinned = _pins(extras[f"compat-cell-{cell}"])
+    pinned = _pins(extras[f"compat-cell-{cell}"], python)
     for distribution in ("langgraph", "langchain-core", "pydantic"):
         assert distribution in declared, f"{distribution} is not a declared dependency"
         floor, ceiling = re.findall(r"[<>]=?([\d.]+)", declared[distribution])
@@ -214,36 +272,36 @@ def test_compat_test_extra_is_the_newest_frozen_cell(extras: dict[str, list[str]
     assert extras["compat-test"] == extras["compat-cell-3"]
 
 
+@pytest.mark.parametrize("python", TESTED_PYTHONS)
 @pytest.mark.parametrize("cell", FROZEN_CELLS)
 def test_each_cell_is_a_tested_pairing_by_the_runtime_check(
-    extras: dict[str, list[str]], cell: str
+    extras: dict[str, list[str]], cell: str, python: str
 ) -> None:
     """Cross-check against EX-12: what CI installs is what ``extract()`` calls tested.
 
     ``gebra.extraction.compat`` classifies against §1's *bands*; these pins come from §3's
     resolution *rule*. They are separately derived and must agree — a pin that made
     ``extract()`` warn :class:`GebraVersionWarning` on the very substrate CI tests would
-    mean one of the two readings of §1 is wrong.
+    mean one of the two readings of §1 is wrong. Checked per Python, since cell 3's core is.
     """
-    pinned = _pins(extras[f"compat-cell-{cell}"])
-    for python in TESTED_PYTHONS:
-        major, minor = (int(part) for part in python.split("."))
-        versions = SubstrateVersions(
-            python=(major, minor),
-            langgraph=_version_triple(pinned["langgraph"]),
-            langchain_core=_version_triple(pinned["langchain-core"]),
-            langgraph_raw=pinned["langgraph"],
-            langchain_core_raw=pinned["langchain-core"],
-        )
-        assert classify_substrate(versions) is CompatClass.TESTED
+    pinned = _pins(extras[f"compat-cell-{cell}"], python)
+    versions = SubstrateVersions(
+        python=_python(python),
+        langgraph=_version_triple(pinned["langgraph"]),
+        langchain_core=_version_triple(pinned["langchain-core"]),
+        langgraph_raw=pinned["langgraph"],
+        langchain_core_raw=pinned["langchain-core"],
+    )
+    assert classify_substrate(versions) is CompatClass.TESTED
 
 
-def test_the_three_cells_are_distinct_pairings(extras: dict[str, list[str]]) -> None:
+@pytest.mark.parametrize("python", TESTED_PYTHONS)
+def test_the_three_cells_are_distinct_pairings(extras: dict[str, list[str]], python: str) -> None:
     """Three cells, three substrates — §1's pair matrix, not one substrate three times."""
     pairs = {
         (
-            _pins(extras[f"compat-cell-{cell}"])["langgraph"],
-            _pins(extras[f"compat-cell-{cell}"])["langchain-core"],
+            _pins(extras[f"compat-cell-{cell}"], python)["langgraph"],
+            _pins(extras[f"compat-cell-{cell}"], python)["langchain-core"],
         )
         for cell in FROZEN_CELLS
     }
@@ -252,7 +310,8 @@ def test_the_three_cells_are_distinct_pairings(extras: dict[str, list[str]]) -> 
 
 def test_the_pins_are_marked_frozen_with_the_freeze_citation() -> None:
     """PD-030 decision item 7, second half: GOV-08 removed the candidate marker and the
-    frozen marker cites the green drift-suite run (F2, gate G7).
+    frozen marker cites the green drift-suite run (F2, gate G7) — and cell 3's GOV-16
+    extension is recorded beside it, under the ruling that splits its core by Python.
 
     Read as text on purpose — the marker is a comment, and a comment is exactly where
     someone about to mistake the nature of these pins is looking.
@@ -262,6 +321,7 @@ def test_the_pins_are_marked_frozen_with_the_freeze_citation() -> None:
     assert "FROZEN pins" in text
     assert "33336160085" in text, "the freeze must cite its green drift-suite run"
     assert "PD-030" in text and "GOV-08" in text
+    assert "GOV-16" in text and "PD-078" in text, "cell 3's extension must be recorded"
 
 
 # ── The workflow: 13 cells, four gates each (VERSION-COMPAT §3, SOW §4) ──

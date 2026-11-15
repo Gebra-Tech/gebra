@@ -8,7 +8,8 @@ Three layers, mirroring what GOV-08 landed:
   (substrate family out, dev toolchain locked, marker-partitioned multi-versions);
 * the **generator** — the policy edges proven on synthetic locks: overlapping markers
   refuse to emit, family agreement is verified against the lock, non-exact extras are an
-  error, and every error path is loud (exit 2, never a silent pass);
+  error, the one marker an extra may carry (a ``python_version`` bound, PD-078) is read per
+  Python and any other is refused, and every error path is loud (exit 2, never a silent pass);
 * the **wiring** — every pip-installing job in ``ci.yml`` resolves under ``-c``, while
   the ``--pre`` cell's substrate resolve step deliberately does not (VERSION-COMPAT §3:
   that cell exists to see today's index).
@@ -31,9 +32,13 @@ from tools import matrix_constraints
 from tools.matrix_constraints import (
     CONSTRAINTS,
     MatrixConstraintsError,
+    cell_pins,
+    compat_extra_pins,
     main,
+    marker_admits,
     regenerate,
     render,
+    split_requirement,
 )
 
 if sys.version_info >= (3, 11):
@@ -49,13 +54,16 @@ pytestmark = pytest.mark.skipif(
     reason="constraint tests describe the source tree; no uv.lock/workflow beside tests/",
 )
 
-#: The distributions the three cells pin to different versions — never constrained.
+#: The distributions the three cells pin to different versions — never constrained. pydantic
+#: and langchain-protocol joined at cell 3's GOV-16 extension (2.14.3 and 0.0.21 there).
 DIVERGENT_FAMILY = (
     "langgraph",
     "langchain-core",
     "langgraph-checkpoint",
     "langgraph-prebuilt",
     "langgraph-sdk",
+    "langchain-protocol",
+    "pydantic",
 )
 
 #: Ecosystem-drift history this lock exists to close: a hypothesis profile change went
@@ -113,10 +121,18 @@ def test_the_project_itself_is_never_constrained(pins: dict[str, list[str]]) -> 
 def test_family_members_the_extras_agree_on_are_constrained(
     pins: dict[str, list[str]],
 ) -> None:
-    """pydantic is pinned identically by every cell extra, so the constraint also covers
-    the jobs that install no cell extra (pip-editable, docs, the --pre cell's dev half)."""
-    assert pins["pydantic"] == ["2.13.4"]
-    assert pins["langchain-protocol"] == ["0.0.18"]
+    """A family member every extra pins to one version is constrained to it, so the
+    constraint also covers the jobs that install no cell extra (pip-editable, docs, the
+    --pre cell's dev half); one pinned apart is not. Read off the extras, not listed:
+    pydantic and langchain-protocol were the agreed members until cell 3's GOV-16 extension
+    pinned them apart, and the agreement test below holds the rule on a synthetic lock."""
+    with (REPO_ROOT / "pyproject.toml").open("rb") as handle:
+        family = compat_extra_pins(tomllib.load(handle))
+    agreed = {name: next(iter(versions)) for name, versions in family.items() if len(versions) == 1}
+    for name, version in agreed.items():
+        assert pins.get(name) == [version], f"{name}: agreed on {version} but not constrained"
+    for name in sorted(family.keys() - agreed.keys()):
+        assert name not in pins, f"{name} is pinned apart by the cells but constrained"
 
 
 @pytest.mark.parametrize("name", sorted(DEV_TOOLCHAIN))
@@ -217,9 +233,122 @@ def test_an_agreed_family_pin_that_disagrees_with_the_lock_is_a_loud_error() -> 
         render(_lock(("pydantic", "2.14.0", []), ("langgraph", "1.0.10", [])), GOOD_PYPROJECT)
 
 
+def test_an_agreed_family_pin_is_constrained_to_the_agreed_version() -> None:
+    rendered = render(
+        _lock(("langgraph", "1.0.10", []), ("pydantic", "2.13.4", [])), GOOD_PYPROJECT
+    )
+    assert "pydantic==2.13.4" in rendered.splitlines()
+
+
 def test_a_non_exact_compat_requirement_is_a_loud_error() -> None:
     with pytest.raises(MatrixConstraintsError, match="non-exact"):
         render(_lock(("x", "1.0", [])), _pyproject(**{"compat-cell-1": ["langgraph>=1.0"]}))
+
+
+# ── The one marker a compat extra may carry: a Python-version bound (PD-078) ──────────────
+
+
+def test_a_python_bound_pin_is_read_without_its_marker() -> None:
+    assert split_requirement("langchain-core==1.8.0; python_version >= '3.11'") == (
+        "langchain-core",
+        "1.8.0",
+        "python_version >= '3.11'",
+    )
+    assert split_requirement('Langchain_Core==1.7.7 ;python_version<"3.11"') == (
+        "langchain-core",
+        "1.7.7",
+        'python_version<"3.11"',
+    )
+    assert split_requirement("pydantic==2.14.3") == ("pydantic", "2.14.3", None)
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    [
+        "langgraph==1.2.22; sys_platform == 'linux'",
+        "langgraph==1.2.22; python_full_version >= '3.11'",
+        "langgraph==1.2.22; python_version >= '3.11' and sys_platform == 'linux'",
+        "langgraph==1.2.22; python_version >= '3'",
+        "langgraph==1.2.22; extra == 'x'",
+        "langgraph>=1.2",
+        "langgraph==1.2.*",
+        "langgraph==1.2,<2",
+        "langgraph",
+        "==1.2.22",
+    ],
+)
+def test_anything_but_an_exact_pin_with_a_python_bound_is_refused(requirement: str) -> None:
+    with pytest.raises(MatrixConstraintsError):
+        split_requirement(requirement)
+
+
+@pytest.mark.parametrize(
+    ("operator", "admitted"),
+    [
+        ("<", {(3, 10)}),
+        ("<=", {(3, 10), (3, 11)}),
+        (">", {(3, 12), (3, 13)}),
+        (">=", {(3, 11), (3, 12), (3, 13)}),
+        ("==", {(3, 11)}),
+        ("!=", {(3, 10), (3, 12), (3, 13)}),
+    ],
+)
+def test_a_python_bound_admits_the_minors_pip_would(
+    operator: str, admitted: set[tuple[int, int]]
+) -> None:
+    pythons = {(3, 10), (3, 11), (3, 12), (3, 13)}
+    marker = f"python_version {operator} '3.11'"
+    assert {python for python in pythons if marker_admits(marker, python)} == admitted
+
+
+def test_an_unmarked_pin_installs_on_every_python() -> None:
+    assert marker_admits(None, (3, 10)) and marker_admits(None, (3, 13))
+
+
+def test_cell_pins_resolve_a_marker_split_per_python() -> None:
+    extra = [
+        "langgraph==1.2.22",
+        "langchain-core==1.8.0; python_version >= '3.11'",
+        "langchain-core==1.7.7; python_version < '3.11'",
+    ]
+    assert cell_pins(extra, (3, 10)) == {"langgraph": "1.2.22", "langchain-core": "1.7.7"}
+    assert cell_pins(extra, (3, 13)) == {"langgraph": "1.2.22", "langchain-core": "1.8.0"}
+
+
+def test_two_pins_of_one_distribution_for_one_python_are_refused() -> None:
+    extra = [
+        "langchain-core==1.8.0; python_version >= '3.10'",
+        "langchain-core==1.7.7; python_version < '3.11'",
+    ]
+    with pytest.raises(MatrixConstraintsError, match="pinned twice"):
+        cell_pins(extra, (3, 10))
+
+
+def test_a_family_member_split_by_python_is_never_constrained() -> None:
+    """Two versions of one member across a marker split are divergent by definition."""
+    pyproject = _pyproject(
+        **{
+            "compat-cell-3": [
+                "langchain-core==1.8.0; python_version >= '3.11'",
+                "langchain-core==1.7.7; python_version < '3.11'",
+            ]
+        }
+    )
+    rendered = render(
+        _lock(
+            ("langchain-core", "1.7.7", ["python_full_version < '3.11'"]),
+            ("langchain-core", "1.8.0", ["python_full_version >= '3.11'"]),
+        ),
+        pyproject,
+    )
+    assert "langchain-core==" not in rendered
+    assert "langchain-core - substrate family" in rendered
+
+
+def test_a_foreign_marker_on_a_compat_pin_is_a_loud_error() -> None:
+    pyproject = _pyproject(**{"compat-cell-1": ["langgraph==1.0.10; sys_platform == 'linux'"]})
+    with pytest.raises(MatrixConstraintsError, match="python_version bound"):
+        render(_lock(("langgraph", "1.0.10", [])), pyproject)
 
 
 def test_a_pyproject_without_compat_extras_is_a_loud_error() -> None:

@@ -183,6 +183,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The tested matrix: cell 3 moves to langgraph 1.2.22 with langchain-core pinned per Python,
+  and Python 3.14 stays outside the tested range** (card GOV-16; VERSION-COMPAT §3/§4; PD-078).
+  The `compat-cell-3` and `compat-test` extras now pin langgraph 1.2.22 with
+  langgraph-checkpoint 4.3.2, langgraph-prebuilt 1.1.2, langgraph-sdk 0.4.14,
+  langchain-protocol 0.0.21 and pydantic 2.14.3, and langchain-core per Python: 1.8.0 on
+  Python 3.11–3.13 and 1.7.7 on 3.10, because core 1.8.0 declares `Requires-Python >=3.11` — so
+  each Python's cell installs what pip installs for that Python's users. The extension is
+  justified by drift-suite CI run 43651528532 (langgraph 1.2.22 + langchain-core
+  1.8.0 on Python 3.11–3.13, 1.2.22 + 1.7.7 on 3.10), in which every drift golden held. Each
+  of cell 3's drift reports carried five soft divergences — langgraph 1.2's new `trace_policy`
+  node-spec field, on the spec and on `add_node`, and three langchain-core surfaces whose 1.7 or
+  1.8 line was not yet inventoried — and version-gap issue
+  [#16](https://github.com/Gebra-Tech/gebra/issues/16) lists the eight distinct lines across the
+  cell's four Pythons, the three core surfaces once per core. All of them are now recorded in the
+  drift suite's inventory, citing that run and that issue. The
+  split is a `python_version` marker on the extra's line, the one marker a compat extra may
+  carry: `tools/matrix_constraints.py` reads it (`split_requirement`, `cell_pins`) and refuses
+  any other. `uv.lock` and `tools/matrix-constraints.txt` follow; with the cells now pinning
+  pydantic and langchain-protocol apart, neither is constrained any more, so the jobs that
+  install no cell extra resolve them fresh, as they already resolve langgraph and
+  langchain-core. The development lock follows cell 3 to langchain-core 1.8.0, so the
+  `lcel-tool-bound` conformance golden, whose `config_digest` carries the installed core's
+  version, is retaken there, as its README requires on a core lock bump; every other golden kept
+  its bytes. Python 3.14 is capped at the tested ceiling, 3.13 — VERSION-COMPAT §4's red
+  path: every frozen cell installs on CPython 3.14 and the drift suite holds there, but the
+  full suite does not (the scheduled run 42656942210, on CPython 3.14.4 with cell 3's earlier
+  pair, langgraph 1.2.10 + langchain-core 1.5.3, is red), because Python 3.14 stores
+  annotations lazily (PEP 649/749) and shallow inference finds no annotation keys there.
+  Version-gap issue:
+  [#17](https://github.com/Gebra-Tech/gebra/issues/17).
+  On 3.14 the first `gebra.extract()` therefore still warns `GebraVersionWarning`. No version
+  literal moved.
+
 - **P-01's `dead-end-node-not-wired-to-end` help names the explicit edge to END** (card CLI-12).
   The rule's `help` text in every SARIF log now leads with `builder.add_edge(<node>, END)` — the
   repair adopters needed when a builder ends its chain at a node with no outgoing edge — and says

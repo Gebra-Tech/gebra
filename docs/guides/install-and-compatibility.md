@@ -178,17 +178,19 @@ early-warning cell = 13. Every blocking cell runs `ruff check`, `ruff format --c
 |---|---|---|---|
 | 1 | `1.0.10` | `1.1.3` | `2.13.4` |
 | 2 | `1.1.10` | `1.3.3` | `2.13.4` |
-| 3 | `1.2.10` | `1.5.3` | `2.13.4` |
+| 3 | `1.2.22` | `1.8.0` on 3.11–3.13, `1.7.7` on 3.10 | `2.14.3` |
 
 Python: **3.10, 3.11, 3.12, 3.13**, all four against all three cells.
 
 Those are exact pins, and they are frozen — the tested matrix stopped moving on its own at
 the freeze that closed this phase's compatibility work, and each pin now changes only through
-the extension or cap procedure further down. `pydantic` is pinned per cell even though the
-three agree today: it is a transitive of langchain-core, so it is a property of each cell's
-resolution rather than an axis of its own. Two langgraph releases inside the declared range —
-`1.1.7` and `1.2.3` — are yanked and are excluded by these pins rather than by the range: a
-version range cannot exclude a point version.
+the extension or cap procedure further down. Cell 3's `langchain-core` is pinned per Python:
+core `1.8.0` declares `Requires-Python >=3.11`, so on 3.10 the cell pins `1.7.7`, the newest
+core that installed there when the cell was last extended. `pydantic` is pinned per cell: it is
+a transitive of langchain-core, so it is a property of each cell's resolution rather than an
+axis of its own. Two langgraph releases inside the declared range — `1.1.7` and `1.2.3` — are
+yanked and are excluded by these pins rather than by the range: a version range cannot exclude
+a point version.
 
 The 13th cell installs the newest prerelease of both packages (`pip install --pre`) on the
 newest tested Python and is allowed to fail: it exists to see a change coming, not to gate a

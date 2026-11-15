@@ -69,6 +69,7 @@ from gebra.versioning import Component, Version, changed_components, next_versio
 from tests.sample_workflows import travel_booking
 from tests.sample_workflows.travel_booking_evolution import EVOLUTION
 from tools.honest_claims_lint import load_phrases, scan
+from tools.matrix_constraints import cell_pins
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -301,14 +302,37 @@ def _table_rows(text: str, header: str) -> list[list[str]]:
     raise AssertionError(f"no table with header {header!r}")
 
 
-def _pins(requirements: list[str]) -> dict[str, str]:
-    """The ``name == version`` pins in a requirement list, keyed by distribution name."""
-    pinned: dict[str, str] = {}
-    for requirement in requirements:
-        name, separator, version = requirement.partition("==")
-        if separator:
-            pinned[name.strip()] = version.strip()
-    return pinned
+def _python(version: str) -> tuple[int, int]:
+    major, minor = (int(part) for part in version.split("."))
+    return major, minor
+
+
+def _pins(requirements: list[str], python: str) -> dict[str, str]:
+    """The exact pins an extra installs on ``python``, keyed by distribution name — its
+    ``python_version`` lines resolved by the constraints generator's own reader."""
+    return cell_pins(requirements, _python(python))
+
+
+def _pin_cell(extras: dict[str, list[str]], cell: str, distribution: str) -> str:
+    """The page's table cell for one pin: the version alone when every tested Python gets it,
+    else each version, newest first, with the Pythons that get it (``3.11–3.13``)."""
+    by_version: dict[str, list[str]] = {}
+    for python in PAGE_PYTHONS:
+        version = _pins(extras[f"compat-cell-{cell}"], python)[distribution]
+        by_version.setdefault(version, []).append(python)
+    if len(by_version) == 1:
+        return f"`{next(iter(by_version))}`"
+    parts = []
+    for version, pythons in sorted(by_version.items(), key=lambda item: _triple(item[0]))[::-1]:
+        start = PAGE_PYTHONS.index(pythons[0])
+        consecutive = list(PAGE_PYTHONS[start : start + len(pythons)]) == pythons
+        span = (
+            f"{pythons[0]}–{pythons[-1]}"
+            if consecutive and len(pythons) > 1
+            else ", ".join(pythons)
+        )
+        parts.append(f"`{version}` on {span}")
+    return ", ".join(parts)
 
 
 def _triple(raw: str) -> tuple[int, int, int]:
@@ -460,10 +484,9 @@ def test_the_pin_table_is_the_compat_cell_extras(
 
     assert [row[0] for row in rows] == list(CELLS)
     for row in rows:
-        pinned = _pins(extras[f"compat-cell-{row[0]}"])
-        assert row[1] == f"`{pinned['langgraph']}`"
-        assert row[2] == f"`{pinned['langchain-core']}`"
-        assert row[3] == f"`{pinned['pydantic']}`"
+        assert row[1] == _pin_cell(extras, row[0], "langgraph")
+        assert row[2] == _pin_cell(extras, row[0], "langchain-core")
+        assert row[3] == _pin_cell(extras, row[0], "pydantic")
 
 
 def test_the_page_shows_every_frozen_cell(extras: dict[str, list[str]]) -> None:
@@ -511,7 +534,8 @@ def test_the_yanked_releases_the_page_names_are_pinned_by_no_cell(
     for version in YANKED:
         assert f"`{version}`" in page_text
         for cell in CELLS:
-            assert _pins(extras[f"compat-cell-{cell}"])["langgraph"] != version
+            for python in PAGE_PYTHONS:
+                assert _pins(extras[f"compat-cell-{cell}"], python)["langgraph"] != version
 
 
 def test_the_pre_cell_the_page_describes_is_the_workflows(workflow: dict[str, Any]) -> None:
@@ -612,14 +636,15 @@ def test_each_cells_pins_land_inside_that_cells_band(
     bands = _band_table(page_text)
 
     for cell in CELLS:
-        pinned = _pins(extras[f"compat-cell-{cell}"])
         langgraph_band, core_band = bands[cell]
-        for band, pin in (
-            (langgraph_band, pinned["langgraph"]),
-            (core_band, pinned["langchain-core"]),
-        ):
-            floor, ceiling = _bounds(band)
-            assert floor <= _triple(pin) < ceiling, f"cell {cell}: {pin} is outside {band}"
+        for python in PAGE_PYTHONS:
+            pinned = _pins(extras[f"compat-cell-{cell}"], python)
+            for band, pin in (
+                (langgraph_band, pinned["langgraph"]),
+                (core_band, pinned["langchain-core"]),
+            ):
+                floor, ceiling = _bounds(band)
+                assert floor <= _triple(pin) < ceiling, f"cell {cell}: {pin} is outside {band}"
 
 
 @pytest.mark.parametrize("python", PAGE_PYTHONS)
@@ -629,7 +654,7 @@ def test_every_tested_python_makes_every_cells_pins_tested(
     """The whole matrix, through the check ``extract()`` calls: twelve tested cells."""
     major, minor = (int(part) for part in python.split("."))
     for cell in CELLS:
-        pinned = _pins(extras[f"compat-cell-{cell}"])
+        pinned = _pins(extras[f"compat-cell-{cell}"], python)
         versions = _install(
             (major, minor), _triple(pinned["langgraph"]), _triple(pinned["langchain-core"])
         )
@@ -921,18 +946,34 @@ def test_the_declared_ranges_are_the_specifications() -> None:
 
 @requires_the_living_document
 def test_the_frozen_matrix_is_the_specifications(extras: dict[str, list[str]]) -> None:
-    """The F2 freeze banner names the same pins, the same Pythons and the same cell counts."""
+    """The freeze and extension records name the same pins, the same Pythons and the same
+    cell counts.
+
+    A cell whose pins are one pair on every Python is spelled the way the F2 banner spells it
+    (cell 1 in full, the other two in its short form). A cell pinned per Python — cell 3 since
+    its GOV-16 extension (PD-078) — must name each pair with the Pythons that install it,
+    the way the extension's own record does: ``1.2.22 + 1.7.7 on Python 3.10``.
+    """
     spec = VERSION_COMPAT.read_text(encoding="utf-8")
 
     for cell in CELLS:
-        pinned = _pins(extras[f"compat-cell-{cell}"])
-        # The banner spells cell 1 in full and the other two in its own short form.
-        spellings = (
-            f"{pinned['langgraph']} + langchain-core {pinned['langchain-core']}",
-            f"cell {cell} — {pinned['langgraph']} + {pinned['langchain-core']}",
-        )
-        assert any(spelling in spec for spelling in spellings), f"cell {cell} pins"
-    assert f"pydantic {_pins(extras['compat-cell-3'])['pydantic']} transitively" in spec
+        pairs: dict[tuple[str, str], list[str]] = {}
+        for python in PAGE_PYTHONS:
+            pinned = _pins(extras[f"compat-cell-{cell}"], python)
+            pairs.setdefault((pinned["langgraph"], pinned["langchain-core"]), []).append(python)
+        if len(pairs) == 1:
+            [(langgraph, core)] = pairs
+            spellings = (
+                f"{langgraph} + langchain-core {core}",
+                f"cell {cell} — {langgraph} + {core}",
+            )
+            assert any(spelling in spec for spelling in spellings), f"cell {cell} pins"
+            continue
+        for (langgraph, core), pythons in pairs.items():
+            spelling = f"{langgraph} + {core} on Python {' · '.join(pythons)}"
+            assert spelling in spec, f"cell {cell}: the record does not name {spelling!r}"
+    newest = _pins(extras["compat-cell-3"], PAGE_PYTHONS[-1])
+    assert f"pydantic {newest['pydantic']} transitively" in spec
     assert "Python 3.10 · 3.11 · 3.12 · 3.13" in spec
     assert "12 blocking cells" in spec
     assert "13 cells total" in spec or "one `--pre` early-warning cell" in spec

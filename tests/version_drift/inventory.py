@@ -178,7 +178,12 @@ _PREGEL_ATTRS_1_0: Final[frozenset[str]] = frozenset(
 #: The recorded inventories, one per drift-test surface. Lines (1, 0)/(1, 1)/(1, 2) for
 #: langgraph and (1, 1)/(1, 3)/(1, 5) for langchain-core are the three frozen matrix
 #: cells' pins (PD-030 §C3); every set below was observed on that cell's installed
-#: substrate at GOV-05 landing (tests 1-6) or GOV-06 landing (tests 7-12).
+#: substrate at GOV-05 landing (tests 1-6) or GOV-06 landing (tests 7-12). Cell 3's
+#: extension (GOV-16) re-recorded line (1, 2) at langgraph 1.2.22, which gained
+#: `trace_policy` on the node spec and on `add_node`, and added lines (1, 7) and (1, 8) for
+#: its per-Python cores (PD-078) — the sets drift-suite CI run 43651528532 observed,
+#: reported in version-gap issue #16; the new core lines read the same
+#: members line (1, 5) recorded.
 INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
     # Test 1 — StateNodeSpec's declared fields (A2 §3: additive churn lands here).
     "state-node-spec-fields": SurfaceInventory(
@@ -218,6 +223,7 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
                     "retry_policy",
                     "runnable",
                     "timeout",
+                    "trace_policy",
                 }
             ),
         },
@@ -292,6 +298,8 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
             (1, 1): frozenset({"data", "id", "metadata", "name"}),
             (1, 3): frozenset({"data", "id", "metadata", "name"}),
             (1, 5): frozenset({"data", "id", "metadata", "name"}),
+            (1, 7): frozenset({"data", "id", "metadata", "name"}),
+            (1, 8): frozenset({"data", "id", "metadata", "name"}),
         },
     ),
     "drawable-edge-fields": SurfaceInventory(
@@ -300,6 +308,8 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
             (1, 1): frozenset({"conditional", "data", "source", "target"}),
             (1, 3): frozenset({"conditional", "data", "source", "target"}),
             (1, 5): frozenset({"conditional", "data", "source", "target"}),
+            (1, 7): frozenset({"conditional", "data", "source", "target"}),
+            (1, 8): frozenset({"conditional", "data", "source", "target"}),
         },
     ),
     # Test 5 — Send's declared members. A2 §3's "additive `timeout` field, recent" observed
@@ -351,7 +361,8 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
     # Test 7 — the full rendered jsonschema documents (§3 row 7's designated soft half:
     # "full-dict equality"), as flatten_documents atoms. Both getters rendered the same
     # document for the fixture state on every frozen line at GOV-06 landing; the pydantic
-    # that renders it is pinned transitively per cell (2.13.4 — no independent axis).
+    # that renders it is pinned transitively per cell (no independent axis): 2.13.4 on cells
+    # 1 and 2, and 2.14.3 on cell 3 since GOV-16, which rendered the same document.
     "input-output-jsonschema": SurfaceInventory(
         owner=LANGGRAPH,
         recorded={
@@ -443,6 +454,7 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
                     "retry_policy",
                     "self",
                     "timeout",
+                    "trace_policy",
                 }
             ),
         },
@@ -456,6 +468,8 @@ INVENTORIES: Final[Mapping[str, SurfaceInventory]] = {
             (1, 1): frozenset({"first", "last", "middle", "name"}),
             (1, 3): frozenset({"first", "last", "middle", "name"}),
             (1, 5): frozenset({"first", "last", "middle", "name"}),
+            (1, 7): frozenset({"first", "last", "middle", "name"}),
+            (1, 8): frozenset({"first", "last", "middle", "name"}),
         },
     ),
     # Test 12 — the compiled Pregel's public instance attributes: the compiled surface the

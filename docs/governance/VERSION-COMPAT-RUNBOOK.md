@@ -10,11 +10,15 @@ and where the two ever disagree, the living document wins and this file gets fix
 
 The tested matrix is Python 3.10–3.13 × three langgraph/langchain-core pair cells
 (12 blocking CI cells) plus one non-blocking `--pre` early-warning cell. Frozen at F2
-citing green drift-suite CI run 33336160085 (2026-08-30). Four files carry it:
+citing green drift-suite CI run 33336160085 (2026-08-30). Cell 3 was extended at GOV-16
+(2026-11-14) to langgraph 1.2.22 with langchain-core pinned per Python — 1.8.0 on 3.11–3.13,
+1.7.7 on 3.10 — citing drift-suite CI run 43651528532, and Python 3.14 was capped
+there (red, run 42656942210; version-gap issue #17). Four files carry
+it:
 
 | File | What it pins |
 |---|---|
-| `pyproject.toml` — `compat-cell-{1,2,3}` / `compat-test` extras | The substrate family per cell, exact, transitives included (the FROZEN marker cites the freeze run) |
+| `pyproject.toml` — `compat-cell-{1,2,3}` / `compat-test` extras | The substrate family per cell, exact, transitives included, a family member split by Python with a `python_version` marker (the FROZEN marker cites the freeze run and each extension's) |
 | `tools/matrix-constraints.txt` | The dev toolchain and other lock-resolved dependencies, for every pip-installing CI job — generated from `uv.lock` by `tools/matrix_constraints.py`, agreement-gated (divergently pinned family members are never constrained) |
 | `uv.lock` | The locked default environment the constraints derive from |
 | `.github/workflows/ci.yml` | The 13 cells, the gates each runs, the drift-report seam, the `drift-issues` automation, the `golden-guard` job, and the watch triggers |
@@ -84,7 +88,11 @@ When upstream ships a new substrate release you want inside the tested matrix:
    the latest non-yanked version that both resolves against the cell's named pair *and*
    passes the import + §2-surface probe — which may be a Gebra-chosen bound rather than
    the resolver's float (cell 1's `langgraph-checkpoint==4.0.3`, PD-030 Q1, exists
-   because the float dies at import). Yanked releases never enter the matrix.
+   because the float dies at import). Yanked releases never enter the matrix. Where
+   the rule's langchain-core declares a `Requires-Python` that excludes one of the
+   cell's Pythons, that Python takes the latest core inside both pins that installs
+   there, pinned by a `python_version` marker on the extra's line (PD-078 — cell 3 since
+   GOV-16); the marker is the one form `tools/matrix_constraints.py` reads.
 2. **Run the drift suite against the candidate before changing anything.** Locally:
 
    ```bash
@@ -94,23 +102,36 @@ When upstream ships a new substrate release you want inside the tested matrix:
    /tmp/candidate/bin/python -m pytest tests/version_drift/ -q   # then the full gates
    ```
 
-   Or push a branch that bumps the candidate cell's extra — the pull request runs the
-   full 13-cell matrix on it, which is the justifying run you will cite.
+   If the candidate needs a newer leaf than the constraints carry (langchain-core 1.7
+   needed langsmith 0.14, GOV-16), lock the candidate first and install under the
+   constraints rendered from that lock. Or push a branch that bumps the candidate cell's
+   extra — the pull request runs the full 13-cell matrix on it, which is the justifying
+   run you will cite.
 3. **Green → one extension change, containing all of:**
    - the bumped `compat-cell-N` (and `compat-test`, if cell 3 moved) pins in
      `pyproject.toml`;
    - if cell 3 or any locked dependency moved: `uv lock` refresh **and**
      `python tools/matrix_constraints.py --write` in the same commit (the staleness
      test is red otherwise);
+   - if the lock's langchain-core moved: the `lcel-tool-bound` conformance golden
+     retaken in the same commit (`TOOL_BOUND_CORE_PIN` moved to the new core, then
+     `python tools/conformance_goldens.py --write --only lcel-tool-bound`), under
+     `Golden-Justification: drift-run=<run id> <pair>` — its README requires it;
+   - the soft half: each recorded inventory the run reported diverging, re-recorded in
+     `tests/version_drift/inventory.py` citing the run and the version-gap issue its
+     annotation opened;
    - a CHANGELOG entry citing the drift-suite run ID + substrate pair;
    - the living-document edit (supplementary repo): the §1/§4 ceiling line moves, in
      exactly one commit citing the same run ID + pair, with
      `python3 tools/provenance_guard.py --provenance-doc docs/PROVENANCE.md --regenerate`
-     run in that commit (PD-035 mechanics).
+     run in that commit (PD-035 mechanics) — applied before the library change lands,
+     because `tests/docs/test_install_and_compatibility.py` reads the living document
+     wherever it is checked out beside this repository.
 4. **Goldens stay byte-identical.** The drift goldens hold on every cell by
    construction (the suite's composition rule); a new cell that moves a golden is not
    an extension — it is drift, and it routes down the red path instead. Never edit a
-   golden to make an extension green.
+   golden to make an extension green. The one golden an extension moves is the
+   `lcel-tool-bound` retake of step 3, which follows the locked core rather than a cell.
 
 ## Cap — the red path (VERSION-COMPAT §4)
 

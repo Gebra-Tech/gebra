@@ -25,10 +25,18 @@ What the file carries, and what it deliberately leaves out:
   (VERSION-COMPAT §1/§3); their single source of truth is the extras, and a constraint
   would either duplicate or contradict them. A family member is still constrained when
   every extra that pins it agrees on one version and the lock resolved exactly that
-  version (pydantic today): the constraint then also covers the jobs that install no cell
-  extra. A distribution whose resolution the lock makes cell-dependent (uv conflict
-  markers — packaging today) is likewise left to the cell's own resolution, and every
-  such exclusion is listed by name in the generated header.
+  version: the constraint then also covers the jobs that install no cell extra (pydantic
+  and langchain-protocol were, until cell 3's GOV-16 extension pinned them apart). A
+  distribution whose resolution the lock makes cell-dependent (uv conflict markers —
+  packaging today) is likewise left to the cell's own resolution, and every such
+  exclusion is listed by name in the generated header.
+* **The one marker a compat extra may carry is a Python-version bound**
+  (``python_version >= '3.11'``), for a cell that pins a family member per interpreter —
+  cell 3's langchain-core since GOV-16 (PD-078), where the newest core inside the cell's
+  pins declares a ``Requires-Python`` that excludes one of the cell's Pythons.
+  :func:`split_requirement` reads such a pin's version without its marker and
+  :func:`cell_pins` resolves an extra for one Python; any other marker is refused (exit 2)
+  rather than guessed at.
 
 ``--check`` regenerates in memory and compares against the committed file (CI-testable:
 ``tests/test_matrix_constraints.py`` runs it in-process in every cell, so a ``uv.lock``
@@ -47,6 +55,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -80,9 +89,9 @@ HEADER = """\
 # stay fresh). Distributions the cells pin to *different* versions are never constrained
 # here - the compat-cell extras are their single source of truth; a family member
 # appears below only when every extra that pins it agrees on one version and the lock
-# resolved exactly that version (pydantic, langchain-protocol today). Anything else the
-# lock resolves per cell is left to the cell and named below. A constraints line binds
-# only when the named distribution is selected; it never installs anything by itself.
+# resolved exactly that version. Anything else the lock resolves per cell is left to the
+# cell and named below. A constraints line binds only when the named distribution is
+# selected; it never installs anything by itself.
 #
 # Excluded from constraint, with reasons:
 """
@@ -97,8 +106,85 @@ def canonical_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+#: The one environment marker a compat extra may carry: a bound on the Python minor. It lets
+#: a cell pin a family member per interpreter where the newest release inside the cell's pins
+#: declares a ``Requires-Python`` that excludes one of the cell's Pythons (cell 3's
+#: langchain-core since GOV-16, PD-078). Whitespace around the operator is free; the quoted
+#: bound is ``major.minor``, as pip compares ``python_version``.
+_PYTHON_MARKER = re.compile(r"""python_version\s*(<=|>=|==|!=|<|>)\s*(['"])(\d+)\.(\d+)\2""")
+
+#: What a pin's version may not contain: anything that makes it a range rather than a pin.
+_RANGE_CHARACTERS = frozenset("<>!=~,*")
+
+
+def split_requirement(requirement: str) -> tuple[str, str, str | None]:
+    """A compat-extra line, ``name==version[; python_version <op> 'X.Y']``, as its parts.
+
+    Returns ``(name, version, marker)``: the PEP 503-normalized name, the exact version, and
+    the marker text — ``None`` for a pin every Python installs.
+
+    Raises:
+        MatrixConstraintsError: the line is not an exact pin, or it carries any marker other
+            than one Python-version bound.
+    """
+    spec, separator, marker = requirement.partition(";")
+    name, equals, version = spec.partition("==")
+    version = version.strip()
+    if not equals or not name.strip() or not version or _RANGE_CHARACTERS & set(version):
+        raise MatrixConstraintsError(f"a compat extra carries a non-exact pin: {requirement!r}")
+    if not separator:
+        return canonical_name(name.strip()), version, None
+    marker = marker.strip()
+    if _PYTHON_MARKER.fullmatch(marker) is None:
+        raise MatrixConstraintsError(
+            f"a compat extra carries a marker other than a python_version bound: {requirement!r}"
+        )
+    return canonical_name(name.strip()), version, marker
+
+
+def marker_admits(marker: str | None, python: tuple[int, int]) -> bool:
+    """Whether a pin carrying ``marker`` installs on the Python minor ``python``."""
+    if marker is None:
+        return True
+    matched = _PYTHON_MARKER.fullmatch(marker)
+    if matched is None:
+        raise MatrixConstraintsError(f"not a python_version bound: {marker!r}")
+    operator, _, major, minor = matched.groups()
+    bound = (int(major), int(minor))
+    verdicts = {
+        "<": python < bound,
+        "<=": python <= bound,
+        ">": python > bound,
+        ">=": python >= bound,
+        "==": python == bound,
+        "!=": python != bound,
+    }
+    return verdicts[operator]
+
+
+def cell_pins(requirements: Sequence[str], python: tuple[int, int]) -> dict[str, str]:
+    """The exact pins one compat extra installs on the Python minor ``python``, by name.
+
+    Raises:
+        MatrixConstraintsError: a line is not a pin :func:`split_requirement` reads, or two
+            pins of one distribution apply to the same Python.
+    """
+    pins: dict[str, str] = {}
+    for requirement in requirements:
+        name, version, marker = split_requirement(str(requirement))
+        if not marker_admits(marker, python):
+            continue
+        if name in pins:
+            raise MatrixConstraintsError(
+                f"{name} is pinned twice for Python {python[0]}.{python[1]}: "
+                f"{pins[name]} and {version}"
+            )
+        pins[name] = version
+    return pins
+
+
 def compat_extra_pins(pyproject: dict[str, object]) -> dict[str, set[str]]:
-    """Every ``name == version`` pin across the ``compat*`` extras, keyed by name."""
+    """Every pinned version across the ``compat*`` extras, keyed by name (markers dropped)."""
     project = pyproject.get("project")
     if not isinstance(project, dict):
         raise MatrixConstraintsError("pyproject.toml carries no [project] table")
@@ -110,12 +196,11 @@ def compat_extra_pins(pyproject: dict[str, object]) -> dict[str, set[str]]:
         if not str(extra_name).startswith("compat"):
             continue
         for requirement in requirements:
-            name, separator, version = str(requirement).partition("==")
-            if not separator:
-                raise MatrixConstraintsError(
-                    f"extra {extra_name!r} carries a non-exact requirement: {requirement!r}"
-                )
-            pins.setdefault(canonical_name(name.strip()), set()).add(version.strip())
+            try:
+                name, version, _ = split_requirement(str(requirement))
+            except MatrixConstraintsError as error:
+                raise MatrixConstraintsError(f"extra {extra_name!r}: {error}") from None
+            pins.setdefault(name, set()).add(version)
     if not pins:
         raise MatrixConstraintsError("no compat* extra found - the substrate family is gone?")
     return pins

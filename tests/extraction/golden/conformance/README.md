@@ -31,13 +31,14 @@ treated as justified once the owner ratifies the category.
 Regenerate with `python tools/conformance_goldens.py --write` (it re-extracts twice and
 refuses to write an unstable serialization, and refuses to take a substrate-gated golden
 away from its exact pin) and commit the diff together with the justification. An
-unjustified golden diff is drift by definition and blocks. Interim enforcement is
-review-only (IR-spec pre-review) until the CI guard lands with GOV-08.
+unjustified golden diff is drift by definition and blocks; since GOV-08 the `golden-guard` CI
+job enforces it, failing a commit that changes a golden here without a well-formed
+`Golden-Justification:` trailer.
 
 **Provenance of the current set** — taken 2026-08-10 under EX-14 (initial creation, not a
 change), at the locked development substrate: langgraph 1.2.10, langchain-core 1.5.2,
 langgraph-checkpoint 4.1.1, pydantic 2.13.4 (`lcel-tool-bound`, which a langchain-core lock
-bump retakes, is held at the 1.5.3 gate below). Routing goldens are deliberately post-EX-03
+bump retakes, is held at the gate below). Routing goldens are deliberately post-EX-03
 (PD-044's consequence note: routing shapes golden only after the `send`/`dynamic`
 classification landed) and the tool-bound golden is post-EX-16 (its admission moved the
 node set for tool-bound workflows by design). `builder-enum-labels` was added on 2026-11-11
@@ -45,6 +46,10 @@ under EX-27 — a new case, not a change: DEC-38 admits a plain `Enum` routing l
 stored value is exactly a `str`, `ir_version` stays `1.0`, and every golden above kept its
 bytes. It was taken at langgraph 1.2.10, langchain-core 1.5.3, pydantic 2.13.4, and its
 commit carries the WA-05 trailer `Golden-Justification: DEC-38 ir_version=1.0 …`.
+`lcel-tool-bound` was retaken on 2026-11-14 under GOV-16, when cell 3's ceiling extension moved
+the locked development line to langgraph 1.2.22, langchain-core 1.8.0 on Python 3.11 and later
+(the lock resolves 1.7.7 below 3.11) and pydantic 2.14.3; its commit carries
+`Golden-Justification: drift-run=43651528532 …`, and every other golden here kept its bytes.
 
 ## Composition — what each golden pins
 
@@ -73,10 +78,12 @@ contains `metadata.lc_versions`, **the installed core's own version string**, me
 construction even over an explicitly passed `metadata`. Every core release therefore moves
 this digest (§7.4 (e)'s ruled movement at its sharpest), so the committed bytes can hold
 only at the **exact** release they were taken at: the comparison is gated on
-`langchain-core == 1.5.3` (the locked development pin since PD-049's lock regeneration,
-where the locked-env CI jobs run; `TOOL_BOUND_CORE_PIN` in the conformance module)
-and skips with that stated reason anywhere else — including matrix cell 3, whose core pin
-deliberately floats ("1.2.latest + latest core in band", re-resolved per PD-030 Q2). The
+`langchain-core == 1.8.0` — since GOV-16's lock refresh the locked development pin on Python
+3.11 and later, which is where the locked-env CI jobs run, and cell 3's core there
+(`TOOL_BOUND_CORE_PIN` in the conformance module) — and skips with that stated reason anywhere
+else: cells 1 and 2, and cell 3 on Python 3.10 and a 3.10 checkout of the lock, whose core is
+1.7.7 (PD-078); cell 3's core pin moves with each
+ceiling extension ("1.2.latest + latest core in band", re-resolved per PD-030 Q2). The
 extraction *capability* for tool-bound chains stays tested on every cell by
 `tests/extraction/test_digests.py`/`test_stock.py`, which compute expectations from the
 installed substrate. **A lock bump that moves langchain-core retakes this golden in the

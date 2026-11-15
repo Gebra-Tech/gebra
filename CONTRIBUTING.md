@@ -209,6 +209,12 @@ A few things about these pins are deliberate and easy to undo by accident:
   API that cell 1's core does not have, and `import langgraph.graph` then fails
   outright. No resolver prevents this: the declared metadata of every package
   involved is satisfied by the broken combination.
+- **They can differ by Python.** Cell 3 pins langchain-core per interpreter:
+  core 1.8.0 declares `Requires-Python >=3.11`, so on 3.10 the cell pins
+  1.7.7, the newest core that installed there when the cell was extended
+  (GOV-16). The split is a `python_version` marker on the extra's line — the
+  one marker the extras carry, which `tools/matrix_constraints.py` reads and
+  refuses in any other form.
 - **The `--pre` cell's substrate is unpinned and uncached on purpose.** It
   installs `--pre langgraph langchain-core` fresh on every run, which is the
   point: it reports what tomorrow's substrate would do. It never blocks a run — a
@@ -217,7 +223,8 @@ A few things about these pins are deliberate and easy to undo by accident:
   attributes to the substrate.
 - **The pins are frozen (F2, GOV-08, 2026-08-31).** The tested matrix froze
   citing green drift-suite run 33336160085; `pyproject.toml` says so at the
-  extras themselves. From here the pins change only through a ceiling extension
+  extras themselves, and records cell 3's one extension since (GOV-16, citing
+  its own run). From here the pins change only through a ceiling extension
   or cap — one commit citing its own drift-suite run. The procedure, the red
   path, and the 2.0 watch live in
   [docs/governance/VERSION-COMPAT-RUNBOOK.md](docs/governance/VERSION-COMPAT-RUNBOOK.md).

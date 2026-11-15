@@ -451,13 +451,15 @@ def test_lockfile_carries_no_matrix_pins(
         "every compat extra must be declared conflicting (PD-049); missing: "
         f"{sorted(declared - conflicted)}"
     )
-    # The dev line is untouched by the cells: the newest-pair substrate (the ruled dev
-    # line, == cell 3's pins per PD-030 §C3) is present in the lock, and the older cells'
-    # substrate versions appear only as conflict-split alternatives, never displacing it.
-    expected_dev = {"langgraph": "1.2.10", "langchain-core": "1.5.3"}
-    for name, version in expected_dev.items():
+    # The dev line is untouched by the cells: the newest-pair substrate (the ruled dev line,
+    # == cell 3's pins — PD-030 §C3, extended at GOV-16 with langchain-core per Python by
+    # PD-078) is present in the lock, and the older cells' substrate versions appear only as
+    # conflict-split alternatives, never displacing it.
+    expected_dev = {"langgraph": ("1.2.22",), "langchain-core": ("1.8.0", "1.7.7")}
+    for name, versions in expected_dev.items():
         found = {package["version"] for package in lockfile["package"] if package["name"] == name}
-        assert version in found, f"dev-line {name}=={version} missing from the lock: {found}"
+        for version in versions:
+            assert version in found, f"dev-line {name}=={version} missing from the lock: {found}"
 
 
 def _locked_project_extras(lockfile: dict[str, Any]) -> set[str]:

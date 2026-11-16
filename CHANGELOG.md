@@ -184,6 +184,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The documentation states which properties this release checks in one generated table, and no
+  prose states it as a number** (card DOC-21; DEC-35 §3.5 (c), DEC-42 §3.1). "What gebra checks"
+  gains a property catalog table — every catalog property's ID, slug, claim class, severity, scope
+  and whether this release checks it — rendered from the property registry by the new
+  `tools/property_table.py` and held to it in CI (`--check` in the `docs` job, and a test in every
+  matrix cell). Prose that counted properties ("the five properties", "the other eight") points at
+  the table instead, so a property's landing moves its row in the generated table, and the tests
+  hold the README's two property rows and the hand-written *What each checked property decides*
+  table to the registry, rather than leaving a stale count on every page; the catalog's size is the
+  one count kept, and `tests/docs/test_property_counts.py` scans the README, the documentation and
+  the package's own messages for count phrasings and fails on one. The README's row for the
+  properties with no validator moves from "out of scope for this phase" to "in progress", citing the
+  validator cards that carry the work: each has no validator in this release and is answered in
+  every run that reaches a verdict by a structured not-implemented marker, never a silent pass. The
+  pages whose prose still spoke of Phase 0 as the present, or called a property "outside this
+  release", now use the charter's copy — a property *has no validator in this release*. The
+  architecture overview no longer counts the places where code that is not gebra's runs: beside
+  `--call`, imports and annotation evaluation it names the gated drawing a compiled graph is read
+  through — LangGraph's own code, save for the members a `Pregel` subclass overrides, and able to
+  read an author's objects through their own attribute access and hashing — and gebra's own reads
+  that reach an author's objects, and points at the never-invokes audit as the reads measured so
+  far, not a complete account; the CLI reference's opening stops counting paths and points there.
+  The IR concept page describes a 1.1 document as what it is in this release — extracted, verified,
+  snapshotted and diffed. Docstrings on `gebra.verify` that counted the wedge follow, and the API
+  reference with them; no name, signature, verdict or report moves.
+
 - **The tested matrix: cell 3 moves to langgraph 1.2.22 with langchain-core pinned per Python,
   and Python 3.14 stays outside the tested range** (card GOV-16; VERSION-COMPAT §3/§4; PD-078).
   The `compat-cell-3` and `compat-test` extras now pin langgraph 1.2.22 with

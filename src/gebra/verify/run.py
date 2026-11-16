@@ -26,7 +26,7 @@ P-06 results "only over P-01-clean topology"; where P-01 fails, their reports on
 "best-effort diagnostics, not contract-bearing verdicts". Two things follow, and this module
 does both rather than only the first. P-01 runs first, and its FATAL findings alone already
 fix the run's gate — exit ``1`` with no snapshot recorded, whatever the others say. And
-the run report *says so*: :attr:`RunReport.best_effort` names the three properties whose
+the run report *says so*: :attr:`RunReport.best_effort` names the properties whose
 outcomes a consumer must read as diagnostics on that run, so the distinction survives into
 the artifact instead of living only in the spec.
 

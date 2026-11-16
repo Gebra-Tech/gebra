@@ -195,18 +195,29 @@ def site_pages() -> list[str]:
     return _nav_pages(nav)
 
 
-def test_the_readme_counts_the_pages_the_navigation_lists(site_pages: list[str]) -> None:
+#: A page count written in words — what the README carried before DOC-21 made it count-agnostic.
+_A_PAGE_COUNT: Final = re.compile(
+    r"\b(?:\w+-)?(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen"
+    r"|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty)\s+pages\b",
+    re.IGNORECASE,
+)
+
+
+def test_the_readme_says_every_page_is_written_and_counts_none(site_pages: list[str]) -> None:
     """This card wrote the last reserved page, so the README stopped saying "the rest is a
     skeleton" and started giving a total instead. A total is a number that can go stale, and it
-    appears twice — the status row's note and the documentation list's lead — so both are held
-    to the navigation's own count here rather than to each other. REL-06 then added a page
-    outside any reservation (the use-cases guide), which is what moved the count to twenty-one.
+    appeared twice — the status row's note and the documentation list's lead — so both were held
+    to the navigation's own count here. REL-06 added a page outside any reservation and moved
+    the total; every later page would have moved it again. DOC-21 made both sentences
+    count-agnostic: each says every page is written, which is what the tree is held to below.
     """
-    assert len(site_pages) == 21
+    assert site_pages, "the navigation lists no page"
 
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert readme.count("twenty-one pages") == 2
-    assert "twenty pages" not in readme
+    flat = re.sub(r"\s+", " ", readme)
+    assert not _A_PAGE_COUNT.search(flat), _A_PAGE_COUNT.search(flat)
+    assert "every page in the site's navigation is written" in flat
+    assert "Every page of the documentation site is written" in flat
 
     # And the two sentences that replaced the skeleton wording are held to the tree rather
     # than to each other: a page reserved later carries the marker again, and both fail.

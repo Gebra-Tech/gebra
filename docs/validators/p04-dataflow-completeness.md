@@ -975,11 +975,11 @@ steps of it the document does not author: [('triage', 'compliance_log')]
 ```
 
 One typo — a `path_map` label pointing at a node that was renamed away — and the run reports P-01's
-dangling reference, lists three properties as best-effort diagnostics, and hands back a P-04 record
-whose path contains a step the document does not author. That is not a defect in the record: on
-ill-formed topology each validator degrades in its own documented way, and P-04's is to keep the
-missing vertex as a placeholder with no declared reads or writes so that the reads *behind* it are
-still analysed. The placeholder is then removed from the emitted path, because no location field
+dangling reference, lists the topology-reading properties as best-effort diagnostics, and hands
+back a P-04 record whose path contains a step the document does not author. That is not a defect
+in the record: on ill-formed topology each validator degrades in its own documented way, and
+P-04's is to keep the missing vertex as a placeholder with no declared reads or writes so that the
+reads *behind* it are still analysed. The placeholder is then removed from the emitted path, because no location field
 may name a vertex the document does not carry (§0.3; decision record DEC-26).
 
 It also means P-04 and the corpus can disagree here, and the disagreement is recorded rather than

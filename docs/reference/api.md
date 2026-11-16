@@ -1312,7 +1312,7 @@ Write `ir` to `path` in surface form, YAML or JSON by suffix.
 
 Property validators P-01..P-13 and the §0.3 result envelope every report is written in.
 
-The result envelope, the condition-ID and property registry, the five wedge validators and the run-level aggregation. A finding is a model here, not a string: the same model the golden harness asserts on.
+The result envelope, the condition-ID and property registry, the validators this release ships and the run-level aggregation. A finding is a model here, not a string: the same model the golden harness asserts on.
 
 Frozen by card VAL-12, recorded in `docs/governance/VALIDATOR-API-FREEZE.md` §1 — 174 names.
 
@@ -1576,7 +1576,7 @@ RATIFIED_CONDITION_IDS: Final[tuple[ConditionId, ...]] = tuple(
 
 *constant*, defined in `gebra.verify.conditions`.
 
-The RATIFIED tier — the wedge-five conditions frozen with the spec.
+The RATIFIED tier — the wedge conditions §0.4 tables as RATIFIED, fixed by the reviewed fixture corpus and frozen with the spec. A name a later record ratified stays in the tier it was filed in, which is why P-01's `orphan-node` and `edge-target-undefined` are PROPOSED-tier.
 
 #### `gebra.verify.RESERVED_CONDITION_IDS`
 
@@ -1971,7 +1971,7 @@ class GraphModel:
 
 The sentinel-augmented, label-expanded multigraph the wedge's topology runs on.
 
-Built by `build_graph_model()`; a subgraph by `subgraph()`. Immutable and hashable, so it can be built once per IR and handed to every validator — which is the caching strategy this module offers (see the module docstring of `build_graph_model()`). Derived analyses (`components`, `condensation()`, `descendants()`, `anchor_cycle()`) are memoized per instance, so a second ask is free and two validators sharing a model share the Tarjan pass.
+Built by `build_graph_model()`; a subgraph by `subgraph()`. Immutable and hashable, so it can be built once per IR and handed to every validator — which is the caching strategy this module offers (see the module docstring of `build_graph_model()`). Derived analyses (`components`, `condensation()`, `descendants()`, `anchor_cycle()`) are memoized per instance, so a second ask is free and validators sharing a model share the Tarjan pass.
 
 **Attributes**
 
@@ -2699,7 +2699,7 @@ NON_WEDGE_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(
 
 *constant*, defined in `gebra.verify.registry`.
 
-The eight properties outside the wedge five (SOW §8 put them out of Phase-0 scope). A fact about Phase-0's scope, fixed with the table: a non-wedge property that lands stays in this tuple and is live all the same. Which properties have no validator in this release is `deferred_slugs()`' question, not this one's.
+The non-wedge properties — those SOW §8 put out of Phase-0 scope. A fact about Phase-0's scope, fixed with the table: a non-wedge property that lands stays in this tuple and is live all the same. Which properties have no validator in this release is `deferred_slugs()`' question, not this one's.
 
 #### `gebra.verify.NO_VERDICT`
 
@@ -2751,7 +2751,7 @@ WEDGE_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(
 
 *constant*, defined in `gebra.verify.registry`.
 
-The Phase-0 wedge five (SOW §1).
+The Phase-0 wedge: the properties SOW §1 put in Phase-0 scope.
 
 #### `gebra.verify.NotImplementedMarker`
 
@@ -2841,7 +2841,7 @@ PropertyScope: TypeAlias = Literal["phase-0-wedge", "catalog", "deferred-to-phas
 
 *type alias*, defined in `gebra.verify.registry`.
 
-Where a property stands in the catalog (DEC-35 §3.1, the deferred scope as DEC-42 §3.2 restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property whose ratified section's validator ships, or a property for which no validator ships, whether or not its section is ratified.
+Where a property stands in the catalog (DEC-35 §3.1, the deferred scope as DEC-42 §3.2 restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge, a property whose ratified section's validator ships, or a property for which no validator ships, whether or not its section is ratified.
 
 #### `gebra.verify.RegistryCounts`
 
@@ -3898,7 +3898,7 @@ Witness: TypeAlias = ...
 
 *type alias*, defined in `gebra.verify.witnesses`.
 
-The five wedge members, discriminated on `kind` (A6 PC-2; §0.3).
+The witness kinds of P-01, P-02, P-04, P-06 and P-08, one member each, discriminated on `kind` (A6 PC-2; §0.3).
 
 #### `gebra.verify.WitnessElement`
 
@@ -6398,10 +6398,12 @@ How a resolved contract slot came to hold its value (ANNOTATION §5).
 
 It does not say what a finding *means* — [What gebra checks](../concepts/what-gebra-checks.md)
 and the per-validator pages do. It does not describe the command line, which has
-[its own reference](cli.md). It says nothing about the eight non-wedge properties beyond the
-registry contract that answers for them: they are not implemented, and the registry returns a
-structured not-implemented marker rather than a pass. And it is a reference, not a tour — for
-how the packages fit together, read the [architecture overview](architecture.md).
+[its own reference](cli.md). It says nothing about a property this release has no validator
+for beyond the registry contract that answers for it: the registry returns a structured
+not-implemented marker rather than a pass, and the
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) lists those
+properties. And it is a reference, not a tour — for how the packages fit together, read the
+[architecture overview](architecture.md).
 
 The page itself is held to the sources by `tests/docs/test_api_reference.py` — every name in
 both directions, every signature's declared parameters, every freeze record it cites — and by

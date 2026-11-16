@@ -139,10 +139,12 @@ rather than what the prose asserts.
 - The extraction reports a `contract-defaulted` warning: these nodes carry no annotated
   contract, so the conservative default was applied and written into the IR. The warning is
   what keeps that value heuristic-grade instead of letting it read as declared.
-- Five properties are printed because five are implemented in this release. The catalog holds
-  thirteen, and the other eight come back as structured not-implemented markers that take no
-  part in the exit code — a property nobody has written never reports a silent pass.
-- Each of the five reports `pass`. That is a statement about the definition *as written* —
+- A property is printed only where this release has a validator for it — the loop prints the
+  reports and skips the rest. Every other catalog property comes back as a structured
+  not-implemented marker that takes no part in the exit code — a property with no validator
+  never reports a silent pass. The
+  [property table](../concepts/what-gebra-checks.md#the-property-catalog) says which is which.
+- Each printed property reports `pass`. That is a statement about the definition *as written* —
   its structure and its declared contracts — and about nothing else; and since the contracts
   here were defaulted rather than declared, part of it is a statement about a default.
 - Some of those passes are vacuous, which is worth reading rather than glossing over. The

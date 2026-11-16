@@ -481,13 +481,13 @@ One minor exists. `ir_version` `"1.1"` adds a fourth edge kind, `dynamic`, for a
 target set is not statically knowable (§8; DEC-28). `gebra.extract()` stamps `"1.1"` only if
 the document actually contains such an edge, and `"1.0"` otherwise — §8's minimal-stamping
 rule, which binds **emitters** and not documents (a hand-written document may stamp higher; see
-the floor below). In this release a 1.1 document
-**extracts and is verified** — the five properties read the edge under one ruled convention,
-described in
+the floor below). In this release a 1.1 document is **extracted, verified, snapshotted and
+diffed** like any other: P-01, P-02, P-04 and P-06 read the `dynamic` edge under one ruled
+convention, described in
 [the extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
-— **but is not snapshotted or diffed**: the structural diff has no ruled representation for an
-edge with no target, so `gebra snapshot` and `gebra diff` decline such a document and report a
-tool error rather than a comparison.
+(P-08 reads no edge), and a diff carries it as an edge with no target —
+[the snapshot guide](../guides/snapshot-diff-and-evolution.md#a-router-with-no-declared-targets)
+shows one.
 
 **The stamp has a floor, and the floor is your document's own constructs** (§2.5 note 7;
 DEC-34). `ir_version` must be at least the lowest minor the document needs, so a file stamped

@@ -674,12 +674,12 @@ empty, so a document with no `dynamic` router carries no such key.
 [The extraction tutorial](../tutorials/extract-your-first-ir.md#a-dynamic-edge-and-what-the-validators-make-of-it)
 shows the key on a real document, beside P-04's companion diagnostic for the same nodes.
 
-**When P-01 fails, three other reports become diagnostics.** P-02, P-04 and P-06 all reason over
-the same topology, and the specification defines their results only over P-01-clean graphs
-(§0.3). A run that fails P-01 names them in its `best_effort` list, and the honest reading of a
-pass there is "no problem was found while walking a graph that is not well-formed" — fix the
-P-01 finding and re-run before drawing any conclusion from them.
-[Verify and interpret](../tutorials/verify-and-interpret.md#when-p-01-fails-three-reports-become-diagnostics)
+**When P-01 fails, the reports that read the topology become diagnostics.** P-02, P-04 and
+P-06 all reason over the same topology, and the specification defines their results only over
+P-01-clean graphs (§0.3). A run that fails P-01 names them in its `best_effort` list, and the
+honest reading of a pass there is "no problem was found while walking a graph that is not
+well-formed" — fix the P-01 finding and re-run before drawing any conclusion from them.
+[Verify and interpret](../tutorials/verify-and-interpret.md#when-p-01-fails-the-reports-that-read-the-topology-become-diagnostics)
 shows that on a real run, along with the gate and the suppressed snapshot that come with it.
 
 ## Where this page is checked

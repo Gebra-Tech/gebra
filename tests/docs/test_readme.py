@@ -24,6 +24,13 @@ Card REL-04 added the coverage badge beside the CI badge and a link to `SECURITY
 contributors' entry; `tests/test_scorecard_wiring.py` holds the Scorecard badge to the
 publication ruling, and `tests/test_security_policy.py` holds the policy the link reaches.
 
+Card DOC-21 took the property counts out of the table. The two property rows name their
+properties by ID, each list held to the registry by its probe, so a property's landing fails
+here until both rows move; the deferred properties' row moved from `out of scope for this
+phase`, which Phase 1 made untrue of them, to `in progress`, citing the validator cards that
+carry the work and stating no version, date or order. The documentation site's row and the
+documentation list say every page is written rather than how many there are.
+
 Everything here reads files and calls the package over inline data. It builds no workflow,
 runs no node and opens no connection (WA-07).
 """
@@ -59,8 +66,12 @@ STATUS_TABLE_HEADER = "| Capability | Status | Notes |"
 
 #: The four states a row may carry. `available` is the only one that claims a capability;
 #: the other three each say, in their own way, that there is nothing here to use yet.
+#: `in progress` is a present fact with cards behind it — the row cites them, and the boards
+#: hold the citation honest both ways (`test_no_row_stays_behind_the_boards`) — never a
+#: version, a date or an order (PD-070 §2 H; DOC-21 moved the deferred properties' row here
+#: from `out of scope for this phase`, which Phase 1 made untrue of them).
 AVAILABLE = "available"
-IN_DEVELOPMENT = "in development"
+IN_PROGRESS = "in progress"
 OUT_OF_SCOPE = "out of scope for this phase"
 ELSEWHERE = "not in this repository"
 
@@ -133,25 +144,53 @@ def _the_annotation_surface_is_present() -> None:
     assert all(module is not None for module in (sidecar, inference, resolve))
 
 
-def _the_five_validators_are_present() -> None:
+#: The first cells of the two property rows. Each names its properties by ID, never by count,
+#: and the probes below hold each list to the registry — so a property's landing fails here
+#: until both rows move with it, which is the README half of the landing checklist.
+SHIPPED_PROPERTIES_ROW = "The property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()`"
+DEFERRED_PROPERTIES_ROW = "The other catalog properties (P-03, P-05, P-07, P-09…P-13)"
+
+#: An ID, or a run of them written `P-09…P-13`.
+_ID_RUN = re.compile(r"(?P<prefix>[A-Z]+)-(?P<first>\d{2})(?:…(?P=prefix)-(?P<last>\d{2}))?")
+
+
+def _listed(cell: str, prefix: str = "P") -> tuple[str, ...]:
+    """Every `<prefix>-nn` a cell names, in order, with a `…` run expanded."""
+    listed: list[str] = []
+    for match in _ID_RUN.finditer(cell):
+        if match.group("prefix") != prefix:
+            continue
+        first = int(match.group("first"))
+        last = int(match.group("last") or first)
+        listed += [f"{prefix}-{number:02d}" for number in range(first, last + 1)]
+    return tuple(listed)
+
+
+def _the_shipped_validators_are_present() -> None:
+    """The row lists exactly the properties a validator ships for, each one registered."""
     from gebra.verify import verify  # noqa: F401 - the aggregation the row names
-    from gebra.verify.registry import WEDGE_SLUGS, is_implemented, registry_counts
+    from gebra.verify.registry import is_implemented, property_entry, shipped_slugs
 
-    assert len(WEDGE_SLUGS) == registry_counts().wedge
-    assert all(is_implemented(slug) for slug in WEDGE_SLUGS)
+    shipped = shipped_slugs()
+    assert _listed(SHIPPED_PROPERTIES_ROW) == tuple(
+        property_entry(slug).property_id for slug in shipped
+    )
+    assert all(is_implemented(slug) for slug in shipped)
 
 
-def _the_other_eight_are_not_implemented() -> None:
-    """The other direction of the same registry: a deferred property has no validator."""
+def _the_other_catalog_properties_have_no_validator() -> None:
+    """The other direction of the same registry: the row lists exactly the deferred rows."""
     from gebra.verify.registry import (
         deferred_slugs,
         is_implemented,
         not_implemented,
-        registry_counts,
+        property_entry,
     )
 
     deferred = deferred_slugs()
-    assert len(deferred) == registry_counts().deferred
+    assert _listed(DEFERRED_PROPERTIES_ROW) == tuple(
+        property_entry(slug).property_id for slug in deferred
+    )
     assert not any(is_implemented(slug) for slug in deferred)
     assert all(not_implemented(slug).status == "deferred-to-phase-1" for slug in deferred)
 
@@ -311,16 +350,19 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
         cards=("EX-08", "EX-09", "EX-10", "EX-11"),
     ),
     RowSpec(
-        capability="The five property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()`",
+        capability=SHIPPED_PROPERTIES_ROW,
         status=AVAILABLE,
-        probe=_the_five_validators_are_present,
+        probe=_the_shipped_validators_are_present,
         cards=("VAL-04", "VAL-05", "VAL-07", "VAL-09", "VAL-10", "VAL-11", "VAL-12"),
     ),
     RowSpec(
-        capability="The other eight catalog properties (P-03, P-05, P-07, P-09…P-13)",
-        status=OUT_OF_SCOPE,
-        probe=_the_other_eight_are_not_implemented,
-        reason="SOW §8 puts them outside this phase; no card in the plan implements one",
+        capability=DEFERRED_PROPERTIES_ROW,
+        status=IN_PROGRESS,
+        probe=_the_other_catalog_properties_have_no_validator,
+        # One validator card per property, each still open on the validators board — the
+        # row's note cites the same run, and `test_the_in_progress_row_cites_its_cards`
+        # holds the two to each other.
+        cards=("VAL-19", "VAL-20", "VAL-21", "VAL-22", "VAL-23", "VAL-24", "VAL-25", "VAL-26"),
     ),
     RowSpec(
         capability="pytest plugin and the reusable CI-gate GitHub Action",
@@ -421,6 +463,50 @@ def test_a_rows_status_is_true_of_this_repository(spec: RowSpec) -> None:
 def test_a_row_without_cards_says_why() -> None:
     for spec in STATUS_ROWS:
         assert spec.cards or spec.reason, f"{spec.capability}: neither cards nor a reason"
+
+
+def _note(capability: str) -> str:
+    """The third cell of the status row whose first cell is ``capability``."""
+    [note] = [row[2] for row in _table_rows(_readme(), STATUS_TABLE_HEADER) if row[0] == capability]
+    return note
+
+
+#: What an `in progress` note may not carry (PD-070 §2 H): a version, a date, or a word that
+#: orders the work in time. Matched on the note alone, never on the capability cell.
+_FUTURE_TELLS = re.compile(
+    r"\b\d+\.\d+(?:\.\d+)?\b|\b\d{4}-\d{2}\b|\b(?:will|next|then|soon|later|upcoming|planned"
+    r"|scheduled|first|after|before|roadmap|release \d)\b",
+    re.IGNORECASE,
+)
+
+
+def test_the_in_progress_row_cites_its_cards_and_states_a_present_fact() -> None:
+    """The row says what is true now and which cards carry the work — nothing about when.
+
+    The note cites exactly the cards the manifest above reconciles against the boards, in a
+    form a reader can follow; it states the charter's copy for a property with no validator
+    (DEC-42 §3.1), as every surface that renders such a property does; and it names no
+    version, date or order, which is the public-wording rule the row is held to.
+    """
+    from gebra.verify.registry import DEFERRED_READING
+
+    [spec] = [spec for spec in STATUS_ROWS if spec.status == IN_PROGRESS]
+    note = _unwrapped(_note(spec.capability))
+
+    assert _listed(note, prefix="VAL") == spec.cards
+    assert DEFERRED_READING in note
+    assert "never a silent pass" in note
+    assert not _FUTURE_TELLS.search(note), _FUTURE_TELLS.search(note)
+
+
+def test_no_property_row_states_a_count() -> None:
+    """Both property rows name their properties by ID, and only by ID (DOC-21)."""
+    from tests.docs.test_property_counts import NUMBER_WORDS
+
+    for capability in (SHIPPED_PROPERTIES_ROW, DEFERRED_PROPERTIES_ROW):
+        words = set(re.findall(r"[a-z]+", capability.lower()))
+        assert not words & set(NUMBER_WORDS), capability
+        assert _listed(capability), capability
 
 
 # ── The same table against the boards that produce it ────────────────────────────────────

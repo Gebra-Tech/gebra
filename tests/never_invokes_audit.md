@@ -1686,6 +1686,38 @@ and (5) are reads outside A1-D19's six pinned drawing routes, measured here and 
 registered carrier of route 4 they are recorded for the next R-06 record that touches the A1 memo
 rather than written into it.
 
+### DOC-21 — one generated property table, and a count scan that parses source without running it
+
+No extraction path is added, and nothing under `src/gebra/extraction/`, `annotations/` or
+`snapshot/` changes. Under `src/gebra/verify/` only comments and docstrings move (`registry.py`,
+`conditions.py`, `witnesses.py`, `graph.py`, `run.py`, `__init__.py`) — no validator, no
+dispatch, no registration — and `tools/api_reference.py` changes two of the strings it renders.
+One generator joins: `tools/property_table.py` imports `gebra.verify`, whose import closure holds
+no substrate (`tests/docs/test_architecture_overview.py` measures it), reads each registry row,
+asks `is_implemented` and, for a row with no validator, `not_implemented(slug).status` — a
+registry read and the construction of a `NotImplementedMarker`, the library's strict envelope
+model, which declares no validator of its own — and writes the rendered table into
+`docs/concepts/what-gebra-checks.md`. It calls no validator and reads no IR, and the `docs` CI
+job runs its `--check`, which writes nothing. Two test modules join.
+`tests/docs/test_property_counts.py` reads Markdown and reads `src/gebra/` with `ast.parse`,
+which parses a module's text into a syntax tree, makes no code object and imports nothing; one
+test writes a scratch module into `tmp_path` and parses it the same way.
+`tests/docs/test_property_table.py` renders the table; runs `--check` and `--write` against a
+copy of the page in `tmp_path`, with the module's page path patched to it; and registers a
+throwaway validator (`tests/_registry.passing_validator`, a fixed report) under a synthetic
+`catalog` row that is put back on exit — the render asks only whether a validator is
+registered, so nothing is dispatched to it. The executed documentation pages changed in prose
+only: no example's code moved, and one example's `id` was renamed (`every-property-at-v1`,
+`docs/tutorials/travel-booking-end-to-end.md`), so `tools/docs_examples.py` runs the same bytes
+under the same guard. `docs/reference/api.md` is regenerated from docstrings by its generator,
+which imports nothing it documents. The architecture overview's never-invokes section now names
+the gated drawing — with the members a `Pregel` subclass overrides, which run in a drawing the
+gate admits (§5) — gives the drawing's reads it names as examples among those measured, names
+gebra's own `isinstance` read of a node's bound object (§4's EX-20 entry), and points at this
+file's lists as the reads measured so far, not a census; `docs/reference/cli.md`'s lede stops
+counting the paths on which code of the author's runs and points at that section. Nothing in
+§1–§3, §5 or the entries above changed for either.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

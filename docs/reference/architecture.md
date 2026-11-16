@@ -134,7 +134,7 @@ exported names         599
 | `gebra.extraction` | Dispatch, the provenance envelope, the warnings taxonomy and the disclosures beside it, the version check. | [API reference](api.md#gebraextraction) · [Extract your first IR](../tutorials/extract-your-first-ir.md) |
 | `gebra.annotations` | The decorator family, the `gebra.toml` sidecar, inference, and the four-tier per-slot precedence. | [API reference](api.md#gebraannotations) · [Contracts and annotations](../tutorials/contracts-and-annotations.md) |
 | `gebra.ir` | The models, node identity, the canonical form and `graph_version`, the loaders. | [API reference](api.md#gebrair) · [The IR, node identity and graph_version](../concepts/ir-and-graph-version.md) |
-| `gebra.verify` | The result envelope, the condition-ID registry, the five validators, `verify()`. | [API reference](api.md#gebraverify) · [Verify and interpret](../tutorials/verify-and-interpret.md) |
+| `gebra.verify` | The result envelope, the condition-ID registry, the property registry and its validators, `verify()`. | [API reference](api.md#gebraverify) · [Verify and interpret](../tutorials/verify-and-interpret.md) |
 | `gebra.snapshot` | The wiring from a live workflow to a stored snapshot. | [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md) |
 | `gebra.store` | The `.gebra/` layout: snapshots, reports, metadata, atomic writes. | [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md) |
 | `gebra.versioning` | V.S.F.E labels: which field path moves which counter, and the next label. | [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md) |
@@ -169,9 +169,12 @@ hashed and surface bytes never are — which is what lets every later stage work
 rather than off a live object.
 
 **3 — Verification (`gebra.verify`).** A registry maps thirteen property slugs to what
-answers for them. Five are implemented — the wedge five — and the other eight answer through
-the same registry with a structured not-implemented marker, so a report never shows silence
-where a property was not run. `verify(ir)` runs them P-01 first, then in catalog order, and
+answers for them: a registered validator for each property this release checks, and for every
+other one the same registry's structured not-implemented marker, so a report never shows
+silence where a property was not run. The
+[property table](../concepts/what-gebra-checks.md#the-property-catalog), generated from this
+registry, says which is which. `verify(ir)` answers for every property, P-01 first, then in
+catalog order, and
 does not stop when P-01 fails: it returns one `RunReport` carrying each property's outcome,
 the severity counts, the gate and its exit code, plus `best_effort` — the properties whose
 outcomes this run offers as diagnostics rather than as contract-bearing verdicts, because
@@ -328,16 +331,31 @@ own. Extraction is introspection: it reads the tables a builder has already fill
 attributes a compiled graph exposes, and — for a contract nothing declares — the *source* of
 a node body rather than its behaviour.
 
-There are three places where code that is not gebra's runs, each stated where it happens. The
-CLI's `--call` flag calls the attribute you named, once, with no arguments, because a factory
-function has to be called to produce the object to read; it is opt-in and documented in the
-[CLI reference](cli.md#naming-the-subject). Importing a module runs that module's top-level
-code, which is true of any tool that resolves an import reference. And reading a node's or
-router's type hints evaluates its annotation *expressions* when they are strings or forward
-references — the read the introspection specification licenses by name, resolved against
-module namespaces and degraded to an unknown hint when it fails. None of the three is a node
-being invoked, and `tests/never_invokes_audit.md` states the licensed reads and the boundary
-of the provenance gate in full.
+gebra does run code that is not its own. The CLI's `--call` flag calls the attribute you
+named, once, with no arguments, because a factory function has to be called to produce the
+object to read; it is opt-in and documented in the [CLI reference](cli.md#naming-the-subject).
+Importing a module runs that module's top-level code, which is true of any tool that resolves
+an import reference. Reading a node's or router's type hints evaluates its annotation
+*expressions* when they are strings or forward references — the read the introspection
+specification licenses by name, resolved against module namespaces and degraded to an unknown
+hint when it fails.
+
+On a compiled graph, extraction takes LangGraph's own drawing of the graph — for a cross-check
+against the builder's reading where a builder is present, and as the only surface to read where
+none is — once a provenance gate has admitted the drawing. That drawing is LangGraph's code, not
+gebra's, save for the members a `Pregel` subclass overrides, which run in a drawing the gate
+admits; and it can read an author's objects through their own attribute access and hashing.
+Among the reads measured, it hashes and compares the routing labels declared for it, so a
+`str`-subclass label's own hash and comparison run in it, and from langgraph 1.2.19 it reads
+`tools_by_name` from each node's bound object, which on langgraph 1.2.22 runs an author's
+property of that name and iterates the mapping it returns.
+
+gebra's own reads reach an author's objects too: an `isinstance` test on a node's bound object
+can read its `__class__` through the object's own attribute access. None of these reads or calls
+is a node being invoked. `tests/never_invokes_audit.md` states the licensed reads and the boundary
+of the provenance gate, and lists the reads of an admitted drawing measured so far — a list, not
+a census; its §1 and §4 entries record the reads of gebra's own that reach an author's objects,
+as found so far.
 
 Inside this repository the boundary is a tested invariant, not a policy: every node body and
 router in the sample workflows records into a module-level ledger before raising, the
@@ -399,10 +417,12 @@ add a row the same way row 8 was added.
 
 It does not describe how to use any of these packages — the [tutorials](../tutorials/extract-your-first-ir.md)
 and [guides](../guides/pytest-plugin-and-ci-gating.md) do, and the
-[API reference](api.md) is the per-symbol surface. It does not describe the eight
-non-wedge properties beyond the registry contract that answers for them: they are not
-implemented, and nothing here should be read as a plan to implement them. And it makes no
-claim about how any workflow behaves when it runs. gebra reads definitions; LangGraph runs
+[API reference](api.md) is the per-symbol surface. It does not describe a property this
+release has no validator for beyond the registry contract that answers for it — a structured
+not-implemented marker, never a pass. The page describes what is merged; the
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) says which properties
+have a validator in this release. And it makes no claim about how any workflow behaves when it
+runs. gebra reads definitions; LangGraph runs
 them.
 
 ## Where this page is checked
@@ -411,9 +431,11 @@ them.
 code it describes: the sixteen packages and their export counts against the live `__all__`
 lists in both directions — and against every module under `src/gebra/` that declares one, so
 a package added to the distribution and not to this page fails here; the import-closure table
-against a fresh interpreter per package, again both ways; the thirteen / five / eight
-property counts against the registry's own slug tables; the five frozen surfaces against
+against a fresh interpreter per package, again both ways; the catalog's size — the one property
+count the page states — against the registry's own table; the five frozen surfaces against
 their freeze records; and the backlog table line for line against
 `docs/governance/EXTRACTOR-API-FREEZE.md` §2, so a row added to the record and not to this
-page fails as loudly as a row invented here. The prose between the tables is reviewed, not
-machine-checked, and the two examples run in CI through the DOC-01 harness.
+page fails as loudly as a row invented here. The prose between the tables is reviewed rather
+than machine-checked, except the never-invokes section, whose named reads are pinned and whose
+pointer is held to the audit's own words; and the two examples run in CI through the DOC-01
+harness.

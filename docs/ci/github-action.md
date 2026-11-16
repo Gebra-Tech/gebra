@@ -158,9 +158,10 @@ outputs are addressable the usual way (`steps.<id>.outputs.exit-code`,
 
 ## What a green gate means
 
-A green gebra item means the workflow definition satisfied the checked properties —
-never more than that. The eight properties outside the Phase-0 wedge get no pytest
-item; they are visible as structured not-implemented markers in the
-`gebra_verification` fixture and in the closing report, never as green items. The
-step summary's `gebra` section carries the per-property claim classes so a reader
-sees not just what passed but what kind of claim each pass is.
+A green gebra item means the workflow definition satisfied that item's property — never
+more than that. A catalog property that has no validator in this release gets no pytest
+item; it is visible as a structured not-implemented marker in the `gebra_verification`
+fixture and in the closing report, never as a green item. The property table on
+[What gebra checks](../concepts/what-gebra-checks.md#the-property-catalog) lists those
+properties. The step summary's `gebra` section carries the per-property claim classes so a
+reader sees not just what passed but what kind of claim each pass is.

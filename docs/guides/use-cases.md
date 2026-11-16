@@ -4,7 +4,7 @@ One scenario is a demonstration; a small portfolio is what lets a reader recogni
 workflow in one. This page adds three scenarios to the one the
 [CI-gating guide](pytest-plugin-and-ci-gating.md) walks through. Each is a small LangGraph
 definition in the shape an adopting repository has it, carrying exactly one seeded defect from
-the five properties this release checks — and none of them is that guide's own P-06 defect. For
+the properties this release checks — and none of them is that guide's own P-06 defect. For
 each, the page shows the definition, the verdict gebra reaches on it, what that verdict claims
 and does not claim, and the fix, executed.
 
@@ -222,8 +222,8 @@ node bodies run  []
 `search` — with no termination witness in any of the three forms the property recognises, and
 reports one representative cycle through it. The finding is FATAL, so the gate exits `1` and the
 run is not eligible to be snapshotted. Its claim class is DEFENSIBLE: the verdict was decided over
-the extracted document alone, with no trusted declaration in the chain. The other four properties
-pass, so this is the run's only finding.
+the extracted document alone, with no trusted declaration in the chain. Every other property this
+release checks passes, so this is the run's only finding.
 
 **What it does not say.** It does not say the loop fails to terminate. P-02 reports witness
 *presence* or *absence* — whether the definition declares a bound — and never whether a run halts,
@@ -1094,8 +1094,8 @@ modules, which that sweep does not reach, so each asserts and prints the ledger 
 
 `tests/docs/test_use_cases.py` holds every `workflow.py` and `test_verdict.py` block byte-equal to
 its file under `examples/scenarios/`; asserts, by running `verify()` over each builder, that the
-three seeded defects are what this page names — one finding each, three distinct condition IDs
-from three properties, none of them the CI-gating guide's — and that each fix passes; runs the
-suite CI runs (`python -m pytest examples/scenarios -q`) in a child process and checks it is
-green with exactly the fixed variants marked; fires a scenario body on both paths to show that
+three seeded defects are what this page names — one finding each, with a distinct condition ID
+from a different property each, none of them the CI-gating guide's — and that each fix passes;
+runs the suite CI runs (`python -m pytest examples/scenarios -q`) in a child process and checks
+it is green with exactly the fixed variants marked; fires a scenario body on both paths to show that
 the ledgers catch it; and runs the honest-claims lint over this page and the scenario sources.

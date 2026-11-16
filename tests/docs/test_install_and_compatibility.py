@@ -64,7 +64,7 @@ from gebra.extraction import (
 )
 from gebra.extraction.compat import CompatClass
 from gebra.extraction.compat import read_installed_versions as _the_real_reader
-from gebra.verify import is_implemented
+from gebra.verify import MARKER_REASONS, is_implemented
 from gebra.versioning import Component, Version, changed_components, next_version
 from tests.sample_workflows import travel_booking
 from tests.sample_workflows.travel_booking_evolution import EVOLUTION
@@ -874,7 +874,10 @@ def test_the_p12_deferral_the_page_states_is_the_one_every_diff_carries(prose: s
 
     assert diff.evolution_safety is marker
     assert not is_implemented(marker.property)
-    assert f"is property {marker.property_id} `{marker.property}`, which is outside this" in prose
+    # The charter's own words for a property with no validator (DEC-42 §3.1), read from the
+    # registry rather than retyped — DOC-21 moved this sentence off "outside this release".
+    reason = MARKER_REASONS[marker.status]
+    assert f"is property {marker.property_id} `{marker.property}`, which {reason}" in prose
 
 
 def test_the_p06_clause_describes_the_edit_and_names_the_trigger_tag(prose: str) -> None:

@@ -49,9 +49,9 @@ The pages, in the order they were written:
 - [Contracts and annotations](tutorials/contracts-and-annotations.md) — declaring what a node
   reads, writes and does, in code or in a `gebra.toml` sidecar; which surface wins when two
   disagree, and the line inference will not cross;
-- [Verify and interpret](tutorials/verify-and-interpret.md) — running the five validators over a
-  real agent and reading what comes back: witnesses, failure records, claim classes, strict mode,
-  and what a finding does not claim;
+- [Verify and interpret](tutorials/verify-and-interpret.md) — running the validators this release
+  ships over a real agent and reading what comes back: witnesses, failure records, claim classes,
+  strict mode, and what a finding does not claim;
 - [Travel booking, end to end](tutorials/travel-booking-end-to-end.md) — the flagship tutorial:
   the whole pipeline over one agent, from a clean extraction through five seeded defects each
   caught by its named property, eight recorded versions, the four evolution steps a reviewer
@@ -112,7 +112,7 @@ The pages, in the order they were written:
 |---|---|
 | **Concepts** | What gebra checks, and what the IR and a `graph_version` are. |
 | **Tutorials** | Worked, start-to-finish walkthroughs over a real agent. |
-| **Validators** | One page for each of the five properties this release implements: what it reads and what its findings mean. |
+| **Validators** | One page for each property this release checks: what it reads and what its findings mean. |
 | **Guides** | Adoption tasks — CI gating, snapshotting and evolution, install and compatibility — and three worked use cases. |
 | **Reference** | The CLI surface, the public Python API, and an architecture overview. |
 | **Contributing** | Working on gebra itself. |

@@ -44,6 +44,7 @@ from gebra.verify import (
     RunReport,
     StrictPolicy,
     property_for_condition,
+    registry_counts,
     verify,
 )
 from gebra.verify import condition as registered
@@ -244,13 +245,18 @@ def test_the_first_transcript_is_v1s_own_extraction(page_text: str) -> None:
 
 
 def test_the_v1_gate_facts_are_a_real_runs(page_text: str) -> None:
-    """Five verdicts, eight markers, a passing gate and eligibility — re-derived."""
+    """A verdict per checked property, a marker per other one, a passing gate — re-derived.
+
+    How many of each is the registry's answer (DOC-21), never a number stated here.
+    """
     report = verify(gebra.extract(travel_booking.build_travel_booking_agent()).ir)
     verdicts = [item for item in report.properties if isinstance(item, PropertyReport)]
     markers = [item for item in report.properties if not isinstance(item, PropertyReport)]
-    block = _output_block(page_text, "the-wedge-five-at-v1")
+    block = _output_block(page_text, "every-property-at-v1")
+    counts = registry_counts()
 
-    assert [outcome.result for outcome in verdicts] == ["pass"] * 5
+    assert (len(verdicts), len(markers)) == (counts.reported, counts.not_checked)
+    assert [outcome.result for outcome in verdicts] == ["pass"] * counts.reported
     for outcome in verdicts:
         assert f"{outcome.property:22} pass" in block
     assert f"+ {len(markers)} catalog properties outside this release" in block

@@ -100,16 +100,31 @@ LANDED_PAGES = frozenset(
     }
 )
 
-#: Cards whose output is not a page on this site: DOC-01 is the toolchain and the harness,
-#: and DOC-04 is the repository README.
-#: DOC-20 is a regression card (interpreter-stable diagnostic copy) — its output is a
-#: source fix and a tutorial-block correction, not a page.
-#: The Phase 1 DOC cards (filed 2026-10-06) hold no reservation here: each adds its page to
-#: `WRITTEN_PAGES` in the same change that lands it, so a page never describes an unlanded
-#: capability (WA-12).
-CARDS_WITHOUT_A_SITE_PAGE = frozenset(
-    {"DOC-01", "DOC-04", "DOC-20", "DOC-21", "DOC-22", "DOC-23", "DOC-24", "DOC-25"}
+#: Cards whose output is not a page of their own on this site, each with its reason. The
+#: Phase 1 DOC cards (filed 2026-10-06) hold no reservation here: each that adds a page moves
+#: from this map to `PAGES_BY_CARD`, and adds the page to `WRITTEN_PAGES`, in the same change
+#: that lands it, so a page never describes an unlanded capability (WA-12).
+_PHASE_1_PAGE_LANDS_WITH_ITS_CARD = (
+    "a Phase 1 card: any page it adds moves it to PAGES_BY_CARD and joins WRITTEN_PAGES in the "
+    "change that lands it, never as a reservation"
 )
+CARDS_WITHOUT_A_SITE_PAGE: dict[str, str] = {
+    "DOC-01": "the docs toolchain and the executable-examples harness",
+    "DOC-04": "the repository README",
+    "DOC-20": (
+        "a regression card (interpreter-stable diagnostic copy): a source fix and a "
+        "tutorial-block correction, not a page"
+    ),
+    "DOC-21": (
+        "it rewrites pages other cards reserved and adds none: the registry-generated property "
+        "table lives on DOC-02's concepts/what-gebra-checks.md, and a page is reserved for one "
+        "card only"
+    ),
+    "DOC-22": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
+    "DOC-23": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
+    "DOC-24": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
+    "DOC-25": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
+}
 
 #: The tables `concepts/what-gebra-checks.md` transcribes from the property catalog rather
 #: than paraphrases, keyed by their header line. Card DOC-02's acceptance is that they match
@@ -370,4 +385,19 @@ def test_every_documentation_card_has_a_page_or_a_reason_not_to() -> None:
     cards = set(re.findall(r"^### (DOC-\d+) —", board, re.MULTILINE))
 
     assert cards, "no cards parsed from the documentation board"
-    assert cards == set(PAGES_BY_CARD) | CARDS_WITHOUT_A_SITE_PAGE
+    assert cards == set(PAGES_BY_CARD) | set(CARDS_WITHOUT_A_SITE_PAGE)
+
+
+def test_a_card_without_a_page_says_why() -> None:
+    """Every card kept out of the page manifest carries its reason, and no card is in both."""
+    assert all(reason.strip() for reason in CARDS_WITHOUT_A_SITE_PAGE.values())
+    assert not set(CARDS_WITHOUT_A_SITE_PAGE) & set(PAGES_BY_CARD)
+
+
+def test_the_page_doc_21_rewrites_is_the_one_another_card_reserved() -> None:
+    """DOC-21's reason, held true: the property table's page is DOC-02's reservation."""
+    from tools import property_table
+
+    page = property_table.PAGE.relative_to(DOCS).as_posix()
+    assert page in PAGES_BY_CARD["DOC-02"]
+    assert page in CARDS_WITHOUT_A_SITE_PAGE["DOC-21"]

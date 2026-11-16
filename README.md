@@ -29,10 +29,11 @@ location it was found at. Neither is a statement about what the workflow does at
 witness *presence* is what a P-02 termination-witness result reports, and semantic termination
 is never claimed. Every finding carries its claim class — DEFENSIBLE, DEFENSIBLE-A or
 HEURISTIC — so a reader can tell what was decided over the document alone from what rests on a
-trusted declaration, and both from an advisory lint. Three of the five properties read the
-topology and are defined only over a graph that P-01 graph-well-formed has already passed;
-where P-01 fails, their reports are best-effort diagnostics rather than verdicts.
-[What gebra checks](docs/concepts/what-gebra-checks.md) is the long form.
+trusted declaration, and both from an advisory lint. P-02, P-04 and P-06 read the topology and
+are defined only over a graph that P-01 graph-well-formed has already passed; where P-01 fails,
+their reports are best-effort diagnostics rather than verdicts.
+[What gebra checks](docs/concepts/what-gebra-checks.md) is the long form, and its property
+table lists every catalog property with whether this release checks it.
 
 ## Start here
 
@@ -89,12 +90,12 @@ tests.
 | `gebra.extract()` over a `StateGraph`, a compiled graph or an LCEL `Runnable` | available | `ir_version` 1.0; a router whose targets are decided at run time makes the document 1.1, which this build extracts, verifies, snapshots, diffs and draws — the `dynamic` edge, read on every surface since `0.1.0` |
 | The IR models, canonical serialization and the `graph_version` digest | available | surface frozen — [IR-MODELS-FREEZE.md](docs/governance/IR-MODELS-FREEZE.md) |
 | Node contracts: `@gebra.contract`, the `gebra.toml` sidecar, inference and their precedence | available | every inferred or defaulted slot carries a warning saying so |
-| The five property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()` | available | surface frozen — [VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md) |
-| The other eight catalog properties (P-03, P-05, P-07, P-09…P-13) | out of scope for this phase | answered in every run by a structured not-implemented marker, never a silent pass |
+| The property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()` | available | surface frozen — [VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md) |
+| The other catalog properties (P-03, P-05, P-07, P-09…P-13) | in progress | each has no validator in this release and is answered in every run that reaches a verdict by a structured not-implemented marker, never a silent pass; the work on each is a validator card on the maintainers' task boards (VAL-19…VAL-26), which the [contributor guide](docs/contributing/index.md) explains |
 | pytest plugin and the reusable CI-gate GitHub Action | available | auto-loaded through the `pytest11` entry point — see [the pytest plugin and CI gating](docs/guides/pytest-plugin-and-ci-gating.md) |
-| Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, out of scope here — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
+| Snapshot store, V.S.F.E versioning, structural diff, lineage and audit export | available | a diff reports what moved; classifying a change as safe or breaking is P-12, which has no validator in this release — see [snapshot, diff and evolution](docs/guides/snapshot-diff-and-evolution.md) |
 | The CLI — `verify`, `snapshot`, `diff`, `display`, `history` | available | exit codes `0` pass, `1` fail, `2` no verdict reached — see [the CLI reference](docs/reference/cli.md) |
-| Published documentation site | available | all twenty-one pages are written — no placeholder is left — and served at [gebra-tech.github.io/gebra](https://gebra-tech.github.io/gebra/); CI builds the site with `mkdocs build --strict` on every push, and on `main` [`docs-pages.yml`](.github/workflows/docs-pages.yml) runs that same command and deploys what it writes |
+| Published documentation site | available | every page in the site's navigation is written — no placeholder is left — and served at [gebra-tech.github.io/gebra](https://gebra-tech.github.io/gebra/); CI builds the site with `mkdocs build --strict` on every push, and on `main` [`docs-pages.yml`](.github/workflows/docs-pages.yml) runs that same command and deploys what it writes |
 | Installation from a package index | available | `pip install gebra` — the [`gebra` project on PyPI](https://pypi.org/project/gebra/); see [Install](#install) |
 | VS Code extension | out of scope for this phase | specified at outline level only; no implementation is in this repository |
 | Hosted control plane — registry, telemetry binding, governance | not in this repository | a separate, closed product — see [Open core](#open-core) |
@@ -334,7 +335,7 @@ through its own entry point; mark a function that returns your graph with
 
 ## Documentation
 
-All twenty-one pages of the documentation site are written, and the site is served at
+Every page of the documentation site is written, and the site is served at
 <https://gebra-tech.github.io/gebra/> — built from this repository by `mkdocs build --strict`
 and deployed from `main`. The links below go to the same pages in this repository. Those, and
 the repository documents worth reading beside them:

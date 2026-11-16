@@ -108,7 +108,7 @@ __all__ = [
 
 
 #: Where a property stands in the catalog (DEC-35 §3.1, the deferred scope as DEC-42 §3.2
-#: restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge five, a property
+#: restated it; PROPERTY-CATALOG-SPEC §0.6 item 1): one of the Phase-0 wedge, a property
 #: whose ratified section's validator ships, or a property for which no validator ships,
 #: whether or not its section is ratified.
 PropertyScope: TypeAlias = Literal["phase-0-wedge", "catalog", "deferred-to-phase-1"]
@@ -191,7 +191,7 @@ class PropertyEntry:
 
     @property
     def wedge(self) -> bool:
-        """Whether this property is one of the Phase-0 wedge five.
+        """Whether this property is one of the Phase-0 wedge.
 
         A fact about Phase-0's scope, and nothing more: a ``catalog`` row is not wedge and is
         live all the same. A reader asking whether a property is *live* reads
@@ -228,8 +228,8 @@ class PropertyEntry:
 
 
 #: The registry, in catalog order (P-01…P-13). Claim classes, severities and derivations are
-#: the catalog's own — for the wedge five from their drafted sections, for the other eight
-#: from the catalog pointers PROPERTY-CATALOG-SPEC carries at each stub.
+#: the catalog's own — for the wedge from their drafted sections, for the deferred rows from
+#: the catalog's statement of each property.
 _ENTRIES: Final[tuple[PropertyEntry, ...]] = (
     PropertyEntry(
         slug="graph-well-formed",
@@ -408,12 +408,12 @@ PROPERTY_REGISTRY: Final[Mapping[PropertySlug, PropertyEntry]] = MappingProxyTyp
 #: The thirteen slugs, in catalog order.
 PROPERTY_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(PROPERTY_REGISTRY)
 
-#: The Phase-0 wedge five (SOW §1).
+#: The Phase-0 wedge: the properties SOW §1 put in Phase-0 scope.
 WEDGE_SLUGS: Final[tuple[PropertySlug, ...]] = tuple(
     entry.slug for entry in _ENTRIES if entry.wedge
 )
 
-#: The eight properties outside the wedge five (SOW §8 put them out of Phase-0 scope). A fact
+#: The non-wedge properties — those SOW §8 put out of Phase-0 scope. A fact
 #: about Phase-0's scope, fixed with the table: a non-wedge property that lands stays in this
 #: tuple and is live all the same. Which properties have no validator in this release is
 #: :func:`deferred_slugs`' question, not this one's.
@@ -656,8 +656,8 @@ def run_property(
 
     Two things ``verify()`` should not inherit from here. Registration happens at import, so a
     shipped validator whose module was never imported dispatches to ``not-yet-implemented``: a
-    marker is the honest answer to *this* call, but a run that silently checked four of the
-    five is a weakened gate, so the aggregation requires every shipped row to be registered
+    marker is the honest answer to *this* call, but a run that silently skipped a shipped
+    validator is a weakened gate, so the aggregation requires every shipped row to be registered
     before deriving an exit code. And ``PropertyEntry.claim_classes``/``severities``
     are property-level unions for display and documentation — the §0.2 input is always the
     per-record ``severity`` on the finding.

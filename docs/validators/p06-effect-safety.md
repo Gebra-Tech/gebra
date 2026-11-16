@@ -13,9 +13,9 @@ and without looking at the graph at all — `irreversible` together with a bare,
 `idempotent`, which is a safety claim gebra can tie to nothing.
 
 Every P-06 finding is **DEFENSIBLE-A**: the effect, idempotency and compensation annotations are
-*declared*, and their truthfulness is trusted the way a type annotation is (§6.2). Of the five
-properties this release implements, P-06 is the only one whose **failure records** do not all carry
-the same severity — the forbidden combination is FATAL, and an unprotected effect in either region
+*declared*, and their truthfulness is trusted the way a type annotation is (§6.2). Of P-01, P-02,
+P-04, P-06 and P-08, P-06 is the only one whose **failure records** do not all carry the same
+severity — the forbidden combination is FATAL, and an unprotected effect in either region
 is ERROR. Both fail the gate; only FATAL additionally suppresses snapshot recording for that run
 (§0.2). This page is about reading those findings: what the validator checks, what each field of
 its witness and its failure record means, and where the claim stops.
@@ -1003,7 +1003,7 @@ P-01 is not a pass.** Fix the wiring, re-run, and read the report you get then.
 Two smaller notes on the same boundary. Each topology-consuming property degrades in its *own*
 documented way — P-04 carries the missing vertex as a contract-free placeholder where P-06 drops
 the edge — and §0.3 is explicit that cross-validator agreement on ill-formed input is not promised,
-so two properties disagreeing about a broken graph is licensed rather than a defect. And
+so properties disagreeing about a broken graph is licensed rather than a defect. And
 `subsumed_by` is the envelope's field for saying on a record that a finding is owned upstream
 (`subsumed_by: "P-01"`); **no validator in this release sets it**, so the qualification a run
 actually hands you is the `best_effort` list above, not a flag on the record. Do not write a

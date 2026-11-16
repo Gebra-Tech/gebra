@@ -396,7 +396,12 @@ def test_the_example_suite_stays_inside_the_honest_claims_vocabulary() -> None:
 
 
 def test_the_page_never_calls_a_deferred_property_checked(prose: str) -> None:
-    """The eight properties outside this release are named as unchecked, never as passing."""
+    """The properties with no validator in this release are named as unchecked, never as passing.
+
+    Without a count: which properties those are is the registry's answer, and the page points at
+    the property table for it (DOC-21) rather than stating a number a landing would leave stale.
+    """
     assert "no item generated" in prose
     assert "never as a green check" in prose
-    assert "A green run is green on five." in prose
+    assert "A green run is green on the properties this release checks, and on no others." in prose
+    assert "what-gebra-checks.md#the-property-catalog" in prose

@@ -786,13 +786,20 @@ def test_a_report_written_to_a_file_ends_with_a_newline_and_one_to_a_stream_does
 
 
 def test_the_page_states_the_never_invokes_boundary(prose: str) -> None:
-    """The lede's claim is scoped to gebra's own acts, and names both paths that run code.
+    """The lede's claim is scoped to gebra's own acts, and names the two paths the CLI owns.
 
     "Nothing is executed" would be false of a page that documents `--call` and of any page
     that documents an import target at all, so the sentence has to carry both concessions —
-    and the sections that reach them have to state them again where a reader meets them.
+    and the sections that reach them have to state them again where a reader meets them. It
+    used to count them as the only two ("exactly one path … and one it cannot avoid"), which
+    the architecture overview's account contradicts — annotation evaluation, and the drawing a
+    compiled graph is read through, run code of the author's too (DOC-21) — so the lede now
+    says the two are not the whole account and points there.
     """
     assert "None of them runs the workflow." in prose
+    assert "exactly one path" not in prose
+    assert "the two are not the whole account" in prose
+    assert "(architecture.md#the-never-invokes-boundary)" in prose
     assert "gebra calls no node function, router, tool or model, and opens no connection" in prose
     assert "importing a module runs that module's top-level code" in prose
     assert "Without `--call` nothing is ever called" in prose

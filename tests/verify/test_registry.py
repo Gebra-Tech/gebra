@@ -132,8 +132,14 @@ def clean_registrations() -> Any:
 
 
 def test_the_registry_is_exactly_the_thirteen_catalog_slugs() -> None:
+    """The table is the slug vocabulary, row for row — its size read off both, never stated.
+
+    The catalog's size is the slug vocabulary's, which no property's landing moves: a
+    fourteenth property is a catalog change. It is the one property count the documentation
+    keeps as a word, and `tests/docs/test_property_counts.py` holds that word to this count.
+    """
     assert set(PROPERTY_SLUGS) == set(get_args(PropertySlug))
-    assert len(PROPERTY_SLUGS) == 13
+    assert len(PROPERTY_SLUGS) == len(get_args(PropertySlug)) == registry_counts().total
     assert set(PROPERTY_REGISTRY) == set(PROPERTY_SLUGS)
 
 
@@ -204,7 +210,7 @@ def test_an_unknown_slug_is_refused_by_name() -> None:
         property_entry("graph-wellformed")
 
 
-# ── Dispatch: the eight are markers, never silent passes ────────────────────────────────
+# ── Dispatch: a deferred row is a marker, never a silent pass ───────────────────────────
 
 
 @pytest.mark.parametrize("slug", PROPERTY_SLUGS)

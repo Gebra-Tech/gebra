@@ -110,9 +110,9 @@ SURFACES: Final[tuple[Surface, ...]] = (
         record="docs/governance/VALIDATOR-API-FREEZE.md",
         section="§1",
         scope=(
-            "The result envelope, the condition-ID and property registry, the five wedge "
-            "validators and the run-level aggregation. A finding is a model here, not a "
-            "string: the same model the golden harness asserts on."
+            "The result envelope, the condition-ID and property registry, the validators "
+            "this release ships and the run-level aggregation. A finding is a model here, "
+            "not a string: the same model the golden harness asserts on."
         ),
     ),
     Surface(
@@ -755,10 +755,12 @@ BOUNDARY: Final = """\
 
 It does not say what a finding *means* — [What gebra checks](../concepts/what-gebra-checks.md)
 and the per-validator pages do. It does not describe the command line, which has
-[its own reference](cli.md). It says nothing about the eight non-wedge properties beyond the
-registry contract that answers for them: they are not implemented, and the registry returns a
-structured not-implemented marker rather than a pass. And it is a reference, not a tour — for
-how the packages fit together, read the [architecture overview](architecture.md).
+[its own reference](cli.md). It says nothing about a property this release has no validator
+for beyond the registry contract that answers for it: the registry returns a structured
+not-implemented marker rather than a pass, and the
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) lists those
+properties. And it is a reference, not a tour — for how the packages fit together, read the
+[architecture overview](architecture.md).
 
 The page itself is held to the sources by `tests/docs/test_api_reference.py` — every name in
 both directions, every signature's declared parameters, every freeze record it cites — and by

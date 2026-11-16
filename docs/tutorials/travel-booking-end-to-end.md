@@ -93,12 +93,12 @@ returns at every later step: the verify report carries it, the snapshot stores i
 anchors on it. [Extract your first IR](extract-your-first-ir.md) reads the document itself;
 this page moves on to what is done with it.
 
-## Verify: five verdicts, eight markers
+## Verify: a verdict or a marker for every property
 
-`verify()` answers for every property in the catalog — the five this release implements with
-a verdict, the eight it does not with a structured marker:
+`verify()` answers for every property in the catalog — each one this release implements with
+a verdict, every other with a structured marker:
 
-<!-- gebra:example id=the-wedge-five-at-v1 -->
+<!-- gebra:example id=every-property-at-v1 -->
 ```python
 import gebra
 from gebra.verify import PropertyReport, verify
@@ -118,7 +118,7 @@ print(
 )
 ```
 
-<!-- gebra:output id=the-wedge-five-at-v1 -->
+<!-- gebra:output id=every-property-at-v1 -->
 ```text
 graph-well-formed      pass
 termination-witness    pass
@@ -395,11 +395,11 @@ for index, stage in enumerate(EVOLUTION):
 Two refusals interrupt the sequence, and they are the eligibility rule doing its job: v7 and
 v8 verify with a FATAL finding, a FATAL alone withdraws snapshot eligibility, and a recorder
 handed such a report refuses to write. Note that the first six stages went through the gate —
-including v5 and v6, whose schema edits raise nothing in the five implemented properties, for
-reasons worth knowing rather than assuming: grading a *pair* of versions is P-12's question
-and a departed key's read is P-03's — both outside this release — and no implemented property
-reads a key's declared type, which is all v6 changed. That is why those two are
-diff-classification cases rather than verify findings.
+including v5 and v6, whose schema edits raise nothing in any property this release
+implements, for reasons worth knowing rather than assuming: grading a *pair* of versions is
+P-12's question and a departed key's read is P-03's — neither has a validator in this release —
+and no implemented property reads a key's declared type, which is all v6 changed. That is why
+those two are diff-classification cases rather than verify findings.
 
 The scenario still stores v7 and v8, by recording them with **no report handed in** — the
 recorder's documented posture for a caller who has established nothing for it to apply. That
@@ -500,9 +500,9 @@ Each report's classification is two lines read together. The **bump class** says
 the store's counters this step moved — `E` for the two schema edits, `F` for the two
 contract edits — and routes you to the section below it. The **`P-12 evolution-safety`**
 line is the classification gebra deliberately does not make: grading a change safe or
-breaking over a pair of versions is a property outside this release, the marker says `not
-checked` in the slot where that verdict would go, and the last line under it is the caption
-that keeps a bump class from being read as a risk grade.
+breaking over a pair of versions is a property with no validator in this release, the marker
+says `not checked` in the slot where that verdict would go, and the last line under it is the
+caption that keeps a bump class from being read as a risk grade.
 
 So the body is where the reviewer's information is. `- key itinerary: str` beside the fact
 that two contracts still declare that key; `~ key availability` retyped under four
@@ -630,9 +630,9 @@ entry 1.2.2.3  from 1.2.1.3: bump ['F'], content_changed True
 freshness      fresh — the store's current snapshot is the working definition
 ```
 
-Each per-version report lists all thirteen catalog properties — five answered, eight with
-their not-implemented markers — so the audit record says what was checked *and* what was
-not. The lineage document is the version history as data: every version with its digest and
+Each per-version report lists all thirteen catalog properties — each one this release checks
+answered, every other with its not-implemented marker — so the audit record says what was
+checked *and* what was not. The lineage document is the version history as data: every version with its digest and
 timestamp, and each step's bump class, in a version-locked vocabulary of its own
 (`lineage_version 1.0`). Together the two files answer "what did each version verify as, and
 what changed between versions" from the store alone. The names cannot collide: a per-version
@@ -765,14 +765,14 @@ declaration covers the component. Neither is a statement about whether any run h
 measure is attested by the author and trusted, never checked.
 
 **No output grades a change.** The bump classes route a reader to the right section of a
-diff body; the safe-or-breaking classification of a version pair is P-12, outside this
-release, and every diff above carries its `not checked` marker in the slot where that
-verdict would go. The words "additive", "breaking case" and "a reviewer would stop on" in
+diff body; the safe-or-breaking classification of a version pair is P-12, which has no
+validator in this release, and every diff above carries its `not checked` marker in the slot
+where that verdict would go. The words "additive", "breaking case" and "a reviewer would stop on" in
 this page's prose are editorial framing of the sequence — mine, not any tool's.
 
-**A marker is not a pass.** Eight catalog properties answer `not-implemented:
-deferred-to-phase-1` in every verify run and every audit report on this page. They are never
-counted as passed, and a question that was not asked is reported as exactly that.
+**A marker is not a pass.** Every catalog property with no validator in this release answers
+`not-implemented: deferred-to-phase-1` in every verify run and every audit report on this page.
+None is ever counted as passed, and a question that was not asked is reported as exactly that.
 
 ## Where this page is checked
 

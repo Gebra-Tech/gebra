@@ -434,7 +434,9 @@ _BY_STRING: Final[Mapping[str, ConditionEntry]] = MappingProxyType(
 #: Every registered ID, in §0.4 table order.
 CONDITION_IDS: Final[tuple[ConditionId, ...]] = tuple(CONDITION_REGISTRY)
 
-#: The RATIFIED tier — the wedge-five conditions frozen with the spec.
+#: The RATIFIED tier — the wedge conditions §0.4 tables as RATIFIED, fixed by the reviewed fixture
+#: corpus and frozen with the spec. A name a later record ratified stays in the tier it was filed
+#: in, which is why P-01's ``orphan-node`` and ``edge-target-undefined`` are PROPOSED-tier.
 RATIFIED_CONDITION_IDS: Final[tuple[ConditionId, ...]] = tuple(
     entry.id for entry in _ENTRIES if entry.tier == "ratified"
 )

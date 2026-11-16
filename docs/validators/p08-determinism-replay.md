@@ -1010,14 +1010,14 @@ the two P-08 answers are the same value: True
 ```
 
 One typo in a `path_map` label breaks the graph: P-01 reports `path-map-target-undefined`, the gate
-fails on that FATAL, and three properties' answers become qualified. **P-08's does not.** Its report
-is the same value on both documents, because the edge it would have had to read is one it never
-reads.
+fails on that FATAL, and the topology-reading properties' answers become qualified. **P-08's does
+not.** Its report is the same value on both documents, because the edge it would have had to read
+is one it never reads.
 
 That is a small thing, and it is worth stating plainly: on a run where P-01 failed, a P-06 pass
 is [not a verdict](p06-effect-safety.md#the-p-01-boundary), and a P-08 finding still is. It is
 also the reason `determinism-replay` never appears in `best_effort` — the field is populated from a
-fixed list of the three topology-consuming properties, and P-08 is not on it.
+fixed list of the topology-consuming properties, and P-08 is not on it.
 
 ## What a pass does not claim
 
@@ -1081,7 +1081,7 @@ envelope of §0; the shapes it pins were ratified in decision record DEC-11 (the
 forms), with DEC-14 ruling that `divergence_handling` stays in the witness as a policy echo and
 DEC-16 authorizing the two gap fixtures this page's corpus tour runs.
 `gebra.verify.properties.determinism_replay` and its tests are where that contract is implemented
-and pinned in this repository. This is the last of the five per-validator explainers; the others are
+and pinned in this repository. The pages for the other Phase-0 wedge properties are
 [P-01 `graph-well-formed`](p01-graph-well-formed.md),
 [P-02 `termination-witness`](p02-termination-witness.md),
 [P-04 `dataflow-completeness`](p04-dataflow-completeness.md) and

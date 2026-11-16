@@ -497,7 +497,8 @@ class DeterminismWitness(ReportModel):
 
 # ── The §0.3 witness union ───────────────────────────────────────────────────────────────
 
-#: The five wedge members, discriminated on ``kind`` (A6 PC-2; §0.3).
+#: The witness kinds of P-01, P-02, P-04, P-06 and P-08, one member each, discriminated on
+#: ``kind`` (A6 PC-2; §0.3).
 Witness: TypeAlias = Annotated[
     WellFormednessWitness
     | TerminationWitness

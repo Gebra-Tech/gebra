@@ -74,8 +74,8 @@ def test_gebra():
     return build_travel_booking_agent()
 ```
 
-Run `pytest` and that one function becomes five items — one per property this release can
-answer, named so a red build points at the property before anyone opens a log:
+Run `pytest` and that one function becomes one item per property this release checks, named so
+a red build points at the property before anyone opens a log:
 
 <!-- gebra:example id=one-item-per-property -->
 ```python
@@ -111,10 +111,12 @@ Three things in that list are worth reading before you point CI at it.
 id; without it the function's name minus its `test_` prefix is used. A red build therefore names
 the property that failed, in the item id, before anyone opens a log.
 
-**Eight properties get no item, and that is not a pass.** The catalog holds thirteen properties
-and this release implements five. The other eight answer with a structured not-implemented
-marker, which is visible in the run report and in the closing `gebra` section — never as a green
-check. A property nobody has written never reports a silent success.
+**A property with no validator gets no item, and that is not a pass.** The
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) says which catalog
+properties this release checks; every other one has no validator in this release and answers
+with a structured not-implemented marker, which is visible in the run report and in the closing
+`gebra` section — never as a green check. A property with no validator never reports a silent
+success.
 
 **Returning nothing is a usage error.** A marked function that falls off the end has verified
 nothing, and a green item there would be the worst possible outcome, so the plugin refuses it.
@@ -748,13 +750,14 @@ that run rather than contract-bearing verdicts — and each such report says so 
 graph because there is no cycle for a bound to be declared on. That is a true and useful answer,
 and it is not the same answer as "every loop is bounded".
 
-**Eight properties were never checked.** They are in the report as not-implemented markers, which
-take no part in the exit code. A green run is green on five.
+**The properties with no validator were never checked.** They are in the report as
+not-implemented markers, which take no part in the exit code. A green run is green on the
+properties this release checks, and on no others.
 
 The closing `gebra` section prints all of this — the claim class and a witness summary for each
 pass, every record of each failure, the not-checked markers, the strict policy in force with
 whatever it promoted, and the run's counts and exit code — with no flag, on every run, so a
-default `pytest` cannot show five green ticks and stay silent about the rest.
+default `pytest` cannot show a row of green ticks and stay silent about the rest.
 
 ## Where this page is checked
 

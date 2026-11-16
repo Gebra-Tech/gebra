@@ -8,7 +8,7 @@ changes and reading it — the `.gebra/` store, the V.S.F.E label a stored versi
 It is written to answer the question a reviewer actually has in front of a pull request:
 **what moved, and is this change safe to ship?** gebra answers the first half exactly and
 declines the second: classifying an evolution step as safe or breaking is property P-12
-`evolution-safety`, which is outside this release's scope, and every diff says so in the slot
+`evolution-safety`, which has no validator in this release, and every diff says so in the slot
 where that verdict would go. So the reviewer makes the call, and the point of this page is to
 show what the report gives them to make it with — including the two changes below that carry
 the *same* label bump and could not be more different.
@@ -571,9 +571,9 @@ Same counter, same marker status, same gate — and the second change is the one
 node contracts declaring a key the state schema no longer has. The difference is visible in the
 diff body (`+` against `-`) and nowhere else, and the cross-reference in the last two lines —
 *which* contracts still name the removed key — is something the reader assembles, not something
-the report hands over. Wiring a read to a key outside Σ is P-03 `signature-soundness`, which is
-outside this release along with P-12; the wedge validators leave it alone, and this transcript
-is what that looks like from a reviewer's chair.
+the report hands over. Wiring a read to a key outside Σ is P-03 `signature-soundness`, which,
+like P-12, has no validator in this release; the wedge validators leave it alone, and this
+transcript is what that looks like from a reviewer's chair.
 
 The lesson generalizes. **A bump class is a routing decision — which section of the diff to
 read — never a risk grade.**
@@ -714,9 +714,9 @@ step                 moved  gate
 
 Five of the seven steps leave the gate green, and two of those five are among the four shapes
 the walkthrough flagged. That is not a gap being papered over: the properties that
-would grade a *pair* of versions (P-12) and a read of a key outside the schema (P-03) are both
-outside this release, and the registry answers for them with a structured not-implemented
-marker rather than a pass. What the five implemented validators check is
+would grade a *pair* of versions (P-12) and a read of a key outside the schema (P-03) have no
+validator in this release, and the registry answers for them with a structured not-implemented
+marker rather than a pass. What the implemented validators check is
 [what gebra checks](../concepts/what-gebra-checks.md); what they do not is the reason the diff
 body, not the gate, is where a schema change gets reviewed.
 
@@ -789,9 +789,9 @@ result key present False
 ```
 
 One object, three surfaces, one vocabulary — the same *kind* of structured not-implemented
-marker the property registry returns for every property outside this release, each carrying its
-own id and detail, as the export's eight below show. It carries no `result`, because it is not a
-result: `deferred-to-phase-1` says a question was not asked. A tool that rendered it as a check
+marker the property registry returns for every property with no validator in this release,
+each carrying its own id and detail, as the export below shows. It carries no `result`, because
+it is not a result: `deferred-to-phase-1` says a question was not asked. A tool that rendered it as a check
 mark, or omitted it, would be telling a reader that a safe/breaking classification happened.
 
 ## The per-version audit report
@@ -848,10 +848,10 @@ deferred       ['P-03', 'P-05', 'P-07', 'P-09', 'P-10', 'P-11', 'P-12', 'P-13']
 ```
 
 The report is a verification run over the stored IR, in the report format's snapshot profile,
-with the version and the digest on the subject. Thirteen catalog properties are listed, five
-answered and eight carrying their deferral — a per-version record that says what was checked
-*and* what was not, which is the property that makes it usable as an audit trail rather than a
-summary.
+with the version and the digest on the subject. All thirteen catalog properties are listed —
+each one this release checks with its answer, every other carrying its deferral — a per-version
+record that says what was checked *and* what was not, which is the property that makes it usable
+as an audit trail rather than a summary.
 
 Exporting is a separate call from snapshotting on purpose: a snapshot is a definition, a report
 is a verdict about one, and the store keeps them in separate directories so that re-exporting
@@ -977,8 +977,8 @@ Everything above, as the order of operations a reviewer can follow:
 2. **Use the bump class to decide which section matters**, then read that section's lines. The
    class routes; the lines inform.
 3. **In the `state schema` section, treat `-` and `~` as questions.** A removed or retyped key
-   raises one question per contract that still declares it, and neither the diff nor the five
-   implemented validators asks it. The IR carries every node's declared `input` and `output`,
+   raises one question per contract that still declares it, and neither the diff nor any
+   validator this release ships asks it. The IR carries every node's declared `input` and `output`,
    so the cross-reference is available to you — the example above is one way to write it.
 4. **In the `contracts` section, watch three slots in particular.** `variant` and
    `recursion_limit` are two of P-02's three witness carriers, so their departure is a P-02
@@ -1010,8 +1010,8 @@ fields it compares — the two anchor digests on its header are the stricter ans
 statement that the two agents behave alike.
 
 It also does not classify. P-12 `evolution-safety` — safe-extension versus breaking-change over
-a pair of versions — is outside this release, and the marker every diff carries is the honest
-form of that: `not checked`, with a status, in the slot where a classification would be. No
+a pair of versions — has no validator in this release, and the marker every diff carries is the
+honest form of that: `not checked`, with a status, in the slot where a classification would be. No
 output on this page, from any surface, calls a change safe or breaking, and none should be read
 as if it had.
 

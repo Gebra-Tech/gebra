@@ -330,8 +330,15 @@ def test_the_page_links_out_to_the_pages_that_own_the_unfrozen_surfaces(page: st
 
 
 def test_the_page_states_the_never_invokes_boundary(page: str) -> None:
-    assert "not implemented" in page
-    assert "structured not-implemented marker rather than a pass" in page
+    """A property with no validator is named by that fact and its marker — never by a count.
+
+    DOC-21: which properties those are is the property table's answer, so the page points
+    there rather than saying how many there are or calling them "the non-wedge" ones.
+    """
+    flat = re.sub(r"\s+", " ", page)
+    assert "a property this release has no validator for" in flat
+    assert "structured not-implemented marker rather than a pass" in flat
+    assert "../concepts/what-gebra-checks.md#the-property-catalog" in flat
 
 
 def test_no_non_emittable_condition_id_reaches_the_page(page: str) -> None:

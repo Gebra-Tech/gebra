@@ -3,7 +3,7 @@
 Normative authority: IR-SPEC §4.2 (the model-vs-surface split and the m1–m5 sentinel
 equivalences), ir-field-ledger §4 (label expansion) and §5/§6 (reserved segments, the
 node-id comparator), and TERMINATION-WITNESS-SPEC §5 steps 1–2 (label-expand, then Tarjan —
-"the component map feeds the D4 side conditions"). The four topology-facing validators cite
+"the component map feeds the D4 side conditions"). The topology-facing validators cite
 this module rather than restate it: PROPERTY-CATALOG-SPEC §1.4 Step 1 (P-01), §2.4 Step 0–1
 (P-02), §4.4 Step 0/Step 3 (P-04) and §6.4 Phases 0/2 (P-06) all open with the *same* graph,
 and §6.4 says so in its own words — "Phases 0 and 2 are steps (1)–(2) of the SCC-condensation
@@ -337,7 +337,7 @@ class GraphModel:
     caching strategy this module offers (see the module docstring of
     :func:`build_graph_model`). Derived analyses (:attr:`components`, :meth:`condensation`,
     :meth:`descendants`, :meth:`anchor_cycle`) are memoized per instance, so a second ask is
-    free and two validators sharing a model share the Tarjan pass.
+    free and validators sharing a model share the Tarjan pass.
 
     Attributes:
         vertices: Every vertex, sorted by :func:`ledger_sort_key`. For a model built from an

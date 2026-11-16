@@ -7,11 +7,13 @@ an importable module — and answers a question about it. `verify` runs the vali
 draws one, and `history` lists what a store holds.
 
 None of them runs the workflow. gebra calls no node function, router, tool or model, and opens
-no connection of its own. There is exactly one path on which it executes any of your code on
+no connection of its own. There is one path on which the CLI calls an object of yours on
 purpose — the `--call` opt-in described under [Naming the subject](#naming-the-subject), which
-calls the attribute you named, once, with no arguments — and one it cannot avoid, which is
-that importing a module runs that module's top-level code. Both are stated where they happen;
-neither is a node being invoked.
+calls the attribute you named, once, with no arguments — and importing a module runs that
+module's top-level code, as it does for any tool that resolves an import reference. Neither is a
+node being invoked, and the two are not the whole account: the
+[architecture overview](architecture.md#the-never-invokes-boundary) names other places code of
+yours can run while a definition is read.
 
 This page is the reference: the verbs, their flags, the three exit codes and the surfaces
 each verb writes. It says what an invocation *does*, not what a finding *means*: for that,
@@ -365,7 +367,7 @@ Extraction notes — the warnings extraction emits, and the disclosures beside t
 rendered on stderr and carried in the run report, and they are not findings: they belong to a
 different vocabulary from the severity ladder, no strict flag promotes one, and a warning-free
 extraction is not a gate ([Extraction notes](#extraction-notes) below). Not-implemented
-markers do not move a code either: the eight properties outside this release's scope are
+markers do not move a code either: a catalog property with no validator in this release is
 reported as *not checked*, and a run is neither stronger nor weaker for saying so. Neither do
 did-you-mean suggestions, progress output, styling, or the choice of output surface — the same
 subject under all three `verify` formats returns one exit code.
@@ -443,9 +445,11 @@ to be recorded. The elided middle is the part
 [Verify and interpret](../tutorials/verify-and-interpret.md) is about: each property's
 witness or failure record, with its claim class.
 
-`5 reported | 8 produced no verdict` is not a partial pass. The eight are the catalog
-properties outside this release's scope; each is reported as *not checked*, with a status
-saying so, and none of them is counted anywhere as a check that succeeded.
+The `properties` line is not a partial pass. The properties that produced no verdict are the
+catalog properties with no validator in this release — the
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) names them; each is
+reported as *not checked*, with a status saying so, and none of them is counted anywhere as a
+check that succeeded.
 
 ### The machine surfaces
 
@@ -829,7 +833,7 @@ else print one line saying so — the stamp is inside the digest and outside eve
 exit `0` even under `--exit-code`, because no content differs.
 
 **No diff is labelled safe or breaking, on any surface, at any severity.** Classifying an
-evolution step is property P-12 `evolution-safety`, which is outside this release's scope; the
+evolution step is property P-12 `evolution-safety`, which has no validator in this release; the
 marker in the header says so in the slot that verdict would occupy, and the bump class is a
 statement about which counters moved rather than about risk. Reading a report and deciding is
 the reviewer's job; [Snapshot, diff and evolution](../guides/snapshot-diff-and-evolution.md)

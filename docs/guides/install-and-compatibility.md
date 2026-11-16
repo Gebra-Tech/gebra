@@ -635,8 +635,8 @@ digest move no counter.
 **A bump is not a verdict.** The label says which domain of your definition changed and how
 often. It does not say what changed — that is what a diff report is for — and it does not say
 whether the change was safe: classifying an evolution as a safe extension or a breaking change
-is property P-12 `evolution-safety`, which is outside this release, and every diff says so in
-the slot where that classification would go. [Snapshot, diff and
+is property P-12 `evolution-safety`, which has no validator in this release, and every diff says
+so in the slot where that classification would go. [Snapshot, diff and
 evolution](snapshot-diff-and-evolution.md) walks the same sequence with the diff reports
 alongside, and carries the counter-by-counter table of which IR field moves which component.
 

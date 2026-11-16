@@ -1,7 +1,7 @@
 # Verify and interpret
 
 [Contracts and annotations](contracts-and-annotations.md) ended with a graph whose every slot
-was declared rather than guessed. This page is what that buys. It runs the five validators this
+was declared rather than guessed. This page is what that buys. It runs the validators this
 release implements over a real, fully-declared agent, and then reads what comes back — first a
 report where everything passes, then five where something does not.
 
@@ -91,11 +91,12 @@ best_effort    (empty — P-01 is clean)
 
 Five things in that transcript are worth naming before anything else.
 
-**Thirteen outcomes, five verdicts.** The catalog holds thirteen properties and this release
-implements five; the other eight are outside Phase-0 scope (SOW §8) and answer with a structured
-*not-implemented marker* rather than silence. A marker is not a pass, is never counted in a
-passed tally, and takes no part in the exit code (REPORT-FORMAT-SPEC §2.2, §4.6 rule 5). A
-property nobody has written never reports a quiet success.
+**An outcome for every catalog property, a verdict only where a validator ran.** The
+[property table](../concepts/what-gebra-checks.md#the-property-catalog) says which properties
+this release implements; every other catalog property *has no validator in this release* and
+answers with a structured *not-implemented marker* rather than silence. A marker is not a pass,
+is never counted in a passed tally, and takes no part in the exit code (REPORT-FORMAT-SPEC §2.2,
+§4.6 rule 5). A property with no validator never reports a quiet success.
 
 **The subject is provenance, not a claim.** `input_mode`, the source label, `ir_version` and the
 `graph_version` digest say *what was verified*. The label is a caller-supplied name and not a
@@ -540,7 +541,7 @@ The note row is the surprising case: a report where nothing failed can still gat
 strict flag naming the property whose witness carried the note, with the report, the witness and
 the note all unchanged (§0.2; TERMINATION-WITNESS-SPEC §6.1).
 
-## When P-01 fails, three reports become diagnostics
+## When P-01 fails, the reports that read the topology become diagnostics
 
 P-02, P-04 and P-06 all build the graph, and the specification defines their results **only over
 P-01-clean topology**; where P-01 fails, their reports on that IR are best-effort diagnostics
@@ -592,7 +593,7 @@ best_effort  termination-witness, dataflow-completeness, effect-safety
              effect-safety          says pass — a diagnostic on this run
 ```
 
-Three passes that mean less than they look like. The three properties still ran and still
+The passes in that list mean less than they look like. Those properties still ran and still
 reported, but `best_effort` names them, and the honest reading of those rows is "no problem was
 found while walking a graph that is not well-formed" — not "this graph satisfies the property".
 Fix the P-01 finding and re-run before drawing any conclusion from them. The field is empty on
@@ -742,8 +743,8 @@ blocks are what those runs printed. If any of it stops behaving this way the bui
 than the page misleading a reader — [Executable examples](../contributing/executable-examples.md)
 explains the mechanism.
 
-All five per-validator pages are written, and each goes further on its own property than this page
-does: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
+Each property this release implements has its own page, and each goes further on its own property
+than this page does: [P-01 `graph-well-formed`](../validators/p01-graph-well-formed.md),
 [P-02 `termination-witness`](../validators/p02-termination-witness.md),
 [P-04 `dataflow-completeness`](../validators/p04-dataflow-completeness.md),
 [P-06 `effect-safety`](../validators/p06-effect-safety.md) and

@@ -392,40 +392,23 @@ def test_the_pipeline_examples_digest_is_the_one_the_agent_has(page: str) -> Non
     assert travel_booking.TRIPPED == []
 
 
-def test_the_property_counts_are_the_registrys_own(page: str) -> None:
-    """The three numbers stage 3 states in words, each read off the registry.
+def test_the_one_property_count_is_the_registrys_own(page: str) -> None:
+    """Stage 3 states the catalog's size in words, and no other property count.
 
-    The catalog's size, how many properties ship a validator and how many do not: the
-    words the page uses must be the registry's counts, so a landing that moves a row and
-    leaves the sentence behind fails here rather than going stale.
+    How many properties ship a validator and how many do not used to be spelled out here
+    too, held to the registry by this test — a sentence every property's landing had to
+    edit. DOC-21 replaced both with a pointer to the registry-generated property table, so
+    what is left is the catalog's size, read off the registry, and the pointer itself. No
+    other count on the page is checked here: `tests/docs/test_property_counts.py` holds the
+    whole documentation tree to that, this page included.
     """
     from gebra.verify import registry_counts
+    from tests.docs.test_property_counts import NUMBER_WORDS
 
-    counts = registry_counts()
-    words = [
-        "zero",
-        "one",
-        "two",
-        "three",
-        "four",
-        "five",
-        "six",
-        "seven",
-        "eight",
-        "nine",
-        "ten",
-        "eleven",
-        "twelve",
-        "thirteen",
-    ]  # how the page spells a count — a spelling table, not a count
-    assert f"{words[counts.total]} property slugs" in page
-    # The page names the implemented ones "the wedge five" — true exactly while no row
-    # carries `catalog`; a landing that adds one makes the test demand the plain count.
-    implemented = " — the wedge five —" if counts.catalog == 0 else ""
-    assert (
-        f"{words[counts.shipped].capitalize()} are implemented{implemented} and the "
-        f"other {words[counts.deferred]}"
-    ) in page
+    assert f"{NUMBER_WORDS[registry_counts().total]} property slugs" in page
+    stage = re.sub(r"\s+", " ", page[page.index("**3 — Verification") : page.index("**4 — ")])
+    assert "../concepts/what-gebra-checks.md#the-property-catalog" in stage
+    assert "generated from this registry" in stage
 
 
 def test_the_diff_stage_names_the_deferred_marker(page: str) -> None:
@@ -444,21 +427,66 @@ def test_the_six_stages_each_have_a_section(page: str) -> None:
     assert "**6 — Surfaces" in page
 
 
-def test_the_page_states_the_never_invokes_boundary_and_all_three_concessions(page: str) -> None:
-    """All three places non-gebra code runs are named, or the boundary sentence overstates.
+def _never_invokes_section(page: str) -> str:
+    """The page's never-invokes section, from its heading to the next one, on one line."""
+    section = page[page.index("## The never-invokes boundary") :]
+    return re.sub(r"\s+", " ", section[: section.index("\n## ", 1)])
 
-    The third — that reading a node's type hints evaluates its annotation expressions — is
-    the one a reader cannot find for themselves, and the one an earlier draft of this page
-    left out. `tests/never_invokes_audit.md` is the document that carries them in full, and
-    the page must point at it rather than imply its own list is the whole account.
+
+#: The audit the section points at, and the sentence there that the pointer leans on.
+AUDIT: Final = REPO_ROOT / "tests" / "never_invokes_audit.md"
+AUDIT_LIST_NOT_CENSUS: Final = "the reads measured so far, not a census"
+
+
+def test_the_page_states_the_never_invokes_boundary_and_its_concessions(page: str) -> None:
+    """The places the page names where code that is not gebra's runs — and no count of them.
+
+    The page used to say there were "three places", and that the audit carried the boundary
+    "in full". The gated drawing was the place it left out: LangGraph's own code, taken for
+    the cross-check on a compiled graph with a builder and as the only surface on one
+    without, which reads an author's objects through their own attribute access and hashing
+    (PD-080 records the `tools_by_name` read; the audit's EX-28 entry measures it). DOC-21
+    names the drawing — with the members a `Pregel` subclass overrides, which the gate admits
+    and the audit's §5 names — marks the drawing's reads it gives as examples among those
+    measured, names gebra's own reads that reach an author's objects, stops counting, and
+    points at the audit as a list of the reads measured so far — the audit's own words —
+    rather than as a complete account. The type-hint read stays named too: it is the one a
+    reader cannot find for themselves, and the one an earlier draft of this page left out.
     """
-    assert "calls no node function, no router, no tool and no model" in page
-    assert "three places where code that is not gebra's runs" in page
-    assert "`--call`" in page
-    assert "Importing a module runs that module's" in page
-    assert "evaluates its annotation *expressions*" in page
-    assert "tests/never_invokes_audit.md" in page
-    assert "Nothing here is a claim about what\nyour agent does at run time." in page
+    section = _never_invokes_section(page)
+    assert "calls no node function, no router, no tool and no model" in section
+    assert "`--call`" in section
+    assert "Importing a module runs that module's" in section
+    assert "evaluates its annotation *expressions*" in section
+    assert "LangGraph's own drawing of the graph" in section
+    assert "for a cross-check against the builder's reading where a builder is present" in section
+    assert "as the only surface to read where none is" in section
+    assert (
+        "save for the members a `Pregel` subclass overrides, which run in a drawing the gate admits"
+    ) in section
+    assert "can read an author's objects through their own attribute access and hashing" in section
+    assert "Among the reads measured, it hashes and compares the routing labels" in section
+    assert "`tools_by_name`" in section
+    assert "runs an author's property of that name and iterates the mapping it returns" in section
+    assert "gebra's own reads reach an author's objects too" in section
+    assert "tests/never_invokes_audit.md" in section
+    assert "measured so far — a list, not a census" in section
+    assert "its §1 and §4 entries record the reads of gebra's own" in section
+    assert "Nothing here is a claim about what your agent does at run time." in section
+    # The count and the completeness claim the drawing made untrue are both gone.
+    assert "three places" not in section
+    assert "in full" not in section
+    assert not re.search(r"\b(?:two|three|four|five) places\b", section)
+
+
+def test_the_audit_still_says_what_the_page_says_it_says() -> None:
+    """The page's pointer is only as true as the audit's own words: a list, not a census."""
+    audit = re.sub(r"\s+", " ", AUDIT.read_text(encoding="utf-8"))
+    assert AUDIT_LIST_NOT_CENSUS in audit
+    assert "from langgraph 1.2.19 it reads `tools_by_name` from each node's bound object" in audit
+    assert "runs a property's body and iterates the mapping it returns" in audit
+    assert "members a `Pregel` subclass overrides, run in a drawing the gate admits" in audit
+    assert "`__class__` is read through the object's own attribute access" in audit
 
 
 def test_the_page_does_not_grade_a_change(page: str) -> None:

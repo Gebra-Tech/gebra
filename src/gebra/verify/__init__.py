@@ -35,7 +35,7 @@ witness models; :mod:`gebra.verify.report` holds ``Failure``/``CoFailure``/``Adv
 tier rules and the emission constructors; :mod:`gebra.verify.registry` holds the thirteen-slug
 property table with its scope vocabulary and derived counts, validator registration and
 dispatch; :mod:`gebra.verify.graph` holds the shared
-pre-analysis the four topology-facing validators read their graph from — label expansion,
+pre-analysis the topology-facing validators read their graph from — label expansion,
 sentinel-augmented model construction, Tarjan SCC and the condensation utilities;
 :mod:`gebra.verify.guards` holds P-02's form-(a) recognizer — the TERMINATION-WITNESS-SPEC
 §3 guard grammar over declared ``condition`` strings (the L0 lexical gate and rules R0–R6),

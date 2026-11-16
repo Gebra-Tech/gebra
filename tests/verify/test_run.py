@@ -1022,10 +1022,15 @@ def test_counts_are_derived_and_a_consumer_that_recomputes_agrees() -> None:
 
 
 def test_a_marker_never_contributes_to_the_exit_code() -> None:
-    """§2.2: the eight are neither a pass nor a fail, and a run is no weaker for saying so."""
+    """§2.2: a marker is neither a pass nor a fail, and a run is no weaker for carrying one.
+
+    How many markers a clean run carries is the registry's answer, never a stated number
+    (DOC-21), so a property's landing moves no literal here.
+    """
     report = verify(_clean())
 
-    assert len([o for o in report.properties if isinstance(o, NotImplementedMarker)]) == 8
+    markers = [o for o in report.properties if isinstance(o, NotImplementedMarker)]
+    assert markers and len(markers) == registry_counts().not_checked
     assert (report.gate.exit_code, report.gate.outcome) == (0, "pass")
 
 

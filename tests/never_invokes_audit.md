@@ -1718,6 +1718,61 @@ file's lists as the reads measured so far, not a census; `docs/reference/cli.md`
 counting the paths on which code of the author's runs and points at that section. Nothing in
 §1–§3, §5 or the entries above changed for either.
 
+### DOC-22 — the adopter guide, seven written agent modules, and three CLI-reference sentences scoped to the attribute
+
+No extraction path is added, and nothing under `src/` changes. `docs/guides/adopter-guide.md`
+adds seven executed examples, each of the shape the contracts tutorial established: the block
+writes an agent module into the child's working directory (`tool_agent`, `drafting`,
+`trip_agent`, `fan_out`, `react_agent`, `refused_labels`, `payments`), imports it, and hands its
+**builder** to `gebra.extract()` (passing the IR it returns to `verify()` where the block
+verifies) or, in one block, names it to `gebra.cli.main(["verify", "trip_agent:workflow", …])`
+in process — an import reference the CLI resolves by importing the module the block has already
+written, with no `--call`. Every node body and router in the seven
+modules records its name into the module's own `TRIPPED` and raises, every block ends by
+printing that list, and the trailer's `__file__` clause sweeps each module as one the example
+wrote; `tests/docs/test_doc_examples.py` gains one `WRITTEN_MODULE_LEDGER_CONTROLS` row per block,
+each firing one body inside a swallowed `try` and asserting the trailer names it. No block
+compiles a graph — `StateGraph.compile` stays armed, the harness unchanged — so the page shows the
+builder path only, and what a compiled graph adds is described, not run — among it the
+`with_config` binding, with a pointer to `tests/extraction/test_runtime.py`, and LangGraph's own
+subgraph discovery, with a pointer to the extraction tutorial's subgraph box.
+What the modules do at import, which is the author's act and runs inside the guard: build
+`StateGraph`s; create `Enum`, `IntEnum` and `Flag` classes, whose machinery runs the class bodies;
+apply `@gebra.contract` (an attribute on the function); and, in `trip_agent`, construct a
+`langgraph.pregel.Pregel` directly with a `NodeBuilder` node — LangGraph's own constructor and
+validation, which wrap `search_flights` in a runnable without calling it and, building its
+`PregelNode`, read its source and the globals it names to look for a mounted graph
+(`find_subgraph_pregel`), calling none of them (read from LangGraph's source at 1.2.22, not
+measured; the empty ledger shows no body ran). The guard arms the `invoke` family on `Pregel`, as
+on every `Runnable` subclass loaded before its sweep, and the `search_flights` control fires the
+body itself. Mounting that object in the builder is how the page reaches the
+`subgraph-read-as-one-node` disclosure without `compile()`: the builder path's direct-mount read
+(§4's EX-20 entry) is the ruled `isinstance` against `Pregel`, which a directly constructed
+`Pregel` and a compiled `StateGraph` both satisfy. The page's own calls add nothing to that list:
+`gebra.recursion_limit` writes one attribute onto a builder (§4's EX-19 entry), a refused label or
+target makes `gebra.extract()` raise `ExtractionError` (§4's EX-27 entry), and the in-process CLI
+run reads a `gebra.toml` the block wrote into the child's directory and, on its `--output` run,
+writes `report.json` there. The seven
+blocks ran with empty ledgers and no trip under the harness on CPython 3.13 with langgraph 1.2.22,
+3.10 with 1.0.10 and 3.11 with 1.1.10. `tests/docs/test_adopter_guide.py` reads Markdown, the
+library's enums and the honest-claims phrase list; `tests/docs/test_docs_site.py` changes data
+and two skip conditions. Three sentences of `docs/reference/cli.md` moved for this file's sake.
+The `--call` paragraph said "Without `--call` nothing is ever called", true of the attribute it is
+about and wider than this file's record read alone — the EX-19 entry above records that a
+`Pregel` subclass's own `get_graph` and `get_subgraphs` overrides are what
+`gebra.extraction.compiled` calls in a drawing the gate admits, with no `--call` involved. It now
+reads "Without `--call` the attribute you named is never called", and its consequence names the
+import that still runs ("importing `booking` still runs its top-level code (step 1)"). Step 2's
+"Nothing is called." now says the attribute is not called, beside the module `__getattr__` that
+`getattr` runs for a name the module does not hold (`gebra.cli.resolve`). Step 3's workflow
+object is "taken as the subject without being called" rather than "with nothing called": the
+`isinstance` against the abc classes `CompiledStateGraph` and `PregelProtocol` that `classify`
+runs (`dispatch.py:174`) reads the object's `__class__` through its own attribute access whenever
+the object's type is not exactly `CompiledStateGraph` — the residue `builder.py` records for its
+own `isinstance` on a node's bound object (read from CPython's and `abc`'s source, not measured).
+`tests/docs/test_cli_reference.py` pins the new sentences and the old ones' absence. Nothing in
+§1–§3, §5 or the entries above changed.
+
 ## 5. Boundary of the provenance gate (stated, not overstated — WA-06)
 
 The `get_graph()` gate admits an object as stock-substrate by its `__module__` top-level package

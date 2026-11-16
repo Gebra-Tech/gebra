@@ -650,7 +650,10 @@ else wires is outside P-04's reach and is named on `outside_static_coverage` ins
 declarations are true ones, so they are the
 change to make when a P-04 report names a key a `Send` hands its target;
 [contracts and annotations](../tutorials/contracts-and-annotations.md) covers where
-declarations come from. And because the payload's contents are not in the IR, a
+declarations come from, and the
+[adopter guide](../guides/adopter-guide.md#a-key-a-send-hands-its-target) extracts the `send`
+and the `conditional` form from a builder each. And because the payload's contents are not in the
+IR, a
 pass with a `payload_readers` line says nothing about them either: whether the router actually
 puts `leg_id` in every `Send` is outside what P-04 reads.
 
@@ -1121,7 +1124,11 @@ write on every route that can reach it", with the `send`-edge reads `payload_rea
 undecided, and the reading of a failure is "here is a route on which one is not" — a
 statement about the definition in front of you, not a prediction about a run. That is the value of
 the check: the branch nobody exercised is exactly the branch a per-path rule reaches, and it
-reaches it before anything runs.
+reaches it before anything runs. The same rule is what the
+[adopter guide](../guides/adopter-guide.md#an-approval-gate-in-front-of-a-write) borrows for an
+approval gate: a key the gate's allow branch writes, declared as a read of the write it guards,
+makes a route around the gate a finding — under three conditions, and with two ways a pass can
+still mislead, which that section names.
 
 Four smaller limits worth keeping straight, three of which the report names on the record so
 they are never silent. **A pass is about reachable readers** — the

@@ -60,6 +60,14 @@ and trusts it. Form (b) is a global step budget rather than a per-loop bound, wh
 graph covered by it alone passes with a warning rather than silently; that case has
 [its own section](#a-justified-limit-passes-and-strict-mode-is-where-it-bites) below.
 
+On a live graph, form (b) is declared in one of two places: `gebra.recursion_limit(graph, value,
+justification=…)` in code, which records the declaration on the builder every compiled copy
+shares, or a `[runtime]` table in a `gebra.toml` sidecar, for a graph you cannot edit.
+LangGraph's default limit and a limit passed when the graph runs are not part of the definition
+and are never read, and a limit bound with `with_config` is recorded beside the declaration
+without filling the slot. The [adopter guide](../guides/adopter-guide.md#a-loop-bounded-only-by-the-recursion-limit)
+walks through both surfaces on a tool-calling agent.
+
 **How coverage is decided.** Every declaration that names a piece of the graph becomes one — an
 edge for each form (a), a node for each form (c). P-02 deletes them and asks whether anything
 cyclic survives. Every simple cycle carries one of those **element** witnesses if and only if
@@ -934,7 +942,10 @@ carries exactly the regions the strict row reports, flagged.
 
 Practically, this is the setting for a team that declares a limit as a stopgap. Default
 profile: the build stays green and the report says which loops are riding on the budget. Strict:
-the same report fails the build until each of those loops carries a bound of its own.
+the same report fails the build until each of those loops carries a bound of its own. The
+[adopter guide](../guides/adopter-guide.md#a-loop-bounded-only-by-the-recursion-limit) shows the
+same reading on an agent extracted from its builder, with its limit declared by
+`gebra.recursion_limit`.
 [Strict mode](../concepts/what-gebra-checks.md#strict-mode-changes-the-gate-never-the-record)
 covers the flag itself, and
 [verify and interpret](../tutorials/verify-and-interpret.md#strict-mode-moves-the-gate-never-the-record)

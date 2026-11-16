@@ -795,6 +795,17 @@ def test_the_page_states_the_never_invokes_boundary(prose: str) -> None:
     the architecture overview's account contradicts — annotation evaluation, and the drawing a
     compiled graph is read through, run code of the author's too (DOC-21) — so the lede now
     says the two are not the whole account and points there.
+
+    The `--call` paragraph's sentence is held to the attribute it is about (DOC-22). It once
+    read "Without `--call` nothing is ever called", which is true of the attribute the
+    paragraph names and wider than the record read alone: `tests/never_invokes_audit.md`'s
+    EX-19 entry records that a `Pregel` subclass's own `get_graph` and `get_subgraphs`
+    overrides are what the compiled path calls in a drawing the gate admits, with no `--call`
+    involved. Its consequence names the import that still runs, and step 2's "Nothing is
+    called" became a statement about the attribute too, beside the module `__getattr__` a
+    `getattr` runs for a name the module does not hold (`gebra.cli.resolve`), and step 3's
+    "with nothing called" became "without being called" — `classify`'s `isinstance` reads the
+    object's `__class__` through its own attribute access.
     """
     assert "None of them runs the workflow." in prose
     assert "exactly one path" not in prose
@@ -802,7 +813,13 @@ def test_the_page_states_the_never_invokes_boundary(prose: str) -> None:
     assert "(architecture.md#the-never-invokes-boundary)" in prose
     assert "gebra calls no node function, router, tool or model, and opens no connection" in prose
     assert "importing a module runs that module's top-level code" in prose
-    assert "Without `--call` nothing is ever called" in prose
+    assert "Without `--call` the attribute you named is never called" in prose
+    assert "importing `booking` still runs its top-level code (step 1)" in prose
+    assert "nothing is ever called" not in prose
+    assert "Nothing is called." not in prose
+    assert "a module that defines its own `__getattr__` runs it" in prose
+    assert "is taken as the subject without being called" in prose
+    assert "with nothing called" not in prose
     assert "It does not probe the callable's signature first" in prose
     assert "**The module is imported.** Its top-level code runs" in prose
     assert "refused *as a usage error*, before any module is imported" in prose

@@ -181,6 +181,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused, its message now naming both surfaces. The new warnings render wherever warnings do;
   the binding record, a disclosure, is reported by every run that extracts the workflow,
   through the run report's `extraction_notes` (the first entry above).
+- **An adopter guide** (card DOC-22; DEC-36, DEC-37, DEC-38). `docs/guides/adopter-guide.md`
+  joins the site's guides: five shapes an existing agent uses, each with what gebra reads, what
+  it reports and what to write, every example executed in CI over a small agent module whose
+  node bodies raise if anything calls them. A loop bounded only by the recursion limit —
+  `gebra.recursion_limit` and the sidecar's `[runtime]` table, P-02's pass by form (b) with its
+  warning-grade note, the strict gate, and that a declared limit is a recorded bound, not a
+  statement that the loop halts. A compiled graph mounted as a node — the
+  `subgraph-read-as-one-node` disclosure on stderr, in the human report's extraction notes and in
+  `--format json`, with no exit code moved. A key a `Send` hands its target — P-04's
+  `payload_readers`, and the `Send` return hint with declared targets that makes the fan-out a
+  `send` edge. A router keyed by an `Enum` — a plain `Enum` with `str` values, spelled by those
+  values, and the forms still refused with the refusal's way round. And an approval gate in front
+  of a write — a token the allow branch writes and the guarded write reads, which makes a route
+  around the gate a P-04 finding: the pattern's three conditions, and a box naming what such a
+  pass does not show (the token written before the gate, the proposal changed after the allow
+  branch) beside the plain statement that gebra does not check gate ordering as a rule of its
+  own. The P-02 and P-04 pages and the CI-gating guide link to it. The CLI reference's `--call`
+  paragraph now says that without `--call` the attribute you named is never called, rather than
+  that nothing is, and that importing the module still runs its top-level code; its import steps
+  say the attribute is not called, beside a module `__getattr__` that `getattr` runs for a name
+  the module does not hold.
 
 ### Changed
 

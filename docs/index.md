@@ -24,10 +24,11 @@ transcript its own code did not produce.
 ## What is on this site
 
 Every page the navigation lists is written: the skeleton reserved one page per planned topic and
-the last reservation has now been replaced, and one page — [Use cases](guides/use-cases.md) — was
-written afterwards, outside any reservation. That order was deliberate — the skeleton and the
-example harness landed first, so that a page's examples were executed and checked from the day it
-appeared rather than from the day someone got round to it.
+the last reservation has now been replaced, and two pages — [Use cases](guides/use-cases.md) and
+the [adopter guide](guides/adopter-guide.md) — were written afterwards, outside any reservation.
+That order was deliberate — the skeleton and the example harness landed first, so that a page's
+examples were executed and checked from the day it appeared rather than from the day someone got
+round to it.
 
 The site itself is built by CI on every push (`mkdocs build --strict`, where a warning is a
 failure) and served from GitHub Pages at <https://gebra-tech.github.io/gebra/>, deployed from
@@ -104,7 +105,11 @@ The pages, in the order they were written:
   workflows, each with one seeded defect and the verdict gebra reaches on it — a research loop
   with no declared bound, a triage path that reads a key nothing on that path wrote, an LLM node
   whose determinism claim the definition cannot back — with the fix executed for each, over the
-  scenarios in `examples/scenarios/`.
+  scenarios in `examples/scenarios/`;
+- [Adopter guide](guides/adopter-guide.md) — five shapes an existing agent uses and what to write
+  for each: a loop bounded only by the recursion limit, a compiled graph mounted as a node, a key
+  a `Send` hands its target, a router keyed by an `Enum`, and an approval gate whose bypass a
+  P-04 token turns into a finding, with what that pass does not show.
 
 ## How the site is arranged
 
@@ -113,7 +118,7 @@ The pages, in the order they were written:
 | **Concepts** | What gebra checks, and what the IR and a `graph_version` are. |
 | **Tutorials** | Worked, start-to-finish walkthroughs over a real agent. |
 | **Validators** | One page for each property this release checks: what it reads and what its findings mean. |
-| **Guides** | Adoption tasks — CI gating, snapshotting and evolution, install and compatibility — and three worked use cases. |
+| **Guides** | Adoption tasks — CI gating, snapshotting and evolution, install and compatibility, and the five shapes an existing agent uses with what to write for each — and three worked use cases. |
 | **Reference** | The CLI surface, the public Python API, and an architecture overview. |
 | **Contributing** | Working on gebra itself. |
 

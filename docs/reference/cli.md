@@ -212,9 +212,10 @@ Resolving `module:attribute` is three steps:
    REPL — you asked for that module by naming it, and a definition that exists only after its
    module executes cannot be reached any other way. `sys.path` is the interpreter's own, so an
    invocation that works in your shell works the same way under CI.
-2. **The attribute is read**, with `getattr`. Nothing is called.
+2. **The attribute is read**, with `getattr`. The attribute is not called; a module that
+   defines its own `__getattr__` runs it for a name the module does not hold.
 3. **Anything that is not already a workflow object is refused** — unless you passed `--call`.
-   A `StateGraph`, a compiled graph or another `Runnable` is taken as the subject with nothing
+   A `StateGraph`, a compiled graph or another `Runnable` is taken as the subject without being
    called; anything else is exit `2`, with a message naming what was found and both remedies:
    put a module-level graph object in your module (`graph = build_graph()`, whose construction
    then happens at import), or pass `--call`.
@@ -225,8 +226,9 @@ user-influenced, and "takes no arguments" does not distinguish a graph factory f
 application entry point — so a callable that needed arguments raises, and that is exit `2`.
 gebra makes no claim about what your factory does when called; what it fixes is its own
 behaviour: one call, no arguments, then read-only inspection of whatever came back. Without
-`--call` nothing is ever called, which is why `gebra verify booking:main` cannot start an
-application by accident.
+`--call` the attribute you named is never called, which is why `gebra verify booking:main`
+cannot start an application by calling `main` — importing `booking` still runs its top-level
+code (step 1).
 
 `--sidecar PATH` overrides the `gebra.toml` discovery for that extraction. It is accepted only
 where something is extracted, and on `diff` only when exactly one side is an import reference —

@@ -66,12 +66,20 @@ PAGES_BY_CARD: dict[str, tuple[str, ...]] = {
     "DOC-17": ("reference/api.md", "reference/architecture.md"),
     "DOC-18": ("guides/install-and-compatibility.md",),
     "DOC-19": ("contributing/index.md",),
+    "DOC-22": ("guides/adopter-guide.md",),
 }
 
-#: Pages written outside a DOC reservation: the two DOC-01 wrote rather than reserved, and the
-#: use-cases page REL-06 added once every reservation had been replaced. A page joins this set
-#: in the same change that adds it to the navigation; nothing here is ever a placeholder.
-WRITTEN_PAGES = ("index.md", "contributing/executable-examples.md", "guides/use-cases.md")
+#: Pages written outside a DOC reservation: the two DOC-01 wrote rather than reserved, the
+#: use-cases page REL-06 added once every reservation had been replaced, and each page a Phase 1
+#: DOC card adds — which is also in `PAGES_BY_CARD` under that card, because the card owns it,
+#: but was never a reservation (DOC-22's adopter guide is the first). A page joins this set in
+#: the same change that adds it to the navigation; nothing here is ever a placeholder.
+WRITTEN_PAGES = (
+    "index.md",
+    "contributing/executable-examples.md",
+    "guides/use-cases.md",
+    "guides/adopter-guide.md",
+)
 
 #: Reserved pages whose card has since written them. A page moves into this set in the same
 #: change that drops its placeholder marker, and the two directions below hold it there: a
@@ -120,7 +128,6 @@ CARDS_WITHOUT_A_SITE_PAGE: dict[str, str] = {
         "table lives on DOC-02's concepts/what-gebra-checks.md, and a page is reserved for one "
         "card only"
     ),
-    "DOC-22": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
     "DOC-23": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
     "DOC-24": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
     "DOC-25": _PHASE_1_PAGE_LANDS_WITH_ITS_CARD,
@@ -258,10 +265,14 @@ def test_no_page_is_reserved_for_two_cards() -> None:
 
 
 def test_every_reserved_page_declares_itself_a_placeholder() -> None:
-    """A reservation must never read as documentation (WA-12)."""
+    """A reservation must never read as documentation (WA-12).
+
+    A card's page that landed written — a Phase 1 card's, in `WRITTEN_PAGES` — was never a
+    reservation, so it is held to the other direction below rather than to this one.
+    """
     for card, pages in sorted(PAGES_BY_CARD.items()):
         for page in pages:
-            if page in LANDED_PAGES:
+            if page in LANDED_PAGES or page in WRITTEN_PAGES:
                 continue
             text = (DOCS / page).read_text(encoding="utf-8")
             assert text.startswith(PLACEHOLDER_MARKER), f"{card}: {page} lacks the marker"
@@ -284,11 +295,28 @@ def test_every_landed_page_is_one_a_card_reserved() -> None:
     assert LANDED_PAGES <= reserved
 
 
+def test_a_card_page_that_landed_written_was_never_a_reservation() -> None:
+    """The Phase 1 rule: a card's new page joins `PAGES_BY_CARD` and `WRITTEN_PAGES` together.
+
+    It is owned by its card, so the board reconciliation below finds it, and it is written from
+    the change that adds it, so it never passed through `LANDED_PAGES` — the set of pages that
+    once carried the placeholder marker. A page in both sets would be claiming both histories.
+    """
+    owned_and_written = {
+        page for pages in PAGES_BY_CARD.values() for page in pages if page in WRITTEN_PAGES
+    }
+
+    assert "guides/adopter-guide.md" in owned_and_written
+    assert not owned_and_written & LANDED_PAGES
+    for page in owned_and_written:
+        assert not (DOCS / page).read_text(encoding="utf-8").startswith(PLACEHOLDER_MARKER)
+
+
 def test_a_placeholder_shows_no_code() -> None:
     """Nothing executable hides in a page that documents nothing yet."""
     for pages in PAGES_BY_CARD.values():
         for page in pages:
-            if page in LANDED_PAGES:
+            if page in LANDED_PAGES or page in WRITTEN_PAGES:
                 continue
             assert "```" not in (DOCS / page).read_text(encoding="utf-8")
 

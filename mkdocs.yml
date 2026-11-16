@@ -85,6 +85,7 @@ nav:
       - Snapshot, diff and evolution: guides/snapshot-diff-and-evolution.md
       - Install and compatibility: guides/install-and-compatibility.md
       - Use cases: guides/use-cases.md
+      - Adopter guide: guides/adopter-guide.md
   - Reference:
       - CLI reference: reference/cli.md
       - API reference: reference/api.md

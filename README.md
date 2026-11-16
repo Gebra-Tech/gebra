@@ -395,6 +395,12 @@ the repository documents worth reading beside them:
   claim the definition cannot back — each with its fix, executed. The scenarios are
   [`examples/scenarios/`](examples/scenarios), which CI runs both as pytest suites and as the
   page's own examples.
+- [Adopter guide](docs/guides/adopter-guide.md) — five shapes an existing agent uses and what
+  to write for each: a loop bounded only by the recursion limit (`gebra.recursion_limit` and the
+  sidecar's `[runtime]` table), a compiled graph mounted as a node (the disclosure in the run
+  report's extraction notes), a key a `Send` hands its target (P-04's `payload_readers`), a
+  router keyed by an `Enum`, and an approval gate whose bypass a P-04 token turns into a
+  finding — with what that pass does not show.
 - [CLI reference](docs/reference/cli.md) — the five verbs, every flag each one takes, how an
   invocation names the definition it operates on, what `0`, `1` and `2` mean for each verb, and
   the report surfaces `verify`, `display` and `history` write.

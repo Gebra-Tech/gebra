@@ -193,7 +193,9 @@ def test_no_property_reported_a_blocking_finding(gebra_verification: TargetVerif
 declared contracts are ordinary Python. `gebra_verification` carries the run: all thirteen
 outcomes, the derived gate, and the notes extraction emitted on the way — its warnings, then
 any disclosure, such as a mounted subgraph read as one node — which the run report carries
-too, as `extraction_notes`, and the closing report prints.
+too, as `extraction_notes`, and the closing report prints. The
+[adopter guide](adopter-guide.md#a-compiled-graph-mounted-as-a-node) shows a disclosure on each
+surface and what to do about one.
 
 <!-- gebra:example id=the-two-fixtures -->
 ```python
@@ -243,7 +245,9 @@ stored snapshot needs both to be at the same level.
 
 **Which `gebra.toml` was in reach is a fact about the run.** A sidecar can fill every annotation
 slot the decorators can — contracts, effect tags, the loop-variant declaration P-02 reads, the
-determinism claim P-08 reads — so it sits inside the `graph_version` hash scope and moves
+determinism claim P-08 reads — and, in its `[runtime]` table, the recursion limit P-02 reads as
+a step budget ([adopter guide](adopter-guide.md#declaring-the-limit-for-a-graph-you-cannot-edit)),
+so it sits inside the `graph_version` hash scope and moves
 verdicts, not only the digest. Without
 an explicit path, discovery walks up from the pytest process's working directory — which is
 exactly the thing that differs between a laptop and a runner. On a CI surface, pin it: the marker

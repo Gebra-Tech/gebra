@@ -610,6 +610,53 @@ WRITTEN_MODULE_LEDGER_CONTROLS = (
         "lookup",
         "{'query': 'weather', 'hits': ''}",
     ),
+    # DOC-22's adopter guide: seven examples, each writing its own agent module. The bodies
+    # fired are the ones each section is about — the loop's model call, the vendored drafting
+    # node, the body *inside* the mounted graph (built with `Pregel` and `NodeBuilder`, which
+    # wraps it without calling it), the `Send` target, the two enum routers, and the guarded
+    # write behind the approval gate.
+    (
+        "docs/guides/adopter-guide.md::a-loop-with-no-declared-bound",
+        "tool_agent",
+        "call_model",
+        "{'question': 'q', 'messages': [], 'answer': ''}",
+    ),
+    (
+        "docs/guides/adopter-guide.md::the-runtime-table",
+        "drafting",
+        "write_draft",
+        "{'topic': 't', 'draft': ''}",
+    ),
+    (
+        "docs/guides/adopter-guide.md::a-mounted-graph-is-disclosed",
+        "trip_agent",
+        "search_flights",
+        "'a request'",
+    ),
+    (
+        "docs/guides/adopter-guide.md::a-payload-read",
+        "fan_out",
+        "book_leg",
+        "{'request': 'r', 'search_plan': 'p', 'leg_id': 'l', 'bookings': []}",
+    ),
+    (
+        "docs/guides/adopter-guide.md::an-enum-keyed-router",
+        "react_agent",
+        "decide",
+        "{'question': 'q', 'scratchpad': [], 'answer': ''}",
+    ),
+    (
+        "docs/guides/adopter-guide.md::enum-forms-still-refused",
+        "refused_labels",
+        "decide",
+        "{'question': 'q'}",
+    ),
+    (
+        "docs/guides/adopter-guide.md::a-gate-as-a-token",
+        "payments",
+        "execute_payment",
+        "{'request': 'r', 'proposal': 'p', 'approval': 'a', 'receipt': ''}",
+    ),
 )
 
 #: The same controls for the probe that hands a node no state at all, which needs no state.

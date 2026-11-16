@@ -7,6 +7,162 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-16
+
+A MINOR after the `0.1.1` patch, because rulings taken since then move public contracts. A loop
+bounded only by LangGraph's recursion limit can now declare that limit with its justification,
+and P-02 passes it by witness form (b); a compiled graph mounted as a node is disclosed as read
+as one node wherever extraction's reads find it; P-04 no longer decides the reads a `Send` target
+makes along its `send` edge; the run report carries what extraction said; and a router keyed by a
+plain `Enum` with `str` values extracts. Semantic versioning's `0.y` rule lets anything change
+before `1.0.0`, and this project cuts a MINOR when a ruled landing moves a public contract; this
+one carries several breaks. Each move is named here with the ruling it follows, and the entries
+below record how each landed. The number is `0.2.0` rather than the `0.1.2` the development
+checkout's dev segment named — a segment that names the next patch by rule rather than by
+promise — and no `0.1.2` was released.
+
+What moved, each with its ruling:
+
+- **`report_format` is `1.4`, up from `1.3`** (DEC-37 for `payload_readers`, DEC-35 §3.8 and
+  DEC-36 §4 for `extraction_notes`; DEC-35 §3.3, one `report_format` MINOR per release, whose row
+  in REPORT-FORMAT-SPEC §1.6 this cut stamps). Two optional members join: `payload_readers`, on
+  P-04's pass witness and on its failing report's primary record, and `extraction_notes`, on the
+  run report. A strict `1.3` consumer refuses a `1.4` report that carries either, and `gebra
+  display --report` refuses a `1.3` report file, naming the version it reads — re-run `gebra
+  verify` to get a `1.4` one.
+- **P-04's verdict changes on graphs whose `Send` fan-out extracts as a `send` edge** (DEC-37,
+  the ruling on P-04 over `Send` payloads). In `0.1.1` a node entered through a `send` edge that
+  reads a key only the `Send` payload hands it — the per-branch `id` of a map-reduce worker, say
+  — failed `read-key-never-written-on-path`, because its reads were decided against the state its
+  sender had produced. Along that edge its reads are now not decided, and the node is named on
+  `payload_readers`. A node entered only through `send` edges raises no P-04 obligation at all: a
+  document whose only P-04 findings were reads at such nodes now passes, on one with other
+  findings those reads drop out of them, and a passing report's `coverage` no longer lists that
+  node's reads. A node also entered by an ordinary edge, a `path_map` label or `entry` has its
+  reads decided over those in-edges alone: a key that some path from `START` through one of them
+  leaves unwritten still fails at it, on a path that ends on one of them, and for such a node
+  `coverage`, `satisfied_by` — which can now be empty on a covered entry —
+  `writers_on_other_paths` and a finding's `path` can differ from `0.1.1`'s. The change runs one
+  way: on the same document, no `0.1.1` P-04 pass becomes a fail. A router that declares its
+  targets with no return hint naming `Send` extracts as `conditional`, and one whose hint names
+  `Send` but that declares no targets as `dynamic`, and P-04 decides both exactly as before; on
+  a document with no `send` edge, P-04 reports exactly as before. This is a verdict change on
+  adopters' graphs, not only a fix: a gate that recorded `0.1.1`'s P-04 verdict on such a graph
+  can see a fail become a pass, and its findings and witness change.
+- **A graph's recursion limit can be declared** (DEC-36, the ruling on the declaration surface
+  and the subgraph disclosure). `gebra.recursion_limit(graph, value, justification=…)` or a
+  `[runtime]` table in `gebra.toml` fills `runtime.recursion_limit`, P-02's witness form (b), and
+  P-02 passes a loop with no counter guard and no `variant` by that form, with its warning-grade
+  note, which `--strict` promotes. A declared limit is a recorded step budget for the whole graph,
+  its justification attested and never evaluated — not a bound on that loop, and not a statement
+  that the loop halts; it does not clear a counter guard whose loop has no wired exit, which still
+  fails `counter-guard-without-exit-edge`. A `with_config(recursion_limit=…)` binding never fills
+  the slot: with no declaration it is disclosed, and P-02 fails the loop as before. `ir_version`
+  does not move, and the declaration surface changes no IR document of a graph that declares
+  nothing; one that declares a limit gets a different `graph_version`, since the slot — its
+  justification included — is inside hash scope.
+- **A compiled subgraph read as one node is disclosed wherever extraction's reads find it**
+  (DEC-36): on the envelope's new `disclosures` member, in the run report's `extraction_notes`
+  and on stderr. The disclosed set is a lower bound, not a census — a subgraph compiled with
+  `checkpointer=False` and reached only from inside a node body is seen by no read — and every
+  disclosure says so. A disclosure is not a warning and not a finding — no exit code moves and no
+  strict flag promotes one — and it sits outside hash scope.
+- **A plain `Enum` member with a `str` value is a routing label** (DEC-38, which amends DEC-32's
+  ruling 1). Wherever extraction reads a builder — an uncompiled graph, or a compiled one through
+  its `.builder` — a router keyed by such members, refused by `0.1.1`, now extracts with each
+  label spelled as the member's stored value, and every other label that is not a string is still
+  refused. The admission moves neither `ir_version` nor any existing digest: the label lands in
+  the existing `path_map`, and no refused object ever produced IR. A compiled graph with no
+  builder is read from LangGraph's drawing, as in `0.1.1`, and keeps the labels the drawing
+  carries: LangGraph renders a router's keys with `str()` when the graph is compiled, so a plain
+  `Enum` member's label there is that rendering (`AgentDecision.TOOL`), not its stored value. On
+  the compiled path, the gate that card EX-28 landed holds the admission to the builder reading
+  (DEC-38 §3.10): a compiled graph whose `destinations=` dict carries such a member as a label
+  extracts from its builder with the compiled-level cross-check declined — LangGraph's own
+  drawing would hash the member, reading its `_name_` — and
+  `extracted_from.compiled.cross_check` records `performed: false` with the reason; a compiled
+  graph with no builder whose drawing would carry a label that is not a string is refused with
+  `no-extractable-surface` before the drawing runs.
+- **A dict-valued `destinations=` is read the way LangGraph documents it** — keys are targets,
+  values are labels (DEC-38, which rules it a changelog-named correction; card EX-27). This moves
+  `graph_version` for a graph whose `destinations=` labels are not its own targets, and the
+  verdicts read off that edge with it: P-01's `path-map-target-undefined`, which `0.1.1` reported
+  where such a label named no node, is no longer reported there, and P-02, P-04 and P-06 now
+  decide the edge LangGraph declares, so their verdicts on such a graph can differ from
+  `0.1.1`'s. Two targets declared under one label, which `0.1.1` extracted, now refuse with
+  `label-collision`, since a `path_map` keeps one target per label (DEC-32's ruling 2) — give
+  each target its own label. A routing declaration held in anything but a `dict`, `tuple`,
+  `list`, `set` or `frozenset` is now warned `unsupported-construct` and declares nothing; no
+  decision record rules that posture, and `0.2.0` ships it as landed (PD-067). That moves
+  `graph_version` wherever such a declaration compiled, and the verdicts read off the edges it
+  declared can differ from `0.1.1`'s with it: a `destinations=` given as another mapping or
+  iterable — a `MappingProxyType`, a `deque` or a dict view, say — which `0.1.1` read as
+  declaring its edge, besides the router case the EX-27 entry under Fixed names.
+- **Built-in-type subclasses in routing declarations and drawings are read as the built-in
+  type** (DEC-32's `str`-subclass clause; DEC-38 §3.2 and §3.5): a `str` subclass used as a
+  routing target, a drawn node id or a drawn label, and a `dict`, `tuple`, `list`, `set` or
+  `frozenset` subclass holding a routing declaration are now read through the built-in type's own
+  accessors, never the subclass's methods. A document moves inside hash scope only where those
+  methods — truth test, hashing, comparison, iteration — disagree with the built-in type's.
+- **Newly refused when a compiled graph has no builder, or declined on the cross-check where it
+  has one** (DEC-19's Ruling 3, the drawing's hazard gate): a graph whose drawing carries a user
+  mapper in a registered entry, a writer or write entry whose class LangGraph did not define, or
+  static writes declared in any container but an exact `list` or `tuple` of exact tuples.
+- **`gebra.testing.mutations`** (DEC-37): the four P-04 operators that inject a state read and
+  the six self-loop operators of P-02 and P-06 now raise `ValueError` on an anchor a `send` edge
+  enters, where the ruling changes what they predict; the module's mutation strategies draw those
+  operators' anchors from the other nodes, and the new `send_targets()` names the ones excluded.
+- **The catalog charter's vocabulary** (DEC-35, DEC-42): the registry's scope vocabulary gains
+  `catalog` beside `phase-0-wedge` and `deferred-to-phase-1`, and no row carries it yet; the
+  display-only `detail` of the not-implemented marker for a property with no validator no longer
+  says the property is outside the Phase-0 wedge or calls its catalog section a stub — it says
+  the property has no validator in this release, names its catalog section, and keeps "No verdict
+  was reached — this is not a pass." verbatim. The status token `deferred-to-phase-1` is
+  unchanged on the wire.
+- **The tested matrix** (VERSION-COMPAT §3 and §4; a ceiling extension and a cap, neither of them
+  a contract move): cell 3 moved to langgraph 1.2.22 with langchain-core pinned per Python —
+  1.8.0 on Python 3.11–3.13, 1.7.7 on 3.10 — justified by drift-suite CI run 43651528532, in
+  which every drift golden held. Python 3.14 is capped at the tested 3.13: the scheduled run
+  42656942210 on CPython 3.14.4 was red, version-gap issue
+  [#17](https://github.com/Gebra-Tech/gebra/issues/17) records it, and on 3.14 the first
+  `gebra.extract()` still warns `GebraVersionWarning`.
+
+One gap this release does not close: a router or a conditional entry declared with an empty
+`path_map` (`path_map={}`) gets no edge — for the conditional entry, an empty `entry` — and, read
+from an uncompiled builder, no warning, although LangGraph then routes by the router's return
+value (read from LangGraph's source; gebra runs no graph). This is unchanged since `0.1.1`.
+
+What did not move: `ir_version` is `1.0`, and `1.1` for a router whose targets are decided at run
+time, as in `0.1.1` — neither DEC-36 nor DEC-38 moved it — and the `gebra.ir` package, the IR
+models with their canonical form and serialization, is byte-identical to `0.1.1`'s source: the
+format and its hashing did not move, though what extraction writes into it did where the bullets
+above say. No condition ID of the wedge properties was added, removed or renamed, and no
+severity, claim class or exit-code rule moved. The CLI's verbs — `verify`, `snapshot`, `diff`,
+`display` and `history` — and their options and exit-code rules are as in `0.1.1`, and no name
+was removed from any package's public exports. The `.gebra/` store format did not move: the
+`gebra.store` package differs from `0.1.1`'s only in a docstring example's version. Compared with
+the `0.1.1` sdist, every IR round-trip and canonical-form golden, every extraction conformance
+and parity golden and every drift golden kept its bytes, except the `lcel-tool-bound`
+conformance golden, retaken when the development lock moved to langchain-core 1.8.0 because its
+`config_digest` carries the installed core's version; `builder-enum-labels` is new.
+
+**The release cut itself** (card REL-13). The declared version is `0.2.0` in `pyproject.toml`,
+`gebra.__version__` and `uv.lock` together, so the release workflow's install smoke and the
+lockfile check agree with the tag; this dated section is what the release gate ships as the
+release notes; the README's status paragraph and quickstart transcript, the three documentation
+pages whose transcripts print the version and the IR concept page whose example names it were
+swept to `0.2.0` and re-executed, and the install guide's paragraph on the two version numbers
+and the adopter guide's note on which release carries its surfaces were brought to this release;
+`SECURITY.md`'s supported line moves to `0.2.x`, the line this release opens; REPORT-FORMAT-SPEC
+§1.6's `1.4` row is stamped by this cut, as DEC-35 §3.3 rules; and `CONTRIBUTING.md`'s dev-cut
+examples name `0.2.1.dev1`, the next routine cut off this declaration. This change creates no
+tag: the tag naming this version is pushed on the public repository after this landing's own CI
+run is green, and the publish job runs only after a person approves it.
+
+Everything below is the record of how that release was built, card by card, kept verbatim from
+the `[Unreleased]` section it accumulated in after `0.1.1` — the dev cut that re-opened
+development at `0.1.2.dev0` included, since that is where this line began.
+
 ### Added
 
 - **The run report carries what extraction said: `extraction_notes`** (card CLI-12; DEC-35 §3.8,

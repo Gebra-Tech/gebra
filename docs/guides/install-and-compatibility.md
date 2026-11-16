@@ -121,7 +121,7 @@ for requirement in metadata.requires("gebra") or ():
 
 <!-- gebra:output id=what-the-install-brings -->
 ```text
-gebra           0.1.2.dev0
+gebra           0.2.0
 requires-python >=3.10
 
 langchain-core<2.0,>=1.0
@@ -135,15 +135,17 @@ typer>=0.27
 
 That version is the one the tree declares, because the `docs` job runs this block against an
 editable install of the checkout — no job installs gebra from an index, as the table above
-says. Between releases `main` declares what it is working towards rather than what it last
-shipped — a `.devN` off the next patch — so the two numbers differ: this checkout declares
-`0.1.2.dev0`, while `pip install gebra` gives you `0.1.1`, the newest release. The dev segment
-names the next patch by rule rather than by promise; what the release that follows is actually
-numbered is decided at its own cut, as `0.0.2.dev0` was followed by `0.1.0`. At a release
-commit the two agree, for that one commit. PEP 440 sorts a `.devN` before the release it names
-— `0.1.1.dev0` was after `0.1.0` and before `0.1.1` — and excludes a developmental release
-from an ordinary version specifier, so `pip install gebra` does not select one unless it is
-asked to.
+says. This checkout is the release commit of `0.2.0`, and at a release commit the two numbers
+agree, for that one commit: the tree declares `0.2.0`, and `pip install gebra` gives you
+`0.2.0`, the newest release. Between releases `main` declares what it is working towards
+rather than what it last shipped — a `.devN` off the next patch — so the two differ: before
+this commit the checkout declared `0.1.2.dev0` while `pip install gebra` gave `0.1.1`. The dev
+segment names the next patch by rule rather than by promise; what the release that follows is
+actually numbered is decided at its own cut — `0.0.2.dev0` was followed by `0.1.0`, and
+`0.1.2.dev0` by `0.2.0`, so no `0.1.2` was released. PEP 440 sorts a `.devN` before the
+release it names — `0.1.1.dev0` was after `0.1.0` and before `0.1.1` — and excludes a
+developmental release from an ordinary version specifier, so `pip install gebra` does not
+select one unless it is asked to.
 
 `langgraph` and `langchain-core` are ordinary required dependencies: gebra reads their
 builder, compiled-graph and `Runnable` surfaces to extract an IR, so an install without them
@@ -553,7 +555,7 @@ workflow.
 
 | Number | Example | What it versions | What moves it |
 |---|---|---|---|
-| The package version | `0.1.1` — the newest release; `0.1.2.dev0` — what this checkout declares | gebra itself | a release, and the dev cut that re-opens development after one |
+| The package version | `0.2.0` — the newest release, and the version this checkout declares | gebra itself | a release, and the dev cut that re-opens development after one |
 | The substrate versions | `langgraph 1.2.10` | what gebra reads | upgrading your own dependencies |
 | `ir_version` | `1.0` | the IR *format* | a ratified change to the IR schema |
 | The V.S.F.E label | `1.2.3.3` | **your workflow definition** | your edits |

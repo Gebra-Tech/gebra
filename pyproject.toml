@@ -16,17 +16,20 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gebra"
-# `0.1.2.dev0` re-opens development after the `0.1.1` release (REL-12, GOV-15's shape; the
-# number is the owner's ruling). Only a release commit declares a bare `X.Y.Z`: between
-# releases `main` declares the next patch's dev segment, so a build from an ordinary checkout
-# never names a release it is not, and the second half follows from the same line —
-# `tools/release_gate.py` requires the tag to equal `v` + this string (PD-036), so a second
-# `v0.1.1` tag is refused here rather than published against a used version. The dev segment
-# names the patch by rule, not by promise: what the next release is numbered is decided at its
-# own cut, as `0.0.2.dev0` was followed by `0.1.0`. PEP 440 sorts a `.devN` below the release
-# it names and keeps it out of an ordinary specifier, so `pip install gebra` still gives
-# `0.1.1`.
-version = "0.1.2.dev0"
+# `0.2.0` is a release commit (REL-13, in REL-11's shape) and a MINOR, not the `0.1.2` the dev
+# segment named: ruled landings moved public contracts since `0.1.1`, and PD-061 (d) cuts a
+# MINOR for that (semantic versioning's `0.y` rule lets anything change before `1.0.0`; PD-062
+# ruling 2, one MINOR per gate). `report_format` moved from `1.3` to `1.4`; P-04 no longer
+# decides a `send` target's reads along its `send` edge — a target entered only that way raises
+# no obligation and is named on `payload_readers` (DEC-37), a verdict change on such graphs;
+# `gebra.recursion_limit` and the sidecar's `[runtime]` table fill `runtime.recursion_limit`,
+# P-02's witness form (b) (DEC-36); and a plain `Enum` with `str` values is admitted as a
+# routing label (DEC-38). The dated CHANGELOG section names each move with its ruling. No
+# `0.1.2` was released. Only a release commit declares a bare `X.Y.Z`, and
+# `tools/release_gate.py` requires the tag to equal `v` + this string (PD-036), so `v0.2.0` is
+# the tag this commit accepts; the dev cut that follows re-opens development at the next
+# patch's dev segment, after which a second `v0.2.0` tag is refused.
+version = "0.2.0"
 description = "Design-time verification and versioning for LangGraph agent workflows"
 # The long description is BUILT from `README.md`, not copied from it. PyPI renders the
 # README but never rewrites a relative link or image (pypa/readme_renderer#163, open), so

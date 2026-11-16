@@ -45,9 +45,10 @@ module-level `TRIPPED` list and raises; each example ends by printing that list,
 
     The first four sections use surfaces merged after `gebra 0.1.1`: the declaration call and
     the `[runtime]` table, the subgraph disclosure in the run report, P-04's reading of a
-    `send` edge, and the admission of `Enum` labels. An installed `0.1.1` has none of them; with
-    `0.1.1` installed, [install from a checkout](install-and-compatibility.md#from-a-checkout)
-    of this repository to follow them. The fifth section uses only what `0.1.1` already has.
+    `send` edge, and the admission of `Enum` labels. An installed `0.1.1` has none of them; to
+    follow them, upgrade to `0.2.0`, the release that carries them (`pip install --upgrade
+    gebra`), or [install from a checkout](install-and-compatibility.md#from-a-checkout) of this
+    repository. The fifth section uses only what `0.1.1` already has.
 
 ## A loop bounded only by the recursion limit
 

@@ -1126,6 +1126,7 @@ def _reconditioned(ir: WorkflowIR) -> WorkflowIR:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": edge.from_},
+                codomain=edge.codomain,
                 condition=_REWRITTEN_CONDITION,
                 path_map=edge.path_map,
             )

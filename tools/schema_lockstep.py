@@ -34,8 +34,18 @@ vocabulary check only asks whether the member ``id`` exists.
 
 The walk (``_deref``, ``_first_with``, ``_union_props``) is generic JSON Schema traversal —
 no ``$ref`` target or ``oneOf`` branch index is hardcoded — so the identical code walks both
-schemas despite their different shapes. Nothing here executes a workflow, a node, or an LLM
-(WA-07): it reads schema dictionaries.
+schemas despite their different shapes. A ``$ref`` is a JSON pointer (RFC 6901) resolved from
+the **whole schema document** as the resolution root: the model's ``#/$defs/Subgraph`` and the
+fixture schema's ``#/$defs/gebra-ir-subgraph`` and ``#/$defs/gebra-ir/properties/entry`` (the
+v2.4 addendum's references into the top-level shape — DEC-39 §3.9) all resolve the same way.
+Nothing here executes a workflow, a node, or an LLM (WA-07): it reads schema dictionaries.
+
+**Sixteen locations** from ``ir_version`` 1.2 (DEC-39 §3.9): the fourteen of IR-05, plus
+``subgraph`` (the child subdocument's six members) and ``projection`` (its ``in``/``out``
+maps). Part B (DEC-40 §3.9) adds no location: its four members — ``barriers`` at ``node``,
+``join_key`` at ``annotations``, ``codomain`` at ``edge``, ``managed`` at ``state_field`` —
+are names at locations the guard already compares, and none of their shape rules is visible
+to it (the loader and the conformance vectors carry those).
 
 Usage::
 
@@ -61,12 +71,14 @@ from gebra.ir import WorkflowIR
 LOCATIONS: tuple[str, ...] = (
     "workflow",
     "node",
+    "subgraph",
     "annotations",
     "idempotent_key",
     "deterministic_spec",
     "retry_policy",
     "variant",
     "compensation",
+    "projection",
     "edge",
     "runtime",
     "recursion_limit",
@@ -101,11 +113,35 @@ class Report:
         return not self.mismatches
 
 
-def _deref(node: dict[str, Any], defs: dict[str, Any]) -> dict[str, Any]:
-    """Chase a ``$ref`` chain to the schema it names; a no-op on a ``$ref``-free node."""
+def _resolve_pointer(document: dict[str, Any], reference: str) -> dict[str, Any]:
+    """The schema a local ``$ref`` names: an RFC 6901 JSON pointer read from ``document``.
+
+    Only same-document references (``#/…``) exist in either schema; anything else is a shape
+    this guard cannot read, reported as such rather than guessed at. Each reference token is
+    unescaped per RFC 6901 §4 (``~1`` → ``/``, then ``~0`` → ``~``).
+    """
+    if not reference.startswith("#/"):
+        raise SchemaLockstepError(f"unsupported $ref {reference!r}: only '#/…' pointers resolve")
+    target: Any = document
+    for token in reference[2:].split("/"):
+        key = token.replace("~1", "/").replace("~0", "~")
+        if not isinstance(target, dict) or key not in target:
+            raise SchemaLockstepError(f"$ref {reference!r} does not resolve: no {key!r}")
+        target = target[key]
+    if not isinstance(target, dict):
+        raise SchemaLockstepError(f"$ref {reference!r} names a non-schema value")
+    return target
+
+
+def _deref(node: dict[str, Any], document: dict[str, Any]) -> dict[str, Any]:
+    """Chase a ``$ref`` chain to the schema it names; a no-op on a ``$ref``-free node.
+
+    ``document`` is the whole schema the references were written in — the resolution root of
+    every JSON pointer (DEC-39 §3.9: the fixture side's ``$defs`` alone cannot follow a
+    pointer into ``gebra-ir.properties``).
+    """
     while "$ref" in node:
-        name = str(node["$ref"]).rsplit("/", 1)[-1]
-        node = defs[name]
+        node = _resolve_pointer(document, str(node["$ref"]))
     return node
 
 
@@ -146,12 +182,12 @@ def _union_props(node: dict[str, Any], defs: dict[str, Any]) -> frozenset[str]:
 
 
 def build_vocabulary(root: dict[str, Any], defs: dict[str, Any]) -> dict[str, frozenset[str]]:
-    """The 14-location field-name vocabulary of a ``gebra-ir``-shaped JSON Schema document.
+    """The sixteen-location field-name vocabulary of a ``gebra-ir``-shaped JSON Schema document.
 
     ``root`` is the schema carrying the seven top-level properties directly (``WorkflowIR``'s
-    own ``model_json_schema()``, or ``schema.yaml``'s ``$defs.gebra-ir``); ``defs`` is where
-    a ``$ref`` in ``root`` resolves (``model_json_schema()["$defs"]``, or ``{}`` — the fixture
-    schema nests every sub-object inline and never uses ``$ref``).
+    own ``model_json_schema()``, or ``schema.yaml``'s ``$defs.gebra-ir``); ``defs`` is the whole
+    schema document a ``$ref`` in ``root`` resolves against (``model_json_schema()`` itself, or
+    the whole ``schema.yaml``) — every reference is a JSON pointer from that document's root.
     """
     try:
         root_props: dict[str, Any] = root["properties"]
@@ -159,6 +195,9 @@ def build_vocabulary(root: dict[str, Any], defs: dict[str, Any]) -> dict[str, fr
 
         node_obj = _first_with(root_props["nodes"]["items"], defs, "properties")
         vocab["node"] = frozenset(node_obj["properties"])
+
+        subgraph_obj = _first_with(node_obj["properties"]["subgraph"], defs, "properties")
+        vocab["subgraph"] = frozenset(subgraph_obj["properties"])
 
         annotations_obj = _first_with(node_obj["properties"]["annotations"], defs, "properties")
         ann_props: dict[str, Any] = annotations_obj["properties"]
@@ -169,6 +208,7 @@ def build_vocabulary(root: dict[str, Any], defs: dict[str, Any]) -> dict[str, fr
         vocab["retry_policy"] = _union_props(ann_props["retry_policy"], defs)
         vocab["variant"] = _union_props(ann_props["variant"], defs)
         vocab["compensation"] = _union_props(ann_props["compensation"], defs)
+        vocab["projection"] = _union_props(ann_props["projection"], defs)
 
         vocab["edge"] = _union_props(root_props["edges"]["items"], defs)
 
@@ -191,7 +231,7 @@ def build_vocabulary(root: dict[str, Any], defs: dict[str, Any]) -> dict[str, fr
 def model_vocabulary() -> dict[str, frozenset[str]]:
     """The vocabulary of ``WorkflowIR.model_json_schema()`` — the model side of the lockstep."""
     schema = WorkflowIR.model_json_schema()
-    return build_vocabulary(schema, schema.get("$defs", {}))
+    return build_vocabulary(schema, schema)
 
 
 def fixture_schema_vocabulary(schema_path: Path) -> dict[str, frozenset[str]]:
@@ -201,7 +241,7 @@ def fixture_schema_vocabulary(schema_path: Path) -> dict[str, frozenset[str]]:
         gebra_ir = document["$defs"]["gebra-ir"]
     except (KeyError, TypeError) as exc:
         raise SchemaLockstepError(f"{schema_path}: no $defs.gebra-ir found") from exc
-    return build_vocabulary(gebra_ir, {})
+    return build_vocabulary(gebra_ir, document)
 
 
 def compare(

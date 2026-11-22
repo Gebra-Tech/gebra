@@ -1,5 +1,6 @@
-"""IR models for ``ir_version`` 1.0/1.1 — normative authority IR-SPEC (frozen 2026-07-18,
-DEC-09; the 1.1 edge kind ratified 2026-08-09, DEC-28).
+"""IR models for ``ir_version`` 1.0–1.2 — normative authority IR-SPEC (frozen 2026-07-18,
+DEC-09; the 1.1 edge kind ratified 2026-08-09, DEC-28; the 1.2 members ratified 2026-11-03 and
+2026-11-10, DEC-39 and DEC-40).
 
 The whole model surface is re-exported here::
 
@@ -7,7 +8,9 @@ The whole model surface is re-exported here::
 
 :class:`~gebra.ir.models.WorkflowIR` is the entry point; :data:`~gebra.ir.models.Edge` is
 the kind-discriminated edge union; :class:`~gebra.ir.base.IRModel` is the frozen,
-``extra="forbid"``, strict base every model shares.
+``extra="forbid"``, strict base every model shares. :func:`~gebra.ir.models.lowest_ir_version`
+is the minor a document's constructs require, read over every level, and
+:func:`~gebra.ir.models.down_project` is the format-migration down-projection beside it.
 
 The node-identity grammar of IR-SPEC §5 lives in :mod:`gebra.ir.identity` and is re-exported
 alongside the models: :func:`~gebra.ir.identity.node_id_from_names` and
@@ -86,13 +89,16 @@ from gebra.ir.models import (
     IrVersion,
     Node,
     NormalEdge,
+    Projection,
     RecursionLimit,
     RetryPolicy,
     Runtime,
     SendEdge,
     StateField,
+    Subgraph,
     Variant,
     WorkflowIR,
+    down_project,
     lowest_ir_version,
     refuse_dynamic_edges,
 )
@@ -145,6 +151,7 @@ __all__ = [
     "NodeIdErrorReason",
     "NodeIdStr",
     "NormalEdge",
+    "Projection",
     "RecursionLimit",
     "RetryPolicy",
     "Runtime",
@@ -152,11 +159,13 @@ __all__ = [
     "SegmentKind",
     "SendEdge",
     "StateField",
+    "Subgraph",
     "Variant",
     "WorkflowIR",
     "canonical_annotations_bytes",
     "canonical_bytes",
     "canonical_foreign_bytes",
+    "down_project",
     "dump_json",
     "dump_yaml",
     "escape_segment",

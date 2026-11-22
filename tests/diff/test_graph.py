@@ -161,6 +161,7 @@ def test_a_path_map_expands_one_edge_per_label() -> None:
                 ConditionalEdge(
                     kind="conditional",
                     **{"from": "plan"},
+                    codomain=None,
                     condition="route",
                     path_map={"go": "work", "skip": "report"},
                 ),
@@ -181,7 +182,9 @@ def test_an_end_valued_label_wires_the_end_sentinel_and_keeps_the_authored_spell
     graph = topology_graph(
         workflow(
             edges=(
-                ConditionalEdge(kind="conditional", **{"from": "plan"}, path_map={"done": "END"}),
+                ConditionalEdge(
+                    kind="conditional", **{"from": "plan"}, codomain=None, path_map={"done": "END"}
+                ),
                 EDGES[1],
             ),
         )
@@ -203,7 +206,9 @@ def test_the_end_blessing_is_positional_even_when_a_node_is_named_end() -> None:
         workflow(
             nodes=(*NODES, node("END", None)),
             edges=(
-                ConditionalEdge(kind="conditional", **{"from": "plan"}, path_map={"done": "END"}),
+                ConditionalEdge(
+                    kind="conditional", **{"from": "plan"}, codomain=None, path_map={"done": "END"}
+                ),
                 EDGES[1],
             ),
         )
@@ -246,6 +251,7 @@ def test_two_labels_of_one_router_may_target_one_node() -> None:
                 ConditionalEdge(
                     kind="conditional",
                     **{"from": "plan"},
+                    codomain=None,
                     path_map={"go": "work", "retry": "work"},
                 ),
                 EDGES[1],

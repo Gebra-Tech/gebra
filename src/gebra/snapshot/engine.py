@@ -71,8 +71,9 @@ only way one can still be held.
 
 **A second class is refused for the same reason: a document stamped below its floor.** The
 same :func:`~gebra.diff.topology.resolve_subject` call refuses a model whose ``ir_version`` is
-below the lowest minor its edges require (IR-SPEC §2.5 note 7 — ratified DEC-34, on the model
-since card IR-08), again reachable only past validation. A store must never hold a snapshot its
+below the lowest minor its constructs require (IR-SPEC §2.5 note 7 — ratified DEC-34, on the
+model since card IR-08, read over the whole document since IR-09), again reachable only past
+validation. A store must never hold a snapshot its
 own loader would refuse to read back.
 
 **An ir 1.1 document is recorded, extended and compared like any other.** A ``dynamic`` edge
@@ -246,7 +247,7 @@ def record(
             version).
         CanonicalizationError: if the IR carries a value the canonical form refuses.
         ValueError: if the IR repeats a node id (IR-SPEC §2.1, ratified DEC-22) or is stamped
-            below the ``ir_version`` its edges require (§2.5 note 7, DEC-34) — refused on
+            below the ``ir_version`` its constructs require (§2.5 note 7, DEC-34) — refused on
             every path, the first snapshot of an empty store included, for a model built past
             validation.
         pydantic.ValidationError: if ``source`` is the empty string, which the store model

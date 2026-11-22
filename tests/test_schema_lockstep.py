@@ -2,8 +2,9 @@
 
 The guard is the CI enforcement of one rule: ``WorkflowIR.model_json_schema()`` and the
 vendored ``schema.yaml``'s ``gebra-ir`` ``$defs`` must agree on which fields exist at each of
-14 conceptual locations. These tests pin what that means in practice — the real pair agrees
-today, a field renamed or added in a sandbox copy of the vendored schema is reported (or, for
+16 conceptual locations (14 at IR-05; ``subgraph`` and ``projection`` added with the 1.2
+models at IR-09 — DEC-39 §3.9). These tests pin what that means in practice — the real pair
+agrees today, a field renamed or added in a sandbox copy of the vendored schema is reported (or, for
 a whole nested object dropped, raises a clear error) rather than passing silently, and the two
 already-ruled requiredness divergences (``RecursionLimit.justification``; the
 ``retry_policy``/``variant``/``compensation`` sub-fields) are *not* flagged, by design — this
@@ -31,6 +32,8 @@ from tools.schema_lockstep import (
     Mismatch,
     Report,
     SchemaLockstepError,
+    _deref,
+    _resolve_pointer,
     check,
     compare,
     fixture_schema_vocabulary,
@@ -81,6 +84,51 @@ def test_the_real_pair_agrees() -> None:
 
 def test_model_vocabulary_covers_every_declared_location() -> None:
     assert set(model_vocabulary()) == set(LOCATIONS)
+
+
+def test_the_location_count_moved_by_the_two_ruled_locations_only() -> None:
+    """IR-05's fourteen plus the two DEC-39 §3.9 names — ``subgraph`` and ``projection`` — and
+    nothing else: part B (DEC-40 §3.9) adds member names at existing locations, no location."""
+    ir05 = {
+        "workflow",
+        "node",
+        "annotations",
+        "idempotent_key",
+        "deterministic_spec",
+        "retry_policy",
+        "variant",
+        "compensation",
+        "edge",
+        "runtime",
+        "recursion_limit",
+        "interrupts",
+        "checkpointer",
+        "state_field",
+    }
+    assert len(LOCATIONS) == 16
+    assert set(LOCATIONS) - ir05 == {"subgraph", "projection"}
+    assert ir05 <= set(LOCATIONS)
+
+
+def test_the_1_2_members_are_compared_at_their_locations() -> None:
+    """Both sides carry each ruled 1.2 member name where the lockstep looks for it."""
+    model_vocab = model_vocabulary()
+    fixture_vocab = fixture_schema_vocabulary(SCHEMA)
+    expected = {
+        "node": {"subgraph", "barriers"},
+        "annotations": {"projection", "join_key"},
+        "edge": {"codomain"},
+        "state_field": {"managed"},
+    }
+    for location, names in expected.items():
+        assert names <= model_vocab[location], location
+        assert names <= fixture_vocab[location], location
+    assert (
+        model_vocab["subgraph"]
+        == fixture_vocab["subgraph"]
+        == {"entry", "finish", "state", "nodes", "edges", "runtime"}
+    )
+    assert model_vocab["projection"] == fixture_vocab["projection"] == {"in", "out"}
 
 
 def test_fixture_vocabulary_covers_every_declared_location() -> None:
@@ -160,6 +208,8 @@ def test_the_id_grammar_constraint_invisible_to_the_schema_is_not_flagged() -> N
         == {
             "id",
             "annotations",
+            "subgraph",
+            "barriers",
         }
     )
 
@@ -220,6 +270,41 @@ def test_a_nested_object_dropped_entirely_from_the_schema_raises_a_clear_error(
 
     with pytest.raises(SchemaLockstepError, match="compensation"):
         check(sandbox_schema)
+
+
+def test_a_1_2_member_dropped_from_the_vendored_schema_is_reported(sandbox_schema: Path) -> None:
+    """A part-B member present on the model and missing from the schema is caught by name."""
+    _mutate(sandbox_schema, "            codomain:\n", "            codomain_renamed:\n")
+
+    report = check(sandbox_schema)
+
+    mismatch = next(m for m in report.mismatches if m.location == "edge")
+    assert mismatch.missing_in_schema == frozenset({"codomain"})
+    assert mismatch.missing_in_model == frozenset({"codomain_renamed"})
+
+
+def test_an_unresolvable_pointer_raises_a_clear_error(sandbox_schema: Path) -> None:
+    """A ``$ref`` naming nothing is a structural fault, reported rather than read as empty."""
+    _mutate(sandbox_schema, '$ref: "#/$defs/gebra-ir-subgraph"', '$ref: "#/$defs/no-such-def"')
+
+    with pytest.raises(SchemaLockstepError, match="does not resolve"):
+        check(sandbox_schema)
+
+
+def test_pointers_resolve_from_the_whole_document_per_rfc_6901() -> None:
+    """DEC-39 §3.9: references are JSON pointers rooted at the whole schema — the v2.4
+    addendum points into ``$defs.gebra-ir.properties`` — with RFC 6901's two escapes."""
+    document = {
+        "$defs": {
+            "gebra-ir": {"properties": {"entry": {"type": "string"}}},
+            "a/b": {"properties": {"x": {}}},
+            "c~d": {"$ref": "#/$defs/a~1b"},
+        }
+    }
+    assert _resolve_pointer(document, "#/$defs/gebra-ir/properties/entry") == {"type": "string"}
+    assert _deref({"$ref": "#/$defs/c~0d"}, document) == {"properties": {"x": {}}}
+    with pytest.raises(SchemaLockstepError, match="only '#/…' pointers resolve"):
+        _resolve_pointer(document, "other.json#/x")
 
 
 def test_the_schema_yaml_file_is_never_written_by_this_guard() -> None:

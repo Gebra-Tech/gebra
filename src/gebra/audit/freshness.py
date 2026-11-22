@@ -55,11 +55,11 @@ interim posture), because the diff a ``stale`` answer carries had no ruled repre
 an edge with no target and the recorder an ``unsnapshotted`` answer names refused the same
 document. PD-059 ruled the representation and lifted both declines together, so the three
 content states are reachable for a 1.1 document and each names a next step the recorder will
-take (the fourth state cannot arise for a ``dynamic``-bearing document: ``"1.1"`` is its only
-admissible stamp, floored from below by IR-SPEC §2.5 note 7 and from above by
-:data:`~gebra.ir.IR_VERSIONS`).
+take. So is the fourth: a ``dynamic``-bearing document is admitted at ``"1.1"`` and, since
+:data:`~gebra.ir.IR_VERSIONS` gained ``"1.2"``, over-stamped at ``"1.2"`` (IR-SPEC §2.5 note 7
+floors a stamp from below only), so its over-stamped twin is restamped like any other's.
 The one document precondition left is :func:`~gebra.diff.topology.resolve_subject`'s — unique
-node ids and a stamp at or above the floor its edges require — and it is a fault to report,
+node ids and a stamp at or above the floor its constructs require — and it is a fault to report,
 never a freshness verdict.
 """
 
@@ -87,7 +87,7 @@ def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
             :func:`~gebra.diff.topology.resolve_subject` before the store is looked at, which
             both supplies its digest and applies the diff engine's document preconditions
             (node ids are unique — IR-SPEC §2.1, DEC-22; the ``ir_version`` stamp is at or
-            above the floor its edges require — §2.5 note 7, DEC-34). A document that could
+            above the floor its constructs require — §2.5 note 7, DEC-34). A document that could
             never be snapshotted is refused rather than reported stale against, on the same
             terms and in the same order :func:`gebra.snapshot.snapshot` refuses it.
         store: The store to check against. A store that does not exist reads as an empty one,
@@ -104,7 +104,7 @@ def freshness(ir: WorkflowIR, *, store: SnapshotStore) -> FreshnessOutcome:
 
     Raises:
         ValueError: if ``ir`` declares one node id twice (IR-SPEC §2.1, DEC-22) or is stamped
-            below the ``ir_version`` its edges require (§2.5 note 7, DEC-34) — a model built
+            below the ``ir_version`` its constructs require (§2.5 note 7, DEC-34) — a model built
             past validation, the only way either can still be held.
         gebra.store.StoreError: if the store's index or its current snapshot cannot be read.
             A damaged store is a fault to report, never a freshness verdict — reading it as

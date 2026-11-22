@@ -217,13 +217,20 @@ $defs:
         description: |
           IR format version emitted by gebra.extract(), e.g. "1.0" — frozen
           per DEC-09 (2026-07-18); the fixture corpus is migrated 0.1 -> 1.0.
+          v2.4 addendum (DEC-39): "1.0", "1.1" (DEC-28) or "1.2" (DEC-39); the
+          stamp floor (IR-SPEC §2.5 note 7) is the model's to enforce, not this
+          schema's.
+          v2.5 addendum (DEC-40): a barriers member, a codomain present in canonical
+          form (non-empty and, after NFC, distinct from path_map's keys — IR-SPEC
+          §6.3), a managed state entry, a join_key and the assign/each/leaf id
+          tokens also require "1.2" (IR-SPEC §8, part B).
         type: string
       # Representation-normalization (IR-SPEC §6.3; v2.2 addendum, DEC-09/DEC-10):
       # the canonical surface form serializes `entry`/`finish` as a scalar node
       # id iff the wired set is a singleton (list otherwise), and a `state`
-      # value as the bare type-name string iff it carries no `reducer` and no
-      # `optional` flag (object form otherwise). gebra.extract() emits the
-      # collapsed forms; fixtures use them.
+      # value as the bare type-name string iff it carries no `reducer`, no
+      # `optional` flag and (v2.5, DEC-40) no `managed` flag (object form
+      # otherwise). gebra.extract() emits the collapsed forms; fixtures use them.
       entry:
         description: Node id (or ids) wired from the START sentinel.
         oneOf:
@@ -240,7 +247,7 @@ $defs:
         description: |
           The state schema Sigma: mapping of state key -> type. Value is
           either a bare type-name string (shorthand) or an object with
-          type / reducer / optional. Reducers are declared here, which is
+          type / reducer / optional / managed. Reducers are declared here, which is
           what parallel-safety's reducer check reads.
         type: object
         additionalProperties:
@@ -257,6 +264,15 @@ $defs:
                     Key is a graph input or carries a default; treated as
                     written at START for dataflow-completeness purposes.
                   type: boolean
+                managed:
+                  description: |
+                    v2.5 addendum (DEC-40, ir_version >= 1.2): a managed value
+                    (RemainingSteps-style) the substrate computes per task — a member
+                    of dataflow-completeness's START-written set, never a termination
+                    witness by itself. Only true is admitted. Loader validity the
+                    schema does not encode: the entry carries neither optional nor
+                    reducer (IR-SPEC §2.2).
+                  enum: [true]
       nodes:
         type: array
         minItems: 1
@@ -370,6 +386,61 @@ $defs:
                 config_digest:
                   description: "v2.2 (DEC-09): opaque-body config digest (D-025 closure)."
                   type: string
+                # v2.4 addendum (DEC-39, ir_version >= 1.2): P-10's declared parent<->child
+                # state projection on a node that mounts a compiled graph. Both members
+                # required; either map may be empty; keys and values are state keys.
+                projection:
+                  type: object
+                  additionalProperties: false
+                  required: [in, out]
+                  properties:
+                    in:
+                      type: object
+                      additionalProperties: { type: string }
+                    out:
+                      type: object
+                      additionalProperties: { type: string }
+                # v2.5 addendum (DEC-40, ir_version >= 1.2).
+                join_key:
+                  description: |
+                    P-11's declared join key set (ir_version >= 1.2, DEC-40): a data
+                    key, or a non-empty array of distinct data keys, in the NFC
+                    identifier role; a scalar iff one key (canonical form, IR-SPEC
+                    §6.3); any node may carry it. An empty string, an empty array and
+                    an empty or repeated member are refused here as at load (IR-SPEC
+                    §3.10).
+                  oneOf:
+                    - type: string
+                      minLength: 1
+                    - type: array
+                      minItems: 1
+                      uniqueItems: true
+                      items: { type: string, minLength: 1 }
+            # v2.4 addendum (DEC-39, ir_version >= 1.2): the compiled graph this node
+            # mounts, carried as a document of its own level — entry, finish, state,
+            # nodes, edges and runtime with the top-level shapes (IR-SPEC §3.8); every
+            # node id inside carries this node's id as a proper prefix.
+            subgraph:
+              $ref: "#/$defs/gebra-ir-subgraph"
+            # v2.5 addendum (DEC-40, ir_version >= 1.2).
+            barriers:
+              description: |
+                The waiting_edges all-of barriers whose target is this node
+                (ir_version >= 1.2, DEC-40): each group the distinct ids of two or
+                more nodes the substrate compiled as one all-of barrier channel into
+                this node; the edges into the node stay the ordinary normal edges
+                (IR-SPEC §3.11). Loader validity the schema does not encode: groups
+                distinct as sets, every member the source of a normal edge into this
+                node. An empty outer array is refused here (minItems 1) and is
+                omit-normalized to absence by a loader (IR-SPEC §6.3).
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                type: array
+                minItems: 2
+                uniqueItems: true
+                items: { type: string }
       edges:
         type: array
         items:
@@ -407,6 +478,16 @@ $defs:
                 graph-well-formed.
               type: object
               additionalProperties: { type: string }
+            codomain:
+              description: |
+                Conditional edges only (ir_version >= 1.2, DEC-40): the router's
+                declared return-label set where it differs from path_map's keys;
+                read by guard-exhaustiveness (P-05); omitted when empty or equal to
+                path_map's keys (IR-SPEC §6.3). The conditional-only rule is loader
+                validity the schema does not encode (the path_map posture).
+              type: array
+              uniqueItems: true
+              items: { type: string }
           allOf:
             - if:
                 properties:
@@ -453,6 +534,23 @@ $defs:
             required: [present]
             properties:
               present: { type: boolean }
+
+  gebra-ir-subgraph:
+    # v2.4 addendum (DEC-39): a `nodes[].subgraph` subdocument (IR-SPEC §3.8) — a
+    # document of its own level: the gebra-ir members other than ir_version, each
+    # by reference to the top-level shape so the two never drift. A child's nodes
+    # may themselves carry `subgraph` (nesting); the carrier-prefix rule on ids and
+    # document-wide id uniqueness are loader validity (IR-SPEC §3.8), not schema.
+    type: object
+    required: [entry, finish, nodes, edges]
+    additionalProperties: false
+    properties:
+      entry:   { $ref: "#/$defs/gebra-ir/properties/entry" }
+      finish:  { $ref: "#/$defs/gebra-ir/properties/finish" }
+      state:   { $ref: "#/$defs/gebra-ir/properties/state" }
+      nodes:   { $ref: "#/$defs/gebra-ir/properties/nodes" }
+      edges:   { $ref: "#/$defs/gebra-ir/properties/edges" }
+      runtime: { $ref: "#/$defs/gebra-ir/properties/runtime" }
 
 # Full example fixture (not part of the schema; documentation).
 # A dataflow-completeness negative showing `axiom_basis` and `source_snippet`:

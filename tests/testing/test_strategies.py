@@ -519,13 +519,21 @@ def test_every_runtime_slot_is_reachable(slot: str) -> None:
     assert getattr(witness.runtime, slot) is not None
 
 
+#: The annotation slots a 1.0 document cannot carry: both require ``ir_version`` ``"1.2"``
+#: (``projection`` — DEC-39; ``join_key`` — DEC-40), and every draw here is stamped ``"1.0"``.
+#: Named rather than derived, so a slot added later still fails the table check below.
+SLOTS_ABOVE_1_0: Final = ("projection", "join_key")
+
+
 def test_the_slot_tables_match_the_live_models() -> None:
     """A field added to the IR without a row in the slot tables goes ungenerated — silently.
 
-    Read off the live models rather than transcribed, so that is a failure here instead.
+    Read off the live models rather than transcribed, so that is a failure here instead. The
+    two 1.2 annotation slots are the one stated exception (:data:`SLOTS_ABOVE_1_0`): a 1.0
+    document cannot carry them, so they are left out of the generator on purpose.
     """
-    assert set(CONTRACT_SLOTS) == set(Annotations.model_fields)
-    assert CONTRACT_SLOTS == tuple(Annotations.model_fields)
+    assert set(CONTRACT_SLOTS) | set(SLOTS_ABOVE_1_0) == set(Annotations.model_fields)
+    assert CONTRACT_SLOTS + SLOTS_ABOVE_1_0 == tuple(Annotations.model_fields)
     assert RUNTIME_SLOTS == tuple(Runtime.model_fields)
 
 

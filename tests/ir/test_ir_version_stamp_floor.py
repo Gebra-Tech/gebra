@@ -12,7 +12,9 @@ on the DEC-22/IR-07 precedent, because the constraint rejects only documents §2
 described as outside the kind's version and moves no digest byte.
 
 This module is the regression suite for the model half of that ruling. Four claims, matching
-the card's acceptance boxes:
+the card's acceptance boxes (IR-08), and a fifth from the 1.2 event (IR-09 — DEC-39 §3.3,
+DEC-40 §3.6): the floor is read over the **whole document**, every level included, so a node,
+an edge or a ``state`` key can raise it, and the refusal names that one construct:
 
 1. **An under-stamped document is rejected at model validation**, through every ingestion path
    the package offers, with the stamp, the lowest sufficient minor and the offending edge
@@ -28,6 +30,10 @@ the card's acceptance boxes:
 4. The boundary is *this* rule and no wider one: the floor is a floor and not an equality, it
    is stated generally rather than as a ``dynamic`` special case, and it stays out of
    ``model_json_schema()`` so IR-05's lockstep check still sees the vendored vocabulary.
+5. **The whole-document floor** (the section at the end): ``"1.2"`` iff a 1.2 construct is
+   present at any level, ``"1.1"`` iff a ``dynamic`` edge and nothing newer, else ``"1.0"`` —
+   each 1.2 construct refused below ``"1.2"`` through every ingestion path, named as the one
+   offender, and restamping lower once it is removed.
 
 Everything here is pure data (WA-07): documents are literals or fixture text read off disk,
 and nothing is executed. The corpus is read read-only and never written (WA-04/WA-11).
@@ -37,6 +43,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
@@ -51,8 +59,10 @@ from gebra.ir import (
     DynamicEdge,
     Edge,
     IrVersion,
+    Node,
     WorkflowIR,
     canonical_bytes,
+    down_project,
     graph_version,
     load_json,
     load_yaml,
@@ -60,6 +70,7 @@ from gebra.ir import (
     read_ir,
     write_ir,
 )
+from gebra.ir.models import _document_constructs
 from tests._corpus import census
 from tests.ir.test_node_id_uniqueness import (
     CANONICAL_ENTRIES,
@@ -349,27 +360,37 @@ def test_an_over_stamped_document_still_loads_and_digests() -> None:
 def test_the_floor_admits_every_stamp_at_or_above_it() -> None:
     """The rule is ≥, stated as a table over the whole ``ir_version`` × construct grid.
 
-    Four cells, three admitted and one refused — the asymmetry is the ruling, so it is asserted
-    as a grid rather than as two separate happy paths.
+    Three stamps by three construct levels (none, a ``dynamic`` edge, a 1.2 ``barriers`` group
+    — which, being a node member, is one the IR-08 edge scan could not see): six cells
+    admitted and three refused. The asymmetry is the ruling, so it is asserted as a grid
+    rather than as separate happy paths.
     """
     admitted = {
-        ("1.0", False),
-        ("1.1", False),  # over-stamped
-        ("1.1", True),  # minimally stamped for its constructs
+        ("1.0", "none"),
+        ("1.1", "none"),  # over-stamped
+        ("1.1", "dynamic"),  # minimally stamped for its constructs
+        ("1.2", "none"),  # over-stamped
+        ("1.2", "dynamic"),  # over-stamped
+        ("1.2", "barriers"),  # minimally stamped
     }
     for stamp in IR_VERSIONS:
-        for dynamic in (False, True):
+        for construct in ("none", "dynamic", "barriers"):
             payload: dict[str, Any] = {
                 "ir_version": stamp,
                 "entry": "plan",
                 "finish": "collect",
-                "nodes": [{"id": "plan"}, {"id": "collect"}],
-                "edges": [{"kind": "normal", "from": "plan", "to": "collect"}],
+                "nodes": [{"id": "plan"}, {"id": "draft"}, {"id": "collect"}],
+                "edges": [
+                    {"kind": "normal", "from": "plan", "to": "collect"},
+                    {"kind": "normal", "from": "draft", "to": "collect"},
+                ],
             }
-            if dynamic:
+            if construct == "dynamic":
                 payload["edges"].append({"kind": "dynamic", "from": "plan"})
+            if construct == "barriers":
+                payload["nodes"][2]["barriers"] = [["draft", "plan"]]
 
-            if (stamp, dynamic) in admitted:
+            if (stamp, construct) in admitted:
                 ir = WorkflowIR.model_validate_json(json.dumps(payload))
                 assert ir.ir_version == stamp
             else:
@@ -438,16 +459,17 @@ def test_no_canonical_byte_or_digest_moves() -> None:
     )
 
 
-def test_ir_version_did_not_bump() -> None:
-    """DEC-34 §4: the constraint carries no bump, and the two constants say so.
+def test_the_floor_itself_bumped_nothing_and_the_1_2_event_bumps_once() -> None:
+    """DEC-34 §4: the floor carried no bump. The one move of the domain is the 1.2 event's.
 
-    §4's reconciliation is measured rather than asserted: no field is added, renamed, removed,
-    retyped or re-semanticized; ``ir_version`` stays REQUIRED with the same two-member domain;
-    and the rejected set is the documents §2.4 already described as outside the kind's version.
+    The floor (IR-08) added no field and left the two-member domain where it was; the domain
+    moved once afterwards, at IR-09 — the one card DEC-39 and DEC-40 name for the
+    ``ir_version`` literal — by appending ``"1.2"``. ``IR_VERSION`` stays ``"1.0"``: it is what
+    an ordinary workflow is stamped, and ``ir_version`` stays REQUIRED.
     """
     assert IR_VERSION == "1.0"
-    assert IR_VERSIONS == ("1.0", "1.1")
-    assert IrVersion.__args__ == ("1.0", "1.1")  # type: ignore[attr-defined]
+    assert IR_VERSIONS == ("1.0", "1.1", "1.2")
+    assert IrVersion.__args__ == ("1.0", "1.1", "1.2")  # type: ignore[attr-defined]
     assert WorkflowIR.model_fields["ir_version"].is_required()
 
 
@@ -455,26 +477,28 @@ def test_ir_version_did_not_bump() -> None:
 
 
 def test_the_rule_is_stated_generally_rather_than_as_a_dynamic_special_case() -> None:
-    """The construct → minor map lives in one place, so a future *edge* minor inherits the floor.
+    """The construct → minor map lives in one place, so a future minor inherits the floor.
 
     DEC-34 §3 states the rule in §8's own phrase — "the lowest sufficient minor" — precisely so
     that a later minor needs no second ruling. The implementation follows: the validator
-    compares against :func:`~gebra.ir.lowest_ir_version` over :data:`IR_VERSIONS`' ascending
-    order and hardcodes no kind, so teaching that one function a new **edge kind** teaches the
+    compares against :func:`~gebra.ir.lowest_ir_version`'s per-construct map over
+    :data:`IR_VERSIONS`' ascending order, so teaching that one map a new construct teaches the
     floor at the same time. This test pins the coupling: the floor the validator enforces on a
-    document is exactly what that function returns for its edges.
+    document is exactly what that function returns for it.
 
-    The generality has two stated limits, recorded on ``lowest_ir_version`` rather than
-    asserted away here: the offender search assumes the floor decomposes per edge, and a minor
-    introduced by a non-edge construct — a ``runtime`` sub-slot, an annotation — needs the
-    check re-sited rather than that function extended.
+    IR-08 recorded two limits on the edge-only scan: the search assumed a per-edge
+    decomposition, and a minor introduced by a non-edge construct "cannot be taught here at
+    all". IR-09 re-sited the scan to the whole document (DEC-39 §3.3, DEC-40 §3.6), which
+    lifts the second limit; the first stands, re-stated per construct, on
+    ``lowest_ir_version`` itself.
     """
     for text in (CORRECTLY_STAMPED, OVER_STAMPED, MINIMALLY_STAMPED):
         ir = WorkflowIR.model_validate_json(text)
-        floor = lowest_ir_version(ir.edges)
+        floor = lowest_ir_version(ir)
         assert IR_VERSIONS.index(ir.ir_version) >= IR_VERSIONS.index(floor)
+        assert floor == lowest_ir_version(ir.edges)  # no node or state construct here
 
-    assert IR_VERSIONS == (IR_VERSION, IR_VERSION_DYNAMIC_EDGES)
+    assert IR_VERSIONS == (IR_VERSION, IR_VERSION_DYNAMIC_EDGES, "1.2")
     assert lowest_ir_version(()) == IR_VERSION
 
 
@@ -482,15 +506,15 @@ def test_the_constraint_stays_out_of_the_generated_json_schema() -> None:
     """IR-05's lockstep compares the model's schema against the vendored ``schema.yaml``.
 
     The rule is a relation between two members, which JSON Schema's vocabulary does not
-    express, and the vendored fixture schema (v2.3: ``ir_version`` a bare ``type: string``)
-    declares no such rule — the authorized divergence DEC-34 §4 records. An ``AfterValidator``
-    leaves the generated schema exactly as it was, the same posture IR-02 took for the §5 id
-    grammar and IR-07 for uniqueness.
+    express, and the vendored fixture schema (``ir_version`` a bare ``type: string``, its
+    description naming the minors — v2.5) declares no such rule — the authorized divergence
+    DEC-34 §4 records. An ``AfterValidator`` leaves the generated schema exactly as it was, the
+    same posture IR-02 took for the §5 id grammar and IR-07 for uniqueness.
     """
     schema = WorkflowIR.model_json_schema()
     text = json.dumps(schema)
 
-    assert schema["properties"]["ir_version"]["enum"] == ["1.0", "1.1"]
+    assert schema["properties"]["ir_version"]["enum"] == ["1.0", "1.1", "1.2"]
     assert "dependentRequired" not in text and "dependentSchemas" not in text
     assert "allOf" not in schema["properties"]["edges"]
 
@@ -520,7 +544,8 @@ def test_a_model_copy_can_still_build_one_so_the_engine_floor_stays_load_bearing
     reaches such a model; card SD-13 lifted those declines (a ``dynamic`` edge is diffed and
     recorded now — PD-059) and kept the floor, re-keyed on the stamp the loader keys on:
     :func:`gebra.diff.topology.resolve_subject` refuses a model stamped below the minor its
-    edges require, from either side (``tests/diff/test_topology.py``). This test holds the
+    constructs require, from either side (``tests/diff/test_topology.py``) — read over the whole
+    document since IR-09, as the loader reads it. This test holds the
     model half — the document is buildable and not loadable — so that floor stays reachable.
     """
     twin = WorkflowIR.model_validate_json(CORRECTLY_STAMPED)
@@ -594,3 +619,347 @@ def test_no_str_subclass_method_runs_while_the_refusal_is_formatted() -> None:
         }
     )
     assert type(admitted.ir_version) is str
+
+
+# ── Box 5 (IR-09): the whole-document floor — DEC-39 §3.3, DEC-40 §3.6 ───────────────────
+
+
+def _document(*, stamp: str = "1.2", **members: Any) -> dict[str, Any]:
+    """A small, P-01-clean document: ``plan → draft → collect`` plus ``plan → collect``."""
+    document: dict[str, Any] = {
+        "ir_version": stamp,
+        "entry": "plan",
+        "finish": "collect",
+        "nodes": [{"id": "plan"}, {"id": "draft"}, {"id": "collect"}],
+        "edges": [
+            {"kind": "normal", "from": "plan", "to": "draft"},
+            {"kind": "normal", "from": "draft", "to": "collect"},
+            {"kind": "normal", "from": "plan", "to": "collect"},
+        ],
+    }
+    document.update(members)
+    return document
+
+
+def _with_node(document: dict[str, Any], index: int, **members: Any) -> dict[str, Any]:
+    nodes = [dict(node) for node in document["nodes"]]
+    nodes[index] = {**nodes[index], **members}
+    return {**document, "nodes": nodes}
+
+
+def _child(carrier: str = "draft") -> dict[str, Any]:
+    """A one-node child level under ``carrier`` (IR-SPEC §3.8)."""
+    return {
+        "entry": f"{carrier}/write",
+        "finish": f"{carrier}/write",
+        "nodes": [{"id": f"{carrier}/write"}],
+        "edges": [],
+    }
+
+
+#: One document per 1.2 construct class, the construct at the top level, with the clause the
+#: refusal names it by (DEC-40 §3.6: "one offending node, edge or ``state`` key").
+CONSTRUCTS_1_2: Final[dict[str, tuple[dict[str, Any], str]]] = {
+    "subgraph": (
+        _with_node(_document(), 1, subgraph=_child()),
+        "nodes[1] ('draft') carries `subgraph`",
+    ),
+    "projection": (
+        _with_node(_document(), 1, annotations={"projection": {"in": {"q": "q"}, "out": {}}}),
+        "nodes[1] ('draft') carries `annotations.projection`",
+    ),
+    "join_key scalar": (
+        _with_node(_document(), 2, annotations={"join_key": "city_code"}),
+        "nodes[2] ('collect') carries `annotations.join_key`",
+    ),
+    "join_key list": (
+        _with_node(_document(), 2, annotations={"join_key": ["city_code", "day"]}),
+        "nodes[2] ('collect') carries `annotations.join_key`",
+    ),
+    "barriers": (
+        _with_node(_document(), 2, barriers=[["draft", "plan"]]),
+        "nodes[2] ('collect') carries `barriers`",
+    ),
+    "codomain": (
+        _document(
+            edges=[
+                {"kind": "normal", "from": "plan", "to": "draft"},
+                {"kind": "normal", "from": "draft", "to": "collect"},
+                {
+                    "kind": "conditional",
+                    "from": "plan",
+                    "path_map": {"go": "collect"},
+                    "codomain": ["go", "stop"],
+                },
+            ]
+        ),
+        "edges[2] carries a `codomain` distinct from its `path_map` keys",
+    ),
+    "managed": (
+        _document(state={"remaining_steps": {"type": "int", "managed": True}}),
+        "state['remaining_steps'] carries `managed`",
+    ),
+    "assign token": (
+        _document(
+            entry="%seq[0]",
+            finish="%seq[1]",
+            nodes=[{"id": "%seq[0]"}, {"id": "%seq[1]"}, {"id": "%seq[1]/%assign[context]"}],
+            edges=[{"kind": "normal", "from": "%seq[0]", "to": "%seq[1]"}],
+        ),
+        "nodes[2] ('%seq[1]/%assign[context]') carries a synthetic segment of kind 'assign'",
+    ),
+    "each token": (
+        _document(
+            entry="%each[0]",
+            finish="%each[0]",
+            nodes=[{"id": "%each[0]"}],
+            edges=[],
+        ),
+        "nodes[0] ('%each[0]') carries a synthetic segment of kind 'each'",
+    ),
+    "leaf token": (
+        _document(entry="%leaf[0]", finish="%leaf[0]", nodes=[{"id": "%leaf[0]"}], edges=[]),
+        "nodes[0] ('%leaf[0]') carries a synthetic segment of kind 'leaf'",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", CONSTRUCTS_1_2)
+def test_each_1_2_construct_floors_its_document_at_1_2(name: str) -> None:
+    """``"1.2"`` iff a 1.2 construct is present: each class on its own, stamped exactly there."""
+    document, _ = CONSTRUCTS_1_2[name]
+
+    ir = WorkflowIR.model_validate_json(json.dumps(document))
+
+    assert lowest_ir_version(ir) == "1.2"
+    assert ir.ir_version == "1.2"
+    assert canonical_bytes(ir).startswith(b"{")
+
+
+@pytest.mark.parametrize("name", CONSTRUCTS_1_2)
+@pytest.mark.parametrize("stamp", ["1.0", "1.1"])
+def test_each_1_2_construct_is_refused_below_1_2_naming_itself(name: str, stamp: str) -> None:
+    """Below ``"1.2"`` the document is refused, the one offender named with its own clause."""
+    document, clause = CONSTRUCTS_1_2[name]
+
+    with pytest.raises(ValidationError) as raised:
+        WorkflowIR.model_validate_json(json.dumps({**document, "ir_version": stamp}))
+
+    (error,) = raised.value.errors()
+    assert error["loc"] == ("edges",)
+    assert f"ir_version '{stamp}' is below the lowest minor" in error["msg"]
+    assert clause in error["msg"]
+    assert "'1.2' is the lowest sufficient minor" in error["msg"]
+    assert "Stamp the document ir_version '1.2'" in error["msg"]
+
+
+@pytest.mark.parametrize("name", ["subgraph", "barriers", "codomain", "managed", "assign token"])
+def test_every_ingestion_path_refuses_an_under_stamped_1_2_document(
+    name: str, tmp_path: Path
+) -> None:
+    """The constructor, both ``model_validate`` modes, ``load_json``, ``load_yaml``, ``read_ir``.
+
+    One construct per member class — a node member, a node carrying a level, an edge member, a
+    ``state`` entry and a token-bearing id — each through every path the package ships. The
+    Python-mode calls are spelled from the validated twin's own members (strict mode admits no
+    list for a tuple there — IR-SPEC §2.5 note 4), restamped ``"1.1"``.
+    """
+    document, clause = CONSTRUCTS_1_2[name]
+    under = {**document, "ir_version": "1.1"}
+    text = json.dumps(under)
+    twin = WorkflowIR.model_validate_json(json.dumps(document))
+    built: dict[str, Any] = {
+        "ir_version": "1.1",
+        "entry": twin.entry,
+        "finish": twin.finish,
+        "state": twin.state,
+        "nodes": twin.nodes,
+        "edges": twin.edges,
+    }
+
+    attempts: tuple[Callable[[], object], ...] = (
+        lambda: WorkflowIR(**built),
+        lambda: WorkflowIR.model_validate(built),
+        lambda: WorkflowIR.model_validate_json(text),
+        lambda: load_json(WorkflowIR, text),
+        lambda: load_yaml(WorkflowIR, yaml.safe_dump(under)),
+    )
+    for attempt in attempts:
+        with pytest.raises(ValidationError, match="below the lowest minor") as raised:
+            attempt()
+        assert clause in str(raised.value)
+
+    path = tmp_path / "under-stamped-1-2.ir.yaml"
+    path.write_text(yaml.safe_dump(under), encoding="utf-8")
+    with pytest.raises(ValidationError, match="below the lowest minor") as raised:
+        read_ir(path)
+    assert clause in str(raised.value)
+
+
+#: The constructs the format-migration down-projection removes — the extraction-populated ones
+#: (IR-SPEC §8); the declared slots and the root tokens it never touches.
+DOWN_PROJECTED: Final = frozenset({"subgraph", "barriers", "codomain", "managed", "assign token"})
+
+
+def _without_by_hand(name: str, document: dict[str, Any]) -> dict[str, Any]:
+    """The document with a never-down-projected construct taken out by hand."""
+    stripped: dict[str, Any] = json.loads(json.dumps(document))
+    if name in {"projection", "join_key scalar", "join_key list"}:
+        for node in stripped["nodes"]:
+            node.pop("annotations", None)
+        return stripped
+    # A root `each`/`leaf` document: the same one-node shape under a 1.0 token.
+    return {**stripped, "entry": "%seq[0]", "finish": "%seq[0]", "nodes": [{"id": "%seq[0]"}]}
+
+
+@pytest.mark.parametrize("name", CONSTRUCTS_1_2)
+def test_removing_the_construct_restamps_the_document_lower(name: str) -> None:
+    """The "iff": with its one 1.2 construct removed, the same document floors at ``"1.0"``.
+
+    Removed by :func:`~gebra.ir.down_project` where the construct is extraction-populated, and by
+    hand where it is declared or a root token (which the down-projection never touches).
+    """
+    document, _ = CONSTRUCTS_1_2[name]
+    ir = WorkflowIR.model_validate_json(json.dumps(document))
+
+    if name in DOWN_PROJECTED:
+        lowered = down_project(ir, "1.1")
+    else:
+        lowered = WorkflowIR.model_validate_json(json.dumps(_without_by_hand(name, document)))
+
+    assert lowest_ir_version(lowered) == IR_VERSION
+    restamped = lowered.model_dump(by_alias=True, exclude_none=True)
+    restamped["ir_version"] = IR_VERSION
+    assert WorkflowIR.model_validate_json(json.dumps(restamped)).ir_version == IR_VERSION
+
+
+def test_1_1_iff_a_dynamic_edge_and_nothing_newer() -> None:
+    """A ``dynamic`` edge beside a 1.2 construct floors the document at ``"1.2"``, not ``"1.1"``.
+
+    And the offender named is the construct whose own minor *is* the floor: a message naming the
+    ``dynamic`` edge would call ``"1.1"`` the lowest sufficient minor, which is false.
+    """
+    dynamic = {"kind": "dynamic", "from": "plan"}
+    only_dynamic = _document(stamp="1.1", edges=[*_document()["edges"], dynamic])
+    both = _with_node({**only_dynamic, "ir_version": "1.2"}, 1, subgraph=_child())
+
+    assert lowest_ir_version(WorkflowIR.model_validate_json(json.dumps(only_dynamic))) == "1.1"
+    assert lowest_ir_version(WorkflowIR.model_validate_json(json.dumps(both))) == "1.2"
+    for stamp in ("1.0", "1.1"):
+        with pytest.raises(ValidationError) as raised:
+            WorkflowIR.model_validate_json(json.dumps({**both, "ir_version": stamp}))
+        message = raised.value.errors()[0]["msg"]
+        assert "nodes[1] ('draft') carries `subgraph`" in message
+        assert "'1.2' is the lowest sufficient minor" in message
+        assert "kind 'dynamic'" not in message
+
+
+def test_an_agreeing_or_empty_codomain_is_absent_and_floors_nothing() -> None:
+    """ "Present in canonical form": non-empty and, after NFC, distinct from ``keys(path_map)``.
+
+    An agreeing set collapses to absence (§6.3), so a ``"1.1"``-stamped document carrying one is
+    not under-stamped and loads (DEC-40 §3.6). The comparison is after NFC: a decomposed label
+    agrees with its composed key (canonicalization then refuses the non-NFC member — a separate
+    rule, §6.1 step 5 — but loading does not).
+    """
+    decomposed = unicodedata.normalize("NFD", "é")
+    for codomain in ([], ["go"], [decomposed]):
+        path_map = {"é" if codomain == [decomposed] else "go": "collect"}
+        document = _document(
+            stamp="1.0",
+            edges=[
+                {"kind": "normal", "from": "plan", "to": "draft"},
+                {"kind": "normal", "from": "draft", "to": "collect"},
+                {"kind": "conditional", "from": "plan", "path_map": path_map, "codomain": codomain},
+            ],
+        )
+        ir = WorkflowIR.model_validate_json(json.dumps(document))
+        assert lowest_ir_version(ir) == IR_VERSION
+        assert lowest_ir_version(ir.edges) == IR_VERSION
+
+
+def test_over_stamping_at_1_2_stays_admitted() -> None:
+    """A ``"1.2"`` stamp on a document with no 1.2 construct loads, as the 1.1 over-stamp does."""
+    for document in (_document(), _document(edges=[{"kind": "dynamic", "from": "plan"}])):
+        ir = WorkflowIR.model_validate_json(json.dumps(document))
+        assert ir.ir_version == "1.2"
+        assert IR_VERSIONS.index(lowest_ir_version(ir)) < IR_VERSIONS.index("1.2")
+
+
+def test_the_floor_reads_every_level_and_names_the_construct_with_its_level() -> None:
+    """The scan walks into each carrier's ``subgraph`` level (IR-SPEC §2.5 note 7).
+
+    At 1.2 a carrier itself already requires ``"1.2"``, so a construct inside a child never
+    *raises* the floor above its carrier's — but it is read, with a path that locates its level
+    (``nodes[1].subgraph.edges[0]``), which is what a later minor carried inside a child will
+    lean on. Asserted on the per-construct stream the floor and the refusal share.
+    """
+    child = {
+        **_child(),
+        "state": {"budget": {"type": "int", "managed": True}},
+        "nodes": [{"id": "draft/write"}, {"id": "draft/check"}],
+        "edges": [{"kind": "dynamic", "from": "draft/write"}],
+    }
+    ir = WorkflowIR.model_validate_json(json.dumps(_with_node(_document(), 1, subgraph=child)))
+
+    located = [(minor, where) for minor, where, _ in _document_constructs(ir)]
+
+    assert located == [
+        ("1.2", "nodes[1]"),
+        ("1.2", "nodes[1].subgraph.state['budget']"),
+        ("1.1", "nodes[1].subgraph.edges[0]"),
+    ]
+    assert lowest_ir_version(ir) == "1.2"
+
+
+def test_the_whole_document_floor_is_one_function_with_the_edge_scan_inside_it() -> None:
+    """``lowest_ir_version`` takes a document or, as before, an edge set (IR-08's call form).
+
+    An emitter that stamps before it builds the document passes its edges; the floor of the
+    edges alone is the document's whenever no node or ``state`` construct of a later minor is
+    present — and a node construct is exactly what the edge form cannot see.
+    """
+    plain = WorkflowIR.model_validate_json(json.dumps(_document()))
+    barriered, _ = CONSTRUCTS_1_2["barriers"]
+    with_barrier = WorkflowIR.model_validate_json(json.dumps(barriered))
+
+    assert lowest_ir_version(plain) == lowest_ir_version(plain.edges) == IR_VERSION
+    assert lowest_ir_version(with_barrier) == "1.2"
+    assert lowest_ir_version(with_barrier.edges) == IR_VERSION
+    assert lowest_ir_version(iter(with_barrier.edges)) == IR_VERSION  # consumed once
+
+
+def test_no_str_subclass_method_runs_while_a_node_offender_is_formatted() -> None:
+    """WA-07 for the node half of the scan: a ``model_copy``'d id is read through ``str`` only.
+
+    A built ``Node`` handed to the constructor is not re-validated, so a ``model_copy`` can put a
+    foreign ``str`` subclass on ``id``; the token scan, the uniqueness walk and the message all
+    take an exact copy first, so none of its methods runs.
+    """
+
+    class Hostile(str):
+        def __repr__(self) -> str:
+            raise AssertionError("__repr__ ran")
+
+        def __format__(self, spec: str) -> str:
+            raise AssertionError("__format__ ran")
+
+        def __hash__(self) -> int:
+            raise AssertionError("__hash__ ran")
+
+        def __eq__(self, other: object) -> bool:
+            raise AssertionError("__eq__ ran")
+
+        def startswith(self, *args: Any) -> bool:
+            raise AssertionError("startswith ran")
+
+        def split(self, *args: Any) -> list[str]:
+            raise AssertionError("split ran")
+
+    hostile = Node(id="%leaf[0]").model_copy(update={"id": Hostile("%leaf[0]")})
+    assert type(hostile.id) is Hostile
+
+    with pytest.raises(ValidationError, match="kind 'leaf'"):
+        WorkflowIR(
+            ir_version="1.1", entry="%leaf[0]", finish="%leaf[0]", nodes=(hostile,), edges=()
+        )

@@ -194,6 +194,29 @@ Additive, non-shape-changing work is unaffected — an internal refactor of `geb
 that does not move any name, alias, requiredness, discriminator, or digest byte in §1
 needs no DEC/bump, exactly as before this freeze.
 
+**The 1.2 event, under the first rule above (card IR-09).** `ir_version` gained `"1.2"` — the
+literal's one move in this phase — under the two decision records the rule requires, DEC-39
+(part A: subgraph child expansion and P-10's projection) and DEC-40 (part B: the catalog and
+vocabulary slots), with the bump landed in the same change as the models. It is
+additive-optional: two models join the surface, `Subgraph` (the child a node mounts, carried as a
+document of its own level) and `Projection` (P-10's declared parent↔child state map), with six
+OPTIONAL, omit-normalized members — `Node.subgraph`, `Node.barriers`, `Annotations.projection`,
+`Annotations.join_key`, `ConditionalEdge.codomain` and `StateField.managed`; `SYNTHETIC_KINDS`
+gains `assign`, `each` and `leaf`; `IrVersion` and `IR_VERSIONS` gain `"1.2"`;
+`lowest_ir_version` reads the whole document, every level included, and still accepts an edge
+set; and `down_project`, the format-migration down-projection IR-SPEC §8 defines, sits beside it.
+The flat export count moves from 68 to 71 (`Subgraph`, `Projection`, `down_project`). No field was
+renamed, removed or retyped, no member's requiredness moved, no edge kind was added, and no §6
+rule that reaches an existing document changed. Measured: every vendored corpus payload and the
+six IR goldens keep their canonical byte lengths and digests, pinned against the same pre-IR-07
+capture (`tests/ir/test_ir_version_stamp_floor.py`), and every extraction conformance golden
+reloads to its committed bytes and digest (`tests/ir/test_ir_1_2_models.py`). The validity rules the two records word at the
+loader — the carrier prefix and id uniqueness over every level (DEC-39 §3.2), the four `barriers`
+rules, and the `codomain`, `join_key` and `managed` rules (DEC-40) — are of the class named
+below: each refuses only a document no conforming emitter writes. This entry records the change
+and its rulings; the §1 lists describe the surface as IR-06 froze it, and §2's and §3's consumer
+sign-offs were not re-taken for the 1.2 surface here.
+
 So is one further class, named here rather than re-reconciled each time it recurs: **a validity
 constraint that only rejects documents the spec already describes as non-conforming — DEC, no
 bump (DEC-22, DEC-34)**. The bullet above is the DEC-09/IR-SPEC §8 rule for changes to the

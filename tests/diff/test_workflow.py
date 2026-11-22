@@ -93,6 +93,7 @@ def looping(condition: str | None = "retry_count < 3") -> WorkflowIR:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": "work"},
+                codomain=None,
                 condition=condition,
                 path_map={"retry": "work", "done": "report"},
             ),
@@ -113,6 +114,7 @@ def guarded_edge() -> WorkflowIR:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": "plan"},
+                codomain=None,
                 condition="urgent(task)",
                 path_map={"expedite": "report"},
             ),
@@ -127,6 +129,7 @@ def merged_router() -> WorkflowIR:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": "plan"},
+                codomain=None,
                 condition="route",
                 path_map={"go": "work", "skip": "report"},
             ),
@@ -140,11 +143,16 @@ def split_routers() -> WorkflowIR:
     return workflow(
         edges=(
             ConditionalEdge(
-                kind="conditional", **{"from": "plan"}, condition="route", path_map={"go": "work"}
+                kind="conditional",
+                **{"from": "plan"},
+                codomain=None,
+                condition="route",
+                path_map={"go": "work"},
             ),
             ConditionalEdge(
                 kind="conditional",
                 **{"from": "plan"},
+                codomain=None,
                 condition="route",
                 path_map={"skip": "report"},
             ),
@@ -270,7 +278,11 @@ CASES: list[Case] = [
             edges=(
                 *EDGES,
                 ConditionalEdge(
-                    kind="conditional", **{"from": "plan"}, condition="route", path_map={}
+                    kind="conditional",
+                    **{"from": "plan"},
+                    codomain=None,
+                    condition="route",
+                    path_map={},
                 ),
             )
         ),

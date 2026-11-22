@@ -917,14 +917,14 @@ changed   10 things P-08 does not read:
             plan_itinerary.annotations.input
             plan_itinerary.annotations.output
             plan_itinerary.annotations.pure
-dropped   all 12 annotation slots that are not one of ['deterministic', 'effect']
+dropped   all 14 annotation slots that are not one of ['deterministic', 'effect']
 kept      nodes[].id, annotations.deterministic and annotations.effect
 verdicts  pass before, pass after
 reports equal: True
 ```
 
 **The graph is gone and the report is unchanged.** Every edge deleted, every state field retyped,
-and every one of the twelve annotation slots that is not `deterministic` or `effect` dropped — and
+and every one of the fourteen annotation slots that is not `deterministic` or `effect` dropped — and
 the witness is the same value, pinned seed and mandatory caveat included. The slot list is asked of
 the annotation model rather than written out here, so a future additive slot joins the sweep instead
 of quietly sitting outside it. That the report survives all of it is not an incidental property: it

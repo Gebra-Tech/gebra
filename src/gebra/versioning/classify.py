@@ -196,10 +196,12 @@ def canonical_view(ir: WorkflowIR) -> dict[str, Any]:
 def component_slice(view: Mapping[str, Any], component: Component) -> dict[str, Any]:
     """The part of a canonical ``view`` that ``component`` counts changes to.
 
-    The three slices between them determine the whole canonical document except
-    ``ir_version``; ``nodes[].id`` appears in two of them, which is the "presence → S,
-    contract → F" split of the module docstring showing through — an added node is a change
-    to both.
+    The three slices between them determine the whole canonical document of ``ir_version``
+    1.0 and 1.1 except ``ir_version``; ``nodes[].id`` appears in two of them, which is the
+    "presence → S, contract → F" split of the module docstring showing through — an added node
+    is a change to both. Of the 1.2 members (DEC-39, DEC-40), ``codomain`` rides ``edges`` and
+    ``managed`` rides ``state``, while a node's ``subgraph`` and ``barriers`` are in no slice:
+    the slices do not read them, so a change confined to either moves no counter.
 
     Compare slices with :func:`component_bytes`, not with ``==``: this is a tree of parsed
     JSON, and Python equality does not distinguish ``true`` from ``1``.

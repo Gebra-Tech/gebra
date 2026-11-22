@@ -1299,6 +1299,7 @@ def _emit_routing(
             ConditionalEdge(
                 kind="conditional",
                 **{"from": source_id},
+                codomain=None,
                 condition=condition,
                 path_map=path_map,
             )

@@ -122,6 +122,7 @@ def test_the_sentinel_graph_extracts_to_its_ir() -> None:
         ConditionalEdge(
             kind="conditional",
             **{"from": "plan_step"},
+            codomain=None,
             condition="route_after_plan",
             path_map={"act": "act_step", "done": "summarize_step"},
         ),

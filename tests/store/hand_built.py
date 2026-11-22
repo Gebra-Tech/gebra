@@ -68,6 +68,7 @@ def golden_vector_ir() -> WorkflowIR:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": "act"},
+                codomain=None,
                 condition="done(result)",
                 path_map={"done": "report", "redo": "act"},
             ),

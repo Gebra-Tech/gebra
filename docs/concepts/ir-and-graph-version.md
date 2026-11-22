@@ -21,7 +21,7 @@ these fields (§2.1):
 
 | Field | Required | What it holds |
 |---|---|---|
-| `ir_version` | yes | The format version — `"1.0"`, or `"1.1"` for a document that needs the 1.1 edge kind. |
+| `ir_version` | yes | The format version — `"1.0"`, `"1.1"` for a document that needs the 1.1 edge kind, or `"1.2"` for one that carries a 1.2 member. |
 | `entry` | yes | The node or nodes wired from the implicit `START` sentinel. |
 | `finish` | yes | The node or nodes wired to the implicit `END` sentinel. |
 | `state` | no | The state schema: each key's declared type, its reducer if it has one, and whether it is optional. |
@@ -477,7 +477,7 @@ to identical documents and carry identical versions (§6.6).
   DEC-10's, and it is what makes a `graph_version` comparable over time: `ir_version` sits
   inside the hashed payload, where it firewalls false equality across format versions.
 
-One minor exists. `ir_version` `"1.1"` adds a fourth edge kind, `dynamic`, for a router whose
+Two minors exist. `ir_version` `"1.1"` adds a fourth edge kind, `dynamic`, for a router whose
 target set is not statically knowable (§8; DEC-28). `gebra.extract()` stamps `"1.1"` only if
 the document actually contains such an edge, and `"1.0"` otherwise — §8's minimal-stamping
 rule, which binds **emitters** and not documents (a hand-written document may stamp higher; see
@@ -489,12 +489,23 @@ convention, described in
 [the snapshot guide](../guides/snapshot-diff-and-evolution.md#a-router-with-no-declared-targets)
 shows one.
 
+`ir_version` `"1.2"` adds optional members and no edge kind (§8; DEC-39, DEC-40): a node's
+`subgraph` — the compiled graph it mounts, written as a level of its own with full-path ids —
+and its `barriers` (all-of groups over its in-edges); a router edge's declared `codomain`; a
+`managed` flag on a Σ entry; the `projection` and `join_key` annotations; and three id tokens,
+`%assign[…]`, `%each[…]` and `%leaf[…]`. A document needs `"1.2"` if any of them is present at
+any level — an empty `barriers`, or a `codomain` equal to its edge's `path_map` keys, is absence
+(§6.3). In this release the models load, canonicalize and digest such a document and floor its
+stamp like any other, and `gebra.extract()` writes none of the 1.2 members: every document it
+produces is `"1.0"` or `"1.1"`. The members are carried in the document and its digest; no
+validator reads them in this release.
+
 **The stamp has a floor, and the floor is your document's own constructs** (§2.5 note 7;
 DEC-34). `ir_version` must be at least the lowest minor the document needs, so a file stamped
 `"1.0"` that carries a `dynamic` edge does not load: `WorkflowIR` refuses it with an error
-naming the stamp, the lowest sufficient minor and the offending edge, and every verb that reads
-a file — `gebra verify`, `snapshot`, `diff`, `display` — reports `stage: ir-validation` and
-exits `2`. The loader never quietly raises the stamp for you, because `ir_version` is inside the
+naming the stamp, the lowest sufficient minor and the offending construct — one node, edge or Σ
+key, at whatever level it sits — and every verb that reads a file — `gebra verify`, `snapshot`,
+`diff`, `display` — reports `stage: ir-validation` and exits `2`. The loader never quietly raises the stamp for you, because `ir_version` is inside the
 hashed payload: re-stamping would hand back a different `graph_version` from the one you wrote.
 Stamping *above* the floor is fine — a `"1.1"` document with no `dynamic` edge loads exactly as
 before — because the minimal-stamping rule binds emitters, and `gebra.extract()` already

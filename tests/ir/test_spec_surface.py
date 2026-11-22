@@ -1,4 +1,4 @@
-"""The ``ir_version`` 1.0 model surface, checked field by field against the spec.
+"""The ``ir_version`` 1.0–1.2 model surface, checked field by field against the spec.
 
 Two review bases are encoded here as executable tables:
 
@@ -38,11 +38,13 @@ from gebra.ir import (
     IRModel,
     Node,
     NormalEdge,
+    Projection,
     RecursionLimit,
     RetryPolicy,
     Runtime,
     SendEdge,
     StateField,
+    Subgraph,
     Variant,
     WorkflowIR,
     lowest_ir_version,
@@ -57,6 +59,7 @@ SPEC_SURFACE: dict[type[BaseModel], tuple[tuple[str, str, bool], ...]] = {
         ("type", "type", True),
         ("reducer", "reducer", False),
         ("optional", "optional", False),
+        ("managed", "managed", False),  # 1.2 — DEC-40
     ),
     IdempotentKey: (("key", "key", True),),
     DeterministicSpec: (
@@ -87,10 +90,18 @@ SPEC_SURFACE: dict[type[BaseModel], tuple[tuple[str, str, bool], ...]] = {
         ("compensation", "compensation", False),
         ("prompt_digest", "prompt_digest", False),
         ("config_digest", "config_digest", False),
+        ("projection", "projection", False),  # 1.2 — DEC-39
+        ("join_key", "join_key", False),  # 1.2 — DEC-40
+    ),
+    Projection: (  # 1.2 — DEC-39; `in` is a Python keyword (§2.5 note 8)
+        ("in_", "in", True),
+        ("out", "out", True),
     ),
     Node: (
         ("id", "id", True),
         ("annotations", "annotations", False),
+        ("subgraph", "subgraph", False),  # 1.2 — DEC-39
+        ("barriers", "barriers", False),  # 1.2 — DEC-40
     ),
     NormalEdge: (
         ("kind", "kind", True),
@@ -103,6 +114,7 @@ SPEC_SURFACE: dict[type[BaseModel], tuple[tuple[str, str, bool], ...]] = {
         ("from_", "from", True),
         ("condition", "condition", False),
         ("path_map", "path_map", True),
+        ("codomain", "codomain", False),  # 1.2 — DEC-40
     ),
     SendEdge: (
         ("kind", "kind", True),
@@ -123,6 +135,14 @@ SPEC_SURFACE: dict[type[BaseModel], tuple[tuple[str, str, bool], ...]] = {
         ("recursion_limit", "recursion_limit", False),
         ("interrupts", "interrupts", False),
         ("checkpointer", "checkpointer", False),
+    ),
+    Subgraph: (  # 1.2 — DEC-39: the six top-level members other than ir_version
+        ("entry", "entry", True),
+        ("finish", "finish", True),
+        ("state", "state", False),
+        ("nodes", "nodes", True),
+        ("edges", "edges", True),
+        ("runtime", "runtime", False),
     ),
     WorkflowIR: (
         ("ir_version", "ir_version", True),
@@ -598,15 +618,17 @@ def test_the_dynamic_kind_carries_neither_a_target_nor_a_path_map() -> None:
             DynamicEdge.model_validate({"kind": "dynamic", "from": "a", **forbidden}, by_alias=True)
 
 
-def test_the_ir_version_domain_is_the_two_ratified_minors() -> None:
-    """IR-SPEC §2.5 — ``ir_version: Literal["1.0", "1.1"]`` (1.1 added at DEC-28).
+def test_the_ir_version_domain_is_the_three_ratified_minors() -> None:
+    """IR-SPEC §2.5 — ``ir_version: Literal["1.0", "1.1", "1.2"]`` (1.1 added at DEC-28, 1.2 at
+    DEC-39 and DEC-40).
 
     And §8's stamping policy, which is a property of the emitter rather than of the model: the
-    *model* admits either version on a document it is handed, while everything gebra writes goes
-    through :func:`~gebra.ir.models.lowest_ir_version`, whose answer is a function of content.
+    *model* admits any of them on a document it is handed (at or above its floor), while
+    everything gebra writes goes through :func:`~gebra.ir.models.lowest_ir_version`, whose answer
+    is a function of content.
     """
-    assert get_args(WorkflowIR.model_fields["ir_version"].annotation) == ("1.0", "1.1")
-    assert IR_VERSIONS == ("1.0", "1.1")
+    assert get_args(WorkflowIR.model_fields["ir_version"].annotation) == ("1.0", "1.1", "1.2")
+    assert IR_VERSIONS == ("1.0", "1.1", "1.2")
     assert lowest_ir_version(()) == "1.0"
     assert lowest_ir_version((NormalEdge(kind="normal", **{"from": "a"}, to="b"),)) == "1.0"
     assert lowest_ir_version((DynamicEdge(kind="dynamic", **{"from": "a"}),)) == "1.1"

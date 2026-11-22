@@ -1436,7 +1436,9 @@ def _read_drawn(drawn: object, *, workflow: object) -> _DrawnReading:
         # emitting one is the failure this guard names rather than a defensive nicety.
         if path_map:  # pragma: no branch
             reading.conditional_edges.append(
-                ConditionalEdge(kind="conditional", **{"from": source}, path_map=path_map)
+                ConditionalEdge(
+                    kind="conditional", **{"from": source}, codomain=None, path_map=path_map
+                )
             )
     _warn_missing_wiring(reading)
     return reading

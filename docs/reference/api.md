@@ -44,7 +44,7 @@ annotations below are the ones your type checker enforces.
 | Surface | Names | Frozen by | Freeze record |
 |---|---|---|---|
 | [`gebra`](#gebra) | 11 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.1 |
-| [`gebra.ir`](#gebrair) | 68 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
+| [`gebra.ir`](#gebrair) | 71 | card IR-06 | `docs/governance/IR-MODELS-FREEZE.md` §1 |
 | [`gebra.verify`](#gebraverify) | 174 | card VAL-12 | `docs/governance/VALIDATOR-API-FREEZE.md` §1 |
 | [`gebra.extraction`](#gebraextraction) | 79 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.2 |
 | [`gebra.annotations`](#gebraannotations) | 58 | card EX-15 | `docs/governance/EXTRACTOR-API-FREEZE.md` §1.3 |
@@ -78,12 +78,12 @@ print(f"\n{total} names across {len(SURFACES)} frozen surfaces, every one import
 <!-- gebra:output id=every-name-on-this-page -->
 ```text
 gebra                 11/11 resolved
-gebra.ir              68/68 resolved
+gebra.ir              71/71 resolved
 gebra.verify         174/174 resolved
 gebra.extraction      79/79 resolved
 gebra.annotations     58/58 resolved
 
-390 names across 5 frozen surfaces, every one importable
+393 names across 5 frozen surfaces, every one importable
 ```
 
 ## `gebra`
@@ -306,13 +306,13 @@ Extraction refused an object at the boundary — never a silent partial IR (§2)
 
 ## `gebra.ir`
 
-IR models for `ir_version` 1.0/1.1 — normative authority IR-SPEC (frozen 2026-07-18, DEC-09; the 1.1 edge kind ratified 2026-08-09, DEC-28).
+IR models for `ir_version` 1.0–1.2 — normative authority IR-SPEC (frozen 2026-07-18, DEC-09; the 1.1 edge kind ratified 2026-08-09, DEC-28; the 1.2 members ratified 2026-11-03 and 2026-11-10, DEC-39 and DEC-40).
 
 The IR document: its models, the node-identity grammar, the canonical form and the content hash, and the YAML/JSON loaders. This is the surface every other package in the pipeline reads and writes.
 
-Frozen by card IR-06, recorded in `docs/governance/IR-MODELS-FREEZE.md` §1 — 68 names.
+Frozen by card IR-06, recorded in `docs/governance/IR-MODELS-FREEZE.md` §1 — 71 names.
 
-[`IR_VERSION`](#gebrairir_version) · [`IR_VERSIONS`](#gebrairir_versions) · [`IR_VERSION_DYNAMIC_EDGES`](#gebrairir_version_dynamic_edges) · [`I_JSON_MAX_INT`](#gebrairi_json_max_int) · [`I_JSON_MIN_INT`](#gebrairi_json_min_int) · [`JSON_SUFFIXES`](#gebrairjson_suffixes) · [`OPENINFERENCE_ID`](#gebrairopeninference_id) · [`OPENINFERENCE_NAME`](#gebrairopeninference_name) · [`OPENINFERENCE_PARENT_ID`](#gebrairopeninference_parent_id) · [`RESERVED_SEGMENTS`](#gebrairreserved_segments) · [`SEGMENT_SEPARATOR`](#gebrairsegment_separator) · [`SYNTHETIC_KINDS`](#gebrairsynthetic_kinds) · [`YAML_SUFFIXES`](#gebrairyaml_suffixes) · [`Annotations`](#gebrairannotations) · [`CanonicalizationError`](#gebraircanonicalizationerror) · [`CanonicalizationErrorReason`](#gebraircanonicalizationerrorreason) · [`Checkpointer`](#gebraircheckpointer) · [`Compensation`](#gebraircompensation) · [`ConditionalEdge`](#gebrairconditionaledge) · [`DeterministicSpec`](#gebrairdeterministicspec) · [`DynamicEdge`](#gebrairdynamicedge) · [`DynamicEdgeUnsupportedError`](#gebrairdynamicedgeunsupportederror) · [`Edge`](#gebrairedge) · [`IRModel`](#gebrairirmodel) · [`IRSerializationError`](#gebrairirserializationerror) · [`IRSerializationErrorReason`](#gebrairirserializationerrorreason) · [`IdempotentKey`](#gebrairidempotentkey) · [`Interrupts`](#gebrairinterrupts) · [`IrVersion`](#gebrairirversion) · [`Node`](#gebrairnode) · [`NodeId`](#gebrairnodeid) · [`NodeIdError`](#gebrairnodeiderror) · [`NodeIdErrorReason`](#gebrairnodeiderrorreason) · [`NodeIdStr`](#gebrairnodeidstr) · [`NormalEdge`](#gebrairnormaledge) · [`RecursionLimit`](#gebrairrecursionlimit) · [`RetryPolicy`](#gebrairretrypolicy) · [`Runtime`](#gebrairruntime) · [`Segment`](#gebrairsegment) · [`SegmentKind`](#gebrairsegmentkind) · [`SendEdge`](#gebrairsendedge) · [`StateField`](#gebrairstatefield) · [`Variant`](#gebrairvariant) · [`WorkflowIR`](#gebrairworkflowir) · [`canonical_annotations_bytes`](#gebraircanonical_annotations_bytes) · [`canonical_bytes`](#gebraircanonical_bytes) · [`canonical_foreign_bytes`](#gebraircanonical_foreign_bytes) · [`dump_json`](#gebrairdump_json) · [`dump_yaml`](#gebrairdump_yaml) · [`escape_segment`](#gebrairescape_segment) · [`graph_version`](#gebrairgraph_version) · [`is_valid_node_id`](#gebrairis_valid_node_id) · [`join_node_id`](#gebrairjoin_node_id) · [`load_json`](#gebrairload_json) · [`load_yaml`](#gebrairload_yaml) · [`lowest_ir_version`](#gebrairlowest_ir_version) · [`node_id_from_names`](#gebrairnode_id_from_names) · [`openinference_attributes`](#gebrairopeninference_attributes) · [`parse_node_id`](#gebrairparse_node_id) · [`read_ir`](#gebrairread_ir) · [`refuse_dynamic_edges`](#gebrairrefuse_dynamic_edges) · [`render_digest`](#gebrairrender_digest) · [`split_node_id`](#gebrairsplit_node_id) · [`synthetic_segment`](#gebrairsynthetic_segment) · [`unescape_segment`](#gebrairunescape_segment) · [`validate_node_id`](#gebrairvalidate_node_id) · [`verify_graph_version`](#gebrairverify_graph_version) · [`write_ir`](#gebrairwrite_ir)
+[`IR_VERSION`](#gebrairir_version) · [`IR_VERSIONS`](#gebrairir_versions) · [`IR_VERSION_DYNAMIC_EDGES`](#gebrairir_version_dynamic_edges) · [`I_JSON_MAX_INT`](#gebrairi_json_max_int) · [`I_JSON_MIN_INT`](#gebrairi_json_min_int) · [`JSON_SUFFIXES`](#gebrairjson_suffixes) · [`OPENINFERENCE_ID`](#gebrairopeninference_id) · [`OPENINFERENCE_NAME`](#gebrairopeninference_name) · [`OPENINFERENCE_PARENT_ID`](#gebrairopeninference_parent_id) · [`RESERVED_SEGMENTS`](#gebrairreserved_segments) · [`SEGMENT_SEPARATOR`](#gebrairsegment_separator) · [`SYNTHETIC_KINDS`](#gebrairsynthetic_kinds) · [`YAML_SUFFIXES`](#gebrairyaml_suffixes) · [`Annotations`](#gebrairannotations) · [`CanonicalizationError`](#gebraircanonicalizationerror) · [`CanonicalizationErrorReason`](#gebraircanonicalizationerrorreason) · [`Checkpointer`](#gebraircheckpointer) · [`Compensation`](#gebraircompensation) · [`ConditionalEdge`](#gebrairconditionaledge) · [`DeterministicSpec`](#gebrairdeterministicspec) · [`DynamicEdge`](#gebrairdynamicedge) · [`DynamicEdgeUnsupportedError`](#gebrairdynamicedgeunsupportederror) · [`Edge`](#gebrairedge) · [`IRModel`](#gebrairirmodel) · [`IRSerializationError`](#gebrairirserializationerror) · [`IRSerializationErrorReason`](#gebrairirserializationerrorreason) · [`IdempotentKey`](#gebrairidempotentkey) · [`Interrupts`](#gebrairinterrupts) · [`IrVersion`](#gebrairirversion) · [`Node`](#gebrairnode) · [`NodeId`](#gebrairnodeid) · [`NodeIdError`](#gebrairnodeiderror) · [`NodeIdErrorReason`](#gebrairnodeiderrorreason) · [`NodeIdStr`](#gebrairnodeidstr) · [`NormalEdge`](#gebrairnormaledge) · [`Projection`](#gebrairprojection) · [`RecursionLimit`](#gebrairrecursionlimit) · [`RetryPolicy`](#gebrairretrypolicy) · [`Runtime`](#gebrairruntime) · [`Segment`](#gebrairsegment) · [`SegmentKind`](#gebrairsegmentkind) · [`SendEdge`](#gebrairsendedge) · [`StateField`](#gebrairstatefield) · [`Subgraph`](#gebrairsubgraph) · [`Variant`](#gebrairvariant) · [`WorkflowIR`](#gebrairworkflowir) · [`canonical_annotations_bytes`](#gebraircanonical_annotations_bytes) · [`canonical_bytes`](#gebraircanonical_bytes) · [`canonical_foreign_bytes`](#gebraircanonical_foreign_bytes) · [`down_project`](#gebrairdown_project) · [`dump_json`](#gebrairdump_json) · [`dump_yaml`](#gebrairdump_yaml) · [`escape_segment`](#gebrairescape_segment) · [`graph_version`](#gebrairgraph_version) · [`is_valid_node_id`](#gebrairis_valid_node_id) · [`join_node_id`](#gebrairjoin_node_id) · [`load_json`](#gebrairload_json) · [`load_yaml`](#gebrairload_yaml) · [`lowest_ir_version`](#gebrairlowest_ir_version) · [`node_id_from_names`](#gebrairnode_id_from_names) · [`openinference_attributes`](#gebrairopeninference_attributes) · [`parse_node_id`](#gebrairparse_node_id) · [`read_ir`](#gebrairread_ir) · [`refuse_dynamic_edges`](#gebrairrefuse_dynamic_edges) · [`render_digest`](#gebrairrender_digest) · [`split_node_id`](#gebrairsplit_node_id) · [`synthetic_segment`](#gebrairsynthetic_segment) · [`unescape_segment`](#gebrairunescape_segment) · [`validate_node_id`](#gebrairvalidate_node_id) · [`verify_graph_version`](#gebrairverify_graph_version) · [`write_ir`](#gebrairwrite_ir)
 
 ### Defined in `gebra.ir.base`
 
@@ -530,7 +530,7 @@ SYNTHETIC_KINDS: Final[frozenset[str]] = ...
 
 *constant*, defined in `gebra.ir.identity`.
 
-The closed `kind` vocabulary for synthetic LCEL segments, fixed for ir_version 1.0 (IR-SPEC §5.2, ratified — walkthrough #1, 2026-07-18; DEC-09). Adding a token is a minor-version change per IR-SPEC §8, so this set is not extensible at runtime.
+The closed `kind` vocabulary for synthetic LCEL segments (IR-SPEC §5.2): the seven tokens fixed for ir_version 1.0 (ratified — walkthrough #1, 2026-07-18; DEC-09) and the three the 1.2 event added — `assign` and `each` (frames) and `leaf` (the degenerate root frame) (ratified — DEC-40, 2026-11-10). Adding a token is a minor-version change per IR-SPEC §8, so this set is not extensible at runtime. The grammar admits all ten at every stamp; a document whose id carries one of the three requires `"1.2"`, which is the model's stamp floor to enforce (`lowest_ir_version()`), not the grammar's.
 
 #### `gebra.ir.NodeId`
 
@@ -742,7 +742,7 @@ Build the synthetic segment `"%" kind "[" selector "]"` for an LCEL fragment (§
 
 **Raises**
 
-- `NodeIdError` — if `kind` is outside the closed 1.0 vocabulary (`SYNTHETIC_KINDS`), or if `selector` is an empty string.
+- `NodeIdError` — if `kind` is outside the closed vocabulary (`SYNTHETIC_KINDS`), or if `selector` is an empty string.
 - `TypeError` — if `selector` is neither a string nor an integer.
 
 #### `gebra.ir.unescape_segment`
@@ -788,7 +788,7 @@ Deliberately still spelled `IR_VERSION`: it is the version this package *writes*
 #### `gebra.ir.IR_VERSIONS`
 
 ```python
-IR_VERSIONS: Final[tuple[IrVersion, ...]] = (IR_VERSION, IR_VERSION_DYNAMIC_EDGES)
+IR_VERSIONS: Final[tuple[IrVersion, ...]] = (IR_VERSION, IR_VERSION_DYNAMIC_EDGES, _IR_VERSION_1_2)
 ```
 
 *constant*, defined in `gebra.ir.models`.
@@ -823,13 +823,17 @@ class Annotations(IRModel):
     compensation: Compensation | None = None
     prompt_digest: str | None = None
     config_digest: str | None = None
+    projection: Projection | None = None
+    join_key: Annotated[str | tuple[str, ...] | None, AfterValidator(_require_valid_join_key)] = (
+        None
+    )
 ```
 
 *model*, defined in `gebra.ir.models`.
 
 A node contract — the `annotations` object of IR-SPEC §2.3 plus the §3 slots.
 
-Every member is optional: the eight retained slots are fixture-proven, and the six new-in-1.0 slots (`args_schema` … `config_digest`, PD-003 Appendix A rows 1–6) are OPTIONAL per DEC-09, so their absence never invalidates a 0.1-era document.
+Every member is optional: the eight retained slots are fixture-proven, the six new-in-1.0 slots (`args_schema` … `config_digest`, PD-003 Appendix A rows 1–6) are OPTIONAL per DEC-09, and the two 1.2 slots (`projection` — DEC-39; `join_key` — DEC-40) are OPTIONAL and omit-normalized, so their absence never invalidates an earlier document.
 
 #### `gebra.ir.Checkpointer`
 
@@ -865,6 +869,11 @@ class ConditionalEdge(IRModel):
     from_: str = Field(alias="from")
     condition: str | None = None
     path_map: dict[str, str]
+    codomain: Annotated[
+        tuple[str, ...] | None,
+        BeforeValidator(_admit_json_array),
+        AfterValidator(_require_distinct_codomain),
+    ] = None
 ```
 
 *model*, defined in `gebra.ir.models`.
@@ -904,7 +913,7 @@ Ratified — DEC-28, 2026-08-09 (PD-041), resolving the disposition DEC-18 D4 de
 
 **What the absent members mean, and why they are absent rather than empty.** DEC-18 D4 ruled out both ways of saying this on a `conditional` edge, in terms: `path_map: {}` would silently assert "the target set is complete and empty" — §6 makes `path_map` *presence* the discriminator deciding which mode the router-coverage property runs in — and omitting the edge would delete the router from hash scope, turning a warning into a P-01 FATAL false positive. This kind has no `path_map` field at all, so with `extra="forbid"` on the frozen base (A6 PC-1) the ambiguous "empty-and-present" form is a validation error here rather than a silent no-op, on this kind as on the other three.
 
-A document containing one of these is `ir_version` `"1.1"` (`lowest_ir_version()`).
+A document containing one of these, and no 1.2 construct, is `ir_version` `"1.1"` (`lowest_ir_version()`).
 
 #### `gebra.ir.DynamicEdgeUnsupportedError`
 
@@ -928,7 +937,7 @@ Edge: TypeAlias = ...
 
 *type alias*, defined in `gebra.ir.models`.
 
-A kinded edge, discriminated on `kind` (IR-SPEC §2.4/§2.5). The before-validator rides on the type itself rather than on `WorkflowIR.edges`, so validating an edge directly (e.g. through a `TypeAdapter`) admits the tagless surface form too.
+A kinded edge, discriminated on `kind` (IR-SPEC §2.4/§2.5). The before-validator rides on the type itself rather than on `WorkflowIR.edges`, so validating an edge directly (e.g. through a `TypeAdapter`) admits the tagless surface form too. The four kinds are the whole vocabulary at 1.2 too: the all-of barrier rides its target node (`Node.barriers`), never an edge kind (DEC-40).
 
 #### `gebra.ir.IdempotentKey`
 
@@ -960,12 +969,12 @@ Static interrupt-gate placement. Per §3.7 these are read off a compiled object 
 #### `gebra.ir.IrVersion`
 
 ```python
-IrVersion: TypeAlias = Literal["1.0", "1.1"]
+IrVersion: TypeAlias = Literal["1.0", "1.1", "1.2"]
 ```
 
 *type alias*, defined in `gebra.ir.models`.
 
-Every format version these models implement (IR-SPEC §2.1; 1.0 frozen by DEC-09, 1.1 added by DEC-28). The alias and the tuple are kept in step by construction below.
+Every format version these models implement (IR-SPEC §2.1; 1.0 frozen by DEC-09, 1.1 added by DEC-28, 1.2 by DEC-39 and DEC-40). The alias and the tuple are kept in step by construction below.
 
 #### `gebra.ir.Node`
 
@@ -973,13 +982,17 @@ Every format version these models implement (IR-SPEC §2.1; 1.0 frozen by DEC-09
 class Node(IRModel):
     id: NodeIdStr
     annotations: Annotations | None = None
+    subgraph: Annotated[Subgraph | None, AfterValidator(_require_carrier_prefix)] = None
+    barriers: Annotated[
+        tuple[tuple[str, ...], ...] | None, AfterValidator(_require_valid_barrier_groups)
+    ] = None
 ```
 
 *model*, defined in `gebra.ir.models`.
 
-A node: identity plus contract (IR-SPEC §2.3).
+A node: identity plus contract (IR-SPEC §2.3), and from 1.2 its mounted child and barriers.
 
-`id` is the escaped path identity of IR-SPEC §5, checked against that grammar as the spec's MUST requires: a malformed escape, an empty or reserved segment at any nesting level, or a synthetic token outside the closed 1.0 vocabulary is a validation error here (`gebra.ir.identity`).
+`id` is the escaped path identity of IR-SPEC §5, checked against that grammar as the spec's MUST requires: a malformed escape, an empty or reserved segment at any nesting level, or a synthetic token outside the closed vocabulary is a validation error here (`gebra.ir.identity`).
 
 #### `gebra.ir.NormalEdge`
 
@@ -994,6 +1007,20 @@ class NormalEdge(IRModel):
 *model*, defined in `gebra.ir.models`.
 
 An unconditional edge (IR-SPEC §2.4). `to` is REQUIRED for this kind.
+
+#### `gebra.ir.Projection`
+
+```python
+class Projection(IRModel):
+    in_: dict[str, str] = Field(alias="in")
+    out: dict[str, str]
+```
+
+*model*, defined in `gebra.ir.models`.
+
+`annotations.projection` — IR-SPEC §3.9 (`ir_version` ≥ 1.2; ratified — DEC-39).
+
+P-10's declared parent↔child state projection on a node that mounts a compiled graph: `in` maps keys of the carrier's level Σ to keys of the child's Σ, `out` maps the child's keys back. Both members are REQUIRED and carry no default (§2.5 note 8), so omit-normalization never strips them — an empty map is written `{}`, "nothing crosses in this direction". Keys and values are state keys in the NFC identifier role (§6.3), checked at canonicalization, not here. The slot is declared-only and carried, not read, until P-10's catalog section lands; a hand-authored document MAY carry it on any node (§3.9), so no carrier condition is model validity — that rule binds the annotation surfaces.
 
 #### `gebra.ir.RecursionLimit`
 
@@ -1036,7 +1063,7 @@ class Runtime(IRModel):
 
 Graph-level declared/extracted configuration (IR-SPEC §2.1, §3.5, §3.7).
 
-All three sub-slots are OPTIONAL and all three are in `graph_version` hash scope.
+All three sub-slots are OPTIONAL and all three are in `graph_version` hash scope. From `ir_version` 1.2 the same block exists on every level (`subgraph.runtime`), each level's being its own fact (§3.8).
 
 #### `gebra.ir.SendEdge`
 
@@ -1061,13 +1088,40 @@ class StateField(IRModel):
     type: str
     reducer: str | None = None
     optional: bool | None = None
+    managed: Annotated[
+        Literal[True] | None,
+        BeforeValidator(_admit_only_true),
+        AfterValidator(_require_managed_alone),
+    ] = None
 ```
 
 *model*, defined in `gebra.ir.models`.
 
 A `state` value in object form — the schema Σ of IR-SPEC §2.2.
 
-A value carrying neither `reducer` nor `optional` is authored as the bare type-name string instead; both surface forms are admitted by `WorkflowIR.state`.
+A value carrying none of `reducer`, `optional` and `managed` is authored as the bare type-name string instead; both surface forms are admitted by `WorkflowIR.state`.
+
+#### `gebra.ir.Subgraph`
+
+```python
+class Subgraph(IRModel):
+    entry: NodeReference | tuple[str, ...]
+    finish: NodeReference | tuple[str, ...]
+    state: dict[str, str | StateField] | None = None
+    nodes: Annotated[
+        tuple[Node, ...], Field(min_length=1), AfterValidator(_require_unique_node_ids)
+    ]
+    edges: Annotated[tuple[Edge, ...], AfterValidator(_require_barrier_wiring)]
+    runtime: Runtime | None = None
+```
+
+*model*, defined in `gebra.ir.models`.
+
+`nodes[].subgraph` — the child subdocument (IR-SPEC §3.8; `ir_version` ≥ 1.2, DEC-39).
+
+A document **of its own level**: the six members of `WorkflowIR` other than `ir_version`, with the same shapes, requiredness and §6 rules. `entry`/`finish` are the child's own (m1)/(m2) sentinel incidences, `state` its own Σ, `nodes`/`edges` its own N/E, `runtime` its own configuration. The child's nodes are nested, never flattened: they are members of this `nodes[]` and of no other level's, and a node here MAY carry a `subgraph` of its own (nesting; the format bounds the depth by nothing).
+
+A level validates what a level can: non-empty `nodes` with unique ids within it (DEC-22), and the `barriers` wiring over its own nodes and edges (DEC-40). What needs the carrier — the carrier-prefix MUST — is `Node.subgraph`'s, and what needs the whole tree — uniqueness across levels, the stamp floor — is `WorkflowIR`'s.
 
 #### `gebra.ir.Variant`
 
@@ -1092,15 +1146,21 @@ class WorkflowIR(IRModel):
     finish: NodeReference | tuple[str, ...]
     state: dict[str, str | StateField] | None = None
     nodes: Annotated[
-        tuple[Node, ...], Field(min_length=1), AfterValidator(_require_unique_node_ids)
+        tuple[Node, ...],
+        Field(min_length=1),
+        AfterValidator(_require_unique_node_ids_over_every_level),
     ]
-    edges: Annotated[tuple[Edge, ...], AfterValidator(_require_sufficient_ir_version)]
+    edges: Annotated[
+        tuple[Edge, ...],
+        AfterValidator(_require_barrier_wiring),
+        AfterValidator(_require_sufficient_ir_version),
+    ]
     runtime: Runtime | None = None
 ```
 
 *model*, defined in `gebra.ir.models`.
 
-A workflow definition in `ir_version` 1.0 — the seven fields of IR-SPEC §2.1.
+A workflow definition — the seven fields of IR-SPEC §2.1 (`ir_version` 1.0–1.2).
 
 START and END are implicit sentinels: `entry` names the node(s) wired from START and `finish` the node(s) wired to END, each a scalar node id when the wired set is a singleton and a list otherwise (§4.2, §6.3).
 
@@ -1108,19 +1168,45 @@ START and END are implicit sentinels: `entry` names the node(s) wired from START
 
 The five REQUIRED members carry no model default (§2.5 note 6), so omit-normalization can never strip them — a workflow with no edges carries an explicitly authored `edges` of length zero.
 
-**Node ids are unique within a document** — §2.1's MUST, ratified DEC-22 — so a document declaring one `id` twice is a validation error naming the repeated id and both positions that declare it, not a document with two nodes of one identity. See the `nodes` field below for why the check lives there and what it deliberately does not constrain.
+**Node ids are unique within a document** — §2.1's MUST, ratified DEC-22, read over every subgraph level from 1.2 (DEC-39) — so a document declaring one `id` twice is a validation error naming the repeated id and both positions that declare it, not a document with two nodes of one identity. See the `nodes` field below for why the check lives there and what it deliberately does not constrain.
 
-**The `ir_version` stamp is floored by the document's own constructs** — §2.5 note 7's MUST, ratified DEC-34 — so a document stamped `"1.0"` that carries a `dynamic` edge is a validation error naming the stamp, the lowest sufficient minor and the offending edge. A document stamped *above* the floor is admitted unchanged. See the `edges` field below.
+**The `ir_version` stamp is floored by the document's own constructs** — §2.5 note 7's MUST, ratified DEC-34 and read over the whole document from 1.2 — so a document stamped below the lowest minor its constructs require is a validation error naming the stamp, that minor and one offending node, edge or `state` key. A document stamped *above* the floor is admitted unchanged. See the `edges` field below.
 
-#### `gebra.ir.lowest_ir_version`
+#### `gebra.ir.down_project`
 
 ```python
-lowest_ir_version(edges: Iterable[Edge]) -> IrVersion
+down_project(ir: WorkflowIR, floor: IrVersion) -> WorkflowIR
 ```
 
 *function*, defined in `gebra.ir.models`.
 
-The lowest `ir_version` sufficient for an edge set (IR-SPEC §8; ratified DEC-28).
+`ir` with every extraction-populated construct above `floor` removed (IR-SPEC §8).
+
+**Parameters**
+
+- `ir` — The newer document of the pair.
+- `floor` — The older document's floor — the minor to project down to.
+
+**Returns** — A new `WorkflowIR`, built through its constructor — rebuilt even when `ir` carries nothing above `floor`; `ir` itself when `floor` is `"1.2"`, above which this build implements no minor.
+
+**Raises**
+
+- `ValueError` — if `floor` is not a version this build implements, or if every node of `ir` lies beneath an `assign` or `each` frame that is not the root, so the projection would leave no node.
+- `TypeError` — when projecting below `"1.2"`, if a node, edge or Σ value `ir` holds, a node's `annotations` or the document's `runtime` is not the model its field declares (a value planted past validation, or an object whose `__class__` claims the model; a subclass of the model is read as its base kind).
+
+#### `gebra.ir.lowest_ir_version`
+
+```python
+lowest_ir_version(edges: WorkflowIR | Iterable[Edge]) -> IrVersion
+```
+
+*function*, defined in `gebra.ir.models`.
+
+The lowest `ir_version` sufficient for a document — or for an edge set (IR-SPEC §8).
+
+**Raises**
+
+- `TypeError` — if an edge, or a `state` value at any level of a document, is none of the models its field declares — an object whose `__class__` claims a model class included, which pydantic admits — or a document's array or map member is not the container its field declares. Such a member is refused, never read as no construct.
 
 #### `gebra.ir.refuse_dynamic_edges`
 
@@ -4956,9 +5042,9 @@ class FragmentKind(str, Enum):
 
 *enumeration*, defined in `gebra.extraction.lcel`.
 
-The closed ir 1.0 synthetic-kind vocabulary, as LCEL composition classes (§5.2).
+The synthetic kinds this build's LCEL walk emits, as LCEL composition classes (§5.2).
 
-Seven tokens, fixed at the 1.0 freeze; adding one is a minor-version change (IR-SPEC §8), so this enum is the vocabulary rather than a view of it. Each member names the *composite* whose children the token indexes — `FRAGMENT_CLASSES` is that correspondence, and `kind_of()` is the lookup.
+The seven tokens of the 1.0 vocabulary. IR-SPEC §5.2 has ten from `ir_version` 1.2 — `assign`, `each` and `leaf` were added by DEC-40, and the node-id grammar admits all ten (`SYNTHETIC_KINDS`) — but no extraction path in this build emits the three, so this enum is the emitted subset of the vocabulary, not the whole of it; adding a member is still a decision-record matter (IR-SPEC §8). Each member names the *composite* whose children the token indexes — `FRAGMENT_CLASSES` is that correspondence, and `kind_of()` is the lookup.
 
 #### `gebra.extraction.FragmentReading`
 
@@ -5027,7 +5113,7 @@ kind_of(runnable: object) -> FragmentKind | None
 
 *function*, defined in `gebra.extraction.lcel`.
 
-The §5.2 kind `runnable` names, or `None` when no token in the closed set does.
+The §5.2 kind `runnable` names, or `None` when no kind this build emits does.
 
 #### `gebra.extraction.stitch_fragment`
 

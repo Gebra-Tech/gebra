@@ -16,12 +16,14 @@ from __future__ import annotations
 import copy
 import json
 import re
+import unicodedata
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from gebra.ir.canonical import (
     I_JSON_MAX_INT,
@@ -320,6 +322,35 @@ def test_edges_sort_bytewise_by_their_own_canonical_serialization() -> None:
             minimal(runtime={"interrupts": {"after": ["b", "a"]}}),
             '"after":["a","b"]',
         ),
+        (
+            "codomain (1.2 — DEC-40)",
+            minimal(
+                ir_version="1.2",
+                edges=[
+                    {
+                        "from": "a",
+                        "kind": "conditional",
+                        "path_map": {"go": "a"},
+                        "codomain": ["z", "go", "b"],
+                    }
+                ],
+            ),
+            '"codomain":["b","go","z"]',
+        ),
+        (
+            "join_key list form (1.2 — DEC-40)",
+            minimal(ir_version="1.2", nodes=[{"id": "a", "annotations": {"join_key": ["z", "b"]}}]),
+            '"join_key":["b","z"]',
+        ),
+        (
+            "barriers inner group (1.2 — DEC-40)",
+            minimal(
+                ir_version="1.2",
+                nodes=[{"id": "a"}, {"id": "b"}, {"id": "t", "barriers": [["b", "a"]]}],
+                edges=[{"from": "a", "to": "t"}, {"from": "b", "to": "t"}],
+            ),
+            '"barriers":[["a","b"]]',
+        ),
     ],
 )
 def test_set_valued_string_arrays_sort_in_utf16_order(
@@ -394,6 +425,36 @@ def test_path_map_needs_no_gebra_rule_because_jcs_sorts_member_names() -> None:
             "null edge condition",
             minimal(nodes=[{"id": "a"}], edges=[{"from": "a", "to": "a", "condition": None}]),
             minimal(nodes=[{"id": "a"}], edges=[{"from": "a", "to": "a"}]),
+        ),
+        (
+            "empty optional array: codomain (1.2 — DEC-40)",
+            minimal(edges=[{"from": "a", "kind": "conditional", "path_map": {}, "codomain": []}]),
+            minimal(edges=[{"from": "a", "kind": "conditional", "path_map": {}}]),
+        ),
+        (
+            "empty optional array: barriers (1.2 — DEC-40)",
+            minimal(nodes=[{"id": "a", "barriers": []}]),
+            minimal(nodes=[{"id": "a"}]),
+        ),
+        (
+            "null 1.2 members (DEC-39, DEC-40)",
+            minimal(
+                state={"k": {"type": "int", "managed": None}},
+                nodes=[
+                    {
+                        "id": "a",
+                        "subgraph": None,
+                        "barriers": None,
+                        "annotations": {"projection": None, "join_key": None, "pure": True},
+                    }
+                ],
+                edges=[{"from": "a", "kind": "conditional", "path_map": {}, "codomain": None}],
+            ),
+            minimal(
+                state={"k": "int"},
+                nodes=[{"id": "a", "annotations": {"pure": True}}],
+                edges=[{"from": "a", "kind": "conditional", "path_map": {}}],
+            ),
         ),
     ],
 )
@@ -1207,3 +1268,203 @@ def test_the_dynamic_branch_moves_no_existing_documents_canonical_bytes() -> Non
         assert bytes_of(widened) != original, label
         narrowed = {**widened, "ir_version": "1.0", "edges": list(payload.get("edges") or ())}
         assert bytes_of(narrowed) == original, label
+
+
+# ── §6 over the 1.2 members (ratified — DEC-39, 2026-11-03; DEC-40, 2026-11-10) ─────────────
+#
+# IR-09 lands the members and these rules together; the 1.2 conformance vectors are IR-10's.
+# Every rule here reaches only a document carrying a 1.2 member, so no 1.0/1.1 byte moves —
+# the absolute pin for that is ``test_no_canonical_byte_or_digest_moves`` (IR-07/IR-08's
+# fingerprint), which this card leaves where it was.
+
+
+def _conditional(**members: Any) -> dict[str, Any]:
+    return {"from": "a", "kind": "conditional", **members}
+
+
+def test_an_agreeing_codomain_collapses_to_absence() -> None:
+    """§6.3: "omitted iff its NFC member set equals the NFC key set of the same edge's
+    ``path_map``" — in any order — so the agreeing document and the one without the member share
+    one canonical form (and the agreeing one floors at ``"1.0"``: it carries nothing)."""
+    agreeing = minimal(
+        edges=[_conditional(path_map={"go": "a", "stop": "END"}, codomain=["stop", "go"])]
+    )
+    without = minimal(edges=[_conditional(path_map={"go": "a", "stop": "END"})])
+
+    assert bytes_of(agreeing) == bytes_of(without)
+    assert b"codomain" not in bytes_of(agreeing)
+
+
+def test_a_distinct_codomain_is_carried_beside_its_path_map() -> None:
+    """A set that differs — a superset, a subset or a disjoint one — is carried, sorted."""
+    for codomain, expected in (
+        (["stop", "go", "retry"], '"codomain":["go","retry","stop"]'),
+        (["go"], '"codomain":["go"]'),
+        (["other"], '"codomain":["other"]'),
+    ):
+        payload = minimal(
+            ir_version="1.2",
+            edges=[_conditional(path_map={"go": "a", "stop": "END"}, codomain=codomain)],
+        )
+        assert expected in bytes_of(payload).decode("utf-8")
+
+
+def test_a_non_nfc_codomain_member_is_refused_even_when_the_set_would_agree() -> None:
+    """§6.3: "a ``codomain`` member that is not NFC is an IR validity error whether or not the
+    set would otherwise agree" — step 5 runs on every authored member before the collapse."""
+    decomposed = unicodedata.normalize("NFD", "é")
+    payload = minimal(edges=[_conditional(path_map={"é": "a"}, codomain=[decomposed])])
+
+    with pytest.raises(CanonicalizationError) as caught:
+        bytes_of(payload)
+    assert caught.value.reason is CanonicalizationErrorReason.IDENTIFIER_NOT_NFC
+    assert caught.value.path == ("edges", 0, "codomain", 0)
+
+
+def test_join_key_is_a_scalar_iff_it_declares_one_key() -> None:
+    """§6.3 (the ``entry``/``finish`` rule): ``["k"]`` and ``"k"`` share one canonical form."""
+    as_list = minimal(ir_version="1.2", nodes=[{"id": "a", "annotations": {"join_key": ["k"]}}])
+    as_scalar = minimal(ir_version="1.2", nodes=[{"id": "a", "annotations": {"join_key": "k"}}])
+
+    assert bytes_of(as_list) == bytes_of(as_scalar)
+    assert '"join_key":"k"' in bytes_of(as_scalar).decode("utf-8")
+
+
+def test_a_non_nfc_join_key_is_refused() -> None:
+    """§6.3's NFC enumeration names the members of ``annotations.join_key``."""
+    decomposed = unicodedata.normalize("NFD", "café")
+    for join_key, path in (
+        (decomposed, ("nodes", 0, "annotations", "join_key")),
+        (["a", decomposed], ("nodes", 0, "annotations", "join_key", 1)),
+    ):
+        payload = minimal(
+            ir_version="1.2", nodes=[{"id": "a", "annotations": {"join_key": join_key}}]
+        )
+        with pytest.raises(CanonicalizationError) as caught:
+            bytes_of(payload)
+        assert caught.value.reason is CanonicalizationErrorReason.IDENTIFIER_NOT_NFC
+        assert caught.value.path == path
+
+
+def test_barrier_groups_sort_by_their_own_jcs_bytes() -> None:
+    """§6.2's outer ``barriers`` row: bytewise by each group's canonical JCS serialization.
+
+    Not Python's list order: ``["a","b","c"]`` sorts *before* ``["a","b"]``, because after the
+    shared prefix the comma (0x2C) is below the closing bracket (0x5D) — the comparator the
+    ``edges[]`` row uses, applied to the sorted inner arrays.
+    """
+    payload = minimal(
+        ir_version="1.2",
+        nodes=[
+            {"id": "a"},
+            {"id": "b"},
+            {"id": "c"},
+            {"id": "t", "barriers": [["b", "a"], ["c", "b", "a"]]},
+        ],
+        edges=[{"from": "a", "to": "t"}, {"from": "b", "to": "t"}, {"from": "c", "to": "t"}],
+    )
+
+    assert '"barriers":[["a","b","c"],["a","b"]]' in bytes_of(payload).decode("utf-8")
+
+
+def test_a_non_nfc_barrier_member_is_refused_on_its_decoded_segments() -> None:
+    """A ``barriers`` member is a node id: node-id-role, checked like every other reference.
+
+    On a loaded document the check is belt-and-braces: a member must name a node of its level
+    (DEC-40 §3.3's fourth MUST), and a non-NFC id never got past the §5 grammar. A model built
+    past validation (``model_copy``) is still refused here, before any byte exists.
+    """
+    decomposed = unicodedata.normalize("NFD", "é")
+    with pytest.raises(ValidationError, match="not NFC-normalized"):
+        load_ir(
+            minimal(
+                ir_version="1.2",
+                nodes=[
+                    {"id": "a"},
+                    {"id": decomposed},
+                    {"id": "t", "barriers": [["a", decomposed]]},
+                ],
+                edges=[{"from": "a", "to": "t"}, {"from": decomposed, "to": "t"}],
+            )
+        )
+
+    ir = load_ir(
+        minimal(
+            ir_version="1.2",
+            nodes=[{"id": "a"}, {"id": "b"}, {"id": "t", "barriers": [["a", "b"]]}],
+            edges=[{"from": "a", "to": "t"}, {"from": "b", "to": "t"}],
+        )
+    )
+    planted = ir.nodes[2].model_copy(update={"barriers": (("a", decomposed),)})
+    built_past_validation = ir.model_copy(update={"nodes": (*ir.nodes[:2], planted)})
+
+    with pytest.raises(CanonicalizationError) as caught:
+        canonical_bytes(built_past_validation)
+    assert caught.value.reason is CanonicalizationErrorReason.IDENTIFIER_NOT_NFC
+    assert caught.value.path == ("nodes", 2, "barriers", 0, 1)
+
+
+def test_a_managed_entry_keeps_the_object_form() -> None:
+    """§6.3: a ``state`` value collapses iff it carries no ``reducer``, no ``optional`` and no
+    ``managed`` flag — so a managed entry is never the bare type string."""
+    payload = minimal(
+        ir_version="1.2",
+        state={"remaining_steps": {"type": "int", "managed": True}, "plain": {"type": "str"}},
+    )
+    blob = bytes_of(payload).decode("utf-8")
+
+    assert '"remaining_steps":{"managed":true,"type":"int"}' in blob
+    assert '"plain":"str"' in blob
+
+
+def test_projection_writes_both_maps_and_checks_both_sides_for_nfc() -> None:
+    """§6.3: ``in`` and ``out`` are REQUIRED, never omitted (``{}`` is written); keys and
+    values are state keys of two levels, both in the NFC identifier role."""
+    payload = minimal(
+        ir_version="1.2",
+        nodes=[{"id": "a", "annotations": {"projection": {"in": {"q": "query"}, "out": {}}}}],
+    )
+    assert '"projection":{"in":{"q":"query"},"out":{}}' in bytes_of(payload).decode("utf-8")
+
+    decomposed = unicodedata.normalize("NFD", "é")
+    for mapping, path in (
+        ({decomposed: "x"}, ("nodes", 0, "annotations", "projection", "in", decomposed)),
+        ({"x": decomposed}, ("nodes", 0, "annotations", "projection", "in", "x")),
+    ):
+        bad = minimal(
+            ir_version="1.2",
+            nodes=[{"id": "a", "annotations": {"projection": {"in": mapping, "out": {}}}}],
+        )
+        with pytest.raises(CanonicalizationError) as caught:
+            bytes_of(bad)
+        assert caught.value.reason is CanonicalizationErrorReason.IDENTIFIER_NOT_NFC
+        assert caught.value.path == path
+
+
+def test_a_subgraph_level_is_canonicalized_by_the_same_rules_recursively() -> None:
+    """§6.2's rows name a collection by its member name wherever it occurs (DEC-39): a child's
+    ``nodes[]`` and ``edges[]`` sort, its singleton ``entry`` collapses, its bare ``state`` value
+    collapses, its REQUIRED ``edges`` stays even when empty — one level down, and two."""
+    grandchild = {
+        "entry": ["a/b/y"],
+        "finish": "a/b/y",
+        "nodes": [{"id": "a/b/y"}],
+        "edges": [],
+    }
+    child = {
+        "entry": ["a/c"],
+        "finish": ["a/c", "a/b"],
+        "state": {"k": {"type": "str"}},
+        "nodes": [{"id": "a/c"}, {"id": "a/b", "subgraph": grandchild}],
+        "edges": [{"from": "a/c", "to": "a/b"}, {"from": "a/b", "kind": "dynamic"}],
+    }
+    payload = minimal(ir_version="1.2", nodes=[{"id": "a", "subgraph": child}])
+
+    blob = bytes_of(payload).decode("utf-8")
+
+    assert (
+        '"subgraph":{"edges":[{"from":"a/b","kind":"dynamic"},{"from":"a/c","to":"a/b"}],'
+        '"entry":"a/c","finish":["a/b","a/c"],"nodes":[{"id":"a/b","subgraph":{"edges":[],'
+        '"entry":"a/b/y","finish":"a/b/y","nodes":[{"id":"a/b/y"}]}},{"id":"a/c"}],'
+        '"state":{"k":"str"}}'
+    ) in blob

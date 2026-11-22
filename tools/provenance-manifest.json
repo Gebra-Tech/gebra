@@ -367,9 +367,9 @@
     },
     {
       "path": "tests/fixtures/properties/schema.yaml",
-      "sha256": "d65528cc8411bb315eb7fe81b2b8d29d546553a80c5a77b069fb1e0df1177d9b",
+      "sha256": "f02aa1b4432549b0ad05aa1fbf4054cbbc39968450ab4cb12d542ec2ef742a58",
       "vault_source": "09-RnD-Docs/fixtures/properties/schema.yaml",
-      "vault_commit": "fd6e216"
+      "vault_commit": "373583e"
     },
     {
       "path": "tests/fixtures/properties/signature-soundness/negative-01-read-key-absent-from-sigma.yaml",

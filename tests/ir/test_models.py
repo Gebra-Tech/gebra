@@ -1,4 +1,4 @@
-"""Behaviour of the ``ir_version`` 1.0 models: the A6 conventions and edge dispatch.
+"""Behaviour of the ``ir_version`` 1.0–1.2 models: the A6 conventions and edge dispatch.
 
 Where :mod:`tests.ir.test_spec_surface` checks *what the fields are*, this module checks
 *how the models behave*: the frozen / ``extra="forbid"`` / strict base (A6 PC-1…PC-3), the
@@ -28,11 +28,13 @@ from gebra.ir import (
     IRModel,
     Node,
     NormalEdge,
+    Projection,
     RecursionLimit,
     RetryPolicy,
     Runtime,
     SendEdge,
     StateField,
+    Subgraph,
     Variant,
     WorkflowIR,
 )
@@ -57,6 +59,8 @@ MINIMAL_PAYLOADS: dict[type[IRModel], dict[str, Any]] = {
     Interrupts: {"before": ("act",)},
     Checkpointer: {"present": True},
     Runtime: {"checkpointer": {"present": True}},
+    Projection: {"in": {}, "out": {}},
+    Subgraph: {"entry": "c/x", "finish": "c/x", "nodes": ({"id": "c/x"},), "edges": ()},
     WorkflowIR: {
         "ir_version": "1.0",
         "entry": "act",
@@ -106,7 +110,12 @@ def test_validation_paths_still_work_under_the_construct_ban() -> None:
     assert Node.model_validate_json('{"id": "act"}') == node
     assert node.model_copy() == node
     assert node.model_copy(update={"id": "plan"}).id == "plan"
-    assert node.model_dump() == {"id": "act", "annotations": None}
+    assert node.model_dump() == {
+        "id": "act",
+        "annotations": None,
+        "subgraph": None,
+        "barriers": None,
+    }
     assert TypeAdapter(Node).validate_python({"id": "act"}) == node
 
 
@@ -341,3 +350,164 @@ def test_idempotent_key_object_form_requires_its_key() -> None:
     assert IdempotentKey.model_validate({"key": "request"}).key == "request"
     with pytest.raises(ValidationError):
         IdempotentKey.model_validate({})
+
+
+# ── The 1.2 members (ratified — DEC-39, 2026-11-03; DEC-40, 2026-11-10) ──────────────────
+
+
+def test_every_ruled_now_member_has_the_ruled_shape() -> None:
+    """IR-SPEC §2.5's stubs as amended: each 1.2 member is OPTIONAL, defaults to absence, and
+    takes the shape the rulings fix (``Optional[...]`` of the stub's type)."""
+    node = Node.model_validate_json(
+        json.dumps(
+            {
+                "id": "t",
+                "annotations": {"projection": {"in": {"a": "b"}, "out": {}}, "join_key": "k"},
+                "subgraph": {
+                    "entry": "t/x",
+                    "finish": "t/x",
+                    "nodes": [{"id": "t/x"}],
+                    "edges": [],
+                },
+                "barriers": [["a", "b"]],
+            }
+        )
+    )
+    assert isinstance(node.subgraph, Subgraph)
+    assert node.barriers == (("a", "b"),)
+    assert node.annotations is not None
+    assert node.annotations.projection == Projection(**{"in": {"a": "b"}}, out={})
+    assert node.annotations.join_key == "k"
+    assert Annotations.model_validate_json('{"join_key": ["a", "b"]}').join_key == ("a", "b")
+
+    edge = EDGE_ADAPTER.validate_json(
+        '{"kind": "conditional", "from": "r", "path_map": {"y": "a"}, "codomain": ["n", "y"]}'
+    )
+    assert isinstance(edge, ConditionalEdge)
+    assert edge.codomain == ("n", "y")
+    assert StateField.model_validate_json('{"type": "int", "managed": true}').managed is True
+
+    for model, field in (
+        (Node, "subgraph"),
+        (Node, "barriers"),
+        (Annotations, "projection"),
+        (Annotations, "join_key"),
+        (ConditionalEdge, "codomain"),
+        (StateField, "managed"),
+    ):
+        info = model.model_fields[field]
+        assert not info.is_required() and info.default is None, f"{model.__name__}.{field}"
+
+
+def test_managed_admits_only_true() -> None:
+    """DEC-40 §3.4: ``Literal[True] | None`` — a carried ``false`` would be a second,
+    digest-bearing encoding of "not managed".
+
+    The ``1`` and ``1.0`` rows are the reason for the exact-``bool`` guard: pydantic matches a
+    ``Literal`` by equality even in strict mode, and ``1 == True``, so without it a document
+    writing ``managed: 1`` loaded and canonicalized as ``true`` — a form the fixture schema's
+    ``enum: [true]`` refuses (JSON Schema tells a boolean from a number).
+    """
+    for value in (False, 1, 1.0, "true"):
+        with pytest.raises(ValidationError):
+            StateField.model_validate({"type": "int", "managed": value})
+    for raw in ("false", "1", "1.0", '"true"'):
+        with pytest.raises(ValidationError):
+            StateField.model_validate_json('{"type": "int", "managed": ' + raw + "}")
+    assert StateField.model_validate({"type": "int", "managed": True}).managed is True
+
+
+def test_projection_requires_both_maps_and_writes_in_by_alias() -> None:
+    """§3.9 / §2.5 note 8: ``in`` and ``out`` REQUIRED; ``in`` is a keyword, so ``in_`` + alias."""
+    with pytest.raises(ValidationError):
+        Projection.model_validate({"in": {}})
+    with pytest.raises(ValidationError):
+        Projection.model_validate({"out": {}})
+    projection = Projection.model_validate({"in": {"a": "b"}, "out": {}})
+    assert projection.in_ == {"a": "b"}
+    assert projection.model_dump(by_alias=True) == {"in": {"a": "b"}, "out": {}}
+    assert Projection.model_validate({"in_": {}, "out": {}}) == Projection(**{"in": {}}, out={})
+
+
+def test_a_subgraph_level_has_the_top_level_requiredness_and_no_stamp() -> None:
+    """§3.8: the six members other than ``ir_version`` — ``entry``/``finish``/``nodes``/``edges``
+    REQUIRED with no default, ``nodes`` non-empty, and no ``ir_version`` of its own (the
+    document's one stamp covers every level)."""
+    base = {"entry": "c/x", "finish": "c/x", "nodes": ({"id": "c/x"},), "edges": ()}
+    Subgraph.model_validate(base)
+    for missing in ("entry", "finish", "nodes", "edges"):
+        with pytest.raises(ValidationError):
+            Subgraph.model_validate({k: v for k, v in base.items() if k != missing})
+    with pytest.raises(ValidationError):
+        Subgraph.model_validate({**base, "nodes": ()})
+    with pytest.raises(ValidationError) as excinfo:
+        Subgraph.model_validate({**base, "ir_version": "1.2"})
+    assert [error["type"] for error in excinfo.value.errors()] == ["extra_forbidden"]
+
+
+def test_codomain_admits_a_json_array_behind_the_tagless_edge_pre_validator() -> None:
+    """IR-SPEC §2.5 note 8: "a conforming implementation MUST admit a JSON array for the member
+    on every ingestion path … and relaxes that member alone rather than the base model".
+
+    Behind the pre-validator that injects the default ``kind`` (note 1) a JSON array reaches the
+    member as a ``list``, which strict mode refuses for a tuple; so ``codomain`` alone admits an
+    exact ``list`` — and nothing wider (a set is still refused) — while every other tuple member
+    keeps strict mode's posture (:func:`test_json_mode_is_the_ingestion_path_for_sequences`).
+    """
+    edge = {"from": "r", "kind": "conditional", "path_map": {"y": "a"}, "codomain": ["n", "y"]}
+    document = {
+        "ir_version": "1.2",
+        "entry": "r",
+        "finish": "a",
+        "nodes": [{"id": "r"}, {"id": "a"}],
+        "edges": [edge],
+    }
+
+    from_json = WorkflowIR.model_validate_json(json.dumps(document))
+    assert isinstance(from_json.edges[0], ConditionalEdge)
+    assert from_json.edges[0].codomain == ("n", "y")
+    assert EDGE_ADAPTER.validate_python(edge) == from_json.edges[0]
+    assert EDGE_ADAPTER.validate_json(json.dumps(edge)) == from_json.edges[0]
+
+    with pytest.raises(ValidationError):
+        EDGE_ADAPTER.validate_python({**edge, "codomain": {"n", "y"}})
+    with pytest.raises(ValidationError):
+        Interrupts.model_validate({"before": ["a"]})  # every other tuple member: unchanged
+
+
+def test_nothing_deferred_to_1_3_is_constructible() -> None:
+    """The rulings name what they did *not* rule (DEC-39 §3.11, DEC-40 §3.11, IR-SPEC §8's
+    named-and-not-taken candidates): no fifth edge kind (the barrier is a node member — the
+    retired candidate ``kind: join``), no list-valued ``from``, no ``codomain`` off a
+    ``conditional`` edge (a ``Command``/``dynamic`` router's target-role codomain), none on a
+    document's ``entry`` (a conditional entry's codomain), no ``defer`` fact on a barrier node,
+    no manager identity on a managed entry, no ``false`` managed flag, no stamp on a level and
+    no gate-role slot. ``extra="forbid"`` and the closed ``kind`` tag refuse every one."""
+    with pytest.raises(ValidationError) as excinfo:
+        EDGE_ADAPTER.validate_python({"kind": "join", "from": "a", "to": "t"})
+    assert excinfo.value.errors()[0]["type"] == "union_tag_invalid"
+
+    with pytest.raises(ValidationError):
+        EDGE_ADAPTER.validate_python({"kind": "normal", "from": ("a", "b"), "to": "t"})
+    for kind, extra in (
+        ("normal", {"to": "t"}),
+        ("send", {"to": "t"}),
+        ("dynamic", {}),
+    ):
+        with pytest.raises(ValidationError) as excinfo:
+            EDGE_ADAPTER.validate_python({"kind": kind, "from": "a", **extra, "codomain": ("x",)})
+        assert [error["type"] for error in excinfo.value.errors()] == ["extra_forbidden"]
+
+    refused: tuple[tuple[type[IRModel], dict[str, Any], str], ...] = (
+        (WorkflowIR, MINIMAL_PAYLOADS[WorkflowIR], "entry_codomain"),
+        (WorkflowIR, MINIMAL_PAYLOADS[WorkflowIR], "codomain"),
+        (Node, {"id": "t"}, "defer"),
+        (Node, {"id": "t"}, "gate"),
+        (StateField, {"type": "int", "managed": True}, "manager"),
+        (Annotations, {}, "gate"),
+        (Subgraph, MINIMAL_PAYLOADS[Subgraph], "ir_version"),
+    )
+    for model, payload, member in refused:
+        with pytest.raises(ValidationError) as excinfo:
+            model.model_validate({**payload, member: "x"})
+        assert [error["type"] for error in excinfo.value.errors()] == ["extra_forbidden"], member

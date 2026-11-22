@@ -217,8 +217,8 @@ def resolve_subject(subject: DiffSubject) -> tuple[WorkflowIR, DiffAnchor]:
     Raises:
         ValueError: if a ``Snapshot``'s stored ``graph_version`` is not the digest of its own
             IR (IR-SPEC §6.1 step 9), if the IR declares one node id twice (§2.1, DEC-22), or
-            if its ``ir_version`` is below the lowest minor its edges require (§2.5 note 7,
-            DEC-34).
+            if its ``ir_version`` is below the lowest minor its constructs require (§2.5
+            note 7, DEC-34).
     """
     ir = subject.ir if isinstance(subject, Snapshot) else subject
     _refuse_repeated_node_ids(ir)
@@ -260,15 +260,17 @@ def _refuse_repeated_node_ids(ir: WorkflowIR) -> None:
 
 
 def _refuse_under_stamped(ir: WorkflowIR) -> None:
-    """Refuse a document stamped below the minor its edges require — see :func:`resolve_subject`.
+    """Refuse a document stamped below the minor its constructs require — see
+    :func:`resolve_subject`.
 
     The same comparison :class:`~gebra.ir.models.WorkflowIR` makes at validation (IR-SPEC §2.5
     note 7; DEC-34), restated over :func:`~gebra.ir.models.lowest_ir_version` so the floor
-    inherits a future minor from the one place that defines it. Named apart from the model's
-    own validator, which enforces the rule on a different contract, so a search on either
-    name returns one function with one signature.
+    inherits a future minor from the one place that defines it — read over the whole document
+    since the 1.2 event, whose constructs are mostly not edges (DEC-39 §3.3, DEC-40 §3.6).
+    Named apart from the model's own validator, which enforces the rule on a different
+    contract, so a search on either name returns one function with one signature.
     """
-    floor = lowest_ir_version(ir.edges)
+    floor = lowest_ir_version(ir)
     stamp = ir.ir_version
     if stamp not in IR_VERSIONS:
         raise ValueError(
@@ -281,7 +283,7 @@ def _refuse_under_stamped(ir: WorkflowIR) -> None:
     if IR_VERSIONS.index(floor) <= IR_VERSIONS.index(stamp):
         return
     raise ValueError(
-        f"the document is stamped ir_version {stamp!r} but its edges require {floor!r}: a "
+        f"the document is stamped ir_version {stamp!r} but its constructs require {floor!r}: a "
         "document stamped below the lowest minor its constructs require is non-conforming and "
         "loaders MUST reject it (IR-SPEC §2.5 note 7, ratified DEC-34). `WorkflowIR` refuses "
         "such a document at validation, so this one was built past validation — "

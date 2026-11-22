@@ -1644,6 +1644,7 @@ def undefined_path_map_target(ir: WorkflowIR, source_id: str) -> Mutation:
             ConditionalEdge(
                 kind="conditional",
                 **{"from": source_id},
+                codomain=None,
                 condition=None,
                 path_map={PROBE_LABEL: ref},
             ),
@@ -1929,6 +1930,7 @@ def _counter_guard(
         ConditionalEdge(
             kind="conditional",
             **{"from": node_id},
+            codomain=None,
             condition=f"'{PROBE_THEN_LABEL}' if {counter} < {PROBE_BOUND} else '{PROBE_ELSE_LABEL}'",
             path_map=labels,
         ),

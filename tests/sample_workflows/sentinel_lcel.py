@@ -528,7 +528,11 @@ def build_self_referential() -> Runnable[Any, Any]:
 
 
 def build_unnameable() -> Runnable[Any, Any]:
-    """A stock runnable that composes nothing and that no §5.2 token names."""
+    """A stock runnable that composes nothing and that no token this build emits names.
+
+    IR-SPEC §5.2's 1.2 ``leaf`` token (DEC-40) names it; no extraction path in this build emits
+    that token, so this build refuses it at the root.
+    """
     return RunnablePassthrough()
 
 

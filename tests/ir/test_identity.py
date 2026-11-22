@@ -7,8 +7,9 @@ Three review bases are encoded here as executable tables:
   each carrying the sentence it was transcribed from.
 * :data:`SPEC_OPENINFERENCE_ROWS` — the §5.4 mapping table (decision D-024), row by row.
 * :data:`SPEC_SYNTHETIC_KINDS` / :data:`SPEC_RESERVED_SEGMENTS` — the two closed
-  vocabularies §5.1/§5.2 fix for 1.0, asserted equal to the module's own constants in both
-  directions, so neither a dropped nor an invented token passes.
+  vocabularies §5.1/§5.2 fix (the synthetic kinds as amended at ``ir_version`` 1.2 — DEC-40),
+  asserted equal to the module's own constants in both directions, so neither a dropped nor an
+  invented token passes.
 
 The reserved-name tests sweep every nesting level of every depth up to four, through both
 the utilities and the models.
@@ -53,7 +54,19 @@ from gebra.ir import (
 
 #: IR-SPEC §5.2: "This spec **fixes the closed `kind` vocabulary for 1.0**: `seq`, `map`,
 #: `branch`, `lambda`, `retry`, `fallback`, `bind`", in the spec's order.
-SPEC_SYNTHETIC_KINDS = ("seq", "map", "branch", "lambda", "retry", "fallback", "bind")
+SPEC_SYNTHETIC_KINDS = (
+    "seq",
+    "map",
+    "branch",
+    "lambda",
+    "retry",
+    "fallback",
+    "bind",
+    # IR-SPEC §5.1/§5.2 as amended at 1.2 (ratified — DEC-40, 2026-11-10).
+    "assign",
+    "each",
+    "leaf",
+)
 
 #: IR-SPEC §5.1: "**Reserved segments**: `__start__`, `__end__`".
 SPEC_RESERVED_SEGMENTS = ("__start__", "__end__")
@@ -204,15 +217,17 @@ def test_comparison_is_case_sensitive() -> None:
 # ── The closed vocabularies ───────────────────────────────────────────────────────────────
 
 
-def test_the_synthetic_kind_vocabulary_is_exactly_the_seven_ratified_tokens() -> None:
-    """§5.2 fixes the vocabulary for 1.0; additions are a minor-version change (§8)."""
+def test_the_synthetic_kind_vocabulary_is_exactly_the_ten_ratified_tokens() -> None:
+    """§5.2 fixed seven tokens for 1.0; the 1.2 event added ``assign``, ``each`` and ``leaf``
+    (DEC-40 §3.5) — additions are a minor-version change (§8), and this is the one."""
     assert SYNTHETIC_KINDS == frozenset(SPEC_SYNTHETIC_KINDS)
-    assert len(SPEC_SYNTHETIC_KINDS) == 7
+    assert len(SPEC_SYNTHETIC_KINDS) == 10
     for kind in SPEC_SYNTHETIC_KINDS:
         assert synthetic_segment(kind, 0) == f"%{kind}[0]"
+        assert is_valid_node_id(f"%{kind}[0]")
 
 
-@pytest.mark.parametrize("kind", ["parallel", "assign", "seq2", "SEQ", ""])
+@pytest.mark.parametrize("kind", ["parallel", "join", "pick", "seq2", "SEQ", ""])
 def test_a_kind_outside_the_vocabulary_is_refused(kind: str) -> None:
     """A synthetic-shaped segment whose kind is unlisted is not a segment at all."""
     with pytest.raises(NodeIdError) as excinfo:
@@ -504,8 +519,13 @@ def test_the_models_accept_every_id_the_grammar_admits(node_id: str) -> None:
 
 
 def test_the_id_constraint_adds_nothing_to_the_json_schema() -> None:
-    """An ``AfterValidator``, not a pattern: the model/schema lockstep sees no divergence."""
-    assert Node.model_json_schema()["properties"]["id"] == {"title": "Id", "type": "string"}
+    """An ``AfterValidator``, not a pattern: the model/schema lockstep sees no divergence.
+
+    ``Node`` is recursive from 1.2 (a node's ``subgraph`` holds nodes — DEC-39), so its own
+    schema is a ``$ref`` into ``$defs``; the ``id`` member is read where it lives.
+    """
+    own = Node.model_json_schema()
+    assert own["$defs"]["Node"]["properties"]["id"] == {"title": "Id", "type": "string"}
     node_schema = WorkflowIR.model_json_schema()["$defs"]["Node"]["properties"]["id"]
     assert node_schema == {"title": "Id", "type": "string"}
 

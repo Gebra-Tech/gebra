@@ -146,11 +146,14 @@ END_LITERAL: Final = "END"
 #: recognizable to a reader who knows the fixtures, and keeps P-06's input space realistic.
 EFFECT_TAGS: Final[tuple[str, ...]] = ("billable", "external", "irreversible", "network")
 
-#: Every member of :class:`~gebra.ir.Annotations` — the eight retained §2.3 slots followed by
-#: the six new-in-1.0 §3 slots (PD-003 Appendix A rows 1–6), in model declaration order.
-#: :func:`node_contracts` draws a *subset* of these to populate, and
+#: Every member of :class:`~gebra.ir.Annotations` a 1.0 document may carry — the eight
+#: retained §2.3 slots followed by the six new-in-1.0 §3 slots (PD-003 Appendix A rows 1–6), in
+#: model declaration order. :func:`node_contracts` draws a *subset* of these to populate, and
 #: ``tests/testing/test_strategies.py`` checks the tuple against the live model, so a slot
 #: added to the IR without being added here fails that suite rather than going ungenerated.
+#: The two 1.2 slots that follow them on the model, ``projection`` (DEC-39) and ``join_key``
+#: (DEC-40), are deliberately not here: either one requires ``ir_version`` ``"1.2"``, and this
+#: module's documents are stamped ``"1.0"``; that suite names them as the known exception.
 CONTRACT_SLOTS: Final[tuple[str, ...]] = (
     "pure",
     "effect",
@@ -390,9 +393,11 @@ def user_segments() -> st.SearchStrategy[str]:
 def synthetic_segments() -> st.SearchStrategy[str]:
     """One synthetic LCEL segment, ``"%" kind "[" selector "]"`` (IR-SPEC §5.2).
 
-    ``kind`` is drawn from the closed 1.0 vocabulary
-    (:data:`~gebra.ir.identity.SYNTHETIC_KINDS`) and the selector is either a structural
-    index or a source-level key, which is exactly the two cases §5.2 names.
+    ``kind`` is drawn from the closed 1.0 vocabulary — the seven tokens of
+    :data:`~gebra.ir.identity.SYNTHETIC_KINDS` that predate the 1.2 event (DEC-40 added
+    ``assign``, ``each`` and ``leaf``, and an id carrying one of those requires ``ir_version``
+    ``"1.2"``, which a 1.0 workflow is not) — and the selector is either a structural index or
+    a source-level key, which is exactly the two cases §5.2 names.
     """
     return _synthetic_segments()
 
@@ -436,11 +441,17 @@ def _user_segments() -> st.SearchStrategy[str]:
     return _source_names().map(escape_segment)
 
 
+#: The §5.2 tokens a 1.0 document may carry: every token but the three the 1.2 event added
+#: (DEC-40 §3.5). Drawing one of those would build an id that requires ``"1.2"``, and this
+#: module's documents are stamped ``"1.0"`` (IR-SPEC §2.5 note 7's floor would refuse them).
+_KINDS_1_0: Final = tuple(sorted(SYNTHETIC_KINDS - {"assign", "each", "leaf"}))
+
+
 @lru_cache(maxsize=1)
 def _synthetic_segments() -> st.SearchStrategy[str]:
     return st.builds(
         synthetic_segment,
-        kind=st.sampled_from(sorted(SYNTHETIC_KINDS)),
+        kind=st.sampled_from(_KINDS_1_0),
         selector=st.integers(min_value=0, max_value=3) | _source_names(),
     )
 

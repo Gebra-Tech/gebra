@@ -7,8 +7,8 @@ graph root (IR-SPEC §5.1). Two segment productions share that path and are disj
   the only ``%`` sequences it contains are ``%2F`` (a literal ``/``) and ``%25`` (a literal
   ``%``);
 * a **synthetic segment** — ``"%" kind "[" selector "]"``, the naming for unnamed LCEL
-  fragments, with ``kind`` drawn from the closed seven-token vocabulary IR-SPEC §5.2 fixes
-  for 1.0 and ``selector`` escaped by the same rules.
+  fragments, with ``kind`` drawn from the closed vocabulary IR-SPEC §5.2 fixes — seven tokens
+  for 1.0/1.1, ten from ``ir_version`` 1.2 (DEC-40) — and ``selector`` escaped by the same rules.
 
 Two entry points cover construction. :func:`node_id_from_names` takes *source names* and
 escapes each one; :func:`join_node_id` takes *already-formed segments*, which is what you
@@ -82,11 +82,15 @@ ESCAPED_MARKER: Final = "%25"
 _ESCAPES: Final = {ESCAPED_SEPARATOR: SEGMENT_SEPARATOR, ESCAPED_MARKER: ESCAPE_MARKER}
 _ESCAPE_WIDTH: Final = 3
 
-#: The closed ``kind`` vocabulary for synthetic LCEL segments, fixed for ir_version 1.0
-#: (IR-SPEC §5.2, ratified — walkthrough #1, 2026-07-18; DEC-09). Adding a token is a
-#: minor-version change per IR-SPEC §8, so this set is not extensible at runtime.
+#: The closed ``kind`` vocabulary for synthetic LCEL segments (IR-SPEC §5.2): the seven tokens
+#: fixed for ir_version 1.0 (ratified — walkthrough #1, 2026-07-18; DEC-09) and the three the
+#: 1.2 event added — ``assign`` and ``each`` (frames) and ``leaf`` (the degenerate root frame)
+#: (ratified — DEC-40, 2026-11-10). Adding a token is a minor-version change per IR-SPEC §8, so
+#: this set is not extensible at runtime. The grammar admits all ten at every stamp; a document
+#: whose id carries one of the three requires ``"1.2"``, which is the model's stamp floor to
+#: enforce (:func:`gebra.ir.models.lowest_ir_version`), not the grammar's.
 SYNTHETIC_KINDS: Final[frozenset[str]] = frozenset(
-    {"seq", "map", "branch", "lambda", "retry", "fallback", "bind"}
+    {"seq", "map", "branch", "lambda", "retry", "fallback", "bind", "assign", "each", "leaf"}
 )
 
 #: Segments reserved for the per-level entry/exit pseudo-nodes that mirror LangGraph's
@@ -263,15 +267,15 @@ def synthetic_segment(kind: str, selector: str | int) -> str:
     to the object under extraction (WA-07).
 
     Raises:
-        NodeIdError: if ``kind`` is outside the closed 1.0 vocabulary
+        NodeIdError: if ``kind`` is outside the closed vocabulary
             (:data:`SYNTHETIC_KINDS`), or if ``selector`` is an empty string.
         TypeError: if ``selector`` is neither a string nor an integer.
     """
     if kind not in SYNTHETIC_KINDS:
         raise NodeIdError(
-            f"{kind!r} is not one of the ir_version 1.0 synthetic kinds "
-            f"{sorted(SYNTHETIC_KINDS)} (IR-SPEC §5.2: the vocabulary is closed; adding a "
-            "token is a minor-version change per §8)",
+            f"{kind!r} is not one of the synthetic kinds {sorted(SYNTHETIC_KINDS)} "
+            "(IR-SPEC §5.2: the vocabulary is closed; adding a token is a minor-version change "
+            "per §8)",
             reason=NodeIdErrorReason.UNKNOWN_SYNTHETIC_KIND,
             value=kind,
         )
@@ -538,7 +542,7 @@ def _parse_segment(text: str, *, value: str, segment_index: int | None) -> Segme
             raise
         raise NodeIdError(
             f"{_where(value, text, segment_index)} is neither a user segment nor a synthetic "
-            f"token: {shape[0]!r} is not one of the ir_version 1.0 kinds "
+            f"token: {shape[0]!r} is not one of the synthetic kinds "
             f"{sorted(SYNTHETIC_KINDS)} (IR-SPEC §5.2: the vocabulary is closed)",
             reason=NodeIdErrorReason.UNKNOWN_SYNTHETIC_KIND,
             value=value,

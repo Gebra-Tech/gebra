@@ -9,14 +9,17 @@ already-validated :class:`~gebra.ir.models.WorkflowIR`:
    (``version``, ``extracted_from``, ``graph_version``, ``source_snippet``, notes fields) is
    a non-model field that ``extra="forbid"`` already refuses, exactly as §6.4 records.
 3. **Omit- and representation-normalize** (§6.3) — drop optional members that are ``null``
-   or equal their schema-declared default (the complete 1.0 default list is
+   or equal their schema-declared default (the complete default list is
    ``edges[].kind = "normal"``) or are empty optional arrays; collapse ``entry``/``finish``
-   to a scalar iff the wired set is a singleton, and a ``state`` value to the bare type
-   string iff it carries no ``reducer`` and no ``optional`` flag.
+   to a scalar iff the wired set is a singleton, a ``state`` value to the bare type string
+   iff it carries no ``reducer``, no ``optional`` and no ``managed`` flag, ``join_key`` to a
+   scalar iff it declares one key, and a ``codomain`` equal to its edge's ``path_map`` keys
+   to absence (the last three from ``ir_version`` 1.2 — DEC-40).
 4. **Sort arrays** (§6.2) — ``nodes[]`` by escaped id as UTF-16 code units; ``edges[]``
    bytewise by each edge object's own canonical JCS serialization; the set-valued string
-   arrays in UTF-16 code-unit order; every other array (the ``args_schema`` interior)
-   preserves authored order.
+   arrays in UTF-16 code-unit order; a node's ``barriers`` groups each sorted as a set and
+   the groups bytewise by their own JCS serialization (1.2); every other array (the
+   ``args_schema`` interior) preserves authored order.
 5. **Enforce scalar constraints** — IR validity, checked before any bytes or digest exist:
    identifier-role strings NFC, NaN/Infinity forbidden, integers within the I-JSON exact
    range ±(2⁵³−1). Per the ratified IR-D1 ruling (PD-004), an out-of-range integer is a
@@ -31,6 +34,10 @@ already-validated :class:`~gebra.ir.models.WorkflowIR`:
 
 :func:`canonical_bytes` performs steps 2–6, :func:`graph_version` adds 7–8, and
 :func:`verify_graph_version` is step 9.
+
+From ``ir_version`` 1.2 a node MAY carry a ``subgraph`` subdocument, a *level* of its own
+(DEC-39): the same rules run over it, member by member and recursively, with no new rule —
+§6.2's rows name a collection by its member name wherever it occurs.
 
 **JCS is implemented in-house** rather than through a third-party dependency. The emitter's
 input domain is closed (the trees this module itself builds), the two non-trivial parts —
@@ -58,14 +65,16 @@ knowing, each carried by a test:
   them (array *order* in foreign content is likewise untouched, §6.2).
 
 **Node-id-role strings** (``nodes[].id``, ``entry``/``finish``, ``from``/``to``,
-``path_map`` values, ``runtime.interrupts`` entries, ``compensation.hook``) get the step-5
+``path_map`` values, ``runtime.interrupts`` entries, ``compensation.hook``, ``barriers``
+members) get the step-5
 NFC check on their *decoded* segments via :func:`~gebra.ir.identity.parse_node_id` — an
 escape can end next to a combining mark, so the escaped text is the wrong thing to test. A
 reference the §5.1 grammar does not admit at all is byte-preserved: NFC is the only step-5
 string constraint, and whether a reference resolves is the reporting stage's question
 (P-01's), not canonicalization's. The state-key-role strings (``state`` keys, ``input``/
-``output`` entries, ``idempotent.key``, ``variant.key``, ``path_map`` labels) carry no
-escaping grammar and are NFC-checked verbatim. All other strings are byte-preserved
+``output`` entries, ``idempotent.key``, ``variant.key``, ``path_map`` labels, and from 1.2
+the keys and values of ``projection.in``/``projection.out``, the ``codomain`` labels and the
+``join_key`` keys) carry no escaping grammar and are NFC-checked verbatim. All other strings are byte-preserved
 (§6.3) — except that every serialized string must consist of Unicode scalar values, since
 step 6 emits UTF-8; a lone surrogate is an error, not a substitution.
 
@@ -97,8 +106,10 @@ from gebra.ir.models import (
     Interrupts,
     Node,
     NormalEdge,
+    Projection,
     Runtime,
     StateField,
+    Subgraph,
     WorkflowIR,
 )
 
@@ -302,14 +313,26 @@ def _canonical_tree(ir: WorkflowIR) -> Json:
     """Steps 2–5 over the whole document. Projection (step 2) is the identity here: a
     ``WorkflowIR`` cannot carry a §6.4-excluded field in the first place."""
     tree: dict[str, Json] = {"ir_version": ir.ir_version}
-    tree["entry"] = _wired_set(ir.entry, ("entry",))
-    tree["finish"] = _wired_set(ir.finish, ("finish",))
-    if ir.state is not None:
-        tree["state"] = _state(ir.state, ("state",))
-    tree["nodes"] = _nodes(ir.nodes, ("nodes",))
-    tree["edges"] = _edges(ir.edges, ("edges",))
-    if ir.runtime is not None:
-        tree["runtime"] = _runtime(ir.runtime, ("runtime",))
+    tree.update(_level(ir, ()))
+    return tree
+
+
+def _level(level: WorkflowIR | Subgraph, path: _Path) -> dict[str, Json]:
+    """The six members a level carries (§2.1; a ``subgraph`` subdocument from 1.2 — §3.8).
+
+    The top-level document and every subdocument share these members, their shapes and their
+    §6 rules, so one function serves both: a ``subgraph`` is the same walk one level down, its
+    REQUIRED members (``entry``, ``finish``, ``nodes``, ``edges``) never omitted (§6.3).
+    """
+    tree: dict[str, Json] = {}
+    tree["entry"] = _wired_set(level.entry, (*path, "entry"))
+    tree["finish"] = _wired_set(level.finish, (*path, "finish"))
+    if level.state is not None:
+        tree["state"] = _state(level.state, (*path, "state"))
+    tree["nodes"] = _nodes(level.nodes, (*path, "nodes"))
+    tree["edges"] = _edges(level.edges, (*path, "edges"))
+    if level.runtime is not None:
+        tree["runtime"] = _runtime(level.runtime, (*path, "runtime"))
     return tree
 
 
@@ -345,27 +368,38 @@ def _state(state: dict[str, str | StateField], path: _Path) -> Json:
 
 
 def _state_value(value: StateField, path: _Path) -> Json:
-    """A ``state`` value collapses to the bare type string iff it carries no ``reducer``
-    and no ``optional`` flag (§6.3); an explicit ``optional: false`` is a carried flag, not
-    the schema default (``null``), so it keeps the object form."""
-    if value.reducer is None and value.optional is None:
+    """A ``state`` value collapses to the bare type string iff it carries no ``reducer``,
+    no ``optional`` and no ``managed`` flag (§6.3; the third from 1.2 — DEC-40); an explicit
+    ``optional: false`` is a carried flag, not the schema default (``null``), so it keeps the
+    object form. ``managed`` admits only ``true``, so a carried flag is always serialized."""
+    if value.reducer is None and value.optional is None and value.managed is None:
         return _plain_string(value.type, (*path, "type"))
     members: dict[str, Json] = {"type": _plain_string(value.type, (*path, "type"))}
     if value.reducer is not None:
         members["reducer"] = _plain_string(value.reducer, (*path, "reducer"))
     if value.optional is not None:
         members["optional"] = value.optional
+    if value.managed is not None:
+        members["managed"] = value.managed
     return members
 
 
 def _nodes(nodes: tuple[Node, ...], path: _Path) -> Json:
-    """``nodes[]``, sorted by ``id`` (escaped form) as UTF-16 code units (§6.2)."""
+    """``nodes[]``, sorted by ``id`` (escaped form) as UTF-16 code units (§6.2).
+
+    From 1.2 a node's ``subgraph`` is a level of its own, walked recursively (§3.8), and its
+    ``barriers`` groups are omitted when empty and sorted per §6.2 otherwise (§3.11).
+    """
     keyed: list[tuple[str, Json]] = []
     for index, node in enumerate(nodes):
         node_path = (*path, index)
         tree: dict[str, Json] = {"id": _node_reference(node.id, (*node_path, "id"))}
         if node.annotations is not None:
             tree["annotations"] = _annotations(node.annotations, (*node_path, "annotations"))
+        if node.subgraph is not None:
+            tree["subgraph"] = _level(node.subgraph, (*node_path, "subgraph"))
+        if node.barriers is not None and node.barriers != ():
+            tree["barriers"] = _barriers(node.barriers, (*node_path, "barriers"))
         keyed.append((node.id, tree))
     keyed.sort(key=lambda pair: _utf16_sort_key(pair[0]))
     return [tree for _, tree in keyed]
@@ -441,7 +475,48 @@ def _annotations(annotations: Annotations, path: _Path) -> Json:
         members["config_digest"] = _plain_string(
             annotations.config_digest, (*path, "config_digest")
         )
+    if annotations.projection is not None:
+        members["projection"] = _projection(annotations.projection, (*path, "projection"))
+    if annotations.join_key is not None:
+        members["join_key"] = _join_key(annotations.join_key, (*path, "join_key"))
     return members
+
+
+def _projection(projection: Projection, path: _Path) -> Json:
+    """``annotations.projection`` (§3.9; 1.2 — DEC-39): two REQUIRED maps, never omitted —
+    an empty one is written ``{}``. Keys and values are state keys of two levels, so both are
+    identifier-role (NFC, §6.3); JCS sorts the member names and no Gebra rule is needed."""
+    return {
+        "in": _identifier_map(projection.in_, (*path, "in")),
+        "out": _identifier_map(projection.out, (*path, "out")),
+    }
+
+
+def _identifier_map(mapping: dict[str, str], path: _Path) -> Json:
+    """A state-key → state-key map: both sides NFC-checked verbatim (§6.3)."""
+    members: dict[str, Json] = {}
+    for key, value in mapping.items():
+        key_path = (*path, key)
+        _identifier(key, key_path)
+        members[key] = _identifier(value, key_path)
+    return members
+
+
+def _join_key(join_key: str | tuple[str, ...], path: _Path) -> Json:
+    """``annotations.join_key`` (§3.10; 1.2 — DEC-40): a scalar string iff the declared key
+    set is a singleton, a sorted list otherwise (§6.3, the ``entry``/``finish`` rule; §6.2).
+
+    Never deduplicated: the model refuses a repeated member (§3.10's validity MUST), so a
+    one-member list is the singleton it looks like and collapses to its scalar.
+    """
+    if isinstance(join_key, str):
+        return _identifier(join_key, path)
+    for index, key in enumerate(join_key):
+        _identifier(key, (*path, index))
+    keys = sorted(join_key, key=_utf16_sort_key)
+    if len(keys) == 1:
+        return keys[0]
+    return [*keys]
 
 
 def _edges(edges: tuple[Edge, ...], path: _Path) -> Json:
@@ -471,6 +546,9 @@ def _edge(edge: Edge, path: _Path) -> Json:
         members["kind"] = edge.kind
     if isinstance(edge, ConditionalEdge):
         members["path_map"] = _path_map(edge.path_map, (*path, "path_map"))
+        codomain = _codomain(edge, (*path, "codomain"))
+        if codomain is not None:
+            members["codomain"] = codomain
     elif not isinstance(edge, DynamicEdge):
         members["to"] = _node_reference(edge.to, (*path, "to"))
     if edge.condition is not None:
@@ -487,6 +565,40 @@ def _path_map(mapping: dict[str, str], path: _Path) -> Json:
         _identifier(label, label_path)
         members[label] = _node_reference(target, label_path)
     return members
+
+
+def _codomain(edge: ConditionalEdge, path: _Path) -> Json | None:
+    """A ``conditional`` edge's ``codomain`` (§2.4; 1.2 — DEC-40), or ``None`` for absence.
+
+    ``[]`` is an empty optional array, omitted (§6.3). Otherwise every member is NFC-checked
+    first — "the constraint is enforced on every authored member before this rule removes one"
+    (§6.3) — and then the set is **omitted iff it equals the NFC key set of the same edge's
+    ``path_map``**: an agreeing declaration restates the edge, so one canonical form carries it.
+    A distinct set is a set-valued array, sorted and never deduplicated (§6.2; the model refuses
+    a repeated label). The ``path_map`` labels have been NFC-checked by :func:`_path_map`
+    already, so both sides compare as the NFC sets they are.
+    """
+    if edge.codomain is None or edge.codomain == ():
+        return None
+    labels = _string_set(edge.codomain, path, identifiers=True)
+    if set(edge.codomain) == set(edge.path_map):
+        return None
+    return labels
+
+
+def _barriers(groups: tuple[tuple[str, ...], ...], path: _Path) -> Json:
+    """A node's ``barriers`` (§3.11; 1.2 — DEC-40), canonical per §6.2's two rows.
+
+    Each group is a set of node ids — node-id-role strings, NFC-checked on their decoded
+    segments — sorted in UTF-16 code-unit order; the outer array is a set of groups, sorted
+    bytewise by each group's own canonical JCS serialization (the ``edges[]`` comparator
+    applied to the inner arrays after each is sorted). Nothing is deduplicated at either level:
+    distinct members and distinct groups are the model's validity MUSTs, refused at load.
+    """
+    trees = [_node_reference_set(group, (*path, index)) for index, group in enumerate(groups)]
+    blobs = [_emit(tree) for tree in trees]
+    order = sorted(range(len(trees)), key=blobs.__getitem__)
+    return [trees[index] for index in order]
 
 
 def _runtime(runtime: Runtime, path: _Path) -> Json:

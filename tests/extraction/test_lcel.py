@@ -115,21 +115,36 @@ def test_every_case_extracts_to_its_declared_ir(name: str) -> None:
     assert constructs(envelope) == case.constructs
 
 
-def test_the_case_table_covers_every_kind_in_the_closed_vocabulary() -> None:
-    """All seven §5.2 tokens have a case — an equality, so the table cannot shrink quietly.
+#: The three §5.2 tokens the 1.2 event added (DEC-40 §3.5). The grammar admits them from
+#: IR-09, so a document may carry them; no extraction path emits them until EX-25 lands their
+#: ``FragmentKind`` members, ``FRAGMENT_CLASSES`` rows and coverage cases — the window PD-069
+#: §6 rules, in which the equality pins below relax to exactly this difference. When EX-25
+#: lands, this set empties and the three pins are equalities again.
+TOKENS_AWAITING_EXTRACTION: frozenset[str] = frozenset({"assign", "each", "leaf"})
 
-    IR-SPEC §5.2 fixes the vocabulary for 1.0 and IR-SPEC §8 makes adding a token a
-    minor-version change, so "the tokens this build emits" and "the tokens the spec defines"
-    are the same set by construction, and this is where that is checked.
+#: The tokens this build's extraction emits.
+EMITTED_KINDS: frozenset[str] = SYNTHETIC_KINDS - TOKENS_AWAITING_EXTRACTION
+
+
+def test_the_case_table_covers_every_kind_in_the_closed_vocabulary() -> None:
+    """Every emitted §5.2 token has a case — an equality, so the table cannot shrink quietly.
+
+    IR-SPEC §5.2 fixes the vocabulary and IR-SPEC §8 makes adding a token a minor-version
+    change, so "the tokens this build emits" and "the tokens the spec defines" are the same set
+    by construction — except for the window between IR-09 (the grammar admits the three 1.2
+    tokens) and EX-25 (extraction emits them), which is pinned exactly rather than left open:
+    the difference is :data:`TOKENS_AWAITING_EXTRACTION` and nothing else.
     """
     covered = {kind for kind, cases in sl.KIND_COVERAGE.items() if cases}
 
-    assert covered == SYNTHETIC_KINDS
-    assert {kind.value for kind in FragmentKind} == SYNTHETIC_KINDS
-    assert {kind.value for kind, _ in FRAGMENT_CLASSES} == SYNTHETIC_KINDS
+    assert covered == EMITTED_KINDS
+    assert {kind.value for kind in FragmentKind} == EMITTED_KINDS
+    assert {kind.value for kind, _ in FRAGMENT_CLASSES} == EMITTED_KINDS
+    assert SYNTHETIC_KINDS - EMITTED_KINDS == TOKENS_AWAITING_EXTRACTION
+    assert TOKENS_AWAITING_EXTRACTION <= SYNTHETIC_KINDS
 
 
-@pytest.mark.parametrize("kind", sorted(SYNTHETIC_KINDS))
+@pytest.mark.parametrize("kind", sorted(EMITTED_KINDS))
 def test_each_kind_emits_its_own_token_with_stable_ids(kind: str) -> None:
     """Each kind's cases emit that token, and re-extracting yields byte-identical ids.
 
@@ -440,12 +455,13 @@ def test_the_degenerate_one_fragment_case_is_one_node() -> None:
 
 
 def test_a_runnable_no_synthetic_kind_names_is_refused_at_the_boundary() -> None:
-    """§2: "never a silent partial IR" — and no 1.0 build may invent a token.
+    """§2: "never a silent partial IR" — and no build invents a token.
 
-    IR-SPEC §5.2's vocabulary is closed and §8 makes adding to it a minor-version change, so a
-    stock runnable that composes nothing and that no token names has no node id at all. That is
-    §2's own boundary posture for an object with no extractable content, and the refusal names
-    the type as §2 requires.
+    A stock runnable that composes nothing and that no token this build emits names has no node
+    id here. IR-SPEC §5.2 gained ``leaf`` at 1.2 (DEC-40), which names exactly this root, but no
+    extraction path in this build emits it — the grammar admits the token, the walk does not
+    write it — so this is still §2's own boundary posture for an object with no extractable
+    content, and the refusal names the type as §2 requires.
     """
     with pytest.raises(ExtractionError) as caught:
         gebra.extract(sl.build_unnameable())

@@ -38,7 +38,7 @@ document (IR-SPEC §2.1, ratified DEC-22), and :class:`~gebra.ir.models.Workflow
 that at validation. One that repeats an id has no identity to anchor on — and every delta
 here is keyed by id — so :func:`~gebra.diff.topology.resolve_subject` raises rather than
 under-report it, for the models that reach it past validation; it raises on the same terms
-for a model stamped below the ``ir_version`` its edges require (§2.5 note 7, DEC-34).
+for a model stamped below the ``ir_version`` its constructs require (§2.5 note 7, DEC-34).
 
 **A ``dynamic`` edge is diffed like any other** (ir 1.1 — DEC-28; ruled PD-059, card SD-13):
 the graph carries it on its source vertex (:data:`~gebra.diff.graph.DYNAMIC_ATTRIBUTE`), and

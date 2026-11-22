@@ -88,7 +88,7 @@ tests.
 | Capability | Status | Notes |
 |---|---|---|
 | `gebra.extract()` over a `StateGraph`, a compiled graph or an LCEL `Runnable` | available | `ir_version` 1.0; a router whose targets are decided at run time makes the document 1.1, which this build extracts, verifies, snapshots, diffs and draws — the `dynamic` edge, read on every surface since `0.1.0` |
-| The IR models, canonical serialization and the `graph_version` digest | available | surface frozen — [IR-MODELS-FREEZE.md](docs/governance/IR-MODELS-FREEZE.md) |
+| The IR models, canonical serialization and the `graph_version` digest | available | documents at `ir_version` 1.0, 1.1 and 1.2 load, canonicalize and digest — 1.2 adds subgraph levels, barriers and the catalog slots; `gebra.extract()` writes 1.0 and 1.1 only (the row above); surface frozen, 1.2 an additive minor — [IR-MODELS-FREEZE.md](docs/governance/IR-MODELS-FREEZE.md) |
 | Node contracts: `@gebra.contract`, the `gebra.toml` sidecar, inference and their precedence | available | every inferred or defaulted slot carries a warning saying so |
 | The property validators — P-01, P-02, P-04, P-06, P-08 — and `verify()` | available | surface frozen — [VALIDATOR-API-FREEZE.md](docs/governance/VALIDATOR-API-FREEZE.md) |
 | The other catalog properties (P-03, P-05, P-07, P-09…P-13) | in progress | each has no validator in this release and is answered in every run that reaches a verdict by a structured not-implemented marker, never a silent pass; the work on each is a validator card on the maintainers' task boards (VAL-19…VAL-26), which the [contributor guide](docs/contributing/index.md) explains |

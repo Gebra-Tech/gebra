@@ -140,6 +140,7 @@ WORKFLOW = WorkflowIR(
         ConditionalEdge(
             kind="conditional",
             **{"from": "book"},
+            codomain=None,
             condition="route",
             path_map={"done": "audit", "stop": "END"},
         ),

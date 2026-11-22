@@ -119,7 +119,9 @@ DELTAS: list[tuple[str, Callable[[], WorkflowIR], frozenset[Component]]] = [
         "an edge changed kind",
         lambda: workflow(
             edges=(
-                ConditionalEdge(kind="conditional", **{"from": "plan"}, path_map={"go": "work"}),
+                ConditionalEdge(
+                    kind="conditional", **{"from": "plan"}, codomain=None, path_map={"go": "work"}
+                ),
                 EDGES[1],
             )
         ),
@@ -129,7 +131,9 @@ DELTAS: list[tuple[str, Callable[[], WorkflowIR], frozenset[Component]]] = [
         "a router's path_map retargeted",
         lambda: workflow(
             edges=(
-                ConditionalEdge(kind="conditional", **{"from": "plan"}, path_map={"go": "report"}),
+                ConditionalEdge(
+                    kind="conditional", **{"from": "plan"}, codomain=None, path_map={"go": "report"}
+                ),
                 EDGES[1],
             )
         ),
@@ -149,6 +153,7 @@ DELTAS: list[tuple[str, Callable[[], WorkflowIR], frozenset[Component]]] = [
                 ConditionalEdge(
                     kind="conditional",
                     **{"from": "plan"},
+                    codomain=None,
                     condition="retry_count < 3",
                     path_map={"go": "work"},
                 ),

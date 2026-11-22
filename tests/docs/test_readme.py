@@ -114,7 +114,9 @@ def _extraction_is_present() -> None:
     from gebra.ir import IrVersion
 
     assert callable(gebra.extract)
-    assert set(typing.get_args(IrVersion)) == {"1.0", "1.1"}
+    # What extraction writes (1.0, or 1.1 for a `dynamic` edge) lies inside the models' domain;
+    # the domain itself — 1.2 included — is the IR row's probe.
+    assert {"1.0", "1.1"} <= set(typing.get_args(IrVersion))
 
 
 #: The smallest document the IR row's probe can serialize and digest — enough to show that
@@ -129,10 +131,20 @@ _MINIMAL_IR: dict[str, object] = {
 
 
 def _the_ir_surface_is_present() -> None:
-    from gebra.ir import WorkflowIR, canonical_bytes, graph_version
+    import typing
+
+    from gebra.ir import IrVersion, WorkflowIR, canonical_bytes, graph_version
 
     assert graph_version(WorkflowIR.model_validate(_MINIMAL_IR)).startswith("sha256:")
     assert canonical_bytes(WorkflowIR.model_validate(_MINIMAL_IR)).startswith(b"{")
+    assert typing.get_args(IrVersion) == ("1.0", "1.1", "1.2")
+    with_barrier = {
+        **_MINIMAL_IR,
+        "ir_version": "1.2",
+        "nodes": ({"id": "a"}, {"id": "b"}, {"id": "n", "barriers": (("a", "b"),)}),
+        "edges": ({"from": "a", "to": "n"}, {"from": "b", "to": "n"}),
+    }
+    assert graph_version(WorkflowIR.model_validate(with_barrier)).startswith("sha256:")
     assert (DOCS / "governance" / "IR-MODELS-FREEZE.md").is_file()
 
 
@@ -338,7 +350,7 @@ STATUS_ROWS: tuple[RowSpec, ...] = (
         capability="The IR models, canonical serialization and the `graph_version` digest",
         status=AVAILABLE,
         probe=_the_ir_surface_is_present,
-        cards=("IR-01", "IR-02", "IR-03", "IR-06"),
+        cards=("IR-01", "IR-02", "IR-03", "IR-06", "IR-09"),
     ),
     RowSpec(
         capability=(

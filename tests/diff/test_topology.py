@@ -54,7 +54,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def router(path_map: dict[str, str], condition: str | None = "route") -> ConditionalEdge:
     """A router on ``plan`` — the conditional-edge base every router case edits."""
     return ConditionalEdge(
-        kind="conditional", **{"from": "plan"}, condition=condition, path_map=path_map
+        kind="conditional",
+        **{"from": "plan"},
+        codomain=None,
+        condition=condition,
+        path_map=path_map,
     )
 
 

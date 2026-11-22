@@ -36,11 +36,14 @@ edge-inheritance rule and a child edge points at the child node whatever that ch
 extraction of the whole object as a degenerate one-fragment topology". A runnable with no
 readable children has no containing composite, so it stands as the sole member of its own
 kind's frame and takes selector ``0`` — a bare ``RunnableLambda`` extracts to the single node
-``%lambda[0]``. A runnable that is neither one of the seven kinds nor composes anything has no
-ir 1.0 segment at all, and is refused at the object boundary rather than given an invented one:
-adding a token to the closed vocabulary is a minor-version change (IR-SPEC §8). §2's family-3
-row and error posture state that refusal in terms (ratified — DEC-20, 2026-08-03), with a 1.x
-register for the kinds it would take to admit such an object. This only ever reaches the
+``%lambda[0]``. A runnable that no kind this build emits (:class:`FragmentKind`) names and
+that composes nothing the walk reads has no segment this build can write, and is refused at the
+object boundary rather than given an invented one: a token and the classes it admits are a
+decision record's, never the walk's improvisation (IR-SPEC §8). §2's family-3 row and error
+posture state that refusal for 1.0/1.1 output (ratified — DEC-20, 2026-08-03); DEC-40 §3.5
+discharged DEC-20's register at ``ir_version`` 1.2 with the ``assign``, ``each`` and ``leaf``
+tokens, which the node-id grammar admits and no extraction path in this build emits. This only
+ever reaches the
 whole-object case — a leaf *inside* a frame is named by its frame, so any runnable at all can be
 a fragment child.
 
@@ -113,7 +116,7 @@ from gebra.extraction.errors import ExtractionError, ExtractionErrorReason
 from gebra.extraction.sidecar import sidecar_warnings, unknown_node_warnings
 from gebra.extraction.stock import is_binding
 from gebra.extraction.warnings import ExtractionWarning, ExtractionWarningCode
-from gebra.ir.identity import SYNTHETIC_KINDS, join_node_id, synthetic_segment
+from gebra.ir.identity import join_node_id, synthetic_segment
 from gebra.ir.models import Annotations, Node, NormalEdge, WorkflowIR, lowest_ir_version
 
 if TYPE_CHECKING:
@@ -132,10 +135,13 @@ __all__ = [
 
 
 class FragmentKind(str, Enum):
-    """The closed ir 1.0 synthetic-kind vocabulary, as LCEL composition classes (§5.2).
+    """The synthetic kinds this build's LCEL walk emits, as LCEL composition classes (§5.2).
 
-    Seven tokens, fixed at the 1.0 freeze; adding one is a minor-version change (IR-SPEC §8),
-    so this enum is the vocabulary rather than a view of it. Each member names the *composite*
+    The seven tokens of the 1.0 vocabulary. IR-SPEC §5.2 has ten from ``ir_version`` 1.2 —
+    ``assign``, ``each`` and ``leaf`` were added by DEC-40, and the node-id grammar admits all ten
+    (:data:`~gebra.ir.identity.SYNTHETIC_KINDS`) — but no extraction path in this build emits the
+    three, so this enum is the emitted subset of the vocabulary, not the whole of it; adding a
+    member is still a decision-record matter (IR-SPEC §8). Each member names the *composite*
     whose children the token indexes — :data:`FRAGMENT_CLASSES` is that correspondence, and
     :func:`kind_of` is the lookup.
     """
@@ -210,7 +216,11 @@ _STOCK_ROOTS: Final[frozenset[str]] = frozenset({"langchain_core", "langgraph", 
 
 
 def kind_of(runnable: object) -> FragmentKind | None:
-    """The §5.2 kind ``runnable`` names, or ``None`` when no token in the closed set does.
+    """The §5.2 kind ``runnable`` names, or ``None`` when no kind this build emits does.
+
+    "This build emits" is :class:`FragmentKind` — seven of the ten §5.2 tokens; an exact
+    ``RunnableAssign``, an exact ``RunnableEach`` and a bare ``RunnablePassthrough``, which the 1.2
+    tokens ``assign``, ``each`` and ``leaf`` name (DEC-40 §3.5), answer ``None`` here.
 
     Exact-type matching — see :data:`FRAGMENT_CLASSES` for why that is the never-invokes gate
     and not merely a lookup strategy — over the seven stock classes **and** the enumerated stock
@@ -788,19 +798,21 @@ def _degenerate_id(runnable: object, reading: FragmentReading) -> str:
     extracts to ``%lambda[0]``.
 
     Raises:
-        ExtractionError: when no token in the closed §5.2 vocabulary names the object. That is
-            §2's boundary posture applied to the shape it was written for — an object with "no
-            extractable content [that] cannot satisfy the IR's ``nodes`` minItems 1" — and the
-            alternative is not available to a 1.0 build: adding a synthetic kind is a
-            minor-version change (IR-SPEC §8), never an extractor's improvisation.
+        ExtractionError: when no token this build emits (:class:`FragmentKind`) names the
+            object. That is §2's boundary posture applied to the shape it was written for — an
+            object with "no extractable content [that] cannot satisfy the IR's ``nodes``
+            minItems 1" — and naming it otherwise is not this function's to improvise: a token
+            and the classes it admits are a decision record's (IR-SPEC §8; the 1.2 ``leaf``
+            token of DEC-40 is admitted by the grammar and emitted by no extraction path in this
+            build).
     """
     kind = kind_of(runnable) or _base_kind(runnable)
     if kind is None:
         raise ExtractionError.for_object(
             reading.workflow,
-            "this Runnable composes nothing that ir 1.0 can name: the synthetic-kind "
-            f"vocabulary is closed at {sorted(SYNTHETIC_KINDS)} (IR-SPEC §5.2) and none of "
-            "those tokens names this object, so it has no node id and there is nothing to "
+            "this Runnable composes nothing this build's LCEL walk can name: it emits the "
+            f"synthetic kinds {sorted(kind.value for kind in FragmentKind)} (IR-SPEC §5.2) and "
+            "none of those names this object, so it has no node id and there is nothing to "
             "extract (INTROSPECTION-SPEC §2)",
             reason=ExtractionErrorReason.CONSTRUCT_NOT_CARRIED,
             family=ObjectFamily.LCEL,

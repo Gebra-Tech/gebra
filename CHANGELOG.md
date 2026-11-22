@@ -7,8 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The `ir_version` 1.2 models** (card IR-09; ratified DEC-39 and DEC-40 — one minor under
+  IR-SPEC §8, the literal's only move in this cycle). `gebra.ir` loads, canonicalizes and digests
+  a document stamped `"1.2"`: `Node.subgraph` carries the compiled graph a node mounts as a level
+  of its own — the new `Subgraph` model, with `entry`, `finish`, `state`, `nodes`, `edges` and
+  `runtime` and full-path child ids — `Node.barriers` the all-of groups whose target is the node,
+  `ConditionalEdge.codomain` a router's declared return-label set where it differs from its
+  `path_map` keys, `StateField.managed` a key the substrate computes for each task, and
+  `Annotations.projection` (the new `Projection` model) and `Annotations.join_key` the two
+  declared catalog slots; `SYNTHETIC_KINDS` gains `assign`, `each` and `leaf`. Every member is
+  OPTIONAL and omit-normalized. IR-SPEC §8 rests the invariance of every 1.0 and 1.1 document's
+  canonical bytes and `graph_version` on §6.3's corollary for the members and, for the tokens, on
+  no earlier document being able to carry one; it is measured here over the vendored corpus and
+  every committed golden, each pinned unchanged. What this release does with the members is carry
+  them: `gebra.extract()` writes none of them, so what it produces is still `"1.0"` or `"1.1"`,
+  and no validator reads them.
+- **`gebra.ir.down_project`**, the format-migration down-projection IR-SPEC §8 defines: the
+  document with every extraction-populated construct above a given minor removed — `subgraph`,
+  `barriers`, `codomain`, `managed` entries (the key with them) and the nodes beneath an
+  `assign` or `each` frame that is not the root, with their edges — while the declared
+  `projection` and `join_key` stay. The stamp is left as it is. A 1.2 document whose every node
+  lies beneath such a frame has no projection — a document needs a node — and is refused with
+  `ValueError`.
+
 ### Changed
 
+- **The `ir_version` floor reads the whole document** (IR-SPEC §2.5 note 7 as amended at 1.2 —
+  DEC-39 §3.3, DEC-40 §3.6). `lowest_ir_version` accepts a `WorkflowIR` and reads every level —
+  `state` entries, nodes and edges — and still accepts an edge set, whose floor it reads from those
+  edges alone, so a set of edge models any earlier release could build answers as before (an
+  instance of a subclass of an edge model read as its base kind). A document carrying a 1.2 member
+  and stamped `"1.0"` or `"1.1"` is refused at validation with an error naming the stamp, `"1.2"`
+  and one offending node, edge or `state` key with its level, reported at `loc = ("edges",)` like
+  the 1.1 refusal; a stamp above the floor is still admitted. An edge or `state` value whose type is
+  none of the models its field declares — pydantic admits an object whose `__class__` claims one —
+  is refused rather than read as no construct (a `ValidationError` at the floor, a `TypeError` from
+  `lowest_ir_version`). New validity rules refuse what no conforming emitter writes: a child id
+  outside its carrier's id prefix, an id repeated across levels, a `barriers` group of fewer than
+  two members, with a repeated member, or repeating another group, a group member that names no node
+  of its level or is not the source of a `normal` edge into the node, a repeated `codomain` label,
+  an empty or repeating `join_key`, a `managed` entry carrying `optional` or `reducer`, and a
+  `managed` value other than `true` (`1` included). The diff, the snapshot recorder and the
+  freshness check apply the same whole-document floor to a model built past validation.
+- **`ConditionalEdge.codomain` admits an array on every ingestion path** (IR-SPEC §2.5 note 8):
+  behind the pre-validator that fills in a missing `kind`, a JSON array reaches the member as a
+  list, so this one member turns an exact list into a tuple — in Python-mode validation too —
+  while every other tuple member keeps strict mode's refusal. A typing consequence: mypy matches
+  an unpacked `**{"from": …}` mapping against the new parameter, so a `ConditionalEdge(...)` call
+  spelled that way type-checks once it passes `codomain=` explicitly; nothing changes at run
+  time.
 - **Development re-opened at `0.2.1.dev0`** (card REL-14). `0.2.0` is published and its tag is
   used, so `main` could not keep declaring it: while it did, every build made from a checkout
   named a release it was not, and a second `v0.2.0` tag on a later commit would have passed the

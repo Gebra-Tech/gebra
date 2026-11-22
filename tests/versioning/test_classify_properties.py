@@ -152,6 +152,7 @@ def workflow_irs(draw: st.DrawFn) -> WorkflowIR:
         else ConditionalEdge(
             kind="conditional",
             **{"from": node_id},
+            codomain=None,
             condition=draw(st.none() | TEXT),
             path_map=draw(st.dictionaries(TEXT, targets, max_size=2)),
         )
@@ -302,14 +303,24 @@ def _nested_models(annotation: Any) -> Iterator[type[BaseModel]]:
             yield from _nested_models(argument)
 
 
-def _field_paths(model: type[BaseModel], prefix: tuple[str, ...] = ()) -> Iterator[tuple[str, ...]]:
+def _field_paths(
+    model: type[BaseModel],
+    prefix: tuple[str, ...] = (),
+    within: frozenset[type[BaseModel]] = frozenset(),
+) -> Iterator[tuple[str, ...]]:
     """Every field path of ``model``, by the name the canonical form writes (so ``from``,
-    the alias, rather than ``from_``), with array indices left out."""
+    the alias, rather than ``from_``), with array indices left out.
+
+    From ``ir_version`` 1.2 the model is recursive — a node's ``subgraph`` holds nodes
+    (DEC-39) — so a model already on the current path is named and not re-entered: the path
+    ``nodes.subgraph.nodes`` is yielded once, its members already walked one level up.
+    """
     for name, field in model.model_fields.items():
         path = (*prefix, field.alias or name)
         yield path
         for nested in _nested_models(field.annotation):
-            yield from _field_paths(nested, path)
+            if nested not in within and nested is not model:
+                yield from _field_paths(nested, path, within | {model})
 
 
 def test_every_core_ir_field_classifies() -> None:

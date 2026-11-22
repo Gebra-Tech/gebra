@@ -31,6 +31,7 @@ two of them.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Final
 
 import pytest
@@ -48,6 +49,7 @@ from gebra.diff import (
     WorkflowDiff,
     workflow_diff,
 )
+from gebra.diff.state import KeyDeclaration, state_diff
 from gebra.ir import dump_json, load_json
 from gebra.ir.canonical import graph_version
 from gebra.ir.models import (
@@ -191,6 +193,7 @@ def split_routers(ir: WorkflowIR) -> WorkflowIR:
                 ConditionalEdge(
                     kind="conditional",
                     **{"from": edge.from_},
+                    codomain=None,
                     condition=edge.condition,
                     path_map={label: target},
                 )
@@ -442,8 +445,33 @@ def test_the_state_facets_are_the_whole_state_field_model() -> None:
     """:class:`~gebra.diff.state.KeyDeclaration` names ``type``/``reducer``/``optional`` by
     hand — the one place in these deltas where a field vocabulary is written out rather than
     read off the canonical view. A field added to ``StateField`` without a facet here would
-    be silently dropped from the E delta, so it fails here instead."""
-    assert set(StateField.model_fields) == {"type", "reducer", "optional"}
+    be silently dropped from the E delta, so it fails here instead.
+
+    One field is a stated exception: ``managed`` (``ir_version`` 1.2 — DEC-40). The E delta
+    compares a key's declaration by canonical bytes, which carry the flag, so a key whose flag
+    moves is in ``changed`` (asserted below) — what :class:`KeyDeclaration` does not do yet is
+    *name* the flag for a reader. That facet is the diff's 1.2 reading, which no model card
+    adds; the set below names the exception rather than widening the check.
+    """
+    assert set(StateField.model_fields) == {"type", "reducer", "optional", "managed"}
+    assert set(KeyDeclaration.__dataclass_fields__) == {"type", "reducer", "optional"}
+
+    def document(steps: dict[str, Any] | str) -> WorkflowIR:
+        return WorkflowIR.model_validate_json(
+            json.dumps(
+                {
+                    "ir_version": "1.2",
+                    "entry": "a",
+                    "finish": "a",
+                    "state": {"remaining_steps": steps},
+                    "nodes": [{"id": "a"}],
+                    "edges": [],
+                }
+            )
+        )
+
+    delta = state_diff(document("int"), document({"type": "int", "managed": True}))
+    assert [change.key for change in delta.changed] == ["remaining_steps"]
 
 
 def test_the_contract_and_runtime_slots_are_read_not_listed() -> None:
